@@ -4462,10 +4462,7 @@ function findTradeCharacter(player, input) {
 
 if (text === ".اسبون_بوس") {
 
-    if (!isOwner(msg))
-        return
-
-    const Boss = require('./database/Boss')
+    if (!isOwner(msg)) return
 
     await Boss.deleteMany({})
 
@@ -4475,15 +4472,14 @@ if (text === ".اسبون_بوس") {
 
     currentBoss = await Boss.findOne()
 
-    return safeSend(msg.key.remoteJid, {
-        text: "✅ تم إنشاء الزعيم الحالي."
+    return safeSend(msg.key.remoteJid,{
+        text:"✅ تم إنشاء الزعيم."
     })
-
 }
+
 if (text === ".قتل_البوس") {
 
-    if (!isOwner(msg))
-        return
+    if (!isOwner(msg)) return
 
     if (!currentBoss)
         return safeSend(msg.key.remoteJid,{
@@ -4494,6 +4490,7 @@ if (text === ".قتل_البوس") {
     currentBoss.finished = true
 
     const nextHour = new Date()
+
     nextHour.setMinutes(0)
     nextHour.setSeconds(0)
     nextHour.setMilliseconds(0)
@@ -4505,9 +4502,8 @@ if (text === ".قتل_البوس") {
     await Boss.create(currentBoss)
 
     return safeSend(msg.key.remoteJid,{
-        text:`✅ تم قتل الزعيم.\n⏳ سيظهر التالي عند ${nextHour.toLocaleTimeString()}`
+        text:`✅ تم قتل الزعيم.\n⏳ سيتجدد عند ${nextHour.toLocaleTimeString()}`
     })
-
 }
     
     if (text === ".ترتيب_الكل") {
