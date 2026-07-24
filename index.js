@@ -4459,6 +4459,57 @@ function findTradeCharacter(player, input) {
     // =========================
     // الأوامر العادية هنا
     // =========================
+
+if (text === ".اسبون_بوس") {
+
+    if (!isOwner(msg))
+        return
+
+    const Boss = require('./database/Boss')
+
+    await Boss.deleteMany({})
+
+    currentBoss = null
+
+    await spawnBoss(sock)
+
+    currentBoss = await Boss.findOne()
+
+    return safeSend(msg.key.remoteJid, {
+        text: "✅ تم إنشاء الزعيم الحالي."
+    })
+
+}
+if (text === ".قتل_البوس") {
+
+    if (!isOwner(msg))
+        return
+
+    if (!currentBoss)
+        return safeSend(msg.key.remoteJid,{
+            text:"❌ لا يوجد زعيم."
+        })
+
+    currentBoss.hp = 0
+    currentBoss.finished = true
+
+    const nextHour = new Date()
+    nextHour.setMinutes(0)
+    nextHour.setSeconds(0)
+    nextHour.setMilliseconds(0)
+    nextHour.setHours(nextHour.getHours() + 1)
+
+    currentBoss.respawnAt = nextHour.getTime()
+
+    await Boss.deleteMany({})
+    await Boss.create(currentBoss)
+
+    return safeSend(msg.key.remoteJid,{
+        text:`✅ تم قتل الزعيم.\n⏳ سيظهر التالي عند ${nextHour.toLocaleTimeString()}`
+    })
+
+}
+    
     if (text === ".ترتيب_الكل") {
 
     const player = await Player.findOne({ userId })
