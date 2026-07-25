@@ -388,8 +388,8 @@ ${answers.map(a => `*${a}*`).join(" - ")}`
 
 }
 
-async function checkAnswer(jid, userId, answer) {
-
+async function checkAnswer(sock, jid, userId, answer) {
+    
     const room = module.exports.quizData.getQuizRoom(jid)
 
     if (!room.currentQuestion)
