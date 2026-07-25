@@ -882,7 +882,7 @@ module.exports = [
 {
     question: "نجم كاراسونو ؟",
     type: "single",
-    answers: ["توبيو"]
+    answers: ["اساهي"]
 },
 {
     question: "3 لعنات ؟",
@@ -935,7 +935,7 @@ module.exports = [
 {
     question: "3 جنرالات حلوى ؟",
     type: "multi",
-    answers: ["سموذي","كراكر","اوفين"]
+    answers: ["سموذي","كراكر","سناك","اوفين"]
 },
 {
     question: "سيف كيسامي ؟",
@@ -1009,7 +1009,7 @@ module.exports = [
 {
     question: "3 يوجين ؟",
     type: "multi",
-    answers: ["هودي","تشو","هاك"]
+    answers: ["هودي","تشو","توم","هاك"]
 },
 {
     question: "اخت نامي ؟",
@@ -1029,7 +1029,7 @@ module.exports = [
 {
     question: "3 لون شعرهم احمر ؟",
     type: "multi",
-    answers: ["يونا","اكاشي","كاجامي"]
+    answers: ["يونا","اكاشي","كارما","كاجامي"]
 },
 {
     question: "سكينة كرولو ؟",
