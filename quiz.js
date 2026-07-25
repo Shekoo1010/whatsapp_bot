@@ -342,6 +342,7 @@ async function startCustomQuestion(sock, jid) {
     room.questionSolved = false
     room.questionStartTime = Date.now()
 
+    // مسابقة SSS (أسئلة فقط)
     if (room.quizMode === "sss") {
 
         room.currentQuestion = getRandomQuestion(room)
@@ -355,6 +356,21 @@ async function startCustomQuestion(sock, jid) {
 
     }
 
+    // مسابقة الأسئلة (أسئلة فقط)
+    if (room.quizMode === "text") {
+
+        room.currentQuestion = getRandomQuestion(room)
+
+        return await sock.sendMessage(jid, {
+            text:
+`🎯 سؤال جديد
+
+❓ ${room.currentQuestion.question}`
+        })
+
+    }
+
+    // مسابقة اكتب التالي
     if (room.quizMode === "repeat") {
 
         const answers = getRandomRepeatQuestion(room)
@@ -373,18 +389,23 @@ ${answers.map(a => `*${a}*`).join(" - ")}`
 
     }
 
-    const imageQuestion = getRandomImageQuestion(room)
+    // مسابقة الصور
+    if (room.quizMode === "image") {
 
-    room.currentQuestion = {
-        type: "image",
-        answers: imageQuestion.answers
-    }
+        const imageQuestion = getRandomImageQuestion(room)
 
-    return await sock.sendMessage(jid, {
-        image: {
-            url: imageQuestion.image
+        room.currentQuestion = {
+            type: "image",
+            answers: imageQuestion.answers
         }
-    })
+
+        return await sock.sendMessage(jid, {
+            image: {
+                url: imageQuestion.image
+            }
+        })
+
+    }
 
 }
 
