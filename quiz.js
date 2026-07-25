@@ -332,7 +332,63 @@ ${answers.map(a => `*${a}*`).join(' - ')}`
     }
 )
 }
-function checkAnswer(jid, userId, answer) {
+
+async function startCustomQuestion(sock, jid) {
+
+    const room = module.exports.quizData.getQuizRoom(jid)
+
+    room.answeredUsers.clear()
+    room.playerProgress = {}
+    room.questionSolved = false
+    room.questionStartTime = Date.now()
+
+    if (room.quizMode === "sss") {
+
+        room.currentQuestion = getRandomQuestion(room)
+
+        return await sock.sendMessage(jid, {
+            text:
+`🎯 سؤال جديد
+
+❓ ${room.currentQuestion.question}`
+        })
+
+    }
+
+    if (room.quizMode === "repeat") {
+
+        const answers = getRandomRepeatQuestion(room)
+
+        room.currentQuestion = {
+            type: "repeat",
+            answers
+        }
+
+        return await sock.sendMessage(jid, {
+            text:
+`✍️ اكتب التالي:
+
+${answers.map(a => `*${a}*`).join(" - ")}`
+        })
+
+    }
+
+    const imageQuestion = getRandomImageQuestion(room)
+
+    room.currentQuestion = {
+        type: "image",
+        answers: imageQuestion.answers
+    }
+
+    return await sock.sendMessage(jid, {
+        image: {
+            url: imageQuestion.image
+        }
+    })
+
+}
+
+async function checkAnswer(jid, userId, answer) {
 
     const room = module.exports.quizData.getQuizRoom(jid)
 
@@ -384,6 +440,38 @@ function checkAnswer(jid, userId, answer) {
             }
 
             room.scoreboard[userId] += 1
+            if (
+    room.targetScore &&
+    room.scoreboard[userId] >= room.targetScore
+) {
+
+    room.quizActive = false
+
+    await sock.sendMessage(jid, {
+        text:
+`🏆 انتهت المسابقة
+
+🥇 الفائز:
+@${userId.split("@")[0]}
+
+⭐ وصل إلى ${room.targetScore} نقطة.`,
+        mentions: [userId]
+    })
+
+    room.targetScore = null
+    room.quizMode = "mixed"
+
+    room.usedQuestions = []
+    room.usedImages = []
+    room.usedRepeats = []
+
+    room.playerProgress = {}
+    room.answeredUsers.clear()
+    room.questionSolved = false
+    room.currentQuestion = null
+
+    return "FINISHED"
+}
 
             room.questionSolved = true
 
@@ -418,18 +506,51 @@ function checkAnswer(jid, userId, answer) {
 
     if (matchedCount >= required) {
 
-        if (!room.scoreboard[userId]) {
-            room.scoreboard[userId] = 0
-        }
-
-        room.scoreboard[userId] += 1
-
-        room.questionSolved = true
-
-        delete room.playerProgress[userId]
-
-        return true
+    if (!room.scoreboard[userId]) {
+        room.scoreboard[userId] = 0
     }
+
+    room.scoreboard[userId] += 1
+
+    if (
+        room.targetScore &&
+        room.scoreboard[userId] >= room.targetScore
+    ) {
+
+        room.quizActive = false
+
+        await sock.sendMessage(jid, {
+            text:
+`🏆 انتهت المسابقة
+
+🥇 الفائز:
+@${userId.split("@")[0]}
+
+⭐ وصل إلى ${room.targetScore} نقطة.`,
+            mentions: [userId]
+        })
+
+        room.targetScore = null
+        room.quizMode = "mixed"
+
+        room.usedQuestions = []
+        room.usedImages = []
+        room.usedRepeats = []
+
+        room.playerProgress = {}
+        room.answeredUsers.clear()
+        room.questionSolved = false
+        room.currentQuestion = null
+
+        return "FINISHED"
+    }
+
+    room.questionSolved = true
+
+    delete room.playerProgress[userId]
+
+    return true
+}
 
     return false
 }
@@ -439,6 +560,7 @@ module.exports = {
     getRandomImageQuestion,
 
     startQuestion,
+    startCustomQuestion,
 
     checkAnswer,
 
@@ -448,19 +570,22 @@ module.exports = {
             if (!quizRooms[jid]) {
 
                 quizRooms[jid] = {
-                    quizActive: false,
-                    currentQuestion: null,
-                    roundsCount: 0,
-                    scoreboard: {},
-                    answeredUsers: new Set(),
-                    usedQuestions: [],
-                    usedImages: [],
-                    usedRepeats: [],
-                    playerProgress: {},
-                    questionSolved: false,
-                    questionStartTime: 0,
-                    lastMode: -1
-                }
+    quizActive: false,
+    currentQuestion: null,
+    roundsCount: 0,
+    scoreboard: {},
+    answeredUsers: new Set(),
+    usedQuestions: [],
+    usedImages: [],
+    usedRepeats: [],
+    playerProgress: {},
+    questionSolved: false,
+    questionStartTime: 0,
+    lastMode: -1,
+
+    quizMode: "mixed",
+    targetScore: null
+}
 
             }
 
