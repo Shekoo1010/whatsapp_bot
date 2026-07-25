@@ -343,6 +343,7 @@ const {
 
 const {
     startQuestion,
+    startCustomQuestion,
     checkAnswer,
     quizData
 } = require('./quiz')
