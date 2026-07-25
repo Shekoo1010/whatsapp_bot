@@ -3871,18 +3871,27 @@ await sock.sendMessage(
     }
 )
 
-        setTimeout(() => {
+        setTimeout(async () => {
 
-            if (room.quizActive) {
+    if (!room.quizActive) return
 
-                startQuestion(
-                    sock,
-                    msg.key.remoteJid
-                )
+    if (room.quizMode === "mixed") {
 
-            }
+        await startQuestion(
+            sock,
+            msg.key.remoteJid
+        )
 
-        }, 2000)
+    } else {
+
+        await startCustomQuestion(
+            sock,
+            msg.key.remoteJid
+        )
+
+    }
+
+}, 2000)
 
     }
 
@@ -4495,7 +4504,7 @@ function findTradeCharacter(player, input) {
 
     await sock.sendMessage(msg.key.remoteJid, {
         text:
-`🎮 بدأت مسابقة النص
+`🎮 بدأت مسابقة الاساله
 
 🏆 أول من يصل إلى ${target} نقطة يفوز.`
     })
