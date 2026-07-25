@@ -4470,7 +4470,7 @@ function findTradeCharacter(player, input) {
         })
     }
 
-    const target = Number(args[0]) || 15
+    const target = Number(text.trim().split(/\s+/)[1]) || 15
 
     room.quizActive = true
     room.quizMode = "sss"
@@ -4511,7 +4511,8 @@ if (text.startsWith('.بدا_مسابقة_صور')) {
         })
     }
 
-    const target = Number(args[0]) || 15
+    const parts = text.trim().split(/\s+/)
+    const target = Math.max(1, parseInt(parts[1]) || 15)
 
     room.quizActive = true
     room.quizMode = "image"
@@ -4551,7 +4552,8 @@ if (text.startsWith('.بدا_مسابقة_صور')) {
         })
     }
 
-    const target = Number(args[0]) || 15
+    const parts = text.trim().split(/\s+/)
+    const target = Math.max(1, parseInt(parts[1]) || 15)
 
     room.quizActive = true
     room.quizMode = "repeat"
