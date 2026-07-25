@@ -4460,6 +4460,112 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.بدا_مسابقة_سس') {
+
+    const room = quizData.getQuizRoom(msg.key.remoteJid)
+
+    if (room.quizActive) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ توجد مسابقة شغالة بالفعل في هذا القروب'
+        })
+    }
+
+    room.quizActive = true
+    room.quizMode = "sss"
+    room.targetScore = 15
+
+    room.roundsCount = 0
+    room.currentQuestion = null
+
+    room.scoreboard = {}
+    room.playerProgress = {}
+    room.usedQuestions = []
+    room.usedImages = []
+    room.usedRepeats = []
+
+    room.answeredUsers.clear()
+
+    room.questionSolved = false
+    room.questionStartTime = 0
+    room.lastMode = -1
+
+    await sock.sendMessage(msg.key.remoteJid, {
+        text: '🎮 بدأت مسابقة النص\n🏆 أول من يصل إلى 15 نقطة يفوز.'
+    })
+
+    await startCustomQuestion(sock, msg.key.remoteJid)
+}
+    if (text === '.بدا_مسابقة_صور') {
+
+    const room = quizData.getQuizRoom(msg.key.remoteJid)
+
+    if (room.quizActive) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ توجد مسابقة شغالة بالفعل في هذا القروب'
+        })
+    }
+
+    room.quizActive = true
+    room.quizMode = "image"
+    room.targetScore = 15
+
+    room.roundsCount = 0
+    room.currentQuestion = null
+
+    room.scoreboard = {}
+    room.playerProgress = {}
+    room.usedQuestions = []
+    room.usedImages = []
+    room.usedRepeats = []
+
+    room.answeredUsers.clear()
+
+    room.questionSolved = false
+    room.questionStartTime = 0
+    room.lastMode = -1
+
+    await sock.sendMessage(msg.key.remoteJid, {
+        text: '🖼 بدأت مسابقة الصور\n🏆 أول من يصل إلى 15 نقطة يفوز.'
+    })
+
+    await startCustomQuestion(sock, msg.key.remoteJid)
+}
+    if (text === '.بدا_مسابقة_كت') {
+
+    const room = quizData.getQuizRoom(msg.key.remoteJid)
+
+    if (room.quizActive) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ توجد مسابقة شغالة بالفعل في هذا القروب'
+        })
+    }
+
+    room.quizActive = true
+    room.quizMode = "repeat"
+    room.targetScore = 15
+
+    room.roundsCount = 0
+    room.currentQuestion = null
+
+    room.scoreboard = {}
+    room.playerProgress = {}
+    room.usedQuestions = []
+    room.usedImages = []
+    room.usedRepeats = []
+
+    room.answeredUsers.clear()
+
+    room.questionSolved = false
+    room.questionStartTime = 0
+    room.lastMode = -1
+
+    await sock.sendMessage(msg.key.remoteJid, {
+        text: '✍️ بدأت مسابقة اكتب التالي\n🏆 أول من يصل إلى 15 نقطة يفوز.'
+    })
+
+    await startCustomQuestion(sock, msg.key.remoteJid)
+}
+
 if (text === ".اسبون_بوس") {
 
     if (!isOwner(msg)) return
