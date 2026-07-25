@@ -3838,18 +3838,19 @@ if (
     text !== '.النقاط'
 ) {
 
-    const isCorrect =
-    await checkAnswer(
-        msg.key.remoteJid,
-        userId,
-        text
-    )
+    const result =
+await checkAnswer(
+    sock,
+    msg.key.remoteJid,
+    userId,
+    text
+)
 
-    if (isCorrect) {
+if (result) {
 
-        room.questionSolved = true
+    room.questionSolved = true
 
-        const seconds =
+    const seconds =
 (
     Date.now() -
     room.questionStartTime
@@ -19659,7 +19660,11 @@ if (text === '.بدا_مسابقة') {
         text: '🎮 تم بدء المسابقة'
     })
 
+    if (room.quizMode === "mixed") {
     await startQuestion(sock, msg.key.remoteJid)
+} else {
+    await startCustomQuestion(sock, msg.key.remoteJid)
+}
 }
 
     if (text === '.انهاء_مسابقة') {
