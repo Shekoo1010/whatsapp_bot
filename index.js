@@ -3839,11 +3839,11 @@ if (
 ) {
 
     const isCorrect =
-        checkAnswer(
-            msg.key.remoteJid,
-            userId,
-            text
-        )
+    await checkAnswer(
+        msg.key.remoteJid,
+        userId,
+        text
+    )
 
     if (isCorrect) {
 
