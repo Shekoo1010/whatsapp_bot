@@ -18235,9 +18235,9 @@ if (text === '.اصلاح_المخزون') {
     for (const player of players) {
 
         const expected =
-    30 +
-    (Math.floor(player.level / 10) * 5) +
-    15
+            30 +
+            (Math.floor((player.level || 1) / 10) * 5) +
+            (5 * 5)
 
         player.maxCharacters = expected
 
@@ -18253,8 +18253,9 @@ if (text === '.اصلاح_المخزون') {
 `✅ تم إصلاح ${fixed} لاعب
 
 📦 تم إعادة حساب المخزون حسب:
+
 • المستوى
-• إنهاء البرج مرتين`
+• إنهاء البرج 5 مرات (+25 مخزون)`
         }
     )
 }
@@ -29014,11 +29015,11 @@ if (text.startsWith('.قتال')) {
             me.xp -= Math.floor(300 + ((me.level || 1) * 150))
             me.level = (me.level || 1) + 1
 
-            if (me.level >= 100) {
-                me.level = 100
-                me.xp = 0
-                break
-            }
+            if (me.level >= 200) {
+    me.level = 200
+    me.xp = 0
+    break
+}
 
             me.money = (me.money || 0) + 500
         }
