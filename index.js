@@ -4473,6 +4473,154 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text.startsWith('.دمج_الكل')) {
+
+    const player =
+        await Player.findOne({
+            userId
+        })
+
+    if (!player) {
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text: '❌ لا يوجد حساب'
+            }
+        )
+    }
+
+    const legendaryIndexes = []
+
+    player.characters.forEach((char, index) => {
+
+        if (
+            char &&
+            char.rarity === 'اسطوري'
+        ) {
+            legendaryIndexes.push(index)
+        }
+
+    })
+
+    if (legendaryIndexes.length < 5) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text:
+`❌ تحتاج إلى 5 شخصيات اسطورية على الأقل
+
+📦 لديك:
+${legendaryIndexes.length}`
+            }
+        )
+
+    }
+
+    const sssPool =
+        characters.filter(
+            c =>
+            c.rarity === 'SSS'
+        )
+
+    if (!sssPool.length) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text:
+                '❌ لا توجد شخصيات SSS'
+            }
+        )
+
+    }
+
+    const rewards = []
+
+    while (legendaryIndexes.length >= 5) {
+
+        const batch =
+            legendaryIndexes.splice(0, 5)
+
+        const reward =
+            JSON.parse(
+                JSON.stringify(
+                    sssPool[
+                        Math.floor(
+                            Math.random() *
+                            sssPool.length
+                        )
+                    ]
+                )
+            )
+
+        batch
+            .sort((a, b) => b - a)
+            .forEach(i => {
+
+                player.characters.splice(i, 1)
+
+            })
+
+        player.characters.push(reward)
+
+        rewards.push(reward)
+
+        legendaryIndexes.length = 0
+
+        player.characters.forEach((char, index) => {
+
+            if (
+                char &&
+                char.rarity === 'اسطوري'
+            ) {
+                legendaryIndexes.push(index)
+            }
+
+        })
+
+    }
+
+    player.markModified('characters')
+
+    await player.save()
+
+    let result =
+`✨ ═══════〔 الدمج الشامل 〕═══════ ✨
+
+🔥 تم الحصول على ${rewards.length} شخصية جديدة
+
+`
+
+        rewards.forEach((char, index) => {
+
+    result +=
+`${index + 1}- 👑 ${char.name}
+🌟 ${char.rarity}
+⚔️ ${char.power}
+
+`
+
+})
+
+result +=
+`━━━━━━━━━━━━━━
+
+📦 تم استهلاك:
+${rewards.length * 5} شخصية اسطورية
+
+🎁 الشخصيات الجديدة:
+${rewards.length}`
+
+return safeSend(
+    msg.key.remoteJid,
+    {
+        text: result
+    }
+)
+
+}
+
     if (text === '.بدا_قناص') {
 
     if (quickEvents.sniper) {
@@ -4508,7 +4656,7 @@ function findTradeCharacter(player, input) {
 
 }
     
-if (text === '.بدا_تخمين') {
+if (text === '.بدا_خمن') {
 
     if (quickEvents.lucky) {
 
@@ -4523,7 +4671,7 @@ if (text === '.بدا_تخمين') {
     return
 
 }
-    if (text === '.انهاء_تخمين') {
+    if (text === '.انهاء_خمن') {
 
     if (!quickEvents.lucky) {
 
@@ -15988,7 +16136,7 @@ if (!player.shards) {
     player.shards = new Map()
 }
     const shardKey =
-    char.name.replaceAll('.', '_')
+char.name.replace(/\./g, "．")
 
 const currentLevel =
     char.evolutionLevel || 0
@@ -16169,9 +16317,15 @@ if (newLevel === 6) {
     }
 }
 
-player.markModified(
-    'characters'
+player.markModified('characters')
+
+const latestCharacter = characters.find(
+    c => c.name === char.name
 )
+
+if (latestCharacter?.image) {
+    char.image = latestCharacter.image
+}
 
 await player.save()
 
