@@ -205,9 +205,11 @@ const allowedGroups = [
 
 ]
 const {
-quickEvents,
-giveQuickReward,
-startQuickEvents
+    quickEvents,
+    giveQuickReward,
+    startQuickEvents,
+    startSniper,
+    startLucky
 } = require('./quickEvents')
 
 const disabledGroups = new Set()
@@ -4471,6 +4473,76 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.بدا_قناص') {
+
+    if (quickEvents.sniper) {
+
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ فعالية القناص شغالة بالفعل'
+        })
+
+    }
+
+    await startSniper(sock)
+
+    return
+
+}
+    if (text === '.انهاء_قناص') {
+
+    if (!quickEvents.sniper) {
+
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ لا توجد فعالية قناص'
+        })
+
+    }
+
+    quickEvents.sniper = null
+
+    await sock.sendMessage(msg.key.remoteJid, {
+        text: '✅ تم إنهاء فعالية القناص'
+    })
+
+    return
+
+}
+    
+if (text === '.بدا_تخمين') {
+
+    if (quickEvents.lucky) {
+
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ فعالية رقم الحظ شغالة بالفعل'
+        })
+
+    }
+
+    await startLucky(sock)
+
+    return
+
+}
+    if (text === '.انهاء_تخمين') {
+
+    if (!quickEvents.lucky) {
+
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ لا توجد فعالية رقم الحظ'
+        })
+
+    }
+
+    quickEvents.lucky = null
+
+    await sock.sendMessage(msg.key.remoteJid, {
+        text: '✅ تم إنهاء فعالية رقم الحظ'
+    })
+
+    return
+
+}
+    
     if (text.startsWith('.بدا_مسابقة_سس')) {
 
     const room = quizData.getQuizRoom(msg.key.remoteJid)
