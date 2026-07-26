@@ -4473,6 +4473,142 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text.startsWith('.فتح_الكل ')) {
+
+    let player = await Player.findOne({ userId })
+
+    if (!player) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: '❌ لا يوجد حساب'
+            }
+        )
+
+    }
+
+    const args = text.trim().split(/\s+/)
+
+    if (args.length < 2) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text:
+`❌ الاستخدام الصحيح
+
+.فتح_الكل legendary
+.فتح_الكل epic
+.فتح_الكل sss_chance
+.فتح_الكل sss_high`
+            }
+        )
+
+    }
+
+    const boxType = args[1]
+
+    const allowedBoxes = [
+        'legendary',
+        'epic',
+        'sss_chance',
+        'sss_high'
+    ]
+
+    if (!allowedBoxes.includes(boxType)) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: '❌ نوع الصندوق غير صحيح'
+            }
+        )
+
+    }
+
+    if (
+        !player.boxes ||
+        !player.boxes[boxType] ||
+        player.boxes[boxType] <= 0
+    ) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: `❌ لا تملك صناديق ${boxType}`
+            }
+        )
+
+    }
+
+    const totalBoxes = player.boxes[boxType]
+
+    const rewards = []
+
+    for (
+        let i = 0;
+        i < totalBoxes;
+        i++
+    ) {
+
+        const character =
+            getRandomCharacterByBox(boxType)
+
+        player.characters.push(character)
+
+        rewards.push(character)
+
+    }
+
+    player.boxes[boxType] = 0
+
+    player.markModified('characters')
+    player.markModified('boxes')
+
+    await player.save()
+
+    let textResult =
+`🎁 ═════〔 فتح جميع الصناديق 〕═════
+
+📦 النوع:
+${boxType}
+
+📦 العدد:
+${totalBoxes}
+
+━━━━━━━━━━━━━━
+
+`
+
+            rewards.forEach((char, index) => {
+
+        textResult +=
+`${index + 1}- 🌟 ${char.name}
+
+⭐ الندرة:
+${char.rarity}
+
+⚔️ القوة:
+${char.power.toLocaleString()}
+
+━━━━━━━━━━━━━━
+`
+
+    })
+
+    textResult +=
+`🎉 تم فتح جميع الصناديق بنجاح`
+
+    return sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            text: textResult
+        }
+    )
+
+}
+
     if (text.startsWith('.دمج_الكل')) {
 
     const player =
@@ -4867,23 +5003,44 @@ if (text === ".قتل_البوس") {
     const player = await Player.findOne({ userId })
 
     if (!player)
-        return safeSend(msg.key.remoteJid,{
-            text:"❌ لا يوجد حساب."
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ لا يوجد حساب."
         })
 
-    player.characters.sort((a,b)=>{
+    if (player.characters.length <= 1) {
 
-        if (b.power !== a.power)
-            return b.power - a.power
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ لا يوجد شخصيات كافية للترتيب."
+        })
 
-        return a.name.localeCompare(b.name)
+    }
 
-    })
+    // الاحتفاظ بأول شخصية
+    const firstCharacter = player.characters[0]
+
+    // ترتيب الباقي فقط
+    const sortedCharacters = player.characters
+        .slice(1)
+        .sort((a, b) => {
+
+            if (b.power !== a.power)
+                return b.power - a.power
+
+            return a.name.localeCompare(b.name)
+
+        })
+
+    player.characters = [
+        firstCharacter,
+        ...sortedCharacters
+    ]
+
+    player.markModified("characters")
 
     await player.save()
 
-    return safeSend(msg.key.remoteJid,{
-        text:"✅ تم ترتيب جميع الشخصيات من الأقوى إلى الأضعف."
+    return safeSend(msg.key.remoteJid, {
+        text: "✅ تم ترتيب جميع الشخصيات مع الحفاظ على أول شخصية."
     })
 
 }
@@ -6225,11 +6382,11 @@ if (text === '.فعاليه') {
 
 🥈 شخصية UR III
 ⚔️ 19000 قوة
-🧬 5 قدرات عشوائية
+🧬 4 قدرات عشوائية
 
 🥉 شخصية UR I
 ⚔️ 16000 قوة
-🧬 4 قدرات عشوائية
+🧬 3 قدرات عشوائية
 
 ━━━━━━━━━━━━━━━
 
@@ -19854,8 +20011,10 @@ if (text === '.انهاء_رويال') {
         msg.key.remoteJid,
         {
             text:
-`📌 ID:
+`🆔 آيدي الشخص:
+${userId}
 
+👥 آيدي القروب:
 ${msg.key.remoteJid}`
         }
     )
