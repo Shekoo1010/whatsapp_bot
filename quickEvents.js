@@ -489,5 +489,7 @@ return quickEvents
 module.exports = {
     quickEvents,
     startQuickEvents,
+    startSniper,
+    startLucky,
     giveQuickReward
 }
