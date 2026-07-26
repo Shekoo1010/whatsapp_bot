@@ -9499,7 +9499,7 @@ ${minutes} دقيقة`
 
     const Player = require("./models/Player")
 
-    const targetId = "193407225995463@lid"
+    const targetId = "109891754655924@lid"
 
     let player = await Player.findOne({
         userId: targetId
