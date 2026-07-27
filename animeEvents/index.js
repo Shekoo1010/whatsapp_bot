@@ -12,13 +12,16 @@ const events = [
     treasure
 ]
 
+const GROUPS = [
+    '120363020823525909@g.us',
+    '120363409897316453@g.us',
+    '120363116482407260@g.us'
+]
+
 let currentEventIndex = 0
 let currentEvent = null
 
-// مدة بين بداية كل فعالية
 const EVENT_INTERVAL = 17 * 60 * 1000
-
-// مدة كل فعالية (مطابقة للملفات)
 const EVENT_DURATION = 5 * 60 * 1000
 
 let scheduler = null
@@ -39,43 +42,45 @@ function nextEvent() {
     }
 
     return currentEvent
-
 }
 
-async function startNextEvent(sock, jid) {
+async function startNextEvent(sock) {
 
     const event = nextEvent()
 
     if (!event) return
 
-    await event.start(sock, jid)
+    for (const jid of GROUPS) {
+        try {
+            await event.start(sock, jid)
+        } catch (e) {
+            console.log(`Anime Event Error (${jid})`, e)
+        }
+    }
 
-    // بعد انتهاء الوقت تعتبر الفعالية منتهية
     setTimeout(() => {
         currentEvent = null
     }, EVENT_DURATION)
 
 }
 
-// تشغيل النظام بالكامل
-function startScheduler(sock, jid) {
+function startScheduler(sock) {
 
     if (running) return
 
     running = true
 
     // أول فعالية مباشرة
-    startNextEvent(sock, jid)
+    startNextEvent(sock)
 
     scheduler = setInterval(async () => {
 
-        await startNextEvent(sock, jid)
+        await startNextEvent(sock)
 
     }, EVENT_INTERVAL)
 
 }
 
-// إيقاف النظام (اختياري)
 function stopScheduler() {
 
     if (scheduler) {
@@ -90,7 +95,6 @@ function stopScheduler() {
 
 }
 
-// تمرير الإجابات للفعالية الحالية
 async function handleAnswer(sock, msg, text, player, userId) {
 
     if (!currentEvent) return false
