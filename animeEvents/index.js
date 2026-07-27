@@ -15,6 +15,15 @@ const events = [
 let currentEventIndex = 0
 let currentEvent = null
 
+// مدة بين بداية كل فعالية
+const EVENT_INTERVAL = 17 * 60 * 1000
+
+// مدة كل فعالية (مطابقة للملفات)
+const EVENT_DURATION = 5 * 60 * 1000
+
+let scheduler = null
+let running = false
+
 function getCurrentEvent() {
     return currentEvent
 }
@@ -30,6 +39,7 @@ function nextEvent() {
     }
 
     return currentEvent
+
 }
 
 async function startNextEvent(sock, jid) {
@@ -40,11 +50,73 @@ async function startNextEvent(sock, jid) {
 
     await event.start(sock, jid)
 
+    // بعد انتهاء الوقت تعتبر الفعالية منتهية
+    setTimeout(() => {
+        currentEvent = null
+    }, EVENT_DURATION)
+
+}
+
+// تشغيل النظام بالكامل
+function startScheduler(sock, jid) {
+
+    if (running) return
+
+    running = true
+
+    // أول فعالية مباشرة
+    startNextEvent(sock, jid)
+
+    scheduler = setInterval(async () => {
+
+        await startNextEvent(sock, jid)
+
+    }, EVENT_INTERVAL)
+
+}
+
+// إيقاف النظام (اختياري)
+function stopScheduler() {
+
+    if (scheduler) {
+
+        clearInterval(scheduler)
+
+        scheduler = null
+
+    }
+
+    running = false
+
+}
+
+// تمرير الإجابات للفعالية الحالية
+async function handleAnswer(sock, msg, text, player, userId) {
+
+    if (!currentEvent) return false
+
+    if (typeof currentEvent.answer !== "function")
+        return false
+
+    return await currentEvent.answer(
+        sock,
+        msg,
+        player,
+        text,
+        userId
+    )
+
 }
 
 module.exports = {
 
+    startScheduler,
+
+    stopScheduler,
+
     startNextEvent,
+
+    handleAnswer,
 
     getCurrentEvent
 
