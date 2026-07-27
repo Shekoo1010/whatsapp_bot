@@ -1,0 +1,124 @@
+const characters = require("../characters.json")
+const { giveAnimeReward } = require("./AnimeRewards")
+
+let currentQuestion = null
+let answered = false
+let timeout = null
+
+function randomCharacter() {
+
+    const list = characters.filter(c =>
+        c.anime &&
+        c.anime.trim() &&
+        c.name &&
+        c.name.trim()
+    )
+
+    return list[Math.floor(Math.random() * list.length)]
+
+}
+
+async function start(sock, jid) {
+
+    if (timeout) clearTimeout(timeout)
+
+    answered = false
+
+    currentQuestion = randomCharacter()
+
+    await sock.sendMessage(jid, {
+        text:
+`🎌 ═════〔 من أي أنمي؟ 〕═════
+
+👤 الشخصية:
+
+${currentQuestion.name}
+
+━━━━━━━━━━━━━━
+
+✍️ للإجابة:
+
+.جواب اسم_الأنمي
+
+⏳ الوقت:
+60 ثانية`
+    })
+
+    timeout = setTimeout(async () => {
+
+        if (answered) return
+
+        await sock.sendMessage(jid, {
+            text:
+`⌛ انتهى الوقت
+
+✅ الإجابة الصحيحة:
+
+${currentQuestion.anime}`
+        })
+
+        currentQuestion = null
+
+    }, 300000)
+
+}
+
+async function answer(sock, msg, player, text) {
+
+    if (!currentQuestion) return false
+
+    if (answered) return true
+
+    if (!text.startsWith(".جواب ")) return false
+
+    const answer =
+        text
+        .slice(6)
+        .trim()
+        .toLowerCase()
+
+    if (
+        answer !==
+        currentQuestion.anime
+        .trim()
+        .toLowerCase()
+    ) return true
+
+    answered = true
+
+    clearTimeout(timeout)
+
+    const reward =
+        await giveAnimeReward(player)
+
+    await sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            text:
+`🏆 إجابة صحيحة
+
+👤 ${currentQuestion.name}
+
+🎌 ${currentQuestion.anime}
+
+━━━━━━━━━━━━━━
+
+${reward.text}`
+        }
+    )
+
+    currentQuestion = null
+
+    return true
+
+}
+
+module.exports = {
+
+    name: "guessAnime",
+
+    start,
+
+    answer
+
+}
