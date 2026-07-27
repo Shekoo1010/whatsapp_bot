@@ -1,4 +1,6 @@
 const fs = require('fs')
+const animeEvents = require("./animeEvents")
+
 const {
     announceRaid,
     startRaidScheduler
@@ -3251,6 +3253,20 @@ if (!global.quickEventsStarted) {
         '✅ Quick Events Started'
     )
 }
+        // =========================
+// Anime Events
+// =========================
+if (!global.animeEventsStarted) {
+
+    global.animeEventsStarted = true
+
+    animeEvents.startScheduler(sock)
+
+    console.log(
+        '✅ Anime Events Started'
+    )
+
+}
         if (!global.marketCleanerStarted) {
 
     global.marketCleanerStarted = true
@@ -3474,7 +3490,26 @@ await Player.updateOne(
         }
     }
 )
+// =========================
+// Anime Events
+// =========================
 
+let player = await Player.findOne({ userId })
+
+if (player) {
+
+    const handled =
+        await animeEvents.handleAnswer(
+            sock,
+            msg,
+            text,
+            player,
+            userId
+        )
+
+    if (handled) return
+
+}
     // =========================
 // فعالية القلوب
 // =========================
