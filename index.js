@@ -14076,13 +14076,12 @@ if (text === '.استرجاع_sss') {
 
         for (const char of player.characters) {
 
-            // 🔥 فقط شخصيات SSS
+            // فقط شخصيات SSS
             if (char.rarity !== 'SSS') continue
 
-            // 🛡️ لا نلمس المطورين إطلاقًا
+            // لا نلمس أي شخصية مطورة
             if ((char.evolutionLevel || 0) > 0) continue
 
-            // 🔎 نجيب الأصل من الملف (SSS فقط)
             const original = characters.find(c =>
                 c.name.trim().toLowerCase() === char.name.trim().toLowerCase() &&
                 c.rarity === 'SSS'
@@ -14090,12 +14089,10 @@ if (text === '.استرجاع_sss') {
 
             if (!original) continue
 
-            // 🔧 استرجاع القوة فقط
-            if (char.power !== original.power) {
-                char.power = original.power
-                changed = true
-                updated++
-            }
+            Object.assign(char, original)
+
+            changed = true
+            updated++
         }
 
         if (changed) {
@@ -14105,7 +14102,22 @@ if (text === '.استرجاع_sss') {
     }
 
     return sock.sendMessage(msg.key.remoteJid, {
-        text: `✅ تم استرجاع قوة شخصيات SSS بنجاح\n\n⚔️ عدد التعديلات: ${updated}`
+        text:
+`✅ تم تحديث جميع شخصيات SSS غير المطورة
+
+📦 تم تحديث:
+• الاسم
+• الصورة
+• الفورم
+• الأنمي
+• القدرة
+• القوة
+• الندرة
+• جميع البيانات من characters.json
+
+🛡️ الشخصيات المطورة لم يتم تعديلها.
+
+✨ عدد الشخصيات: ${updated}`
     })
 }
 
