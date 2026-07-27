@@ -10875,5 +10875,1625 @@
   "rarity": "SSS",
   "ability": "قوة الفاناليس",
   "image": "https://files.catbox.moe/gpxv8e.jpg"
+},
+  {
+  "name": "Messi",
+  "form": "الهداف الأسطوري",
+  "anime": "Blue Lock",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "تسديدة الإعصار",
+  "image": "https://i.postimg.cc/ZKhmz4vb/9c232e73d53c49ddc2e973b757c4b931.jpg"
+},
+{
+  "name": "Ronaldo",
+  "form": "القناص الملكي",
+  "anime": "Blue Lock",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "القفزة السماوية",
+  "image": "https://i.postimg.cc/QxpTj86z/0825f2b49586acf7fee0b82cac34a647.jpg"
+},
+{
+  "name": "Hiyori Iki",
+  "form": "حامية الأرواح",
+  "anime": "Noragami",
+  "power": 6668,
+  "rarity": "SSS",
+  "ability": "رابطة الأرواح",
+  "image": "https://i.postimg.cc/kXcgjBYC/91d7bad9c98bde7a690cf3b5a2d411dc.jpg"
+},
+{
+  "name": "Yukine",
+  "form": "السيف المبارك",
+  "anime": "Noragami",
+  "power": 6687,
+  "rarity": "SSS",
+  "ability": "شفرة الطهارة",
+  "image": "https://i.postimg.cc/wvXp7GSq/dc4195924cf48952d2bda23810fb1bba.jpg"
+},
+{
+  "name": "Bishamon",
+  "form": "سيدة الحرب",
+  "anime": "Noragami",
+  "power": 6978,
+  "rarity": "SSS",
+  "ability": "ترسانة الشينكي",
+  "image": "https://i.postimg.cc/c1FzXW7X/f9b216c9dbd74c7c0b28b3a1a7104b67.jpg"
+},
+{
+  "name": "Kazuma",
+  "form": "المستشار الوفي",
+  "anime": "Noragami",
+  "power": 6732,
+  "rarity": "SSS",
+  "ability": "حكمة الرياح",
+  "image": "https://i.postimg.cc/gkfNT2wW/ff8c6c1fbe97b73e6a83b222dddc0bcd.jpg"
+},
+{
+  "name": "Kofuku",
+  "form": "سيدة النحس",
+  "anime": "Noragami",
+  "power": 6704,
+  "rarity": "SSS",
+  "ability": "لعنة الشؤم",
+  "image": "https://i.postimg.cc/w3KL03ws/153c6d87ab7b3aabefd1bc50306cc9b9.jpg"
+},
+{
+  "name": "Daikoku",
+  "form": "الحارس الصلب",
+  "anime": "Noragami",
+  "power": 6693,
+  "rarity": "SSS",
+  "ability": "درع الحماية",
+  "image": "https://i.postimg.cc/GpSQv3nq/17e2e8bf17f7f8094fb4e040f6f9d297.jpg"
+},
+{
+  "name": "Shin",
+  "form": "الجنرال الشاب",
+  "anime": "Kingdom",
+  "power": 6992,
+  "rarity": "SSS",
+  "ability": "رمح الإرادة",
+  "image": "https://i.postimg.cc/5y5LKbTP/0b2e8b53f5f874cb9fba34c1e62b4ab5.jpg"
+},
+{
+  "name": "Ei Sei",
+  "form": "ملك تشين",
+  "anime": "Kingdom",
+  "power": 6894,
+  "rarity": "SSS",
+  "ability": "هيبة الملك",
+  "image": "https://i.postimg.cc/G2F4dzKm/87bab4fdd8b866fd706a9fdee2501263.jpg"
+},
+{
+  "name": "Kyou Kai",
+  "form": "راقصة السيف",
+  "anime": "Kingdom",
+  "power": 6989,
+  "rarity": "SSS",
+  "ability": "رقصة الشيو",
+  "image": "https://i.postimg.cc/wMbgpsC7/5a150da7897fc1e3691e483ce33c8c53.jpg"
+},
+{
+  "name": "Ka Ryo Ten",
+  "form": "الاستراتيجية العبقرية",
+  "anime": "Kingdom",
+  "power": 6642,
+  "rarity": "SSS",
+  "ability": "خطة المعركة",
+  "image": "https://i.postimg.cc/HWNqTHJM/1153b91c045606fa4f4569d24b237fb3.jpg"
+},
+{
+  "name": "Hyou",
+  "form": "الصديق الوفي",
+  "anime": "Kingdom",
+  "power": 6627,
+  "rarity": "SSS",
+  "ability": "إرادة المحارب",
+  "image": "https://i.postimg.cc/3wSTpGRh/72671a0b76ff0dbd838f9489e4041e6e.jpg"
+},
+{
+  "name": "Tou",
+  "form": "السيف الهادئ",
+  "anime": "Kingdom",
+  "power": 6950,
+  "rarity": "SSS",
+  "ability": "ضربة الحسم",
+  "image": "https://i.postimg.cc/k4bp4RRQ/4f83b07a384aa31b37f57f7588b61e00.jpg"
+},
+{
+  "name": "Mou Bu",
+  "form": "أقوى محارب",
+  "anime": "Kingdom",
+  "power": 6997,
+  "rarity": "SSS",
+  "ability": "قوة الجبل",
+  "image": "https://i.postimg.cc/7ZhXhJpY/b10383888c475b20d3583759b18eddea.jpg"
+},
+{
+  "name": "Heki",
+  "form": "القائد الشجاع",
+  "anime": "Kingdom",
+  "power": 6670,
+  "rarity": "SSS",
+  "ability": "اندفاع الفرسان",
+  "image": "https://i.postimg.cc/CKj8xFL1/cff19c6b58d62b747960ed6569eb8e8e.jpg"
+},
+{
+  "name": "Ou Hon",
+  "form": "وريث الرمح",
+  "anime": "Kingdom",
+  "power": 6921,
+  "rarity": "SSS",
+  "ability": "رمح التنين",
+  "image": "https://i.postimg.cc/SR5RG5xF/ff43b9e46731b45e9aa5d1b26875b871.jpg"
+},
+{
+  "name": "Mou Ten",
+  "form": "القائد الذكي",
+  "anime": "Kingdom",
+  "power": 6888,
+  "rarity": "SSS",
+  "ability": "مناورة الحرب",
+  "image": "https://i.postimg.cc/wT873CZv/0a77d6566c9801adb77f35703a0d9859.jpg"
+},
+{
+  "name": "Yotanwa",
+  "form": "ملكة الجبال",
+  "anime": "Kingdom",
+  "power": 6973,
+  "rarity": "SSS",
+  "ability": "زئير القبائل",
+  "image": "https://i.postimg.cc/J0Rv24tk/39bb3bc54853bfbb8ec200819fac7ba8.jpg"
+},
+{
+  "name": "Roku O Mi",
+  "form": "رمح النخبة",
+  "anime": "Kingdom",
+  "power": 6806,
+  "rarity": "SSS",
+  "ability": "اندفاع الرمح",
+  "image": "https://i.postimg.cc/ZqkfQKDX/50639ebb34f292142a87937da56d1aaa.jpg"
+},
+{
+  "name": "Rin Bou Kun",
+  "form": "القائد المخضرم",
+  "anime": "Kingdom",
+  "power": 6788,
+  "rarity": "SSS",
+  "ability": "سيف المعركة",
+  "image": "https://i.postimg.cc/cC6MHVzy/d21990bf8363760490c1e2193024df4a.jpg"
+},
+{
+  "name": "Ri Boku",
+  "form": "عبقري تشاو",
+  "anime": "Kingdom",
+  "power": 6996,
+  "rarity": "SSS",
+  "ability": "تكتيك التنين",
+  "image": "https://i.postimg.cc/1z9FXkgW/f98fc5b22da55eb68879ad954d1fca04.jpg"
+},
+{
+  "name": "Hou Ken",
+  "form": "الباحث عن القوة",
+  "anime": "Kingdom",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "رمح الوحش",
+  "image": "https://i.postimg.cc/VN6jDyYL/b3039223407c984f4b1f89c2f725ee8e.jpg"
+},
+{
+  "name": "Kei Sha",
+  "form": "قائد ريغان",
+  "anime": "Kingdom",
+  "power": 6860,
+  "rarity": "SSS",
+  "ability": "دفاع الحصن",
+  "image": "https://i.postimg.cc/VNB3BCLZ/3f46d6675710ffb43c032e128599f877.jpg"
+},
+{
+  "name": "Kaine Kingdom",
+  "form": "الحارسة المخلصة",
+  "anime": "Kingdom",
+  "power": 6742,
+  "rarity": "SSS",
+  "ability": "سرعة الرمح",
+  "image": "https://i.postimg.cc/QCR4r8dp/0db2c8b452dd90f1ee9d35b0622e2b58.jpg"
+},
+{
+  "name": "Shun Sui Ju",
+  "form": "قائد الشمال",
+  "anime": "Kingdom",
+  "power": 6855,
+  "rarity": "SSS",
+  "ability": "كمين الصقيع",
+  "image": "https://i.postimg.cc/nVv0sJr1/3dc04187cb7a5c8923a6ef9042d8e6ce.jpg"
+},
+{
+  "name": "Ba Nan Ji",
+  "form": "العملاق المدرع",
+  "anime": "Kingdom",
+  "power": 6924,
+  "rarity": "SSS",
+  "ability": "قبضة الفولاذ",
+  "image": "https://i.postimg.cc/25bxCpgJ/Ba-Nan-Ji-Anime-Season-5.webp"
+},
+{
+  "name": "Chou Ga Ryuu",
+  "form": "الجنرال الصلب",
+  "anime": "Kingdom",
+  "power": 6899,
+  "rarity": "SSS",
+  "ability": "حصار الموت",
+  "image": "https://i.postimg.cc/c4xMrtVf/Chou-Ga-Ryuu-portrait-PNG.webp"
+},
+{
+  "name": "Gyou'un",
+  "form": "رمح تشاو",
+  "anime": "Kingdom",
+  "power": 6948,
+  "rarity": "SSS",
+  "ability": "الاندفاع الساحق",
+  "image": "https://i.postimg.cc/P5cm33NM/Gyou-un-color.webp"
+},
+{
+  "name": "Go Hou Mei",
+  "form": "مهندس الحرب",
+  "anime": "Kingdom",
+  "power": 6890,
+  "rarity": "SSS",
+  "ability": "الأسلحة المتقدمة",
+  "image": "https://i.postimg.cc/0j8mMhHr/ff95a04d4c59a11435e9b5e8efcee349.jpg"
+},
+{
+  "name": "Ran Bi Haku",
+  "form": "محارب وي",
+  "anime": "Kingdom",
+  "power": 6766,
+  "rarity": "SSS",
+  "ability": "الضربة الكاسحة",
+  "image": "https://i.postimg.cc/7YZ0x823/d0631f3f458e437f3aaf98eedd30eb54.jpg"
+},
+{
+  "name": "Ka Rin",
+  "form": "قائدة تشو",
+  "anime": "Kingdom",
+  "power": 6970,
+  "rarity": "SSS",
+  "ability": "قيادة المعركة",
+  "image": "https://i.postimg.cc/pLgFYm18/2cb39433de5cb58260012b48d21aafe6.jpg"
+},
+{
+  "name": "Kan Mei",
+  "form": "أقوى جنرال",
+  "anime": "Kingdom",
+  "power": 6993,
+  "rarity": "SSS",
+  "ability": "تحطيم الجبال",
+  "image": "https://i.postimg.cc/764Jdp46/71a2faee3ea004ef086baaedac57cccb.jpg"
+},
+{
+  "name": "Kou Yoku",
+  "form": "الفارس المتقد",
+  "anime": "Kingdom",
+  "power": 6885,
+  "rarity": "SSS",
+  "ability": "رمح العنقاء",
+  "image": "https://i.postimg.cc/RFTJBXVz/80ad0c4d0f6cbade5dde4c2c93377a32.jpg"
+},
+{
+  "name": "Haku Rei",
+  "form": "رامي النخبة",
+  "anime": "Kingdom",
+  "power": 6821,
+  "rarity": "SSS",
+  "ability": "السهم القاطع",
+  "image": "https://i.postimg.cc/FFDkCWBh/dae604328cf57d1bac2abb37760175d9.jpg"
+},
+{
+  "name": "Ordo",
+  "form": "ملك الجبال",
+  "anime": "Kingdom",
+  "power": 6908,
+  "rarity": "SSS",
+  "ability": "هجوم القبائل",
+  "image": "https://i.postimg.cc/QdWBtXx7/4285b05e7e3624b5b08415020d173ec1.jpg"
+},
+{
+  "name": "Ryo Fui",
+  "form": "التاجر العظيم",
+  "anime": "Kingdom",
+  "power": 6708,
+  "rarity": "SSS",
+  "ability": "نفوذ الثروة",
+  "image": "https://i.postimg.cc/g0VnVNhx/97422d99aaa9f99ee297ad11a0d48871.jpg"
+},
+{
+  "name": "Sei Kyou",
+  "form": "الأمير الطامع",
+  "anime": "Kingdom",
+  "power": 6639,
+  "rarity": "SSS",
+  "ability": "دهاء البلاط",
+  "image": "https://i.postimg.cc/1XtXZSjc/5613f0f9670f8345d3db00fe27735e14.jpg"
+},
+{
+  "name": "Shou Hei Kun",
+  "form": "القائد الأعلى",
+  "anime": "Kingdom",
+  "power": 6980,
+  "rarity": "SSS",
+  "ability": "القيادة المطلقة",
+  "image": "https://i.postimg.cc/c4PHPVMw/acccfa693b41843253d7dc818c613472.jpg"
+},
+{
+  "name": "Shou Bun Kun",
+  "form": "الوزير الحكيم",
+  "anime": "Kingdom",
+  "power": 6695,
+  "rarity": "SSS",
+  "ability": "حكمة المملكة",
+  "image": "https://i.postimg.cc/1tWRBT3V/8e71cec0cf6f19a79c3f97d7aedd34f3.jpg"
+},
+{
+  "name": "Ryo Koku",
+  "form": "جنرال وي",
+  "anime": "Kingdom",
+  "power": 6792,
+  "rarity": "SSS",
+  "ability": "رمح الصاعقة",
+  "image": "https://i.postimg.cc/DwVvx1nc/ce5fc560d8de48b8b11a9df21f68266d.jpg"
+},
+{
+  "name": "Bi Hei",
+  "form": "المقاتل المخلص",
+  "anime": "Kingdom",
+  "power": 6647,
+  "rarity": "SSS",
+  "ability": "ضربة المشاة",
+  "image": "https://i.postimg.cc/mkvs6Gfs/c041c0c904cbc8d0eecf1aa479ffc876.jpg"
+},
+{
+  "name": "En",
+  "form": "قائد الوحدة",
+  "anime": "Kingdom",
+  "power": 6658,
+  "rarity": "SSS",
+  "ability": "راية التقدم",
+  "image": "https://i.postimg.cc/QM8rzbPd/En-Crossing-the-River.webp"
+},
+{
+  "name": "Ren Pa",
+  "form": "الجنرال الأسطوري",
+  "anime": "Kingdom",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "هيمنة الميدان",
+  "image": "https://i.postimg.cc/zvgmhPLk/f8743bfc0972a5853d6e92c282e6b802.jpg"
+},
+  {
+  "name": "Subaru Natsuki",
+  "form": "العائد بالموت",
+  "anime": "Re:Zero",
+  "power": 6887,
+  "rarity": "SSS",
+  "ability": "العودة بالموت",
+  "image": "https://i.postimg.cc/YSTBSH0C/705f09c8ccc9cbc6aad67f0a5696a555.jpg"
+},
+{
+  "name": "Emilia",
+  "form": "الأميرة الفضية",
+  "anime": "Re:Zero",
+  "power": 6962,
+  "rarity": "SSS",
+  "ability": "سحر الجليد",
+  "image": "https://i.postimg.cc/65BJqzW4/7d14190e373873ae8bddf5966efd8e43.jpg"
+},
+{
+  "name": "Rem",
+  "form": "الخادمة الزرقاء",
+  "anime": "Re:Zero",
+  "power": 6925,
+  "rarity": "SSS",
+  "ability": "نجمة الصباح",
+  "image": "https://i.postimg.cc/7ZLFM6T3/76255409c8680b0e801fd1a780248603.jpg"
+},
+{
+  "name": "Ram",
+  "form": "الخادمة الوردية",
+  "anime": "Re:Zero",
+  "power": 6848,
+  "rarity": "SSS",
+  "ability": "رياح العاصفة",
+  "image": "https://i.postimg.cc/br8MGNj7/133edccbbcabe4fbe0de6bc21b7530b0.jpg"
+},
+{
+  "name": "Beatrice",
+  "form": "حارسة المكتبة",
+  "anime": "Re:Zero",
+  "power": 6957,
+  "rarity": "SSS",
+  "ability": "سحر المانا",
+  "image": "https://i.postimg.cc/xTfhnC53/ba1c0fdc10b6c14fb713ec7407ee6680.jpg"
+},
+{
+  "name": "Roswaal",
+  "form": "ساحر القصر",
+  "anime": "Re:Zero",
+  "power": 6986,
+  "rarity": "SSS",
+  "ability": "السحر المركب",
+  "image": "https://i.postimg.cc/N0HPprs3/dba625205cb94c68d83b93879f82a50a.jpg"
+},
+{
+  "name": "Puck",
+  "form": "روح الجليد",
+  "anime": "Re:Zero",
+  "power": 6978,
+  "rarity": "SSS",
+  "ability": "تجميد العالم",
+  "image": "https://i.postimg.cc/0jctbYZq/dcfbe2b937992655302f65248d7c7cf9.jpg"
+},
+{
+  "name": "Garfiel Tinsel",
+  "form": "حامي الملاذ",
+  "anime": "Re:Zero",
+  "power": 6918,
+  "rarity": "SSS",
+  "ability": "التحول الوحشي",
+  "image": "https://i.postimg.cc/6p7HpGvz/3ffabe2e1e24761b6492d7ddaf0aed53.jpg"
+},
+{
+  "name": "Otto Suwen",
+  "form": "تاجر الرياح",
+  "anime": "Re:Zero",
+  "power": 6691,
+  "rarity": "SSS",
+  "ability": "حديث الأرواح",
+  "image": "https://i.postimg.cc/HxtzhwfP/5f0bcdb35da4e763867c3b6e48930cd6.jpg"
+},
+{
+  "name": "Frederica Baumann",
+  "form": "الخادمة الذهبية",
+  "anime": "Re:Zero",
+  "power": 6816,
+  "rarity": "SSS",
+  "ability": "مخالب الوحش",
+  "image": "https://i.postimg.cc/WzWn22bs/1f6c63dc86d23e0298a037a8e7625091.jpg"
+},
+{
+  "name": "Wilhelm van Astrea",
+  "form": "سيد السيف",
+  "anime": "Re:Zero",
+  "power": 6942,
+  "rarity": "SSS",
+  "ability": "تقنية المبارزة",
+  "image": "https://i.postimg.cc/rFHJ3FPp/28fc1afa65ffd2b56f66667fc48e322e.jpg"
+},
+{
+  "name": "Theresia van Astrea",
+  "form": "قديسة السيف السابقة",
+  "anime": "Re:Zero",
+  "power": 6950,
+  "rarity": "SSS",
+  "ability": "نصل الرياح",
+  "image": "https://i.postimg.cc/KYS5cpFc/03c3874d6e2413a3d40cdce7d4fa81a2.jpg"
+},
+{
+  "name": "Julius Juukulius",
+  "form": "فارس الأرواح",
+  "anime": "Re:Zero",
+  "power": 6922,
+  "rarity": "SSS",
+  "ability": "سيوف الأرواح",
+  "image": "https://i.postimg.cc/zBqSKLV2/fbaff04b22d45fb356ee13191647c50c.jpg"
+},
+{
+  "name": "Crusch Karsten",
+  "form": "سيدة كارستن",
+  "anime": "Re:Zero",
+  "power": 6867,
+  "rarity": "SSS",
+  "ability": "شفرة الرياح",
+  "image": "https://i.postimg.cc/mk5Qv8Vn/15c06284e87c46315683832f7e0018a6.jpg"
+},
+{
+  "name": "Anastasia Hoshin",
+  "form": "سيدة التجارة",
+  "anime": "Re:Zero",
+  "power": 6765,
+  "rarity": "SSS",
+  "ability": "روح الحكمة",
+  "image": "https://i.postimg.cc/m2P3YWgL/dbdbdd71e35ffad6a88b50aa755dda87.jpg"
+},
+{
+  "name": "Echidna",
+  "form": "ساحرة الجشع",
+  "anime": "Re:Zero",
+  "power": 6994,
+  "rarity": "SSS",
+  "ability": "معرفة الساحرات",
+  "image": "https://i.postimg.cc/VL2q4ZJK/3b6d6c2f73c036d8d103d89bb86fd3ed.jpg"
+},
+{
+  "name": "Petelgeuse",
+  "form": "أسقف الكسل",
+  "anime": "Re:Zero",
+  "power": 6948,
+  "rarity": "SSS",
+  "ability": "الأيدي الخفية",
+  "image": "https://i.postimg.cc/CKgjpZHf/abc57bb259d4f71012839dfe7bc1daaf.jpg"
+},
+{
+  "name": "Satella",
+  "form": "ساحرة الحسد",
+  "anime": "Re:Zero",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "ظلال الحسد",
+  "image": "https://i.postimg.cc/d1QrDzfc/9462bd6dae37b19c3e216808b72f221d.jpg"
+},
+  {
+  "name": "Arataka Reigen",
+  "form": "المعلم المحتال",
+  "anime": "Mob Psycho 100",
+  "power": 6738,
+  "rarity": "SSS",
+  "ability": "فن الإقناع",
+  "image": "https://i.postimg.cc/HLYVtb9P/fd8c2185403a175188db77ddec0da2a9.jpg"
+},
+{
+  "name": "Stark",
+  "form": "محارب الفأس",
+  "anime": "Frieren: Beyond Journey's End",
+  "power": 6896,
+  "rarity": "SSS",
+  "ability": "ضربة العمالقة",
+  "image": "https://i.postimg.cc/hvdjGsKh/74332dd0c94009f9f463d0d371226c11.jpg"
+},
+{
+  "name": "Fern",
+  "form": "الساحرة الهادئة",
+  "anime": "Frieren: Beyond Journey's End",
+  "power": 6948,
+  "rarity": "SSS",
+  "ability": "وابل السحر",
+  "image": "https://i.postimg.cc/DfHB0Pq5/1c9b5c8f91239dbe938fd4ce6ceb5707.jpg"
+},
+{
+  "name": "Himmel",
+  "form": "البطل الأسطوري",
+  "anime": "Frieren: Beyond Journey's End",
+  "power": 6978,
+  "rarity": "SSS",
+  "ability": "سيف البطل",
+  "image": "https://i.postimg.cc/xdfPhx2q/5ee7de12fe61c6d1b6ee80dbcb489c1c.jpg"
+},
+{
+  "name": "Spike Spiegel",
+  "form": "صياد الجوائز",
+  "anime": "Cowboy Bebop",
+  "power": 6935,
+  "rarity": "SSS",
+  "ability": "قتال الجيت كون دو",
+  "image": "https://i.postimg.cc/ZRgF9Jy0/c89f62f881d304ae6f83c38b531e975e.jpg"
+},
+{
+  "name": "Faye Valentine",
+  "form": "المقامرة الغامضة",
+  "anime": "Cowboy Bebop",
+  "power": 6827,
+  "rarity": "SSS",
+  "ability": "إطلاق النار الدقيق",
+  "image": "https://i.postimg.cc/FFdVMk2C/f3d1565d921ae1c4cf2057a1cfec5c8d.jpg"
+},
+{
+  "name": "Lucy Kushinada",
+  "form": "الهاكرة الأسطورية",
+  "anime": "Cyberpunk: Edgerunners",
+  "power": 6972,
+  "rarity": "SSS",
+  "ability": "اختراق الشبكات",
+  "image": "https://i.postimg.cc/rwcGRnzr/cfdecddeae77238be70702ae25e32820.jpg"
+},
+{
+  "name": "Rebecca",
+  "form": "المقاتلة المتهورة",
+  "anime": "Cyberpunk: Edgerunners",
+  "power": 6879,
+  "rarity": "SSS",
+  "ability": "وابل الرصاص",
+  "image": "https://i.postimg.cc/d0V84h22/fbcd77d8025d8b17654d1c8ec8148f03.jpg"
+},
+{
+  "name": "David Martinez",
+  "form": "السايبربانك الخارق",
+  "anime": "Cyberpunk: Edgerunners",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "السانديفيستان",
+  "image": "https://i.postimg.cc/MThV6thf/7d9ad4cca8f551c40ecb75eb6e9743eb.jpg"
+},
+{
+  "name": "Komachi Hikigaya",
+  "form": "الأخت اللطيفة",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6648,
+  "rarity": "SSS",
+  "ability": "الحدس الذكي",
+  "image": "https://i.postimg.cc/GhPGRFzy/59338e6c0959e6e02a34802d9b02b603.jpg"
+},
+{
+  "name": "Shizuka Hiratsuka",
+  "form": "المعلمة الحكيمة",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6786,
+  "rarity": "SSS",
+  "ability": "قبضة التأديب",
+  "image": "https://i.postimg.cc/vZ3ngGJg/b06d8ec326d19df2fc7a67cea9d6e42e.jpg"
+},
+{
+  "name": "Yui Yuigahama",
+  "form": "الفتاة المرحة",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6719,
+  "rarity": "SSS",
+  "ability": "دفء المشاعر",
+  "image": "https://i.postimg.cc/XqSBSqCz/11fcb665b0fc68729794c34a2d85696d.jpg"
+},
+{
+  "name": "Yukino Yukinoshita",
+  "form": "ملكة الجليد",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6898,
+  "rarity": "SSS",
+  "ability": "الذكاء الحاد",
+  "image": "https://i.postimg.cc/L86YMrJR/005f7563f01efc7fc0ce5ddaa0d9def8.jpg"
+},
+{
+  "name": "Hachiman Hikigaya",
+  "form": "العبقري المنعزل",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6863,
+  "rarity": "SSS",
+  "ability": "التحليل العميق",
+  "image": "https://i.postimg.cc/63RT0Kmn/2ed6bc7b2723c7435b95aa957e9e4064.jpg"
+},
+{
+  "name": "Iroha Isshiki",
+  "form": "الرئيسة الماكرة",
+  "anime": "My Teen Romantic Comedy SNAFU",
+  "power": 6695,
+  "rarity": "SSS",
+  "ability": "الدهاء الاجتماعي",
+  "image": "https://i.postimg.cc/jdv2vZZv/45bdc7cddba93717b984d58dae776364.jpg"
+},
+  {
+  "name": "Soi Fon",
+  "form": "قائدة الفرقة الثانية",
+  "anime": "Bleach",
+  "power": 6942,
+  "rarity": "SSS",
+  "ability": "سوزوميباتشي",
+  "image": "https://i.postimg.cc/L58KsBLR/720049c70fab4e2da27d3f62a7cf65bc.jpg"
+},
+{
+  "name": "Nemu Kurotsuchi",
+  "form": "نائبة الفرقة الثانية عشرة",
+  "anime": "Bleach",
+  "power": 6868,
+  "rarity": "SSS",
+  "ability": "الجسد المعدل",
+  "image": "https://i.postimg.cc/BnKWtvL2/97ca2825e687aa1e7b61594d1e8b3d0c.jpg"
+},
+{
+  "name": "Nanao Ise",
+  "form": "نائبة الفرقة الثامنة",
+  "anime": "Bleach",
+  "power": 6885,
+  "rarity": "SSS",
+  "ability": "هاكن كيوكين",
+  "image": "https://i.postimg.cc/D0ZHhf36/912d7370e7945ed42bba8a2618e3849e.jpg"
+},
+{
+  "name": "Lisa Yadomaru",
+  "form": "قائدة الفرقة الثامنة",
+  "anime": "Bleach",
+  "power": 6926,
+  "rarity": "SSS",
+  "ability": "زنباكتو الرياح",
+  "image": "https://i.postimg.cc/RVWyb0Rv/2f982bc3846285c9cbbc0f7d415733f8.jpg"
+},
+{
+  "name": "Leon Ellert",
+  "form": "وريث السيف",
+  "anime": "Advent of the Three Calamities",
+  "power": 6918,
+  "rarity": "SSS",
+  "ability": "شفرة البرق",
+  "image": "https://i.postimg.cc/25Dt67NX/Leon.webp"
+},
+{
+  "name": "Julian Avenous",
+  "form": "الفارس النبيل",
+  "anime": "Advent of the Three Calamities",
+  "power": 6874,
+  "rarity": "SSS",
+  "ability": "سيف العاصفة",
+  "image": "https://i.postimg.cc/cH1571HX/Julienofficial.webp"
+},
+  {
+  "name": "Kamui Gintama",
+  "form": "زعيم الياتو",
+  "anime": "Gintama",
+  "power": 6988,
+  "rarity": "SSS",
+  "ability": "قوة الياتو",
+  "image": "https://i.postimg.cc/mgxXXykB/6081e9c18d63b767095d19463252fc28.jpg"
+},
+{
+  "name": "Hawks",
+  "form": "البطل المجنح",
+  "anime": "My Hero Academia",
+  "power": 6947,
+  "rarity": "SSS",
+  "ability": "الأجنحة الشرسة",
+  "image": "https://i.postimg.cc/YSMXk21M/e23249f77fc68e8bb001a06bcc1a3752.jpg"
+},
+{
+  "name": "All For One",
+  "form": "سيد الأشرار",
+  "anime": "My Hero Academia",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "سرقة القدرات",
+  "image": "https://i.postimg.cc/rmYgSS7K/80897c56e70d01da0aa1e5eb0330f424.jpg"
+},
+{
+  "name": "Overhaul",
+  "form": "زعيم الياكوزا",
+  "anime": "My Hero Academia",
+  "power": 6971,
+  "rarity": "SSS",
+  "ability": "إعادة التشكيل",
+  "image": "https://i.postimg.cc/qBWHrnq5/8bae75bd063afb6b15a02b57a24f0f9f.jpg"
+},
+  {
+  "name": "Katen Kyokotsu",
+  "form": "روح الزانباكتو",
+  "anime": "Bleach",
+  "power": 6986,
+  "rarity": "SSS",
+  "ability": "لعبة الظلال",
+  "image": "https://i.postimg.cc/pVh3sTC3/bac027b4c5f3900d805f3f402092143d.jpg"
+},
+{
+  "name": "Sode no Shirayuki",
+  "form": "روح الجليد",
+  "anime": "Bleach",
+  "power": 6968,
+  "rarity": "SSS",
+  "ability": "رقصة الثلج",
+  "image": "https://i.postimg.cc/pLx7VBHw/40115ae38c541ee5813f1781d11f84d5.jpg"
+},
+{
+  "name": "Saitou Furoufushi",
+  "form": "قائدة الغوتي",
+  "anime": "Bleach",
+  "power": 6924,
+  "rarity": "SSS",
+  "ability": "سيف الرياح",
+  "image": "https://i.postimg.cc/1z7YHhq9/27a750fcb49800aa4c95bdcc86e4c770.jpg"
+},
+{
+  "name": "Katori Batsuunsai",
+  "form": "قائدة الغوتي",
+  "anime": "Bleach",
+  "power": 6891,
+  "rarity": "SSS",
+  "ability": "الشفرة القاطعة",
+  "image": "https://i.postimg.cc/7h0sw5Qg/de5743adfb77d58f1d90c18c1a4c8c52.jpg"
+},
+{
+  "name": "Zangetsu",
+  "form": "روح الزانباكتو",
+  "anime": "Bleach",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "شفرة القمر",
+  "image": "https://i.postimg.cc/9FP8kq7k/641c2996a6fd793b54d35cbfab1129f5.jpg"
+},
+{
+  "name": "Kon",
+  "form": "الروح المعدلة",
+  "anime": "Bleach",
+  "power": 6682,
+  "rarity": "SSS",
+  "ability": "القفزة الخارقة",
+  "image": "https://i.postimg.cc/0yctkRZn/80f39ab04ec2bb761e2220f5303f9515.jpg"
+},
+{
+  "name": "Jushiro Ukitake",
+  "form": "قائد الفرقة الثالثة عشرة",
+  "anime": "Bleach",
+  "power": 6975,
+  "rarity": "SSS",
+  "ability": "سوجيو نو كوتواري",
+  "image": "https://i.postimg.cc/ZqQVN8Gp/efbd90b51dbf02b2360ff06e93115466.jpg"
+},
+{
+  "name": "White Zangetsu",
+  "form": "روح الهولو",
+  "anime": "Bleach",
+  "power": 6997,
+  "rarity": "SSS",
+  "ability": "القوة المجوفة",
+  "image": "https://i.postimg.cc/vHvhhFJk/21e5d2fbfacc1ea3d1a9873802e09ef2.jpg"
+},
+{
+  "name": "Tensa Zangetsu",
+  "form": "الهيئة المتقدمة",
+  "anime": "Bleach",
+  "power": 6992,
+  "rarity": "SSS",
+  "ability": "تينسا زانغيتسو",
+  "image": "https://i.postimg.cc/FRcgJ2bV/0b2ad168e2484861746f78f93ef68c7a.jpg"
+},
+{
+  "name": "Furuoki Otogawa",
+  "form": "محارب الغوتي",
+  "anime": "Bleach",
+  "power": 6834,
+  "rarity": "SSS",
+  "ability": "ضربة الروح",
+  "image": "https://i.postimg.cc/7hn3K0WX/46f2dd20e655681320846d7f6b82d8cb.jpg"
+},
+{
+  "name": "Kikunojo",
+  "form": "ساموراي وانو",
+  "anime": "One Piece",
+  "power": 6928,
+  "rarity": "SSS",
+  "ability": "سيف الثلج",
+  "image": "https://i.postimg.cc/5Np5v5vH/ed1f8314004842b19da62181e51dbdd4.jpg"
+},
+{
+  "name": "Rouge",
+  "form": "الأم الشجاعة",
+  "anime": "One Piece",
+  "power": 6716,
+  "rarity": "SSS",
+  "ability": "إرادة الصمود",
+  "image": "https://i.postimg.cc/VkVjZYD4/3605a0d020766dfeac399a719c643e2d.jpg"
+},
+{
+  "name": "Miyuki Shiba",
+  "form": "الأخت المتفوقة",
+  "anime": "The Irregular at Magic High School",
+  "power": 6990,
+  "rarity": "SSS",
+  "ability": "سحر التجميد",
+  "image": "https://i.postimg.cc/MGf1hhLq/60201cfe3801e3dc4990c55451cd1c51.jpg"
+},
+{
+  "name": "Nikolai Gogol",
+  "form": "المهرج الغامض",
+  "anime": "Bungo Stray Dogs",
+  "power": 6981,
+  "rarity": "SSS",
+  "ability": "المعطف",
+  "image": "https://i.postimg.cc/KzXtF0Xn/336886e57a9ac79d7173f1592c764a3c.jpg"
+},
+{
+  "name": "Sakunosuke Oda",
+  "form": "القاتل الهادئ",
+  "anime": "Bungo Stray Dogs",
+  "power": 6907,
+  "rarity": "SSS",
+  "ability": "الخالي من العيوب",
+  "image": "https://i.postimg.cc/prR85yLb/92dc95e80639a93bd38e6443a69ff4f5.jpg"
+},
+{
+  "name": "Kyouka Izumi",
+  "form": "قاتلة المافيا",
+  "anime": "Bungo Stray Dogs",
+  "power": 6884,
+  "rarity": "SSS",
+  "ability": "الشيطان الثلجي",
+  "image": "https://i.postimg.cc/T2JnMjtW/25f97a10e207a888a6263dbf523cda59.jpg"
+},
+{
+  "name": "Naomi Tanizaki",
+  "form": "الأخت الغامضة",
+  "anime": "Bungo Stray Dogs",
+  "power": 6664,
+  "rarity": "SSS",
+  "ability": "الخداع الذكي",
+  "image": "https://i.postimg.cc/2SVWZsrv/7fe38767153cfaed3bfecae50175a685.jpg"
+},
+{
+  "name": "Anastasia",
+  "form": "أميرة الجليد",
+  "anime": "Fate/Grand Order",
+  "power": 6974,
+  "rarity": "SSS",
+  "ability": "سحر الشتاء",
+  "image": "https://i.postimg.cc/wvcRzHQH/0341d4e634529bab7997db28cd0b8eec.jpg"
+},
+{
+  "name": "Medb",
+  "form": "ملكة كونوت",
+  "anime": "Fate/Grand Order",
+  "power": 6946,
+  "rarity": "SSS",
+  "ability": "سحر الإغواء",
+  "image": "https://i.postimg.cc/x86kkRZ4/d9db6b9a9e6f50ab09e4dfda79c6ea2c.jpg"
+},
+{
+  "name": "Siduri",
+  "form": "كاهنة بابل",
+  "anime": "Fate/Grand Order",
+  "power": 6793,
+  "rarity": "SSS",
+  "ability": "بركة أوروك",
+  "image": "https://i.postimg.cc/6512tMnN/954ee763fa814fecada929bac27feec1.jpg"
+},
+{
+  "name": "Durga",
+  "form": "المحاربة السماوية",
+  "anime": "Fate/Grand Order",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "رمح الدمار",
+  "image": "https://i.postimg.cc/Cx3Rfdc6/a58a245f10995dc3c1336ab7fbab4cb3.jpg"
+},
+{
+  "name": "Hippolyta",
+  "form": "ملكة الأمازون",
+  "anime": "Fate/Grand Order",
+  "power": 6965,
+  "rarity": "SSS",
+  "ability": "رمح الأمازون",
+  "image": "https://i.postimg.cc/W40hmjKJ/1244ec54580d48c768af33a0b70fac7d-(1).jpg"
+},
+  {
+  "name": "Watanabe no Tsuna",
+  "form": "قاتل الشياطين",
+  "anime": "Fate/Grand Order",
+  "power": 6978,
+  "rarity": "SSS",
+  "ability": "سيف أونيغيري",
+  "image": "https://i.postimg.cc/zX3vtT6X/c622e4a6f97b4cbaf39c6d2cb81ef681.jpg"
+},
+{
+  "name": "Kurohime",
+  "form": "الأميرة السوداء",
+  "anime": "Fate/Grand Order",
+  "power": 6941,
+  "rarity": "SSS",
+  "ability": "لعنة الظلام",
+  "image": "https://i.postimg.cc/nhDzZpnN/171aa7dfcf7237dcfa2cc72c1925dde5.jpg"
+},
+{
+  "name": "Chitoge Kirisaki",
+  "form": "وريثة العصابة",
+  "anime": "Nisekoi",
+  "power": 6726,
+  "rarity": "SSS",
+  "ability": "اللكمة الخاطفة",
+  "image": "https://i.postimg.cc/Bv5nLpLX/e9c4c00ce12c3b9188d8e66b8b71a0e9.jpg"
+},
+{
+  "name": "Seishirou Tsugumi",
+  "form": "الحارسة المخلصة",
+  "anime": "Nisekoi",
+  "power": 6864,
+  "rarity": "SSS",
+  "ability": "مهارة القنص",
+  "image": "https://i.postimg.cc/851PhvMy/cd9baffa11e3c90e2e8a848941d03a41.jpg"
+},
+  {
+  "name": "Masaki Kurosaki",
+  "form": "الكوينشي الخالصة",
+  "anime": "Bleach",
+  "power": 6882,
+  "rarity": "SSS",
+  "ability": "سهم الكوينشي",
+  "image": "https://i.postimg.cc/7PtY2f6V/ea872b93dbb2f4d399aa7263d41809f4.jpg"
+},
+{
+  "name": "Ryuken Ishida",
+  "form": "رئيس مستشفى كاراكورا",
+  "anime": "Bleach",
+  "power": 6956,
+  "rarity": "SSS",
+  "ability": "قوس الكوينشي",
+  "image": "https://i.postimg.cc/8PqpZ9LR/9d9d82aacf2fe284bffa1de4b479c1b2.jpg"
+},
+{
+  "name": "Kanae Katagiri",
+  "form": "عائلة إيشيدا",
+  "anime": "Bleach",
+  "power": 6841,
+  "rarity": "SSS",
+  "ability": "روح الكوينشي",
+  "image": "https://i.postimg.cc/tgbXj6SF/6d5cd7a8113177785bf34a9c8274fd76.jpg"
+},
+  {
+  "name": "Kouyou Ozaki",
+  "form": "تنفيذيّة المافيا",
+  "anime": "Bungo Stray Dogs",
+  "power": 6938,
+  "rarity": "SSS",
+  "ability": "الشيطان الذهبي",
+  "image": "https://i.postimg.cc/BbR0wPLk/460e36e06b2a513e138a140c94c0b7cf.jpg"
+},
+  {
+  "name": "Jin Mu Won",
+  "form": "وريث الطائفة الشمالية",
+  "anime": "The Legend of the Northern Blade",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "تقنيات النصل الشمالي",
+  "image": "https://i.postimg.cc/25TfNKBz/7ee96129a3afa1031d26262d91a09b5d.jpg"
+},
+  {
+  "name": "White Queen",
+  "form": "الملكة البيضاء",
+  "anime": "Date A Live",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "السيطرة على الزمن",
+  "image": "https://i.postimg.cc/2yLpvjcs/16567ddaf6dd2ec7e5a95f47fa6bffe5.jpg"
+},
+{
+  "name": "Kurumi Tokisaki",
+  "form": "روح الزمن",
+  "anime": "Date A Live",
+  "power": 6998,
+  "rarity": "SSS",
+  "ability": "زافكيئيل",
+  "image": "https://i.postimg.cc/QNFVSpv2/6c45e5544660d8e5eeecf0543eed8c02.jpg"
+},
+{
+  "name": "C C",
+  "form": "حاملة الخلود",
+  "anime": "Code Geass",
+  "power": 6968,
+  "rarity": "SSS",
+  "ability": "قوة الغياس",
+  "image": "https://i.postimg.cc/Y2T0PvHx/13b944eaf8885a76ca1d7136749c2d21.jpg"
+},
+{
+  "name": "Hiruko",
+  "form": "بادئة الغاستريا",
+  "anime": "Black Bullet",
+  "power": 6904,
+  "rarity": "SSS",
+  "ability": "قوة الغاستريا",
+  "image": "https://i.postimg.cc/NjcMgZLw/9b555af9ec46fb32fbb68412c13ceda6.jpg"
+},
+{
+  "name": "Inori Yuzuriha",
+  "form": "مغنية الجنازة",
+  "anime": "Guilty Crown",
+  "power": 6942,
+  "rarity": "SSS",
+  "ability": "سيف الفراغ",
+  "image": "https://i.postimg.cc/SKQx98Ww/1cab2beb8c57b5787dfc6dd253582e42.jpg"
+},
+{
+  "name": "Cornelia li Britannia",
+  "form": "أميرة بريطانيا",
+  "anime": "Code Geass",
+  "power": 6957,
+  "rarity": "SSS",
+  "ability": "قيادة الفرسان",
+  "image": "https://i.postimg.cc/G2H37CgT/2e033341da4bfd15321afdeaa31a7323.jpg"
+},
+{
+  "name": "Shinei Nouzen",
+  "form": "الحاصد",
+  "anime": "86: Eighty-Six",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "القتال المتزامن",
+  "image": "https://i.postimg.cc/4ycfG1gx/bcee23e65c41dc8f277bf3c336db974a.jpg"
+},
+{
+  "name": "Elfaria Alvis Serholt",
+  "form": "أقوى ساحرة",
+  "anime": "Wistoria: Wand and Sword",
+  "power": 6992,
+  "rarity": "SSS",
+  "ability": "سحر الجليد",
+  "image": "https://i.postimg.cc/qB6M2p33/1876a65a79037dd048970196b519b5d9.jpg"
+},
+{
+  "name": "Schmerman Bach",
+  "form": "القائد الأعلى",
+  "anime": "Plunderer",
+  "power": 6963,
+  "rarity": "SSS",
+  "ability": "العد التراكمي",
+  "image": "https://i.postimg.cc/L6z90vvm/1049287b184e16d2ef2ad41ff9cfff5c.jpg"
+},
+{
+  "name": "Integra",
+  "form": "زعيمة هيلسينغ",
+  "anime": "Hellsing Ultimate",
+  "power": 6928,
+  "rarity": "SSS",
+  "ability": "قيادة هيلسينغ",
+  "image": "https://i.postimg.cc/BvvJb33s/5229a0ac166a193afad7b7e374d97fac.jpg"
+},
+{
+  "name": "Ling Wang",
+  "form": "العبقري الخالد",
+  "anime": "The Daily Life of the Immortal King",
+  "power": 6976,
+  "rarity": "SSS",
+  "ability": "السحر الروحي",
+  "image": "https://i.postimg.cc/NM9Y8xLm/32c8a040fb8c196e21b2dcba38556f01.jpg"
+},
+{
+  "name": "Rong Sun",
+  "form": "المعلمة الروحية",
+  "anime": "The Daily Life of the Immortal King",
+  "power": 6887,
+  "rarity": "SSS",
+  "ability": "الفنون الروحية",
+  "image": "https://i.postimg.cc/9MRVPBrc/4a262b84a3bdfe508f54f8b2708a76d7.jpg"
+},
+{
+  "name": "Dominique de Sade",
+  "form": "النبيلة الطبيبة",
+  "anime": "The Case Study of Vanitas",
+  "power": 6869,
+  "rarity": "SSS",
+  "ability": "طب مصاصي الدماء",
+  "image": "https://i.postimg.cc/8cLS9PRL/c49b7e048b5fe673f7058e442a041f92.jpg"
+},
+  {
+  "name": "Ryner Lute",
+  "form": "حامل العين الملعونة",
+  "anime": "The Legend of the Legendary Heroes",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "عين ألفا ستيغما",
+  "image": "https://i.postimg.cc/YCrHD7hm/2382401-(1).jpg"
+},
+{
+  "name": "Nono",
+  "form": "ملكة التنين",
+  "anime": "Dragon Raja",
+  "power": 6964,
+  "rarity": "SSS",
+  "ability": "قوة التنين",
+  "image": "https://i.postimg.cc/hGhqg084/9e7617dd150ac6c27446fe70fa287ad6.jpg"
+},
+{
+  "name": "Caesar Gattuso",
+  "form": "وريث عائلة غاتوسو",
+  "anime": "Dragon Raja",
+  "power": 6941,
+  "rarity": "SSS",
+  "ability": "كلمة الروح",
+  "image": "https://i.postimg.cc/V6CQ0LHR/IMG-20260721-WA0172.jpg"
+},
+{
+  "name": "Ciel Phantomhive",
+  "form": "نبيل فانتومهايف",
+  "anime": "Black Butler",
+  "power": 6897,
+  "rarity": "SSS",
+  "ability": "عقد الشيطان",
+  "image": "https://i.postimg.cc/90d61g2w/db793abd507f2dc3223bb3d4ebcd2ce7.jpg"
+},
+{
+  "name": "Alpha",
+  "form": "الأولى في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "سيف الظلال",
+  "image": "https://i.postimg.cc/DyFkmhQY/c221d65446431c7f3400e68b37413376.jpg"
+},
+{
+  "name": "Beta",
+  "form": "الثانية في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6976,
+  "rarity": "SSS",
+  "ability": "التقليد المثالي",
+  "image": "https://i.postimg.cc/pLGg0nws/2af64b47949a8d08a756e59e457a6c7b.jpg"
+},
+{
+  "name": "Gamma",
+  "form": "الثالثة في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6912,
+  "rarity": "SSS",
+  "ability": "الذكاء التجاري",
+  "image": "https://i.postimg.cc/SKHH4bNM/d1b04be2e5cda8b7ef47f1c87e104e54.jpg"
+},
+{
+  "name": "Delta",
+  "form": "الرابعة في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6991,
+  "rarity": "SSS",
+  "ability": "الافتراس الوحشي",
+  "image": "https://i.postimg.cc/mDMJ2pPW/2cfc301918241452418237542dafc1d6.jpg"
+},
+{
+  "name": "Epsilon",
+  "form": "الخامسة في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6954,
+  "rarity": "SSS",
+  "ability": "التحكم بالسلايم",
+  "image": "https://i.postimg.cc/tJjf1d6d/5d952a862a26c64f699addf465baa247.jpg"
+},
+{
+  "name": "Zeta",
+  "form": "السادسة في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6983,
+  "rarity": "SSS",
+  "ability": "مطاردة الظلال",
+  "image": "https://i.postimg.cc/y6mtM5qJ/2244c7e20a34c5ddd02e2f26764c9866.jpg"
+},
+{
+  "name": "Eta",
+  "form": "السابعة في حديقة الظل",
+  "anime": "The Eminence in Shadow",
+  "power": 6888,
+  "rarity": "SSS",
+  "ability": "العبقرية العلمية",
+  "image": "https://i.postimg.cc/4NwMd9xG/3e758b0adf90f98a29c70f966096a9d7.jpg"
+},
+{
+  "name": "Aurora",
+  "form": "ساحرة الكوارث",
+  "anime": "The Eminence in Shadow",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "دم الكوارث",
+  "image": "https://i.postimg.cc/DwZNbwSR/381f78096ed17fb5cacea3573ecd8353.jpg"
+},
+{
+  "name": "Licht Bach",
+  "form": "البارون الأحمر",
+  "anime": "Plunderer",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "السرعة المطلقة",
+  "image": "https://i.postimg.cc/6pmmVxRy/d0ac6d76cd9b665240cef8aadf978911.jpg"
+},
+{
+  "name": "Alan",
+  "form": "الآس الطائر",
+  "anime": "Plunderer",
+  "power": 6925,
+  "rarity": "SSS",
+  "ability": "إطلاق النار الخاطف",
+  "image": "https://i.postimg.cc/76vtc1mX/c2cb0404a4cd74adf783109c677485eb.jpg"
+},
+  {
+  "name": "Serena",
+  "form": "دوقة الشمال",
+  "anime": "I Will Seduce the Northern Duke",
+  "power": 6908,
+  "rarity": "SSS",
+  "ability": "دهاء النبلاء",
+  "image": "https://i.postimg.cc/Z5Cf5sgt/dd5291a8c86f91000d2d9cbad97eb928.jpg"
+},
+{
+  "name": "Shuri",
+  "form": "سيدة العائلة",
+  "anime": "A Stepmother's Marchen",
+  "power": 6884,
+  "rarity": "SSS",
+  "ability": "حكمة النبلاء",
+  "image": "https://i.postimg.cc/Wp8S6PLQ/4aa88ae9c0a99b2ec034ba09cc7fa34a.jpg"
+},
+{
+  "name": "Amy Karmis",
+  "form": "الساحرة النابغة",
+  "anime": "Infinite Mage",
+  "power": 6962,
+  "rarity": "SSS",
+  "ability": "السحر المتقدم",
+  "image": "https://i.postimg.cc/5Nk3Tqtp/39f81a536f2d645be0a31c0e280a33e2.jpg"
+},
+{
+  "name": "Talia Von Stiliner",
+  "form": "الفارسة السوداء",
+  "anime": "Terminally-Ill Genius Dark Knight",
+  "power": 6979,
+  "rarity": "SSS",
+  "ability": "سيف الظلام",
+  "image": "https://i.postimg.cc/SxBGNSCq/3b6ca6cf469f06e743a1278236609e21-(1).jpg"
+},
+{
+  "name": "Livia Priscilla",
+  "form": "زوجة البطل",
+  "anime": "I Became the Wife of the Male Lead",
+  "power": 6897,
+  "rarity": "SSS",
+  "ability": "بركة النور",
+  "image": "https://i.postimg.cc/gJdq8gMX/f42cb33de6e8a53dc1eab0fee649e287.jpg"
+},
+{
+  "name": "Hailey",
+  "form": "ابنة الماركيز",
+  "anime": "Marquis of Marron",
+  "power": 6843,
+  "rarity": "SSS",
+  "ability": "رقي النبلاء",
+  "image": "https://i.postimg.cc/MH37kqz7/IMG-20260727-WA0093.jpg"
+},
+{
+  "name": "Cayena Hill",
+  "form": "الأميرة الإمبراطورية",
+  "anime": "The Villainess Is a Marionette",
+  "power": 6991,
+  "rarity": "SSS",
+  "ability": "التلاعب السياسي",
+  "image": "https://i.postimg.cc/gkryVXKK/IMG-20260721-WA0181.jpg"
+},
+{
+  "name": "Mun Ran Yeong",
+  "form": "سيدة طائفة الشياطين",
+  "anime": "Nano Machine",
+  "power": 6916,
+  "rarity": "SSS",
+  "ability": "فنون الشياطين",
+  "image": "https://i.postimg.cc/2SZ4tsMr/IMG-20260727-WA0069.jpg"
+},
+{
+  "name": "Marei Rose",
+  "form": "الأميرة الملكية",
+  "anime": "The Third Prince of the Fallen Kingdom Has Regressed",
+  "power": 6928,
+  "rarity": "SSS",
+  "ability": "السحر الملكي",
+  "image": "https://i.postimg.cc/9fHGHxHx/0eb9226ef54c77fd1124abdd79b67ce4.jpg"
+},
+{
+  "name": "Carynne",
+  "form": "السيدة القرمزية",
+  "anime": "The Crimson Lady",
+  "power": 6984,
+  "rarity": "SSS",
+  "ability": "العودة بالزمن",
+  "image": "https://i.postimg.cc/XJVdppJ4/5b3455a091ba9c05b958960a3c158d02.jpg"
+},
+{
+  "name": "Selena",
+  "form": "المقاتلة الرمادية",
+  "anime": "Punishing: Gray Raven",
+  "power": 6968,
+  "rarity": "SSS",
+  "ability": "شفرة البرق",
+  "image": "https://i.postimg.cc/PJJDQ9Y3/9cd6c638d3402d70bf63b28144d5520f.jpg"
+},
+{
+  "name": "Valeta Delight",
+  "form": "الساحرة النبيلة",
+  "anime": "I Failed to Abandon the Villain",
+  "power": 6955,
+  "rarity": "SSS",
+  "ability": "السحر الأسود",
+  "image": "https://i.postimg.cc/D0NXj6c2/34dd77e4cba75233552ed2e29a3af156-(1).jpg"
+},
+{
+  "name": "Angelica",
+  "form": "وريثة السحر",
+  "anime": "The Revenge of the Abandoned Daughter of a Prestigious Magic Family",
+  "power": 6942,
+  "rarity": "SSS",
+  "ability": "السحر العريق",
+  "image": "https://i.postimg.cc/RCpKZCzq/IMG-20260727-WA0095.jpg"
+},
+{
+  "name": "Shu Keigetsu",
+  "form": "الأميرة المنفية",
+  "anime": "Though I Am an Inept Villainess",
+  "power": 6879,
+  "rarity": "SSS",
+  "ability": "فن المروحة",
+  "image": "https://i.postimg.cc/rFv45hm3/IMG-20260727-WA0070.jpg"
+},
+{
+  "name": "Elysia",
+  "form": "وصية الإمبراطور",
+  "anime": "Honkai Impact",
+  "power": 6937,
+  "rarity": "SSS",
+  "ability": "الهيبة الإمبراطورية",
+  "image": "https://i.postimg.cc/R0mnDNwJ/52506b53bd3dec099f1a9062c18d6e91.jpg"
+},
+{
+  "name": "Rozentine Arzen",
+  "form": "السيدة السرية",
+  "anime": "Secret Lady",
+  "power": 6973,
+  "rarity": "SSS",
+  "ability": "رؤية الأرواح",
+  "image": "https://i.postimg.cc/26cbyGgf/e6944512e6dc10cde1564f9581cb8170.jpg"
+},
+  {
+  "name": "Kanna Adele",
+  "form": "وريثة عائلة أديل",
+  "anime": "Post-Possession Damage Control",
+  "power": 6958,
+  "rarity": "SSS",
+  "ability": "السحر الإمبراطوري",
+  "image": "https://i.postimg.cc/7Zkgpskf/IMG-20260727-WA0099.jpg"
+},
+  {
+  "name": "Friacis",
+  "form": "فارسة النخبة",
+  "anime": "Pick Me Up",
+  "power": 6931,
+  "rarity": "SSS",
+  "ability": "شفرة البرق",
+  "image": "https://i.postimg.cc/6Q6CQ8TQ/IMG-20260727-WA0102.jpg"
+},
+  {
+  "name": "Sylvester",
+  "form": "سيد الليل",
+  "anime": "Chronicles of the Moonlit Night",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "سحر القمر",
+  "image": "https://i.postimg.cc/mDtMQKQ8/IMG-20260722-WA0144.jpg"
+},
+  {
+  "name": "Ichika Nakano",
+  "form": "الأخت الكبرى",
+  "anime": "The Quintessential Quintuplets",
+  "power": 6812,
+  "rarity": "SSS",
+  "ability": "موهبة التمثيل",
+  "image": "https://i.postimg.cc/QC7Tz5YP/d84b54cd640b6810ea537c7c8f316b20.jpg"
+},
+{
+  "name": "Nino Nakano",
+  "form": "الطاهية الماهرة",
+  "anime": "The Quintessential Quintuplets",
+  "power": 6845,
+  "rarity": "SSS",
+  "ability": "مهارة الطهي",
+  "image": "https://i.postimg.cc/wTKJmf35/ff0b320ba4b054ef43f4e5fd8bee42ca.jpg"
+},
+{
+  "name": "Miku Nakano",
+  "form": "عاشقة التاريخ",
+  "anime": "The Quintessential Quintuplets",
+  "power": 6888,
+  "rarity": "SSS",
+  "ability": "معرفة قادة الحرب",
+  "image": "https://i.postimg.cc/02pSdYw9/40411028b0804ee3c72161001ec6e2e6.jpg"
+},
+{
+  "name": "Yotsuba Nakano",
+  "form": "الرياضية النشيطة",
+  "anime": "The Quintessential Quintuplets",
+  "power": 6824,
+  "rarity": "SSS",
+  "ability": "اللياقة البدنية",
+  "image": "https://i.postimg.cc/SxdzHmdB/f1d0daa1f1fc15bdf9cb12fa5bafeb43.jpg"
+},
+{
+  "name": "Itsuki Nakano",
+  "form": "الطالبة المجتهدة",
+  "anime": "The Quintessential Quintuplets",
+  "power": 6807,
+  "rarity": "SSS",
+  "ability": "المثابرة",
+  "image": "https://i.postimg.cc/8CnfPwqX/2b7e1a9f8f431fdfbe8e622124571f92.jpg"
+},
+  {
+  "name": "Shirayuki",
+  "form": "العشابة الملكية",
+  "anime": "Snow White with the Red Hair",
+  "power": 6872,
+  "rarity": "SSS",
+  "ability": "معرفة الأعشاب",
+  "image": "https://i.postimg.cc/59zQbBp8/df843f1dbacaa32bfe0394a316abee50.jpg"
+},
+  {
+  "name": "Tsunayoshi Sawada",
+  "form": "الزعيم العاشر",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "لهب الإرادة",
+  "image": "https://i.postimg.cc/HsCcxrPS/1ed4ea10c7f113d40a7cfdfaa55fa389.jpg"
+},
+{
+  "name": "Reborn",
+  "form": "أفضل قاتل مأجور",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6988,
+  "rarity": "SSS",
+  "ability": "رصاصة الموت",
+  "image": "https://i.postimg.cc/9Ft4qc6W/20f1e011468a2353a5c6d0f286b4c7fc.jpg"
+},
+{
+  "name": "Hayato Gokudera",
+  "form": "ذراع الزعيم الأيمن",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6945,
+  "rarity": "SSS",
+  "ability": "ديناميت العاصفة",
+  "image": "https://i.postimg.cc/FHrYy2vy/18f1d1499ea147fc1da325c02fe38677.jpg"
+},
+{
+  "name": "Takeshi Yamamoto",
+  "form": "سيد السيف",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6938,
+  "rarity": "SSS",
+  "ability": "أسلوب شينكي",
+  "image": "https://i.postimg.cc/wjw700xG/dc774454dc93e09a7e89f58985d1a883.jpg"
+},
+{
+  "name": "Kyoya Hibari",
+  "form": "حارس السحاب",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6994,
+  "rarity": "SSS",
+  "ability": "تونفا السحاب",
+  "image": "https://i.postimg.cc/8Css3Mj7/549c1543329326f28e9353ba07170327.jpg"
+},
+{
+  "name": "Mukuro Rokudo",
+  "form": "حارس الضباب",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6986,
+  "rarity": "SSS",
+  "ability": "أوهام الضباب",
+  "image": "https://i.postimg.cc/Ls7hM5PS/8599626e7d133a556062dc3b40a061da.jpg"
+},
+{
+  "name": "Xanxus",
+  "form": "زعيم فاريا",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "لهب الغضب",
+  "image": "https://i.postimg.cc/fyQLJP5F/6c575431e5badf79856e1726e9d65a36.jpg"
+},
+{
+  "name": "Superbi Squalo",
+  "form": "إمبراطور السيف",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6962,
+  "rarity": "SSS",
+  "ability": "أسلوب الإمبراطور",
+  "image": "https://i.postimg.cc/RCwhjMVs/147606d4a7d0122debf977ad1332e01d.jpg"
+},
+{
+  "name": "Byakuran",
+  "form": "زعيم ميليفيوري",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "لهب السماء",
+  "image": "https://i.postimg.cc/dtB1V4Ck/64ad35fe500adbdeab242c999d7a953a.jpg"
+},
+{
+  "name": "Belphegor",
+  "form": "الأمير القاتل",
+  "anime": "Katekyo Hitman Reborn!",
+  "power": 6924,
+  "rarity": "SSS",
+  "ability": "خناجر الأمير",
+  "image": "https://i.postimg.cc/T33PLgq3/0a18d160dccba2c9a3c137e0929c9ec3.jpg"
 }
 ]
