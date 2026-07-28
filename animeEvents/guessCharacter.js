@@ -89,18 +89,26 @@ async function answer(sock, msg, player, text) {
     if (!text.startsWith(".جواب "))
         return false
 
-    const answer =
-        text
-            .slice(6)
-            .trim()
-            .toLowerCase()
+    const normalize = str =>
 
-    if (
-        answer !==
-        currentQuestion.name
-            .trim()
-            .toLowerCase()
-    ) return true
+    str
+        .toLowerCase()
+        .replace(/[._-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
+const answer = normalize(
+    text.slice(6)
+)
+
+const correct = normalize(
+    currentQuestion.name
+)
+
+if (
+    answer !== correct
+)
+    return true
 
     answered = true
 
