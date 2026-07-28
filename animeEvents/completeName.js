@@ -28,11 +28,24 @@ async function start(sock, jid) {
 
     if (parts.length < 2) return start(sock, jid)
 
-    const hidden =
-        parts[parts.length - 1]
+    const hideCount =
+    Math.min(
+        Math.floor(Math.random() * 3) + 1,
+        parts.length
+    )
 
-    parts[parts.length - 1] =
-        "_____"
+const hidden =
+    parts
+        .slice(parts.length - hideCount)
+        .join(" ")
+
+for (let i = 0; i < hideCount; i++) {
+
+    parts[
+        parts.length - 1 - i
+    ] = "_____"
+
+}
 
     currentQuestion = {
         answer: hidden,
@@ -84,18 +97,25 @@ async function answer(sock, msg, player, text) {
     if (!text.startsWith(".جواب "))
         return false
 
-    const answer =
-        text
-        .slice(6)
-        .trim()
-        .toLowerCase()
+    const normalize = str =>
 
-    if (
-        answer !==
-        currentQuestion.answer
-        .trim()
+    str
         .toLowerCase()
-    ) return true
+        .replace(/[._-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
+const answer = normalize(
+    text.slice(6)
+)
+
+const correct = normalize(
+    currentQuestion.answer
+)
+
+if (
+    answer !== correct
+) return true
 
     answered = true
 
