@@ -6,12 +6,12 @@ function getTotalStats(player) {
     let crit = player.crit || 0
     let dodge = player.dodge || 0
 
-    let defense = 0
-    let accuracy = 0
-    let critRate = 0
-    let critDamage = 0
-    let shield = 0
-    let lifesteal = 0
+    let defense = player.defense || 0
+let accuracy = player.accuracy || 100
+let critRate = player.critRate || 5
+let critDamage = player.critDamage || 50
+let shield = player.shield || 0
+let lifesteal = player.lifesteal || 0
 
     const eq = player.equipment || {}
 
