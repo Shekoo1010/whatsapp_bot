@@ -209,10 +209,32 @@ lastPvP: {
 ultimateCooldown: { type: Number, default: 0 },
 
     // =========================
-    // DAILY SYSTEM
-    // =========================
-    fights: { type: Number, default: 5 },
-    lastFightReset: { type: Number, default: Date.now },
+// DAILY SYSTEM
+// =========================
+
+fights: {
+    type: Number,
+    default: 5
+},
+
+lastFightReset: {
+    type: Number,
+    default: Date.now
+},
+
+// =========================
+// NORMAL FIGHT SYSTEM
+// =========================
+
+normalFights: {
+    type: Number,
+    default: 5
+},
+
+lastNormalFightReset: {
+    type: Number,
+    default: Date.now
+},
 
 // =========================
 // BOSS SYSTEM
