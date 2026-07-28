@@ -186,82 +186,17 @@ ${currentBattle.correct === 1
         )
 
 }
+
 async function answer(sock, msg, player, text) {
 
     if (!currentBattle)
-        return false
+    return { handled: false }
 
-    if (answered)
-        return true
+if (answered)
+    return { handled: true }
 
-    if (!text.startsWith(".جواب "))
-        return false
-
-    const choice =
-        parseInt(
-            text
-            .slice(6)
-            .trim()
-        )
-
-    if (
-        choice !== 1 &&
-        choice !== 2
-    ) return true
-
-    if (
-        choice !==
-        currentBattle.correct
-    ) return true
-
-    answered = true
-
-    clearTimeout(timeout)
-
-    const reward =
-        await giveAnimeReward(player)
-
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-
-            text:
-`🏆 ═════〔 إجابة صحيحة 〕═════
-
-🎉 لقد اخترت الفريق الصحيح
-
-🏆 الفريق الفائز:
-
-${
-currentBattle.correct === 1
-?
-`🟥 ${currentBattle.anime1}`
-:
-`🟦 ${currentBattle.anime2}`
-}
-
-━━━━━━━━━━━━━━
-
-${reward.text}`
-
-        }
-    )
-
-    currentBattle = null
-
-    return true
-
-}
-async function answer(sock, msg, player, text) {
-
-    if (!currentBattle)
-        return false
-
-    if (answered)
-        return true
-
-    if (!text.startsWith(".جواب "))
-        return false
+if (!text.startsWith(".جواب "))
+    return { handled: false }
 
     const choice =
         parseInt(
@@ -271,10 +206,10 @@ async function answer(sock, msg, player, text) {
         )
 
     if (
-        choice !== 1 &&
-        choice !== 2
-    )
-        return true
+    choice !== 1 &&
+    choice !== 2
+)
+    return { handled: true }
 
     if (
         choice !==
@@ -289,7 +224,7 @@ async function answer(sock, msg, player, text) {
             }
         )
 
-        return true
+        return { handled: true }
 
     }
 
@@ -300,29 +235,26 @@ async function answer(sock, msg, player, text) {
     const reward =
         await giveAnimeReward(player)
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
+    const battle = currentBattle
 
-            text:
-`🏆 إجابة صحيحة!
+currentBattle = null
 
-⚔️ الفريق الفائز:
+return {
 
-${currentBattle.correct === 1
-? `🟥 ${currentBattle.anime1}`
-: `🟦 ${currentBattle.anime2}`}
+    handled: true,
 
-━━━━━━━━━━━━━━
+    winner: player.userId,
 
-${reward.text}`
+    reward,
 
-        }
-    )
+    extraText:
+`⚔️ الفريق الفائز:
 
-    currentBattle = null
+${battle.correct === 1
+? `🟥 ${battle.anime1}`
+: `🟦 ${battle.anime2}`}`
 
-    return true
+}
 
 }
 module.exports = {
