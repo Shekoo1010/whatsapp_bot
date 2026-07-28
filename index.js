@@ -22142,15 +22142,15 @@ await PvP.create({
 
 اكتب:
 
-.قبول
+.قبول_تحدي
 
 أو
 
-.رفض`,
+.رفض_تحدي`,
         mentions: [target]
     })
     }
-    if (text === '.رفض') {
+    if (text === '.رفض_تحدي') {
 
     const fight = await PvP.findOne({
         player2: userId,
@@ -22200,7 +22200,7 @@ ${result.deletedCount}`
 }
     
 
-    if (text === '.قبول') {
+    if (text === '.قبول_تحدي') {
 
     const fight = await PvP.findOne({
         player2: userId,
