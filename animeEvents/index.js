@@ -132,9 +132,11 @@ async function handleAnswer(sock, msg, text, player, userId) {
 
     if (result.handled && result.winner) {
 
-        await sock.sendMessage(jid, {
+    activeEvents.delete(jid)
 
-            text:
+    await sock.sendMessage(jid, {
+
+        text:
 `🏆 إجابة صحيحة!
 
 🎉 الفائز:
@@ -142,15 +144,13 @@ async function handleAnswer(sock, msg, text, player, userId) {
 
 ━━━━━━━━━━━━━━
 
-${result.reward.text}`,
+${result.extraText ? result.extraText + "\n\n" : ""}${result.reward.text}`,
 
-            mentions: [result.winner]
+        mentions: [result.winner]
 
-        })
+    })
 
-        activeEvents.delete(jid)
-
-    }
+}
 
     return result.handled
 
