@@ -71,18 +71,29 @@ async function answer(sock, msg, player, text) {
 
     if (!text.startsWith(".جواب ")) return false
 
-    const answer =
-        text
-        .slice(6)
-        .trim()
-        .toLowerCase()
+    const answer = text
+    .slice(6)
+    .trim()
+    .toLowerCase()
 
-    if (
-        answer !==
-        currentQuestion.anime
-        .trim()
+const normalize = str =>
+    str
         .toLowerCase()
-    ) return true
+        .replace(/\(.*?\)/g, "")
+        .replace(/[^a-z0-9\u0600-\u06FF ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+
+const userAnswer = normalize(answer)
+const correctAnswer = normalize(currentQuestion.anime)
+
+if (
+    userAnswer !== correctAnswer &&
+    !correctAnswer.includes(userAnswer) &&
+    !userAnswer.includes(correctAnswer)
+) {
+    return true
+}
 
     answered = true
 
