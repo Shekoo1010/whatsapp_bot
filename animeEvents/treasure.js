@@ -1,22 +1,26 @@
 const { giveAnimeReward } = require("./AnimeRewards")
 
-let active = false
-let timeout = null
-
-const chosenPlayers = new Set()
-const boxes = new Map()
+const states = new Map()
 
 async function start(sock, jid) {
 
-    active = true
+    const state = {
 
-    chosenPlayers.clear()
+        active: true,
 
-    boxes.clear()
+        chosenPlayers: new Set(),
 
-    boxes.set(1, [])
-    boxes.set(2, [])
-    boxes.set(3, [])
+        boxes: new Map(),
+
+        timeout: null
+
+    }
+
+    state.boxes.set(1, [])
+    state.boxes.set(2, [])
+    state.boxes.set(3, [])
+
+    states.set(jid, state)
 
     await sock.sendMessage(jid, {
 
@@ -48,9 +52,11 @@ async function start(sock, jid) {
 
     })
 
-    timeout = setTimeout(async () => {
+    state.timeout = setTimeout(async () => {
 
-        active = false
+        state.active = false
+
+        states.delete(jid)
 
         await sock.sendMessage(jid, {
 
@@ -65,16 +71,20 @@ async function start(sock, jid) {
 
 async function answer(sock, msg, player, text, userId) {
 
-    if (!active)
+    const jid = msg.key.remoteJid
+
+    const state = states.get(jid)
+
+    if (!state || !state.active)
         return { handled: false }
 
     if (!text.startsWith(".اختيار "))
         return { handled: false }
 
-    if (chosenPlayers.has(userId)) {
+    if (state.chosenPlayers.has(userId)) {
 
         await sock.sendMessage(
-            msg.key.remoteJid,
+            jid,
             {
                 text:
 `❌ لقد اخترت صندوقًا بالفعل.`
@@ -98,7 +108,7 @@ async function answer(sock, msg, player, text, userId) {
     ) {
 
         await sock.sendMessage(
-            msg.key.remoteJid,
+            jid,
             {
                 text:
 `❌ اختر:
@@ -113,9 +123,9 @@ async function answer(sock, msg, player, text, userId) {
 
     }
 
-    chosenPlayers.add(userId)
+    state.chosenPlayers.add(userId)
 
-    boxes.get(choice).push(userId)
+    state.boxes.get(choice).push(userId)
 
     const reward =
         await giveAnimeReward(player)
