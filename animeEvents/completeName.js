@@ -9,51 +9,64 @@ function randomCharacter() {
 
     const list = characters.filter(c =>
         c.name &&
-        c.name.includes(" ")
+        c.name.trim()
     )
 
-    return list[Math.floor(Math.random() * list.length)]
+    return list[
+        Math.floor(
+            Math.random() * list.length
+        )
+    ]
 
 }
 
 async function start(sock, jid) {
 
-    if (timeout) clearTimeout(timeout)
+    if (timeout)
+        clearTimeout(timeout)
 
     answered = false
 
-    const char = randomCharacter()
+    const char =
+        randomCharacter()
 
-    const parts = char.name.split(" ")
+    const parts =
+        char.name.trim().split(/\s+/)
 
-    if (parts.length < 2) return start(sock, jid)
+    if (parts.length < 2)
+        return start(sock, jid)
 
     const hideCount =
-    Math.min(
-        Math.floor(Math.random() * 3) + 1,
-        parts.length
-    )
+        Math.min(
+            Math.floor(Math.random() * 3) + 1,
+            parts.length
+        )
 
-const hidden =
-    parts
-        .slice(parts.length - hideCount)
-        .join(" ")
+    const hidden =
+        parts
+            .slice(parts.length - hideCount)
+            .join(" ")
 
-for (let i = 0; i < hideCount; i++) {
+    for (let i = 0; i < hideCount; i++) {
 
-    parts[
-        parts.length - 1 - i
-    ] = "_____"
+        parts[
+            parts.length - 1 - i
+        ] = "_____"
 
-}
+    }
 
     currentQuestion = {
+
         answer: hidden,
+
         fullName: char.name,
+
         question: parts.join(" ")
+
     }
 
     await sock.sendMessage(jid, {
+
         text:
 `📝 ═════〔 أكمل الاسم 〕═════
 
@@ -63,23 +76,27 @@ ${currentQuestion.question}
 
 ✍️ للإجابة:
 
-.جواب ${hidden}
+.جواب الاسم_الكامل
 
 ⏳ الوقت:
 5 دقائق`
+
     })
 
     timeout = setTimeout(async () => {
 
-        if (answered) return
+        if (answered)
+            return
 
         await sock.sendMessage(jid, {
+
             text:
 `⌛ انتهى الوقت
 
 ✅ الإجابة الصحيحة:
 
 ${currentQuestion.fullName}`
+
         })
 
         currentQuestion = null
@@ -90,32 +107,42 @@ ${currentQuestion.fullName}`
 
 async function answer(sock, msg, player, text) {
 
-    if (!currentQuestion) return false
+    if (!currentQuestion)
+        return { handled: false }
 
-    if (answered) return true
+    if (answered)
+        return { handled: true }
 
     if (!text.startsWith(".جواب "))
-        return false
+        return { handled: false }
 
     const normalize = str =>
 
-    str
-        .toLowerCase()
-        .replace(/[._-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
+        str
+            .toLowerCase()
+            .replace(/[._-]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
 
-const answer = normalize(
-    text.slice(6)
-)
+    const answer =
+        normalize(
+            text.slice(6)
+        )
 
-const correct = normalize(
-    currentQuestion.answer
-)
+    const correct =
+        normalize(
+            currentQuestion.fullName
+        )
 
-if (
-    answer !== correct
-) return true
+    if (
+        answer !== correct &&
+        !correct.includes(answer) &&
+        !answer.includes(correct)
+    ) {
+
+        return { handled: true }
+
+    }
 
     answered = true
 
@@ -124,23 +151,17 @@ if (
     const reward =
         await giveAnimeReward(player)
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`🏆 إجابة صحيحة
-
-👤 ${currentQuestion.fullName}
-
-━━━━━━━━━━━━━━
-
-${reward.text}`
-        }
-    )
-
     currentQuestion = null
 
-    return true
+    return {
+
+        handled: true,
+
+        winner: player.userId,
+
+        reward
+
+    }
 
 }
 
