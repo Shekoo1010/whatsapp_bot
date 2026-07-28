@@ -20338,7 +20338,7 @@ ${msg.key.remoteJid}`
     )
 }
     
-if (text === '.بدا_مسابقة') {
+if (text.startsWith('.بدا_مسابقة')) {
 
     const room = quizData.getQuizRoom(msg.key.remoteJid)
 
@@ -20348,11 +20348,17 @@ if (text === '.بدا_مسابقة') {
         })
     }
 
+    const parts = text.trim().split(/\s+/)
+    const rounds = Math.max(1, parseInt(parts[1]) || 50)
+
     room.quizActive = true
+    room.quizMode = "mixed"
+    room.targetScore = null
+    room.maxRounds = rounds
+
     room.roundsCount = 0
     room.currentQuestion = null
 
-    // إعادة تعيين البيانات
     for (const key in room.scoreboard) {
         delete room.scoreboard[key]
     }
@@ -20369,14 +20375,13 @@ if (text === '.بدا_مسابقة') {
     room.lastMode = -1
 
     await sock.sendMessage(msg.key.remoteJid, {
-        text: '🎮 تم بدء المسابقة'
+        text: `🎮 تم بدء المسابقة
+
+📊 عدد الجولات:
+${rounds}`
     })
 
-    if (room.quizMode === "mixed") {
     await startQuestion(sock, msg.key.remoteJid)
-} else {
-    await startCustomQuestion(sock, msg.key.remoteJid)
-}
 }
 
     if (text === '.انهاء_مسابقة') {
