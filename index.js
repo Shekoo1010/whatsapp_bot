@@ -1083,9 +1083,11 @@ if (oldShop) {
             Math.floor(Math.random() * 1000)
 
         shopItems.push({
-            character,
-            price
-        })
+    character: {
+        name: character.name
+    },
+    price
+})
     }
 
     await Shop.deleteMany({})
@@ -28528,13 +28530,21 @@ if (text === '.متجر') {
 
         shop.forEach((item, i) => {
 
+            const original = characters.find(
+                c =>
+                    c.name.trim().toLowerCase() ===
+                    item.character.name.trim().toLowerCase()
+            )
+
+            if (!original) return
+
             txt +=
 `╭────〔 ${i + 1} 〕────╮
-🧿 الاسم : ${item.character.name}
-🌟 الندرة : ${item.character.rarity}
-⚔️ القوة : ${item.character.power}
-🎭 الشكل : ${item.character.form || 'عادي'}
-✨ القدرة : ${item.character.ability || 'لا يوجد'}
+🧿 الاسم : ${original.name}
+🌟 الندرة : ${original.rarity}
+⚔️ القوة : ${original.power}
+🎭 الشكل : ${original.form || 'عادي'}
+✨ القدرة : ${original.ability || 'لا يوجد'}
 💰 السعر : ${item.price}
 ╰────────────────╯
 
@@ -28551,7 +28561,9 @@ if (text === '.متجر') {
 مثال:
 .شراءمتجر 1`
 
-        return safeSend(msg.key.remoteJid, { text: txt })
+        return safeSend(msg.key.remoteJid, {
+            text: txt
+        })
 
     } catch (err) {
 
@@ -28560,7 +28572,9 @@ if (text === '.متجر') {
         return safeSend(msg.key.remoteJid, {
             text: '❌ حدث خطأ أثناء فتح المتجر'
         })
+
     }
+
 }
         
 // =========================
@@ -29171,15 +29185,18 @@ if (text.startsWith('.قتال')) {
         const now = Date.now()
         const cooldown = 30 * 60 * 1000
 
-        if (me.fights == null) me.fights = 5
-        if (!me.lastFightReset) me.lastFightReset = now
+        if (me.normalFights == null) me.normalFights = 5
+        if (!me.lastNormalFightReset)
+    me.lastNormalFightReset = now
 
-        if (now - me.lastFightReset >= cooldown) {
-            me.fights = 5
-            me.lastFightReset = now
+        if (
+    now - me.lastNormalFightReset >= cooldown
+) {
+            me.normalFights = 5
+            me.lastNormalFightReset = now
         }
 
-        if (me.fights <= 0) {
+        if (me.normalFights <= 0) {
             return safeSend(msg.key.remoteJid, {
                 text: '⏳ انتهت القتالات اليومية (5/5)'
             })
@@ -29339,7 +29356,10 @@ if (text.startsWith('.قتال')) {
             me.money = (me.money || 0) + 500
         }
 
-        me.fights = Math.max(0, (me.fights || 0) - 1)
+        me.normalFights = Math.max(
+    0,
+    (me.normalFights || 0) - 1
+)
 
         // =====================
         // حفظ البيانات
