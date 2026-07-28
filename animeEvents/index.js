@@ -18,8 +18,9 @@ const GROUPS = [
     '120363116482407260@g.us'
 ]
 
+const activeEvents = new Map()
+
 let currentEventIndex = 0
-let currentEvent = null
 
 const EVENT_INTERVAL = 17 * 60 * 1000
 const EVENT_DURATION = 5 * 60 * 1000
@@ -27,13 +28,9 @@ const EVENT_DURATION = 5 * 60 * 1000
 let scheduler = null
 let running = false
 
-function getCurrentEvent() {
-    return currentEvent
-}
-
 function nextEvent() {
 
-    currentEvent = events[currentEventIndex]
+    const event = events[currentEventIndex]
 
     currentEventIndex++
 
@@ -41,7 +38,8 @@ function nextEvent() {
         currentEventIndex = 0
     }
 
-    return currentEvent
+    return event
+
 }
 
 async function startNextEvent(sock) {
@@ -51,16 +49,30 @@ async function startNextEvent(sock) {
     if (!event) return
 
     for (const jid of GROUPS) {
-        try {
-            await event.start(sock, jid)
-        } catch (e) {
-            console.log(`Anime Event Error (${jid})`, e)
-        }
-    }
 
-    setTimeout(() => {
-        currentEvent = null
-    }, EVENT_DURATION)
+        try {
+
+            activeEvents.set(jid, event)
+
+            await event.start(sock, jid)
+
+            setTimeout(() => {
+
+                if (activeEvents.get(jid) === event) {
+
+                    activeEvents.delete(jid)
+
+                }
+
+            }, EVENT_DURATION)
+
+        } catch (e) {
+
+            console.log(`Anime Event Error (${jid})`, e)
+
+        }
+
+    }
 
 }
 
@@ -70,7 +82,6 @@ function startScheduler(sock) {
 
     running = true
 
-    // أول فعالية مباشرة
     startNextEvent(sock)
 
     scheduler = setInterval(async () => {
@@ -91,24 +102,57 @@ function stopScheduler() {
 
     }
 
+    activeEvents.clear()
+
     running = false
 
 }
 
 async function handleAnswer(sock, msg, text, player, userId) {
 
-    if (!currentEvent) return false
+    const jid = msg.key.remoteJid
 
-    if (typeof currentEvent.answer !== "function")
+    const event = activeEvents.get(jid)
+
+    if (!event) return false
+
+    if (typeof event.answer !== "function")
         return false
 
-    return await currentEvent.answer(
+    const result = await event.answer(
         sock,
         msg,
         player,
         text,
         userId
     )
+
+    if (!result)
+        return false
+
+    if (result.handled && result.winner) {
+
+        await sock.sendMessage(jid, {
+
+            text:
+`🏆 إجابة صحيحة!
+
+🎉 الفائز:
+@${result.winner.split("@")[0]}
+
+━━━━━━━━━━━━━━
+
+${result.reward.text}`,
+
+            mentions: [result.winner]
+
+        })
+
+        activeEvents.delete(jid)
+
+    }
+
+    return result.handled
 
 }
 
@@ -122,6 +166,10 @@ module.exports = {
 
     handleAnswer,
 
-    getCurrentEvent
+    getCurrentEvent(jid) {
+
+        return activeEvents.get(jid)
+
+    }
 
 }
