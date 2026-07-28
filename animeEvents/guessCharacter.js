@@ -81,13 +81,13 @@ ${currentQuestion.name}`
 async function answer(sock, msg, player, text) {
 
     if (!currentQuestion)
-        return false
+    return { handled: false }
 
-    if (answered)
-        return true
+if (answered)
+    return { handled: true }
 
-    if (!text.startsWith(".جواب "))
-        return false
+if (!text.startsWith(".جواب "))
+    return { handled: false }
 
     const normalize = str =>
 
@@ -105,10 +105,8 @@ const correct = normalize(
     currentQuestion.name
 )
 
-if (
-    answer !== correct
-)
-    return true
+if (answer !== correct)
+    return { handled: true }
 
     answered = true
 
@@ -117,23 +115,16 @@ if (
     const reward =
         await giveAnimeReward(player)
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`🏆 إجابة صحيحة!
-
-👤 ${currentQuestion.name}
-
-━━━━━━━━━━━━━━
-
-${reward.text}`
-        }
-    )
+    
 
     currentQuestion = null
 
-    return true
+return {
+    handled: true,
+    winner: player.userId,
+    reward,
+    character: currentQuestion.name
+}
 
 }
 
