@@ -4525,39 +4525,52 @@ function findTradeCharacter(player, input) {
 
     if (text === ".البنك") {
 
-    const Bank = require("../models/Bank")
-    const bank = await Bank.findOne()
+    const bank =
+        await bankSystem.bankInfo()
 
     if (!bank) {
 
-        return safeSend(msg.key.remoteJid,{
-            text:"❌ البنك غير متوفر حالياً."
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ البنك غير متوفر حالياً."
         })
 
     }
 
-    const player = await Player.findOne({ userId })
+    const player =
+        await Player.findOne({ userId })
 
     const canBorrow =
         player.bank?.borrowedToday
-        ? "❌ استخدمت قرض اليوم"
-        : "✅ يمكنك الاقتراض"
+            ? "❌ استخدمت قرض اليوم"
+            : "✅ يمكنك الاقتراض"
 
-    return safeSend(msg.key.remoteJid,{
+    const debt =
+        player.bank?.debt || 0
+
+    return safeSend(msg.key.remoteJid, {
 
         text:
-`╔═════ 🏦 بنك الأنمي ═════╗
+`╔══════ 🏦 بنك الأنمي ══════╗
 
 💰 رصيد البنك
+
 ${bank.money.toLocaleString()}
 
 ━━━━━━━━━━━━━━━━
 
 💳 الحد الأدنى للقرض
+
 5,000,000
 
 💳 الحد الأعلى للقرض
+
 10,000,000
+
+━━━━━━━━━━━━━━━━
+
+📄 دينك الحالي
+
+${debt.toLocaleString()}
 
 ━━━━━━━━━━━━━━━━
 
@@ -4572,7 +4585,7 @@ ${canBorrow}
 🏦 .قرض 7000000
 📄 .ديني
 
-╚══════════════════════╝`
+╚══════════════════════════╝`
 
     })
 
@@ -4583,88 +4596,180 @@ ${canBorrow}
 
     if (args.length < 2) {
 
-        return safeSend(msg.key.remoteJid,{
+        return safeSend(msg.key.remoteJid, {
             text:
-`🏦 طريقة الاقتراض
+`╔══════ 🏦 نظام القروض ══════╗
 
-اكتب:
+📝 طريقة الاستخدام
 
 .قرض 7000000
 
-━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
 
-📌 الحد الأدنى:
+💳 الحد الأدنى
+
 5,000,000
 
-📌 الحد الأعلى:
-10,000,000`
+💳 الحد الأعلى
+
+10,000,000
+
+━━━━━━━━━━━━━━━━
+
+📌 مثال
+
+.قرض 10000000
+
+╚══════════════════════════╝`
         })
 
     }
 
     const amount = Number(args[1])
 
-    const Bank = require("../models/Bank")
-    const { takeLoan } = require("./bankSystem/loan")
+    if (isNaN(amount)) {
 
-    const bank = await Bank.findOne()
-
-    if (!bank) {
-
-        return safeSend(msg.key.remoteJid,{
-            text:"❌ البنك غير متوفر حالياً."
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ اكتب مبلغاً صحيحاً."
         })
 
     }
 
-    const player = await Player.findOne({ userId })
+    const player =
+        await Player.findOne({ userId })
 
-    const result = await takeLoan(
-        bank,
-        player,
-        amount
-    )
+    const result =
+        await bankSystem.loan(
+            player,
+            amount
+        )
 
     if (!result.ok) {
 
-        return safeSend(msg.key.remoteJid,{
+        return safeSend(msg.key.remoteJid, {
             text: result.message
         })
 
     }
 
-    return safeSend(msg.key.remoteJid,{
+    return safeSend(msg.key.remoteJid, {
 
         text:
-`╔═════ 🏦 تم اعتماد القرض ═════╗
+`╔══════ 🏦 تم اعتماد القرض ══════╗
 
 💰 المبلغ المقترض
+
 ${amount.toLocaleString()}
 
 ━━━━━━━━━━━━━━━━
 
-💳 الدين الحالي
+💳 إجمالي الدين
+
 ${player.bank.debt.toLocaleString()}
 
+━━━━━━━━━━━━━━━━
+
 💵 الرصيد المقترض
+
 ${player.bank.loanMoney.toLocaleString()}
 
 ━━━━━━━━━━━━━━━━
 
-⚠️ ملاحظات
+✅ يمكن استخدام القرض في
 
-✅ يمكن استخدام القرض في:
-• التطوير
-• المتجر
-• السوق
+🛒 المتجر
+📈 التطوير
+🏪 السوق
 
-❌ لا يمكن استخدامه في:
-• التبرع
-• التحويل للاعبين
+━━━━━━━━━━━━━━━━
 
-📌 سيتم سداد الدين تلقائياً من أي أرباح تحصل عليها.
+❌ لا يمكن استخدامه في
 
-╚══════════════════════╝`
+🤝 التبرع
+💸 تحويل المال للاعبين
+
+━━━━━━━━━━━━━━━━
+
+📌 سيتم سداد الدين تلقائياً من أي مكان يمنحك المال.
+
+╚════════════════════════════╝`
+
+    })
+
+}
+    if (text === ".ديني") {
+
+    const player =
+        await Player.findOne({ userId })
+
+    if (!player) {
+
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ لا يوجد حساب."
+        })
+
+    }
+
+    const debt =
+        player.bank?.debt || 0
+
+    const loanMoney =
+        player.bank?.loanMoney || 0
+
+    const spentLoan =
+        player.bank?.spentLoan || 0
+
+    const borrowedToday =
+        player.bank?.borrowedToday
+            ? "✅ نعم"
+            : "❌ لا"
+
+    const status =
+        debt > 0
+            ? "🔴 لديك دين مستحق."
+            : "🟢 لا يوجد عليك أي دين."
+
+    return safeSend(msg.key.remoteJid, {
+
+        text:
+`╔══════ 💳 بيانات القرض ══════╗
+
+${status}
+
+━━━━━━━━━━━━━━━━
+
+💰 إجمالي الدين
+
+${debt.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+🏦 الرصيد المقترض المتبقي
+
+${loanMoney.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+📈 ما تم استخدامه
+
+${spentLoan.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+📅 اقترضت اليوم
+
+${borrowedToday}
+
+━━━━━━━━━━━━━━━━
+
+📌 سيتم سداد الدين تلقائياً عند حصولك على المال من:
+
+👑 المملكة
+⚔️ قتال المجموع
+💀 الزعماء
+🏹 أي نشاط يمنح مالاً
+
+╚════════════════════════════╝`
 
     })
 
