@@ -12495,5 +12495,511 @@
   "rarity": "SSS",
   "ability": "خناجر الأمير",
   "image": "https://i.postimg.cc/T33PLgq3/0a18d160dccba2c9a3c137e0929c9ec3.jpg"
+},
+  {
+  "name": "Aatrox",
+  "form": "السيف القرمزي",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "هيمنة الدم القرمزية",
+  "image": "https://i.postimg.cc/7LDK0ZCW/850a43828d17f0ccb3b8b3bbdc76a35c.jpg"
+},
+
+{
+  "name": "Ahri",
+  "form": "الثعلبة الساحرة",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "سحر الأرواح",
+  "image": "https://i.postimg.cc/QNPSSb99/ddec05db09a40830f9c9a243444e8755-(2).jpg"
+},
+
+{
+  "name": "Akali",
+  "form": "ظل الكوناي",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "اغتيال الظلال",
+  "image": "https://i.postimg.cc/4dybQ7Xw/d20d80680219e20a877b3c43078d5ac9.jpg"
+},
+
+{
+  "name": "Ashe",
+  "form": "ملكة الصقيع",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "سهم الجليد الأبدي",
+  "image": "https://i.postimg.cc/PrYcwc3Y/5d7ab51636f73520c7c04747e658b80c.jpg"
+},
+
+{
+  "name": "Aurora",
+  "form": "رحالة الأرواح",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "عبور العوالم",
+  "image": "https://i.postimg.cc/TPYHBPRN/cda527e39aad7e2aabecf4cb175e8d61.jpg"
+},
+
+{
+  "name": "Caitlyn",
+  "form": "قناصة بيلتوفر",
+  "anime": "League of Legends",
+  "power": 6600,
+  "rarity": "SSS",
+  "ability": "طلقة الحسم",
+  "image": "https://i.postimg.cc/XJtHZc95/3c412ada6097fc4381f2c2a72bfccdf6.jpg"
+},
+
+{
+  "name": "Darius",
+  "form": "سيد الفأس",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "نزيف الهيمنة",
+  "image": "https://i.postimg.cc/WpJYBCPM/35716ad540e51f19c9d19541b27f113e.jpg"
+},
+
+{
+  "name": "Draven",
+  "form": "ملك الساحات",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "فؤوس الشهرة",
+  "image": "https://i.postimg.cc/2SCHB5L0/7052d4277fde0258c59dad495bcebd58.jpg"
+},
+
+{
+  "name": "Evelynn",
+  "form": "سيدة الظلال",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "لعنة الظلام الخفي",
+  "image": "https://i.postimg.cc/R0DG8QpF/c7b7dde5d99f12e1d5f7569ba7e2bdf1.jpg"
+},
+
+{
+  "name": "Elise",
+  "form": "ملكة العناكب",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "تحول العنكبوت القاتل",
+  "image": "https://i.postimg.cc/0NFdZ5rw/532b10146e878471ed679b8561724a62.jpg"
+},
+
+{
+  "name": "Graves",
+  "form": "صائد الخارجين",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "انفجار البارود",
+  "image": "https://i.postimg.cc/rwYSFy1t/a641d6a2c9428dbdcc17207cc3a66287.jpg"
+},
+
+{
+  "name": "Gwen",
+  "form": "خياطة الأرواح",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "مقص القدر",
+  "image": "https://i.postimg.cc/ZnZNDWS1/be4ad0287788f23287bc3f51b2c5c539.jpg"
+},
+
+{
+  "name": "Irelia",
+  "form": "راقصة الشفرات",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "عاصفة الشفرات",
+  "image": "https://i.postimg.cc/MZbVfm0B/6b350e79bfe758dc3bdcd4498a96d11f-(2).jpg"
+},
+
+{
+  "name": "Jhin",
+  "form": "الفنان القاتل",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "الرصاصة الرابعة",
+  "image": "https://i.postimg.cc/fT8dBWgf/b3f7c116b7d2cb30ce637e1bdbb879e9.jpg"
+},
+
+{
+  "name": "Jinx",
+  "form": "ملكة الفوضى",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "انفجار الجنون",
+  "image": "https://i.postimg.cc/T3hDS8zv/85770a9f7aa575ac0dd9ee759256a605.jpg"
+},
+
+{
+  "name": "Kai sa",
+  "form": "ابنة الفراغ",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "درع الفراغ المتطور",
+  "image": "https://i.postimg.cc/htwdRynb/fc1ee36c874e0c6e82e4ebdeaa4ceb68.jpg"
+},
+
+{
+  "name": "Kassadin",
+  "form": "حارس الفراغ",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "قفزة الأبعاد",
+  "image": "https://i.postimg.cc/C1pnzRzk/6df11abbe5052c4c52f70e4dc45dc1f4.jpg"
+},
+
+{
+  "name": "Katarina",
+  "form": "دوامة الخناجر",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "رقصة الموت",
+  "image": "https://i.postimg.cc/FH27BYbZ/b97b916e9819adebd486becb5cbe152e.jpg"
+},
+
+{
+  "name": "Kayn",
+  "form": "حاصد الظلال",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "اندماج الظل",
+  "image": "https://i.postimg.cc/HWBjCZ4x/533099d153b31889586406120310a9cb.jpg"
+},
+
+{
+  "name": "Kindred",
+  "form": "ثنائي المصير",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "ختم النهاية",
+  "image": "https://i.postimg.cc/Bv9nCd4n/8ed4a1ee1e45d65bd18fd831bfa795a4.jpg"
+},
+
+{
+  "name": "Lee Sin",
+  "form": "الراهب الأعمى",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "قبضة التنين",
+  "image": "https://i.postimg.cc/yxbV3GL7/54577d20a7b4485529af8f69d437674e.jpg"
+},
+
+{
+  "name": "Malphite",
+  "form": "عملاق الصخور",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "اندفاع الجبل",
+  "image": "https://i.postimg.cc/VLJsPYN8/26fbd867e25c539767914444828f4685.jpg"
+},
+
+{
+  "name": "Lux",
+  "form": "سيدة النور",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "شعاع الإشراق",
+  "image": "https://i.postimg.cc/mgMbh8MQ/b1f813864e1e66be58a8e892afca46bf.jpg"
+},
+
+{
+  "name": "Master Yi",
+  "form": "سيف الووجو",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "سرعة الووجو المطلقة",
+  "image": "https://i.postimg.cc/rpkq4xC3/e3183f2eb410048e39881d1372b9c925.jpg"
+},
+
+{
+  "name": "Miss Fortune",
+  "form": "قرصانة العواصف",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "وابل الرصاص",
+  "image": "https://i.postimg.cc/Y9X7TVKG/7da5053768905480f35e8c2e1a39da4a.jpg"
+},
+  {
+  "name": "Morgana",
+  "form": "أجنحة الظلام",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "قيود الظل الأبدية",
+  "image": "https://i.postimg.cc/SjFvP7KH/a76992a6cb944ba4fa6735be759b7bb9.jpg"
+},
+
+{
+  "name": "Nidalee",
+  "form": "صيادة الأدغال",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "رمح الفهد المفترس",
+  "image": "https://i.postimg.cc/Vsrs3f6h/7de24b8b1ac778c47d4b15d2694527c7.jpg"
+},
+
+{
+  "name": "Nocturne",
+  "form": "كابوس الليل",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "ظلام الرعب المطلق",
+  "image": "https://i.postimg.cc/Kc6cb634/3464a76c6c37cb87c2cae7feb6397c1f.jpg"
+},
+
+{
+  "name": "Rengar",
+  "form": "ملك الصيد",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "غريزة المفترس الأعظم",
+  "image": "https://i.postimg.cc/MK16p91g/208eea9cf41feddad6232206d3bc1713.jpg"
+},
+
+{
+  "name": "Riven",
+  "form": "النصل المكسور",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "عاصفة الشفرة المحررة",
+  "image": "https://i.postimg.cc/7ZVqgbs6/eeb624b7f3ef747fe18fc1eba9032bb9.jpg"
+},
+
+{
+  "name": "Sett",
+  "form": "زعيم الحلبة",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "قبضة السيد الساحقة",
+  "image": "https://i.postimg.cc/RVxmyw2V/075b317cee36bd8bd945b0dae45e8a9e.jpg"
+},
+
+{
+  "name": "Shaco",
+  "form": "المهرج القاتل",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "خداع المرايا الدامي",
+  "image": "https://i.postimg.cc/Ls5FLDgW/c5e2321dabaaaedf5181d398059e7a19.jpg"
+},
+
+{
+  "name": "Shen",
+  "form": "عين التوازن",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "حكم الظلال المتوازن",
+  "image": "https://i.postimg.cc/qq8P4ZWL/61b02af1041a663093d2c9b2035a2ced.jpg"
+},
+
+{
+  "name": "Syndra",
+  "form": "سيدة الطاقة المظلمة",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "انفجار الكرات السوداء",
+  "image": "https://i.postimg.cc/nhVyf22c/e63bf7bb89660b4b8dbeae945d0daa20.jpg"
+},
+
+{
+  "name": "Talon",
+  "form": "شفرة الظلال",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "اغتيال الريش الفولاذي",
+  "image": "https://i.postimg.cc/6QggRXX4/9f73f32aa89a5365fe30199639a08290.jpg"
+},
+
+{
+  "name": "Teemo",
+  "form": "الكشاف الخفي",
+  "anime": "League of Legends",
+  "power": 6600,
+  "rarity": "SSS",
+  "ability": "حقول الفطر السام",
+  "image": "https://i.postimg.cc/vTLNpx6B/4e7f74d429089a1de9554937e8baadd0.jpg"
+},
+
+{
+  "name": "Thresh",
+  "form": "سجان الأرواح",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "فانوس الأرواح الملعونة",
+  "image": "https://i.postimg.cc/L4zwqw0J/8d19ad95675b7e8413a4953f01cd367b.jpg"
+},
+
+{
+  "name": "Wukong Lol",
+  "form": "ملك العصا",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "إعصار القرد المحارب",
+  "image": "https://i.postimg.cc/yYs50jwM/ec4ddc51ecd540dc22e9e05b2828be6b.jpg"
+},
+
+{
+  "name": "Xayah",
+  "form": "راقصة الريش",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "عاصفة الريش القاطع",
+  "image": "https://i.postimg.cc/QdMyytNm/9cb3a43ed3bdcef35592156075c93e6c.jpg"
+},
+
+{
+  "name": "Yasuo",
+  "form": "سيد الرياح",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "عاصفة الرياح الخالدة",
+  "image": "https://i.postimg.cc/YSGytsW9/3289f913f5bfe7c9362c85ae52f7548a.jpg"
+},
+
+{
+  "name": "Xin Zhao Lol",
+  "form": "رمح المملكة",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "اندفاع الرمح الملكي",
+  "image": "https://i.postimg.cc/g0CtjHVt/8324a6f42cda7f1d5e7c3c1548cdbecf.jpg"
+},
+
+{
+  "name": "Yone",
+  "form": "صياد الأرواح",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "شفرتا العالمين",
+  "image": "https://i.postimg.cc/SscTMYVs/f61f87ab7a662bfa9b1a0f2230eac81f.jpg"
+},
+
+{
+  "name": "Yunara",
+  "form": "راقصة النجوم",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "وهج النجم الساطع",
+  "image": "https://i.postimg.cc/5y3sPcZn/89e770298bb803b74dd5df35b5433dfe.jpg"
+},
+
+{
+  "name": "Zed",
+  "form": "سيد الظلال",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "ختم الظل القاتل",
+  "image": "https://i.postimg.cc/mZNpZMtH/4a55456d8925ac42e50120df35d927d1.jpg"
+},
+
+{
+  "name": "Fiora",
+  "form": "سيدة المبارزة",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "رقصة المبارز المثالية",
+  "image": "https://i.postimg.cc/jdxgD571/4060390c89a3fc3fb6d8969e70653099.jpg"
+},
+  {
+  "name": "Diana",
+  "form": "هلال القمر المكتمل",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "اندفاعات القمر المتتابعة",
+  "image": "https://i.postimg.cc/85d45Qk0/efcdcbeeb5372e1cd10c366486c70cb6.jpg"
+},
+
+{
+  "name": "Zyra",
+  "form": "إمبراطورة الأشواك",
+  "anime": "League of Legends",
+  "power": 6700,
+  "rarity": "SSS",
+  "ability": "حديقة الأشواك القاتلة",
+  "image": "https://i.postimg.cc/VvYR0Gdr/9ead2c48ad28f1c410c93bb5b8da9ffc.jpg"
+},
+  {
+  "name": "Varus",
+  "form": "قوس الفساد",
+  "anime": "League of Legends",
+  "power": 6900,
+  "rarity": "SSS",
+  "ability": "سهام الفساد المتفجرة",
+  "image": "https://i.postimg.cc/8ctbRR6x/bdaf7d9e1d01a2cbbc9154152db142b9.jpg"
+},
+
+{
+  "name": "Pyke",
+  "form": "شبح الأعماق",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "إعدام الغسق البحري",
+  "image": "https://i.postimg.cc/593pWVRs/66fbd786b7c8e88e044eff659ccbc922.jpg"
+},
+
+{
+  "name": "Azir",
+  "form": "إمبراطور الرمال",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "جيش الرمال الخالد",
+  "image": "https://i.postimg.cc/wTj26rK6/e049da60186a13a96054c2faa46c421b.jpg"
+},
+
+{
+  "name": "Tryndamere",
+  "form": "ملك الغضب",
+  "anime": "League of Legends",
+  "power": 6800,
+  "rarity": "SSS",
+  "ability": "غضب المحارب الأبدي",
+  "image": "https://i.postimg.cc/3JfBWZ7Z/bc9e1722a0405b01b667a7c68fa55bfc.jpg"
 }
 ]
