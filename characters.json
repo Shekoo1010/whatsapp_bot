@@ -13001,5 +13001,158 @@
   "rarity": "SSS",
   "ability": "غضب المحارب الأبدي",
   "image": "https://i.postimg.cc/3JfBWZ7Z/bc9e1722a0405b01b667a7c68fa55bfc.jpg"
+},
+  {
+  "name": "Ezreal",
+  "form": "المستكشف الجريء",
+  "anime": "League of Legends",
+  "power": 6952,
+  "rarity": "SSS",
+  "ability": "الطلقة الغامضة",
+  "image": "https://i.postimg.cc/9QFdh8kC/287515588cf307b48f1f0f612e32fa0d.jpg"
+},
+{
+  "name": "Orianna",
+  "form": "سيدة الساعة",
+  "anime": "League of Legends",
+  "power": 6928,
+  "rarity": "SSS",
+  "ability": "أوامر الكرة",
+  "image": "https://i.postimg.cc/jSgzd60V/dd73d346748f4cce39fe48f49ab0f705.jpg"
+},
+{
+  "name": "Ekko",
+  "form": "صبي الزمن",
+  "anime": "League of Legends",
+  "power": 6974,
+  "rarity": "SSS",
+  "ability": "كسر الزمن",
+  "image": "https://i.postimg.cc/g0183Y23/ff2c2447684a3e66647a9c3e3e9051b3.jpg"
+},
+{
+  "name": "Pantheon",
+  "form": "الحرفي الذي لا يلين",
+  "anime": "League of Legends",
+  "power": 6991,
+  "rarity": "SSS",
+  "ability": "سقوط النجوم",
+  "image": "https://i.postimg.cc/gJRRDfwP/7cc4823e5703ca0d877adc1aa1a3b8b8.jpg"
+},
+{
+  "name": "Rakan",
+  "form": "المتمرد الساحر",
+  "anime": "League of Legends",
+  "power": 6896,
+  "rarity": "SSS",
+  "ability": "الرقصة الخاطفة",
+  "image": "https://i.postimg.cc/wjvmPttm/db66b32f8799321de4d3a0fb80682c44.jpg"
+},
+{
+  "name": "Renekton",
+  "form": "جزار الرمال",
+  "anime": "League of Legends",
+  "power": 6988,
+  "rarity": "SSS",
+  "ability": "طغيان الصحراء",
+  "image": "https://i.postimg.cc/7hwCNb8f/f49bb6c1772e9b2f26a4b259b8894f99.jpg"
+},
+{
+  "name": "Samira",
+  "form": "الوردة الصحراوية",
+  "anime": "League of Legends",
+  "power": 6966,
+  "rarity": "SSS",
+  "ability": "الزناد الجهنمي",
+  "image": "https://i.postimg.cc/3rF0xjmy/7216f84f9484e1b31ff812c8b208eee1.jpg"
+},
+{
+  "name": "Sona",
+  "form": "عازفة الأوتار",
+  "anime": "League of Legends",
+  "power": 6874,
+  "rarity": "SSS",
+  "ability": "سمفونية الأوتار",
+  "image": "https://i.postimg.cc/BnkXVmfZ/117938c8c583bf04278a4253124c23fd.jpg"
+},
+{
+  "name": "Seraphine",
+  "form": "نجمة المسرح",
+  "anime": "League of Legends",
+  "power": 6862,
+  "rarity": "SSS",
+  "ability": "الصدى الموسيقي",
+  "image": "https://i.postimg.cc/W36ztjFp/541dfca403bef45f099600e58a7c0202.jpg"
+},
+{
+  "name": "Sivir",
+  "form": "سيدة المعركة",
+  "anime": "League of Legends",
+  "power": 6919,
+  "rarity": "SSS",
+  "ability": "النصل المرتد",
+  "image": "https://i.postimg.cc/Kj0YrN5Z/abd468e5c20909d80b5cc622be8e4f32.jpg"
+},
+{
+  "name": "Garen",
+  "form": "قوة ديماسيا",
+  "anime": "League of Legends",
+  "power": 6980,
+  "rarity": "SSS",
+  "ability": "عدالة ديماسيا",
+  "image": "https://i.postimg.cc/fTbyWGM1/b8ccd620bf773e58c83e736232ed3d9a.jpg"
+},
+{
+  "name": "Vayne",
+  "form": "صائدة الليل",
+  "anime": "League of Legends",
+  "power": 6943,
+  "rarity": "SSS",
+  "ability": "سهام الفضة",
+  "image": "https://i.postimg.cc/13nzwDnb/6ef4023749e056fd1cd76b012f4ac7f5.jpg"
+},
+{
+  "name": "Kayle",
+  "form": "القاضية السماوية",
+  "anime": "League of Legends",
+  "power": 7000,
+  "rarity": "SSS",
+  "ability": "موجة النيران",
+  "image": "https://i.postimg.cc/zB5DsMdP/41fad5b0ab7f39ca41c93454f4a7c73d.jpg"
+}
+{
+  "name": "Leona",
+  "form": "الفجر الساطع",
+  "anime": "League of Legends",
+  "power": 6961,
+  "rarity": "SSS",
+  "ability": "درع الفجر",
+  "image": "https://i.postimg.cc/D0p2bz7M/98e94de9d473fe4002d50f4ab4a96584.jpg"
+},
+{
+  "name": "Nasus",
+  "form": "أمين الرمال",
+  "anime": "League of Legends",
+  "power": 6994,
+  "rarity": "SSS",
+  "ability": "ضربة الهلاك",
+  "image": "https://i.postimg.cc/Wp5py5MT/2c329f4d5c7aab9be28839b4648f384f.jpg"
+},
+{
+  "name": "Warwick",
+  "form": "غضب زاون",
+  "anime": "League of Legends",
+  "power": 6972,
+  "rarity": "SSS",
+  "ability": "عواء الوحش",
+  "image": "https://i.postimg.cc/fTFzzk2c/32c519e0baae0c7d11e086ed4ec49d9d.jpg"
+},
+{
+  "name": "Nilah",
+  "form": "فرحة لا تنتهي",
+  "anime": "League of Legends",
+  "power": 6937,
+  "rarity": "SSS",
+  "ability": "سوط الماء",
+  "image": "https://i.postimg.cc/Bv54BpqH/6b12b426ee55343ce8d4e6c347553eb4.jpg"
 }
 ]
