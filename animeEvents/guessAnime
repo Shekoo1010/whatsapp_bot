@@ -14,19 +14,26 @@ function randomCharacter() {
         c.name.trim()
     )
 
-    return list[Math.floor(Math.random() * list.length)]
+    return list[
+        Math.floor(
+            Math.random() * list.length
+        )
+    ]
 
 }
 
 async function start(sock, jid) {
 
-    if (timeout) clearTimeout(timeout)
+    if (timeout)
+        clearTimeout(timeout)
 
     answered = false
 
-    currentQuestion = randomCharacter()
+    currentQuestion =
+        randomCharacter()
 
     await sock.sendMessage(jid, {
+
         text:
 `🎌 ═════〔 من أي أنمي؟ 〕═════
 
@@ -41,59 +48,71 @@ ${currentQuestion.name}
 .جواب اسم_الأنمي
 
 ⏳ الوقت:
-60 ثانية`
+5 دقائق`
+
     })
 
     timeout = setTimeout(async () => {
 
-        if (answered) return
+        if (answered)
+            return
 
         await sock.sendMessage(jid, {
+
             text:
 `⌛ انتهى الوقت
 
 ✅ الإجابة الصحيحة:
 
 ${currentQuestion.anime}`
+
         })
 
         currentQuestion = null
 
-    }, 300000)
+    }, 5 * 60 * 1000)
 
 }
 
 async function answer(sock, msg, player, text) {
 
-    if (!currentQuestion) return false
+    if (!currentQuestion)
+        return { handled: false }
 
-    if (answered) return true
+    if (answered)
+        return { handled: true }
 
-    if (!text.startsWith(".جواب ")) return false
+    if (!text.startsWith(".جواب "))
+        return { handled: false }
 
-    const answer = text
-    .slice(6)
-    .trim()
-    .toLowerCase()
+    const normalize = str =>
 
-const normalize = str =>
-    str
-        .toLowerCase()
-        .replace(/\(.*?\)/g, "")
-        .replace(/[^a-z0-9\u0600-\u06FF ]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
+        str
+            .toLowerCase()
+            .replace(/\(.*?\)/g, "")
+            .replace(/[^a-z0-9\u0600-\u06FF ]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
 
-const userAnswer = normalize(answer)
-const correctAnswer = normalize(currentQuestion.anime)
+    const userAnswer =
+        normalize(
+            text.slice(6)
+        )
 
-if (
-    userAnswer !== correctAnswer &&
-    !correctAnswer.includes(userAnswer) &&
-    !userAnswer.includes(correctAnswer)
-) {
-    return true
-}
+    const correctAnswer =
+        normalize(
+            currentQuestion.anime
+        )
+
+    if (
+        userAnswer !== correctAnswer &&
+        !correctAnswer.includes(userAnswer) &&
+        !userAnswer.includes(correctAnswer)
+    ) {
+
+        return { handled: true }
+
+    }
 
     answered = true
 
@@ -102,25 +121,17 @@ if (
     const reward =
         await giveAnimeReward(player)
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`🏆 إجابة صحيحة
-
-👤 ${currentQuestion.name}
-
-🎌 ${currentQuestion.anime}
-
-━━━━━━━━━━━━━━
-
-${reward.text}`
-        }
-    )
-
     currentQuestion = null
 
-    return true
+    return {
+
+        handled: true,
+
+        winner: player.userId,
+
+        reward
+
+    }
 
 }
 
