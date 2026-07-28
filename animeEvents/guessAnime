@@ -1,9 +1,7 @@
 const characters = require("../characters.json")
 const { giveAnimeReward } = require("./AnimeRewards")
 
-let currentQuestion = null
-let answered = false
-let timeout = null
+const states = new Map()
 
 function randomCharacter() {
 
@@ -24,13 +22,17 @@ function randomCharacter() {
 
 async function start(sock, jid) {
 
-    if (timeout)
-        clearTimeout(timeout)
+    const state = {
 
-    answered = false
+        currentQuestion: randomCharacter(),
 
-    currentQuestion =
-        randomCharacter()
+        answered: false,
+
+        timeout: null
+
+    }
+
+    states.set(jid, state)
 
     await sock.sendMessage(jid, {
 
@@ -39,7 +41,7 @@ async function start(sock, jid) {
 
 👤 الشخصية:
 
-${currentQuestion.name}
+${state.currentQuestion.name}
 
 ━━━━━━━━━━━━━━
 
@@ -52,9 +54,9 @@ ${currentQuestion.name}
 
     })
 
-    timeout = setTimeout(async () => {
+    state.timeout = setTimeout(async () => {
 
-        if (answered)
+        if (state.answered)
             return
 
         await sock.sendMessage(jid, {
@@ -64,11 +66,11 @@ ${currentQuestion.name}
 
 ✅ الإجابة الصحيحة:
 
-${currentQuestion.anime}`
+${state.currentQuestion.anime}`
 
         })
 
-        currentQuestion = null
+        states.delete(jid)
 
     }, 5 * 60 * 1000)
 
@@ -76,10 +78,14 @@ ${currentQuestion.anime}`
 
 async function answer(sock, msg, player, text) {
 
-    if (!currentQuestion)
+    const jid = msg.key.remoteJid
+
+    const state = states.get(jid)
+
+    if (!state)
         return { handled: false }
 
-    if (answered)
+    if (state.answered)
         return { handled: true }
 
     if (!text.startsWith(".جواب "))
@@ -101,7 +107,7 @@ async function answer(sock, msg, player, text) {
 
     const correctAnswer =
         normalize(
-            currentQuestion.anime
+            state.currentQuestion.anime
         )
 
     if (
@@ -114,14 +120,20 @@ async function answer(sock, msg, player, text) {
 
     }
 
-    answered = true
+    state.answered = true
 
-    clearTimeout(timeout)
+    clearTimeout(state.timeout)
 
     const reward =
         await giveAnimeReward(player)
 
-    currentQuestion = null
+    const animeName =
+        state.currentQuestion.anime
+
+    const characterName =
+        state.currentQuestion.name
+
+    states.delete(jid)
 
     return {
 
@@ -129,7 +141,12 @@ async function answer(sock, msg, player, text) {
 
         winner: player.userId,
 
-        reward
+        reward,
+
+        extraText:
+`👤 ${characterName}
+
+🎌 ${animeName}`
 
     }
 
