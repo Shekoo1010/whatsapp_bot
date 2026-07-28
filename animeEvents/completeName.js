@@ -9,7 +9,7 @@ function randomCharacter() {
 
     const list = characters.filter(c =>
         c.name &&
-        c.name.trim()
+        c.name.trim().split(/\s+/).length >= 2
     )
 
     return list[
@@ -37,10 +37,10 @@ async function start(sock, jid) {
         return start(sock, jid)
 
     const hideCount =
-        Math.min(
-            Math.floor(Math.random() * 3) + 1,
-            parts.length
-        )
+    Math.min(
+        Math.floor(Math.random() * 3) + 1,
+        parts.length - 1
+    )
 
     const hidden =
         parts
