@@ -20349,7 +20349,12 @@ if (text.startsWith('.بدا_مسابقة')) {
     }
 
     const parts = text.trim().split(/\s+/)
-    const rounds = Math.max(1, parseInt(parts[1]) || 50)
+
+    let rounds = parseInt(parts[1])
+
+    if (isNaN(rounds) || rounds <= 0) {
+        rounds = DEFAULT_MAX_ROUNDS
+    }
 
     room.quizActive = true
     room.quizMode = "mixed"
@@ -20359,11 +20364,9 @@ if (text.startsWith('.بدا_مسابقة')) {
     room.roundsCount = 0
     room.currentQuestion = null
 
-    for (const key in room.scoreboard) {
-        delete room.scoreboard[key]
-    }
-
+    room.scoreboard = {}
     room.playerProgress = {}
+
     room.usedQuestions = []
     room.usedImages = []
     room.usedRepeats = []
@@ -20375,13 +20378,16 @@ if (text.startsWith('.بدا_مسابقة')) {
     room.lastMode = -1
 
     await sock.sendMessage(msg.key.remoteJid, {
-        text: `🎮 تم بدء المسابقة
+        text:
+`🎮 تم بدء المسابقة
 
 📊 عدد الجولات:
-${rounds}`
+${room.maxRounds}`
     })
 
     await startQuestion(sock, msg.key.remoteJid)
+
+    return
 }
 
     if (text === '.انهاء_مسابقة') {
