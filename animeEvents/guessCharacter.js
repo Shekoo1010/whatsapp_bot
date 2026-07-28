@@ -1,9 +1,7 @@
 const characters = require("../characters.json")
 const { giveAnimeReward } = require("./AnimeRewards")
 
-let currentQuestion = null
-let answered = false
-let timeout = null
+const states = new Map()
 
 function randomCharacter() {
 
@@ -23,19 +21,22 @@ function randomCharacter() {
 
 async function start(sock, jid) {
 
-    if (timeout)
-        clearTimeout(timeout)
+    const state = {
 
-    answered = false
+        currentQuestion: randomCharacter(),
 
-    currentQuestion =
-        randomCharacter()
+        answered: false,
+
+        timeout: null
+
+    }
+
+    states.set(jid, state)
 
     await sock.sendMessage(jid, {
 
         image: {
-            url:
-            currentQuestion.image
+            url: state.currentQuestion.image
         },
 
         caption:
@@ -50,81 +51,97 @@ async function start(sock, jid) {
 
     })
 
-    timeout =
-        setTimeout(
-            async () => {
+    state.timeout = setTimeout(
+        async () => {
 
-                if (answered)
-                    return
+            if (state.answered)
+                return
 
-                await sock.sendMessage(
-                    jid,
-                    {
-                        text:
+            await sock.sendMessage(
+                jid,
+                {
+                    text:
 `⌛ انتهى الوقت
 
 ✅ الإجابة الصحيحة:
 
-${currentQuestion.name}`
-                    }
-                )
+${state.currentQuestion.name}`
+                }
+            )
 
-                currentQuestion = null
+            states.delete(jid)
 
-            },
-
-            5 * 60 * 1000
-
-        )
+        },
+        5 * 60 * 1000
+    )
 
 }
+
 async function answer(sock, msg, player, text) {
 
-    if (!currentQuestion)
-    return { handled: false }
+    const jid = msg.key.remoteJid
 
-if (answered)
-    return { handled: true }
+    const state = states.get(jid)
 
-if (!text.startsWith(".جواب "))
-    return { handled: false }
+    if (!state)
+        return { handled: false }
+
+    if (state.answered)
+        return { handled: true }
+
+    if (!text.startsWith(".جواب "))
+        return { handled: false }
 
     const normalize = str =>
 
-    str
-        .toLowerCase()
-        .replace(/[._-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
+        str
+            .toLowerCase()
+            .replace(/[._-]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
 
-const answer = normalize(
-    text.slice(6)
-)
+    const answer = normalize(
+        text.slice(6)
+    )
 
-const correct = normalize(
-    currentQuestion.name
-)
+    const correct = normalize(
+        state.currentQuestion.name
+    )
 
-if (answer !== correct)
-    return { handled: true }
+    if (
+        answer !== correct &&
+        !correct.includes(answer) &&
+        !answer.includes(correct)
+    ) {
 
-    answered = true
+        return { handled: true }
 
-    clearTimeout(timeout)
+    }
+
+    state.answered = true
+
+    clearTimeout(state.timeout)
 
     const reward =
         await giveAnimeReward(player)
 
-    
+    const characterName =
+        state.currentQuestion.name
 
-    currentQuestion = null
+    states.delete(jid)
 
-return {
-    handled: true,
-    winner: player.userId,
-    reward,
-    character: currentQuestion.name
-}
+    return {
+
+        handled: true,
+
+        winner: player.userId,
+
+        reward,
+
+        extraText:
+`👤 ${characterName}`
+
+    }
 
 }
 
