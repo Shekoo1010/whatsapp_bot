@@ -1,4 +1,5 @@
 const fs = require('fs')
+const bankSystem = require("./bankSystem")
 const animeEvents = require("./animeEvents")
 
 const {
@@ -3267,6 +3268,20 @@ if (!global.animeEventsStarted) {
     )
 
 }
+        // =========================
+// Bank System
+// =========================
+if (!global.bankSystemStarted) {
+
+    global.bankSystemStarted = true
+
+    bankSystem.start(sock)
+
+    console.log(
+        "✅ Bank System Started"
+    )
+
+}
         if (!global.marketCleanerStarted) {
 
     global.marketCleanerStarted = true
@@ -4507,6 +4522,154 @@ function findTradeCharacter(player, input) {
     // =========================
     // الأوامر العادية هنا
     // =========================
+
+    if (text === ".البنك") {
+
+    const Bank = require("../models/Bank")
+    const bank = await Bank.findOne()
+
+    if (!bank) {
+
+        return safeSend(msg.key.remoteJid,{
+            text:"❌ البنك غير متوفر حالياً."
+        })
+
+    }
+
+    const player = await Player.findOne({ userId })
+
+    const canBorrow =
+        player.bank?.borrowedToday
+        ? "❌ استخدمت قرض اليوم"
+        : "✅ يمكنك الاقتراض"
+
+    return safeSend(msg.key.remoteJid,{
+
+        text:
+`╔═════ 🏦 بنك الأنمي ═════╗
+
+💰 رصيد البنك
+${bank.money.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+💳 الحد الأدنى للقرض
+5,000,000
+
+💳 الحد الأعلى للقرض
+10,000,000
+
+━━━━━━━━━━━━━━━━
+
+📌 حالة القرض
+
+${canBorrow}
+
+━━━━━━━━━━━━━━━━
+
+📖 الأوامر
+
+🏦 .قرض 7000000
+📄 .ديني
+
+╚══════════════════════╝`
+
+    })
+
+}
+    if (text.startsWith(".قرض")) {
+
+    const args = text.trim().split(/\s+/)
+
+    if (args.length < 2) {
+
+        return safeSend(msg.key.remoteJid,{
+            text:
+`🏦 طريقة الاقتراض
+
+اكتب:
+
+.قرض 7000000
+
+━━━━━━━━━━━━━━
+
+📌 الحد الأدنى:
+5,000,000
+
+📌 الحد الأعلى:
+10,000,000`
+        })
+
+    }
+
+    const amount = Number(args[1])
+
+    const Bank = require("../models/Bank")
+    const { takeLoan } = require("./bankSystem/loan")
+
+    const bank = await Bank.findOne()
+
+    if (!bank) {
+
+        return safeSend(msg.key.remoteJid,{
+            text:"❌ البنك غير متوفر حالياً."
+        })
+
+    }
+
+    const player = await Player.findOne({ userId })
+
+    const result = await takeLoan(
+        bank,
+        player,
+        amount
+    )
+
+    if (!result.ok) {
+
+        return safeSend(msg.key.remoteJid,{
+            text: result.message
+        })
+
+    }
+
+    return safeSend(msg.key.remoteJid,{
+
+        text:
+`╔═════ 🏦 تم اعتماد القرض ═════╗
+
+💰 المبلغ المقترض
+${amount.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+💳 الدين الحالي
+${player.bank.debt.toLocaleString()}
+
+💵 الرصيد المقترض
+${player.bank.loanMoney.toLocaleString()}
+
+━━━━━━━━━━━━━━━━
+
+⚠️ ملاحظات
+
+✅ يمكن استخدام القرض في:
+• التطوير
+• المتجر
+• السوق
+
+❌ لا يمكن استخدامه في:
+• التبرع
+• التحويل للاعبين
+
+📌 سيتم سداد الدين تلقائياً من أي أرباح تحصل عليها.
+
+╚══════════════════════╝`
+
+    })
+
+}
+    
 
     if (text.startsWith('.فتح_الكل ')) {
 
