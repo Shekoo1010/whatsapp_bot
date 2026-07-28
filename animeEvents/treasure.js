@@ -4,7 +4,6 @@ let active = false
 let timeout = null
 
 const chosenPlayers = new Set()
-
 const boxes = new Map()
 
 async function start(sock, jid) {
@@ -53,23 +52,24 @@ async function start(sock, jid) {
 
         active = false
 
-        await sock.sendMessage(jid,{
+        await sock.sendMessage(jid, {
 
             text:
 `⌛ انتهى وقت البحث عن الكنز`
 
         })
 
-    },5 * 60 * 1000)
+    }, 5 * 60 * 1000)
 
 }
+
 async function answer(sock, msg, player, text, userId) {
 
     if (!active)
-        return false
+        return { handled: false }
 
     if (!text.startsWith(".اختيار "))
-        return false
+        return { handled: false }
 
     if (chosenPlayers.has(userId)) {
 
@@ -81,7 +81,7 @@ async function answer(sock, msg, player, text, userId) {
             }
         )
 
-        return true
+        return { handled: true }
 
     }
 
@@ -109,7 +109,7 @@ async function answer(sock, msg, player, text, userId) {
             }
         )
 
-        return true
+        return { handled: true }
 
     }
 
@@ -120,19 +120,18 @@ async function answer(sock, msg, player, text, userId) {
     const reward =
         await giveAnimeReward(player)
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`🎁 فتحت الصندوق رقم ${choice}
+    return {
 
-━━━━━━━━━━━━━━
+        handled: true,
 
-${reward.text}`
-        }
-    )
+        winner: player.userId,
 
-    return true
+        reward,
+
+        extraText:
+`🎁 فتح الصندوق رقم ${choice}`
+
+    }
 
 }
 
