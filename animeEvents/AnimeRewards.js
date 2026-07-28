@@ -84,28 +84,28 @@ async function giveAnimeReward(player) {
     }
 
     // =========================
-    // 🎟️ التذاكر 20%
-    // =========================
-    if (roll < 60) {
+// 🎟️ السحبات 20%
+// =========================
+if (roll < 60) {
 
-        const tickets = random(1, 5)
+    const pulls = random(1, 5)
 
-        player.eggTickets += tickets
+    player.pulls = (player.pulls || 0) + pulls
 
-        await player.save()
+    await player.save()
 
-        return {
+    return {
 
-            type: "tickets",
+        type: "pulls",
 
-            text:
-`🎟️ التذاكر
+        text:
+`🎟️ السحبات
 
-+${tickets}`
-
-        }
++${pulls}`
 
     }
+
+}
 
     // =========================
     // 🌟 شخصية أسطورية 10%
