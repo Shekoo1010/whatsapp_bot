@@ -4,7 +4,7 @@ const questions =
 const imageQuestions =
     require('./imageQuestions')
 
-const MAX_ROUNDS = 50
+const DEFAULT_MAX_ROUNDS = 50
 
 const quizRooms = {}
 
@@ -203,7 +203,9 @@ async function startQuestion(sock, jid) {
 
     const room = module.exports.quizData.getQuizRoom(jid)
 
-    if (room.roundsCount >= MAX_ROUNDS) {
+    const maxRounds = room.maxRounds || DEFAULT_MAX_ROUNDS
+
+if (room.roundsCount >= maxRounds) {
 
         room.quizActive = false
 
@@ -213,7 +215,7 @@ async function startQuestion(sock, jid) {
         let resultText =
 `🏆 انتهت المسابقة
 
-📊 عدد الجولات: ${MAX_ROUNDS}
+📊 عدد الجولات: ${maxRounds}
 
 📈 الترتيب النهائي:
 
@@ -245,6 +247,8 @@ async function startQuestion(sock, jid) {
         })
 
         room.roundsCount = 0
+room.maxRounds = DEFAULT_MAX_ROUNDS
+
 room.usedQuestions = []
 room.usedImages = []
 room.usedRepeats = []
@@ -591,6 +595,7 @@ module.exports = {
             if (!quizRooms[jid]) {
 
                 quizRooms[jid] = {
+
     quizActive: false,
     currentQuestion: null,
     roundsCount: 0,
@@ -605,7 +610,8 @@ module.exports = {
     lastMode: -1,
 
     quizMode: "mixed",
-    targetScore: null
+    targetScore: null,
+    maxRounds: DEFAULT_MAX_ROUNDS
 }
 
             }
