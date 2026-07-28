@@ -6,17 +6,35 @@ function random(min, max) {
 }
 
 function randomSSS() {
-    const list = characters.filter(c => c.rarity === "SSS")
-    return JSON.parse(JSON.stringify(
-        list[Math.floor(Math.random() * list.length)]
-    ))
+
+    const list = characters.filter(
+        c => c.rarity === "SSS"
+    )
+
+    if (!list.length) return null
+
+    return JSON.parse(
+        JSON.stringify(
+            list[Math.floor(Math.random() * list.length)]
+        )
+    )
+
 }
 
 function randomLegendary() {
-    const list = characters.filter(c => c.rarity === "Legendary")
-    return JSON.parse(JSON.stringify(
-        list[Math.floor(Math.random() * list.length)]
-    ))
+
+    const list = characters.filter(
+        c => c.rarity === "اسطوري"
+    )
+
+    if (!list.length) return null
+
+    return JSON.parse(
+        JSON.stringify(
+            list[Math.floor(Math.random() * list.length)]
+        )
+    )
+
 }
 
 async function giveAnimeReward(player) {
@@ -41,6 +59,7 @@ async function giveAnimeReward(player) {
 
 +${amount.toLocaleString()}`
         }
+
     }
 
     // =========================
@@ -48,7 +67,7 @@ async function giveAnimeReward(player) {
     // =========================
     if (roll < 40) {
 
-        const xp = random(1000,10000)
+        const xp = random(1000, 10000)
 
         player.xp += xp
 
@@ -69,7 +88,7 @@ async function giveAnimeReward(player) {
     // =========================
     if (roll < 60) {
 
-        const tickets = random(1,5)
+        const tickets = random(1, 5)
 
         player.eggTickets += tickets
 
@@ -77,7 +96,7 @@ async function giveAnimeReward(player) {
 
         return {
 
-            type:"tickets",
+            type: "tickets",
 
             text:
 `🎟️ التذاكر
@@ -89,11 +108,20 @@ async function giveAnimeReward(player) {
     }
 
     // =========================
-    // 🌟 Legendary Character 10%
+    // 🌟 شخصية أسطورية 10%
     // =========================
     if (roll < 70) {
 
         const char = randomLegendary()
+
+        if (!char) {
+
+            return {
+                type: "none",
+                text: "❌ لا توجد شخصيات أسطورية."
+            }
+
+        }
 
         player.characters.push(char)
 
@@ -101,10 +129,10 @@ async function giveAnimeReward(player) {
 
         return {
 
-            type:"legendary",
+            type: "legendary",
 
             text:
-`🌟 شخصية Legendary
+`🌟 شخصية أسطورية
 
 👤 ${char.name}
 
@@ -115,7 +143,7 @@ async function giveAnimeReward(player) {
     }
 
     // =========================
-    // 📦 Legendary Box 15%
+    // 📦 صندوق أسطوري 15%
     // =========================
     if (roll < 85) {
 
@@ -125,10 +153,10 @@ async function giveAnimeReward(player) {
 
         return {
 
-            type:"legendary_box",
+            type: "legendary_box",
 
             text:
-`📦 صندوق Legendary
+`📦 صندوق أسطوري
 
 +1`
 
@@ -143,13 +171,22 @@ async function giveAnimeReward(player) {
 
         const char = randomSSS()
 
+        if (!char) {
+
+            return {
+                type: "none",
+                text: "❌ لا توجد شخصيات SSS."
+            }
+
+        }
+
         player.characters.push(char)
 
         await player.save()
 
         return {
 
-            type:"sss",
+            type: "sss",
 
             text:
 `⭐ شخصية SSS
@@ -163,7 +200,7 @@ async function giveAnimeReward(player) {
     }
 
     // =========================
-    // 📦 SSS HIGH 5%
+    // 📦 صندوق SSS High 5%
     // =========================
     if (roll < 95) {
 
@@ -173,7 +210,7 @@ async function giveAnimeReward(player) {
 
         return {
 
-            type:"sss_high",
+            type: "sss_high",
 
             text:
 `📦 صندوق SSS High
@@ -185,7 +222,7 @@ async function giveAnimeReward(player) {
     }
 
     // =========================
-    // 📦 SSS CHANCE 5%
+    // 📦 صندوق SSS Chance 5%
     // =========================
 
     player.boxes.sss_chance += 1
@@ -194,7 +231,7 @@ async function giveAnimeReward(player) {
 
     return {
 
-        type:"sss_chance",
+        type: "sss_chance",
 
         text:
 `📦 صندوق SSS Chance
