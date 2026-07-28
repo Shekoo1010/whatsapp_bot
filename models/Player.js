@@ -92,6 +92,39 @@ level: { type: Number, default: 1 },
 money: { type: Number, default: 0 },
 
 // =========================
+// BANK SYSTEM
+// =========================
+
+bank: {
+
+    debt: {
+        type: Number,
+        default: 0
+    },
+
+    loanMoney: {
+        type: Number,
+        default: 0
+    },
+
+    spentLoan: {
+        type: Number,
+        default: 0
+    },
+
+    borrowedToday: {
+        type: Boolean,
+        default: false
+    },
+
+    lastBorrowDate: {
+        type: String,
+        default: ""
+    }
+
+},
+
+// =========================
 // CLAN SYSTEM
 // =========================
 
