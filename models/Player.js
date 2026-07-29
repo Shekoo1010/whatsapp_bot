@@ -628,4 +628,22 @@ boxes: {
 
 })
 
+PlayerSchema.methods.addMoney = async function(amount) {
+
+    amount = Number(amount)
+
+    if (!amount || amount <= 0)
+        return 0
+
+    const { repayDebt } = require("../bank/repay")
+
+    amount = await repayDebt(this, amount)
+
+    this.money = (this.money || 0) + amount
+
+    await this.save()
+
+    return amount
+}
+
 module.exports = mongoose.model('Player', PlayerSchema)
