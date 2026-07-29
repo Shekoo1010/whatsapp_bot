@@ -7364,7 +7364,20 @@ if (
     )
 
 }
+const availableMoney =
+    player.money - (player.bank?.loanMoney || 0)
 
+if (amount > availableMoney) {
+
+    return safeSend(
+        msg.key.remoteJid,
+        {
+            text:
+'❌ لا يمكنك التبرع بالأموال المقترضة.'
+        }
+    )
+
+}
 if (player.money < amount) {
 
     return safeSend(
