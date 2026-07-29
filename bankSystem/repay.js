@@ -47,10 +47,12 @@ async function repayDebt(player, amount) {
     }
 
     player.bank.debt = 0
+player.bank.loanMoney = 0
+player.bank.spentLoan = 0
 
-    await player.save()
+await player.save()
 
-    return remaining
+return remaining
 
 }
 
