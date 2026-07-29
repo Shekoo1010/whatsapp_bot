@@ -288,12 +288,17 @@ room.lastMode = -1
 
         room.currentQuestion = getRandomQuestion(room)
 
-        return await sock.sendMessage(jid, {
-            text:
-`🎯 سؤال جديد
+const sent = await sock.sendMessage(jid, {
+    text: `🎯 سؤال جديد
 
 ❓ ${room.currentQuestion.question}`
-        })
+})
+
+room.questionStartTime =
+    Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+return
+        
 
     }
 
@@ -307,12 +312,16 @@ room.lastMode = -1
             answers
         }
 
-        return await sock.sendMessage(jid, {
-            text:
-`✍️ اكتب التالي:
+        const sent = await sock.sendMessage(jid, {
+    text: `✍️ اكتب التالي:
 
-${answers.map(a => `*${a}*`).join(' - ')}`
-        })
+${answers.map(a => `*${a}*`).join(" - ")}`
+})
+
+room.questionStartTime =
+    Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+return
 
     }
 
@@ -327,7 +336,7 @@ ${answers.map(a => `*${a}*`).join(' - ')}`
         answers: imageQuestion.answers
     }
 
-    return await sock.sendMessage(
+    const sent = await sock.sendMessage(
     jid,
     {
         image: {
@@ -335,6 +344,11 @@ ${answers.map(a => `*${a}*`).join(' - ')}`
         }
     }
 )
+
+room.questionStartTime =
+    Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+return
 }
 
 async function startCustomQuestion(sock, jid) {
@@ -344,34 +358,41 @@ async function startCustomQuestion(sock, jid) {
     room.answeredUsers.clear()
     room.playerProgress = {}
     room.questionSolved = false
-    room.questionStartTime = Date.now()
 
     // مسابقة SSS (أسئلة فقط)
     if (room.quizMode === "sss") {
 
         room.currentQuestion = getRandomQuestion(room)
 
-        return await sock.sendMessage(jid, {
+        const sent = await sock.sendMessage(jid, {
             text:
 `🎯 سؤال جديد
 
 ❓ ${room.currentQuestion.question}`
         })
 
+        room.questionStartTime =
+            Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+        return
     }
 
-    // مسابقة الأسئلة (أسئلة فقط)
+    // مسابقة الأسئلة
     if (room.quizMode === "text") {
 
         room.currentQuestion = getRandomQuestion(room)
 
-        return await sock.sendMessage(jid, {
+        const sent = await sock.sendMessage(jid, {
             text:
 `🎯 سؤال جديد
 
 ❓ ${room.currentQuestion.question}`
         })
 
+        room.questionStartTime =
+            Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+        return
     }
 
     // مسابقة اكتب التالي
@@ -384,13 +405,17 @@ async function startCustomQuestion(sock, jid) {
             answers
         }
 
-        return await sock.sendMessage(jid, {
+        const sent = await sock.sendMessage(jid, {
             text:
 `✍️ اكتب التالي:
 
 ${answers.map(a => `*${a}*`).join(" - ")}`
         })
 
+        room.questionStartTime =
+            Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+        return
     }
 
     // مسابقة الصور
@@ -403,17 +428,21 @@ ${answers.map(a => `*${a}*`).join(" - ")}`
             answers: imageQuestion.answers
         }
 
-        return await sock.sendMessage(jid, {
+        const sent = await sock.sendMessage(jid, {
             image: {
                 url: imageQuestion.image
             }
         })
 
+        room.questionStartTime =
+            Number(sent.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000
+
+        return
     }
 
 }
 
-async function checkAnswer(sock, jid, userId, answer) {
+async function checkAnswer(sock, jid, userId, answer, answerTimestamp = Date.now()) {
     
     const room = module.exports.quizData.getQuizRoom(jid)
 
@@ -498,7 +527,8 @@ async function checkAnswer(sock, jid, userId, answer) {
     return "FINISHED"
 }
 
-            room.questionSolved = true
+            room.lastAnswerTimestamp = answerTimestamp
+room.questionSolved = true
 
             delete room.playerProgress[userId]
 
@@ -570,7 +600,8 @@ async function checkAnswer(sock, jid, userId, answer) {
         return "FINISHED"
     }
 
-    room.questionSolved = true
+    room.lastAnswerTimestamp = answerTimestamp
+room.questionSolved = true
 
     delete room.playerProgress[userId]
 
