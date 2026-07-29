@@ -4289,7 +4289,7 @@ else {
 
         if (!player) continue
 
-        player.money += winnerMoney
+        await player.addMoney(winnerMoney)
 
         player.clanCoins += winnerCoins
 
@@ -4319,7 +4319,7 @@ else {
 
         if (!player) continue
 
-        player.money += loserMoney
+        await player.addMoney(loserMoney)
 
         player.xp += loserXP
 
@@ -5399,7 +5399,7 @@ if (text === ".قتل_البوس") {
         })
 
     player.characters = kept
-    player.money += money
+    await player.addMoney(money)
 
     await player.save()
 
@@ -7378,7 +7378,7 @@ if (player.money < amount) {
 }
 
 player.money -= amount
-targetPlayer.money += amount
+await targetPlayer.addMoney(amount)
 
 await player.save()
 await targetPlayer.save()
@@ -9826,7 +9826,7 @@ ${minutes} دقيقة`
 
     }
 
-    player.money += 100000000
+    await player.addMoney(100000000)
 
     await player.save()
 
@@ -12337,7 +12337,7 @@ today
 const rewardMoney = 250000
 const rewardXp = 500
 
-player.money += rewardMoney
+await player.addMoney(rewardMoney)
 player.xp += rewardXp
 
 // تسجيل الدخول اليومي للمهمات
@@ -12428,7 +12428,7 @@ if (!completed) {
 
 // الجوائز
 
-player.money += 2500000
+await player.addMoney(2500000)
 
 player.xp += 5000
 
@@ -13190,12 +13190,12 @@ for (
 
     if (won) {
 
-        playerData.money += 5000
+        await playerData.addMoney(5000)
         playerData.xp += 1000
 
     } else {
 
-        playerData.money += 2000
+        await playerData.addMoney(2000)
         playerData.xp += 300
     }
 
@@ -14803,7 +14803,7 @@ ${stage.power}
         )
     }
 
-    player.money += stage.reward
+    await player.addMoney(stage.reward)
 
     player.kingdomRaid.usedCharacters.push(
         char.name
@@ -20006,19 +20006,19 @@ if (!player) {
 
         if (i === 0) {
 
-            player.money += 500000
+            await player.addMoney(500000)
             player.xp += 100000
             player.boxes.sss_high += 1
 
         } else if (i === 1) {
 
-            player.money += 250000
+            await player.addMoney(250000)
             player.xp += 50000
             player.boxes.sss_chance += 1
 
         } else if (i === 2) {
 
-            player.money += 100000
+            await player.addMoney(100000)
             player.xp += 25000
             player.boxes.legendary += 1
         }
@@ -22582,7 +22582,7 @@ const xpReward =
         200 + Math.random() * 300  
     )  
 
-winnerData.money += moneyReward  
+await winnerData.addMoney(moneyReward)
 winnerData.xp += xpReward  
 
 let boxReward = ''  
@@ -23072,7 +23072,7 @@ const xpReward =
         200 + Math.random() * 300  
     )  
 
-winnerData.money += moneyReward  
+await winnerData.addMoney(moneyReward)
 winnerData.xp += xpReward  
 
 let boxReward = ''  
@@ -23847,7 +23847,7 @@ const xpReward =
         200 + Math.random() * 300
     )
 
-winnerData.money += moneyReward
+await winnerData.addMoney(moneyReward)
 winnerData.xp += xpReward
 
 const oldRank = winnerData.rank
@@ -25272,7 +25272,7 @@ ${floor.power}`
     player.towerFloor++
 
     if (reward.money)
-        player.money += reward.money
+        await player.addMoney(reward.money)
 
     if (reward.draws)
     player.towerTickets =
@@ -28132,7 +28132,7 @@ if (text === '.نعم') {
 
     player.characters.splice(confirm.index, 1)
 
-    player.money += confirm.price
+    await player.addMoney(confirm.price)
 
     await player.save()
 
@@ -28883,7 +28883,7 @@ ${ability.name}
     }
 }
 
-me.money += 500;
+await me.addMoney(500);
 
 // 🟢 زيادة المخزون كل 10 مستويات (حتى 200)
 if (currentLevel % 10 === 0) {
@@ -28994,7 +28994,7 @@ if (!me.rewardedLevels.includes(currentLevel)) {
     
 if (currentLevel === 200) {
 
-    me.money += 2000000
+    await me.addMoney(2000000)
 
     me.boxes.sss_chance += 5
     me.boxes.sss_high += 5
