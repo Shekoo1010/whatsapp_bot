@@ -47,10 +47,12 @@ ${bankData.money.toLocaleString()}`
 
     bankData.money -= amount
 
-    player.bank.loanMoney += amount
-    player.bank.debt += amount
-    player.bank.borrowedToday = true
-    player.bank.lastBorrowDate = new Date().toISOString()
+player.money += amount          // <-- أضف هذا السطر
+
+player.bank.loanMoney += amount
+player.bank.debt += amount
+player.bank.borrowedToday = true
+player.bank.lastBorrowDate = new Date().toISOString()
 
     await bankData.save()
     await player.save()
