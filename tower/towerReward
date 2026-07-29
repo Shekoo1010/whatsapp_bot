@@ -1,0 +1,98 @@
+const characters = require("../characters.json")
+const urAbilities = require("../urAbilities")
+
+function getRandomSSSCharacter() {
+
+    const sssCharacters = characters.filter(
+        c => c.rarity === "SSS"
+    )
+
+    return JSON.parse(
+        JSON.stringify(
+            sssCharacters[
+                Math.floor(
+                    Math.random() *
+                    sssCharacters.length
+                )
+            ]
+        )
+    )
+
+}
+
+function addRandomAbilities(character, count) {
+
+    const pool = [...urAbilities]
+
+    character.urAbilities = []
+
+    while (
+        character.urAbilities.length < count &&
+        pool.length
+    ) {
+
+        const totalChance =
+            pool.reduce(
+                (sum, a) => sum + a.chance,
+                0
+            )
+
+        let roll =
+            Math.random() * totalChance
+
+        let index = 0
+
+        for (
+            let i = 0;
+            i < pool.length;
+            i++
+        ) {
+
+            roll -= pool[i].chance
+
+            if (roll <= 0) {
+
+                index = i
+                break
+
+            }
+
+        }
+
+        character.urAbilities.push(
+            pool[index]
+        )
+
+        pool.splice(index, 1)
+
+    }
+
+    return character
+
+}
+
+async function createTowerReward() {
+
+    const character =
+        getRandomSSSCharacter()
+
+    character.rarity = "SSS"
+    character.power = 13000
+
+    character.evolutionLevel = 2
+    character.evolutionType = "fixed"
+
+    addRandomAbilities(
+        character,
+        2
+    )
+
+    return character
+
+}
+
+module.exports = {
+
+    createTowerReward
+
+}
