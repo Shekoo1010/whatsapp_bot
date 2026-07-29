@@ -3897,19 +3897,23 @@ await checkAnswer(
     sock,
     msg.key.remoteJid,
     userId,
-    text
+    text,
+    Number(msg.messageTimestamp) * 1000
 )
 
 if (result) {
 
     room.questionSolved = true
 
-    const seconds =
+    const endTime =
+    room.lastAnswerTimestamp ||
+    Date.now()
+
+const seconds =
 (
-    Date.now() -
+    endTime -
     room.questionStartTime
 ) / 1000
-
 await sock.sendMessage(
     msg.key.remoteJid,
     {
