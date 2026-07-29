@@ -1295,6 +1295,48 @@ const towerFloors = [
     { floor: 29, power: 2900, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
 
     { floor: 30, power: 5000, image: "https://i.ibb.co/JRK1vHjm/e06dcfcff98f3cc474e6c330375386c6.jpg" }
+
+    { floor: 31, power: 5500, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 32, power: 5700, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 33, power: 5900, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 34, power: 6000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 35, power: 6500, image: "https://i.postimg.cc/zBLpWbx5/458fa36ce273fa09b90f0fa374d0f144.jpg" },
+
+    { floor: 36, power: 6700, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 37, power: 6800, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 38, power: 6900, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 39, power: 7000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 40, power: 7300, image: "https://i.postimg.cc/fymKq44p/a5d3a4847a17d51a6e1ea2b2229f0adc.jpg" },
+
+    { floor: 41, power: 7400, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 42, power: 7600, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 43, power: 7900, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 44, power: 8100, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 45, power: 9000, image: "https://i.postimg.cc/CxFN76c7/873706c8faf696db1bfab4bda4808920.jpg" },
+
+    { floor: 46, power: 9100, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 47, power: 9200, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 48, power: 9400, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 49, power: 9500, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 50, power: 10000, image: "https://i.postimg.cc/j2HHQzN8/5a05dc9b83c11a502a92a1beea4a068e.jpg" },
+
+    { floor: 51, power: 11000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 52, power: 11300, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 53, power: 11600, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 54, power: 12000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 55, power: 13000, image: "https://i.postimg.cc/P5rWYvxq/c14f31edca69c6de945c3419d2f2e267-(1).jpg" },
+
+    { floor: 56, power: 15000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 57, power: 15200, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 58, power: 15500, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+    { floor: 59, power: 16000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
+
+    { floor: 60, power: 250000, image: "https://i.postimg.cc/KYCB69DW/764fa4fc79dcbdc6b362a40130bfd467.jpg" }
 ];
 
 function getTowerReward(floor) {
