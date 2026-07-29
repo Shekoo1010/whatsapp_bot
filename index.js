@@ -1294,7 +1294,7 @@ const towerFloors = [
     { floor: 28, power: 2800, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
     { floor: 29, power: 2900, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
 
-    { floor: 30, power: 5000, image: "https://i.ibb.co/JRK1vHjm/e06dcfcff98f3cc474e6c330375386c6.jpg" }
+    { floor: 30, power: 5000, image: "https://i.ibb.co/JRK1vHjm/e06dcfcff98f3cc474e6c330375386c6.jpg" },
 
     { floor: 31, power: 5500, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
     { floor: 32, power: 5700, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
@@ -24789,7 +24789,7 @@ ${Number(player.xp || 0).toLocaleString()}
 ${Number(player.hp || 10000).toLocaleString()}
 
 🏰 الطابق الحالي:
-${player.towerFloor || 1}/30
+${player.towerFloor || 1}/60
 
 📦 المخزون:
 ${characters.length}/${player.maxCharacters || 30}
@@ -25344,10 +25344,14 @@ ${floor.power}`
             (player.boxes[reward.box] || 0) + 1
     }
 
+    if (floor.floor <= 30) {
+
     player.attackBonus =
         (player.attackBonus || 0) + 5
 
-    if (floor.floor === 30) {
+}
+
+    if (floor.floor === 60) {
 
     player.towerCompleted = true
 
