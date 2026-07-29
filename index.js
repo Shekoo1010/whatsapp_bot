@@ -3901,57 +3901,61 @@ await checkAnswer(
     Number(msg.messageTimestamp) * 1000
 )
 
-if (result) {
+if (result === "FINISHED") {
+    return
+}
+
+if (result === true) {
 
     room.questionSolved = true
 
     const endTime =
-    room.lastAnswerTimestamp ||
-    Date.now()
+        room.lastAnswerTimestamp ||
+        Date.now()
 
-const seconds =
-(
-    endTime -
-    room.questionStartTime
-) / 1000
-await sock.sendMessage(
-    msg.key.remoteJid,
-    {
-        text:
+    const seconds =
+        (
+            endTime -
+            room.questionStartTime
+        ) / 1000
+
+    await sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            text:
 `🎉 إجابة صحيحة!
 
 ⏱️ الوقت: ${seconds.toFixed(1)} ثانية
 
 ⭐ +1 نقطة`
-    },
-    {
-        quoted: msg
-    }
-)
+        },
+        {
+            quoted: msg
+        }
+    )
 
-        setTimeout(async () => {
+    setTimeout(async () => {
 
-    if (!room.quizActive) return
+        if (!room.quizActive) return
 
-    if (room.quizMode === "mixed") {
+        if (room.quizMode === "mixed") {
 
-        await startQuestion(
-            sock,
-            msg.key.remoteJid
-        )
+            await startQuestion(
+                sock,
+                msg.key.remoteJid
+            )
 
-    } else {
+        } else {
 
-        await startCustomQuestion(
-            sock,
-            msg.key.remoteJid
-        )
+            await startCustomQuestion(
+                sock,
+                msg.key.remoteJid
+            )
 
-    }
+        }
 
-}, 2000)
-
-    }
+    }, 2000)
+}
 
     return
 
