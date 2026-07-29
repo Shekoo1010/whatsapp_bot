@@ -24113,13 +24113,13 @@ ${player.titles?.length
             },
             caption: `🏰 برج الأبطال
 
-📍 الطابق الحالي: ${floor.floor}/30
+📍 الطابق الحالي: ${floor.floor}/60
 
 ⚔️ القوة المطلوبة:
 ${floor.power}
 
 👥 الشخصيات المستخدمة:
-${player.usedCharacters?.length || 0}/30
+${player.usedCharacters?.length || 0}/60
 
 🏆 اللقب النهائي:
 ⚜️ سيد العروش
@@ -25321,8 +25321,20 @@ ${floor.power}`
         character.name
     )
 
-    const reward =
-        getTowerReward(floor.floor)
+    const reward = getTowerReward(floor.floor)
+
+if (floor.floor === 60) {
+
+    const {
+        createTowerReward
+    } = require("./tower/towerReward")
+
+    const rewardCharacter =
+        await createTowerReward()
+
+    player.characters.push(rewardCharacter)
+
+}
 
     player.towerFloor++
 
@@ -25376,20 +25388,34 @@ ${floor.power}`
 
     let rewardText = ''
 
-    if (reward.money)
-        rewardText +=
+if (reward.money)
+    rewardText +=
 `💰 المال: +${reward.money}\n`
 
-    if (reward.xp)
-        rewardText +=
+if (reward.xp)
+    rewardText +=
 `⭐ الخبرة: +${reward.xp}\n`
 
-    if (reward.draws)
+if (reward.draws)
     rewardText +=
 `🎫 تذاكر المتجر: +${reward.draws}\n`
-    if (reward.box)
-        rewardText +=
+
+if (reward.box)
+    rewardText +=
 `🎁 الصندوق: ${reward.box}\n`
+
+// 👇 أضف هنا
+if (floor.floor === 60) {
+
+    rewardText +=
+`🌟 شخصية SSS مطورة
+💥 القوة: 13000
+✨ قدرات UR عشوائية ×2
+🏅 اللقب النهائي
+💰 5,000,000 ذهب
+`
+
+}
 
     return sock.sendMessage(
         msg.key.remoteJid,
