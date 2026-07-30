@@ -1336,14 +1336,14 @@ const towerFloors = [
     { floor: 58, power: 15500, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
     { floor: 59, power: 16000, image: "https://i.ibb.co/Fkrdc9TV/what-is-an-underground-prison-cell-called-1.jpg" },
 
-    { floor: 60, power: 250000, image: "https://i.postimg.cc/KYCB69DW/764fa4fc79dcbdc6b362a40130bfd467.jpg" }
+    { floor: 60, power: 25000, image: "https://i.postimg.cc/KYCB69DW/764fa4fc79dcbdc6b362a40130bfd467.jpg" }
 ];
 
 function getTowerReward(floor) {
 
     if (floor >= 31 && floor <= 59) {
-        floor = 30
-    }
+    floor = floor - 30
+}
 
     switch (floor) {
 
