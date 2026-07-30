@@ -4653,7 +4653,10 @@ ${maxPower.toLocaleString()}`
     )
 }
 
-    if (text.startsWith('.شخصيات')) {
+    if (
+    text === '.مجموعة' ||
+    text.startsWith('.مجموعة ')
+) {
 
     const target =
         msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
@@ -4681,8 +4684,22 @@ ${maxPower.toLocaleString()}`
             (a, b) => (b.power || 0) - (a.power || 0)
         )
 
+    const totalPower =
+        sortedCharacters.reduce(
+            (sum, c) => sum + (c.power || 0),
+            0
+        )
+
     let txt =
-`👤 ━━〔 شخصيات @${target.split("@")[0]} 〕━━ 👤
+`╔════════════════════╗
+      👤 مجموعة الشخصيات
+╚════════════════════╝
+
+👤 اللاعب: ${player.name || target.split("@")[0]}
+
+💥 القوة الكلية: ${totalPower.toLocaleString()}
+
+━━━━━━━━━━━━━━
 
 `
 
@@ -4703,17 +4720,16 @@ ${maxPower.toLocaleString()}`
 
         txt +=
 `〔${i + 1}〕 ${c.name}
-⚔️ ${Number(c.power || 0).toLocaleString()}
-🌟 ${rank}
-
-━━━━━━━━━━━━━━━
+⚔️ ${Number(c.power || 0).toLocaleString()} │ 👑 ${rank}
 
 `
 
     })
 
     txt +=
-`📦 إجمالي الشخصيات: ${player.characters.length}/${player.maxCharacters}`
+`━━━━━━━━━━━━━━
+
+📦 عدد الشخصيات: ${player.characters.length} / ${player.maxCharacters}`
 
     return sock.sendMessage(
         msg.key.remoteJid,
@@ -4724,7 +4740,6 @@ ${maxPower.toLocaleString()}`
     )
 
 }
-
     if (text.startsWith(".صوره_sss")) {
 
     const args = text.trim().split(/\s+/)
