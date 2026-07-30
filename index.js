@@ -1341,6 +1341,10 @@ const towerFloors = [
 
 function getTowerReward(floor) {
 
+    if (floor >= 31 && floor <= 59) {
+        floor = 30
+    }
+
     switch (floor) {
 
         case 1:
@@ -1458,8 +1462,15 @@ function getTowerReward(floor) {
                 title: '👑 ملك الأبطال'
             }
 
-        default:
-            return null
+        case 60:
+    return {
+        money: 5000000,
+        xp: 50000,
+        title: '⚜️ سيد العروش'
+    }
+
+default:
+    return null
     }
 }
 
