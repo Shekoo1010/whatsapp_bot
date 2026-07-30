@@ -4586,6 +4586,210 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.قوتي') {
+
+    let player = await Player.findOne({ userId })
+
+    if (!player) {
+        return safeSend(msg.key.remoteJid, {
+            text: '❌ لا يوجد حساب.'
+        })
+    }
+
+    const totalPower = getPlayerPower(player)
+
+    const sssCount =
+        player.characters.filter(c =>
+            c.rarity === "SSS" ||
+            c.evolutionLevel > 0
+        ).length
+
+    const maxPower =
+        player.characters.length
+            ? Math.max(...player.characters.map(c => c.power || 0))
+            : 0
+
+    const firstCharacter =
+        [...player.characters]
+        .sort((a,b)=>b.power-a.power)[0]
+
+    const caption =
+`╔════════════════════╗
+        ⚔️ قوتي
+╚════════════════════╝
+
+👤 اللاعب:
+${player.name || msg.pushName || "لاعب"}
+
+━━━━━━━━━━━━━━
+
+💥 القوة الكلية:
+${totalPower.toLocaleString()}
+
+🎴 عدد الشخصيات:
+${player.characters.length} / ${player.maxCharacters}
+
+👑 شخصيات SSS:
+${sssCount}
+
+⭐ أعلى قوة:
+${maxPower.toLocaleString()}`
+
+    if (firstCharacter?.image) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                image: { url: firstCharacter.image },
+                caption
+            }
+        )
+
+    }
+
+    return safeSend(
+        msg.key.remoteJid,
+        { text: caption }
+    )
+}
+
+    if (text.startsWith('.شخصيات')) {
+
+    const target =
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
+        || userId
+
+    const player =
+        await Player.findOne({
+            userId: target
+        })
+
+    if (!player || !player.characters.length) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text: '📭 لا توجد شخصيات.'
+            }
+        )
+
+    }
+
+    // ترتيب الشخصيات من الأقوى إلى الأضعف
+    const sortedCharacters =
+        [...player.characters].sort(
+            (a, b) => (b.power || 0) - (a.power || 0)
+        )
+
+    let txt =
+`👤 ━━〔 شخصيات @${target.split("@")[0]} 〕━━ 👤
+
+`
+
+    sortedCharacters.forEach((c, i) => {
+
+        const rank =
+            c.evolutionLevel > 0
+                ? [
+                    "SSS",
+                    "SSS+",
+                    "SSS++",
+                    "UR I",
+                    "UR II",
+                    "UR III",
+                    "EX"
+                ][c.evolutionLevel]
+                : c.rarity
+
+        txt +=
+`〔${i + 1}〕 ${c.name}
+⚔️ ${Number(c.power || 0).toLocaleString()}
+🌟 ${rank}
+
+━━━━━━━━━━━━━━━
+
+`
+
+    })
+
+    txt +=
+`📦 إجمالي الشخصيات: ${player.characters.length}/${player.maxCharacters}`
+
+    return sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            text: txt,
+            mentions: [target]
+        }
+    )
+
+}
+
+    if (text.startsWith(".صوره_sss")) {
+
+    const args = text.trim().split(/\s+/)
+    const number = parseInt(args[1])
+
+    if (!number || number < 1) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text:
+`❌ الاستخدام الصحيح
+
+.صوره_sss رقم
+
+مثال:
+.صوره_sss 1`
+            }
+        )
+
+    }
+
+    const sssCharacters = characters
+        .filter(c => c.rarity === "SSS")
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+    if (number > sssCharacters.length) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text: "❌ هذا الرقم غير موجود."
+            }
+        )
+
+    }
+
+    const character = sssCharacters[number - 1]
+
+    // يجلب أحدث نسخة من الشخصيه حتى لو عدلت الصورة أو البيانات
+    const latest = characters.find(c =>
+        c.name === character.name &&
+        c.form === character.form &&
+        c.rarity === character.rarity
+    ) || character
+
+    return sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            image: {
+                url: latest.image
+            },
+            caption:
+`👑 ${latest.name}
+
+⭐ الندرة: ${latest.rarity}
+🎌 الأنمي: ${latest.anime}
+⚔️ القوة: ${latest.power}
+
+📖 رقم القائمة: ${number}`
+        }
+    )
+
+}
+    
     if (text === ".البنك") {
 
     const bank =
