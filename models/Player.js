@@ -635,7 +635,7 @@ PlayerSchema.methods.addMoney = async function(amount) {
     if (!amount || amount <= 0)
         return 0
 
-    const { repayDebt } = require("../bank/repay")
+    const { repayDebt } = require("../bankSystem/repay")
 
     amount = await repayDebt(this, amount)
 
