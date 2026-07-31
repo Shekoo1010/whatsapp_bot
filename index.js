@@ -2845,7 +2845,7 @@ if (!state.creds.registered) {
 
             const code =
                 await sock.requestPairingCode(
-                    "966571111411"
+                    "966569281965"
                 )
 
             console.log(
@@ -8364,7 +8364,10 @@ Math.floor(Date.now() / cooldown)
 
 if (player.lastReset !== currentPeriod) {
 
-    player.pulls = 5
+    if (player.pulls < 5) {
+        player.pulls = 5
+    }
+
     player.lastReset = currentPeriod
 
 }
@@ -27566,7 +27569,10 @@ const currentPeriod =
 
 if (player.lastReset !== currentPeriod) {
 
-    player.pulls = 5
+    if (player.pulls < 5) {
+        player.pulls = 5
+    }
+
     player.lastReset = currentPeriod
 
     await player.save()
