@@ -26102,7 +26102,7 @@ if (me.bossDead) {
         me.bossHp = Math.floor(me.bossMaxHp / 2)
         me.bossRespawn = null
 
-        await me.save()
+        
 
     } else {
 
@@ -26825,7 +26825,7 @@ else if (dropRoll <= 35) {
         }
     )
 }
-        await me.save()
+        
         currentBoss.activeFollowers.shift()
 
         if (
@@ -26843,7 +26843,7 @@ else if (dropRoll <= 35) {
         }
     }
 
-    await me.save()
+    
 
     return safeSend(
         msg.key.remoteJid,
@@ -26867,7 +26867,7 @@ ${Math.max(0, follower.hp)}`
     (currentBoss.hp || 0) - damage
 )
 
-await Boss.updateOne(
+
     {},
     {
         $set: {
@@ -26901,7 +26901,7 @@ if (
             )
         )
 
-    await Boss.updateOne(
+    
     {},
     {
         $set: {
@@ -26961,7 +26961,7 @@ if (currentBoss.hp <= 0) {
     }
 }
 
-await Boss.updateOne(
+
     {},
     {
         $set: {
@@ -27197,7 +27197,7 @@ ${me.bossHp}/${me.bossMaxHp}`,
     }
 )
 
-await me.save()
+
 
 } // نهاية else
 
@@ -27205,7 +27205,7 @@ await me.save()
 
 } // نهاية if (currentBoss.groupAttackCount >= 15)
 
-await me.save()
+
 
 if (!currentBoss) {
 
@@ -27262,7 +27262,7 @@ console.log(
     currentBoss.respawnAt
 )
 
-await Boss.updateOne(
+
     {},
     {
         $set: {
@@ -27303,6 +27303,23 @@ currentBoss.finished = true
         })
     }
 }
+            await me.save()
+
+await Boss.updateOne(
+    {},
+    {
+        $set: {
+            hp: currentBoss.hp,
+            attack: currentBoss.attack,
+            enraged: currentBoss.enraged,
+            activeFollowers: currentBoss.activeFollowers,
+            groupAttackCount: currentBoss.groupAttackCount,
+            killer: currentBoss.killer,
+            finished: currentBoss.finished,
+            respawnAt: currentBoss.respawnAt
+        }
+    }
+)
         
         const attackCaption = `⚔️ ═════〔 هجوم الزعيم 〕═════ ⚔️
 
