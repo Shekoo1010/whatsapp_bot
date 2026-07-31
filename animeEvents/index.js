@@ -119,13 +119,31 @@ async function handleAnswer(sock, msg, text, player, userId) {
     if (typeof event.answer !== "function")
         return false
 
-    const result = await event.answer(
+    let result
+
+try {
+
+    result = await event.answer(
         sock,
         msg,
         player,
         text,
         userId
     )
+
+} catch (err) {
+
+    console.error(
+        "[Anime Event Error]",
+        event.name,
+        err
+    )
+
+    activeEvents.delete(jid)
+
+    return false
+
+}
 
     if (!result)
         return false
