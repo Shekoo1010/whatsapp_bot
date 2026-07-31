@@ -2230,11 +2230,21 @@ if (!char1 || !char2) {
     continue
 }
 
-        let dmg1 =
+let dmg1 =
     char1.power || 0
 
 let dmg2 =
     char2.power || 0
+
+const activeAbilities1 =
+    [...(char1.urAbilities || [])]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4)
+
+const activeAbilities2 =
+    [...(char2.urAbilities || [])]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4)
 
 let roundLog = ''
 
@@ -2242,8 +2252,7 @@ let roundLog = ''
 // PLAYER 1 ABILITIES
 // =========================
 
-for (const ability of char1.urAbilities || []) {
-
+for (const ability of activeAbilities1) {
     if (
     ability.type === 'attack' ||
     ability.type === 'bossDamage'
@@ -2352,7 +2361,7 @@ for (const ability of char1.urAbilities || []) {
 // PLAYER 2 ABILITIES
 // =========================
 
-for (const ability of char2.urAbilities || []) {
+for (const ability of activeAbilities2) {
 
     if (
     ability.type === 'attack' ||
