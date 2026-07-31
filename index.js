@@ -26137,39 +26137,8 @@ if (
 me.lastBossAttack = bossNow
             
 
-await Player.updateOne(
-    { _id: me._id },
-    {
-        $set: {
-            lastBossAttack: bossNow
-        }
-    }
-)
-            console.log(
-    "Cooldown saved:",
-    bossNow
-)
-
-const strongest = me.characters.sort(
-    (a, b) => b.power - a.power
-)[0]
-            const latest = characters.find(
-    c =>
-        c.name === strongest.name &&
-        c.rarity === strongest.rarity &&
-        c.form === strongest.form
-)
-
-const fighter = latest
-? {
-    ...strongest,
-    image: latest.image,
-    anime: latest.anime,
-    ability: latest.ability,
-    rarity: latest.rarity,
-    form: latest.form || strongest.form
-}
-: strongest
+const strongest = me.characters[0]
+            const fighter = strongest
 
 let damage = strongest.power
 
