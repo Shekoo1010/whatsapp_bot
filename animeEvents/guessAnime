@@ -1,22 +1,44 @@
-const characters = require("../characters.json")
+const quizCharacters = require("../quizCharacters.json")
 const { giveAnimeReward } = require("./AnimeRewards")
 
 const states = new Map()
 
+function normalize(text) {
+    return String(text)
+        .toLowerCase()
+        .replace(/[جغق]/g, "ق")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ؤ/g, "و")
+        .replace(/ئ/g, "ي")
+        .replace(/[^\u0600-\u06FFa-z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+}
+
 function randomCharacter() {
 
-    const list = characters.filter(c =>
-        c.anime &&
-        c.anime.trim() &&
-        c.name &&
-        c.name.trim()
-    )
+    const item =
+        quizCharacters[
+            Math.floor(
+                Math.random() *
+                quizCharacters.length
+            )
+        ]
 
-    return list[
-        Math.floor(
-            Math.random() * list.length
-        )
-    ]
+    const character =
+        item.answers[
+            Math.floor(
+                Math.random() *
+                item.answers.length
+            )
+        ]
+
+    return {
+        name: character,
+        anime: item.anime
+    }
 
 }
 
@@ -90,15 +112,6 @@ async function answer(sock, msg, player, text) {
 
     if (!text.startsWith(".جواب "))
         return { handled: false }
-
-    const normalize = str =>
-
-        str
-            .toLowerCase()
-            .replace(/\(.*?\)/g, "")
-            .replace(/[^a-z0-9\u0600-\u06FF ]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
 
     const userAnswer =
         normalize(
