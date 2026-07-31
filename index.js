@@ -14612,56 +14612,157 @@ return sock.sendMessage(
         )
     }
 
-    if (
-        !player.favoriteCharacter
-    ) {
+    const now = Date.now()
+
+    const remaining = Math.max(
+        0,
+        (player.favoriteExpires || 0) - now
+    )
+
+    const days = Math.floor(
+        remaining / (1000 * 60 * 60 * 24)
+    )
+
+    const hours = Math.floor(
+        (remaining % (1000 * 60 * 60 * 24)) /
+        (1000 * 60 * 60)
+    )
+
+    const minutes = Math.floor(
+        (remaining % (1000 * 60 * 60)) /
+        (1000 * 60)
+    )
+
+    const seconds = Math.floor(
+        (remaining % (1000 * 60)) / 1000
+    )
+
+    if (!player.favoriteCharacter) {
 
         return sock.sendMessage(
             msg.key.remoteJid,
             {
                 text:
-'❌ لا توجد شخصية مفضلة حالياً'
+`❌ لا توجد شخصية مفضلة حالياً
+
+⏳ الوقت المتبقي:
+
+📅 ${days} يوم
+🕒 ${hours} ساعة
+⏱️ ${minutes} دقيقة
+⌛ ${seconds} ثانية`
             }
         )
     }
 
-    const remaining =
-        Math.max(
-            0,
-            player.favoriteExpires -
-            Date.now()
+    const owned =
+        player.characters.find(
+            c => c.name === player.favoriteCharacter
         )
 
-    const days =
-        Math.floor(
-            remaining /
-            (1000 * 60 * 60 * 24)
+    const latest =
+        owned
+            ? characters.find(
+                c =>
+                    c.name === owned.name &&
+                    c.rarity === owned.rarity &&
+                    c.form === owned.form
+            )
+            : null
+
+    const character =
+        latest
+            ? {
+                ...owned,
+                image: latest.image,
+                anime: latest.anime,
+                ability: latest.ability,
+                rarity: latest.rarity,
+                form: latest.form || owned.form
+            }
+            : owned
+
+    const anime =
+        character?.anime || "غير معروف"
+
+    const power =
+        character?.power || "؟"
+
+    const rarity =
+        character?.rarity || "؟"
+
+    const caption =
+`⭐ ═════〔 الشخصية المفضلة 〕═════ ⭐
+
+👤 الشخصية
+${player.favoriteCharacter}
+
+🌌 الأنمي
+${anime}
+
+⚔️ القوة
+${power}
+
+🏆 الندرة
+${rarity}
+
+━━━━━━━━━━━━━━
+
+🎯 النسخ المحصلة
+2/${player.favoriteObtained}
+
+━━━━━━━━━━━━━━
+
+⏳ يتبقى على انتهاء المفضلة:
+
+📅 ${days} يوم
+🕒 ${hours} ساعة
+⏱️ ${minutes} دقيقة
+⌛ ${seconds} ثانية`
+
+    if (
+        character?.image &&
+        (
+            character.image.startsWith("http://") ||
+            character.image.startsWith("https://")
+        )
+    ) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                image: {
+                    url: character.image
+                },
+                caption
+            }
         )
 
-    const hours =
-        Math.floor(
-            (
-                remaining %
-                (1000 * 60 * 60 * 24)
-            ) /
-            (1000 * 60 * 60)
-        )
+    }
+
+    if (character?.image) {
+
+        const imagePath =
+            path.join(__dirname, character.image)
+
+        if (fs.existsSync(imagePath)) {
+
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                {
+                    image: fs.readFileSync(imagePath),
+                    caption
+                }
+            )
+
+        }
+
+    }
 
     return sock.sendMessage(
         msg.key.remoteJid,
         {
-            text:
-
-`⭐ الشخصية المفضلة
-
-👤 ${player.favoriteCharacter}
-
-🎯 النسخ المحصلة:
-${player.favoriteObtained}/2
-
-⏳ الوقت المتبقي:
-${days} يوم
-${hours} ساعة`
+            text: caption
         }
     )
 }
