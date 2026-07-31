@@ -26102,7 +26102,7 @@ if (me.bossDead) {
         me.bossHp = Math.floor(me.bossMaxHp / 2)
         me.bossRespawn = null
 
-        
+        await me.save()
 
     } else {
 
@@ -26902,16 +26902,7 @@ if (
         )
 
     
-    {},
-    {
-        $set: {
-            hp: currentBoss.hp,
-            attack: currentBoss.attack,
-            enraged: currentBoss.enraged,
-            activeFollowers: currentBoss.activeFollowers
-        }
-    }
-)
+   
 
 await sock.sendMessage(
     msg.key.remoteJid,
@@ -26962,15 +26953,7 @@ if (currentBoss.hp <= 0) {
 }
 
 
-    {},
-    {
-        $set: {
-            hp: currentBoss.hp,
-            finished: currentBoss.finished,
-            killer: currentBoss.killer
-        }
-    }
-)
+    
 me.bossDamage =
     (me.bossDamage || 0) + damage
 
