@@ -8212,11 +8212,11 @@ ${pity}/30
 ${pulls}/5
 
 🌍 السحبات العالمية
-${banner.globalPulls}/500
+${banner.globalPulls}/200
 
 ━━━━━━━━━━━━
 
-🎁 عند وصول المجتمع إلى 500 سحبة
+🎁 عند وصول المجتمع إلى 200 سحبة
 
 💰 500,000 ذهب
 🎟️ +5 سحبات
@@ -8518,7 +8518,7 @@ player.pulls--
         player.bannerParticipated = true
         banner.globalPulls++
 
-const reachedReward = banner.globalPulls >= 500
+const reachedReward = banner.globalPulls >= 200
 if (reachedReward) {
 
     banner.globalPulls = 0
