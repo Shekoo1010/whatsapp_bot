@@ -27338,23 +27338,7 @@ console.log(
 )
 
 currentBoss.finished = true
-
-        return safeSend(msg.key.remoteJid, {
-            text: `👑 تم هزيمة الزعيم!`
-        })
-
-    } catch (e) {
-
-        console.log("Boss reward error:", e)
-
-        currentBoss = null
-
-        return safeSend(msg.key.remoteJid, {
-            text: "❌ حدث خطأ أثناء توزيع الجوائز"
-        })
-    }
-}
-            await me.save()
+        await me.save()
 
 await Boss.updateOne(
     {},
@@ -27371,6 +27355,23 @@ await Boss.updateOne(
         }
     }
 )
+
+        return safeSend(msg.key.remoteJid, {
+            text: `👑 تم هزيمة الزعيم!`
+        })
+
+    } catch (e) {
+
+        console.log("Boss reward error:", e)
+
+        currentBoss = null
+
+        return safeSend(msg.key.remoteJid, {
+            text: "❌ حدث خطأ أثناء توزيع الجوائز"
+        })
+    }
+}
+            
         
         const attackCaption = `⚔️ ═════〔 هجوم الزعيم 〕═════ ⚔️
 
