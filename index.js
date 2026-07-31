@@ -27117,12 +27117,11 @@ if (me.dailyMissions) {
         )
     }
 }
-
+await me.save()
 currentBoss.groupAttackCount =
     (currentBoss.groupAttackCount || 0) + 1
             
-            currentBoss.groupAttackCount =
-    (currentBoss.groupAttackCount || 0) + 1
+            
             if (currentBoss.groupAttackCount >= 15) {
 
     currentBoss.groupAttackCount = 0
