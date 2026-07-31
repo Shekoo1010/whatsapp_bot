@@ -10,15 +10,11 @@ async function start(sock, jid) {
 
         chosenPlayers: new Set(),
 
-        boxes: new Map(),
+        openedBoxes: new Set(),
 
         timeout: null
 
     }
-
-    state.boxes.set(1, [])
-    state.boxes.set(2, [])
-    state.boxes.set(3, [])
 
     states.set(jid, state)
 
@@ -27,7 +23,7 @@ async function start(sock, jid) {
         text:
 `🧭 ═════〔 البحث عن الكنز 〕═════
 
-📦 أمامك ثلاثة صناديق
+📦 أمامك ثلاثة صناديق فقط
 
 1️⃣ الصندوق الأول
 2️⃣ الصندوق الثاني
@@ -46,6 +42,8 @@ async function start(sock, jid) {
 أو
 
 .اختيار 3
+
+⚠️ أول شخص يفتح الصندوق يحصل على جائزته.
 
 ⏳ الوقت:
 5 دقائق`
@@ -79,17 +77,16 @@ async function answer(sock, msg, player, text, userId) {
         return { handled: false }
 
     if (!text.startsWith(".اختيار "))
-        return { handled: false }
+        return { handled:false }
 
     if (state.chosenPlayers.has(userId)) {
 
-        await sock.sendMessage(
-            jid,
-            {
-                text:
+        await sock.sendMessage(jid, {
+
+            text:
 `❌ لقد اخترت صندوقًا بالفعل.`
-            }
-        )
+
+        })
 
         return { handled: true }
 
@@ -107,28 +104,63 @@ async function answer(sock, msg, player, text, userId) {
         choice > 3
     ) {
 
-        await sock.sendMessage(
-            jid,
-            {
-                text:
-`❌ اختر:
+        await sock.sendMessage(jid, {
 
-1
-2
-3`
-            }
-        )
+            text:
+`❌ اختر أحد الصناديق:
+
+1️⃣
+2️⃣
+3️⃣`
+
+        })
+
+        return { handled: true }
+
+    }
+
+    if (state.openedBoxes.has(choice)) {
+
+        await sock.sendMessage(jid, {
+
+            text:
+`📦 الصندوق رقم ${choice} تم فتحه بالفعل.`
+
+        })
 
         return { handled: true }
 
     }
 
     state.chosenPlayers.add(userId)
-
-    state.boxes.get(choice).push(userId)
+    state.openedBoxes.add(choice)
 
     const reward =
         await giveAnimeReward(player)
+
+    // إذا تم فتح جميع الصناديق ينتهي الحدث مباشرة
+    if (state.openedBoxes.size >= 3) {
+
+        clearTimeout(state.timeout)
+
+        state.active = false
+
+        states.delete(jid)
+
+        setTimeout(async () => {
+
+            await sock.sendMessage(jid, {
+
+                text:
+`📦 تم فتح جميع الصناديق!
+
+🏁 انتهى حدث البحث عن الكنز.`
+
+            })
+
+        }, 1000)
+
+    }
 
     return {
 
