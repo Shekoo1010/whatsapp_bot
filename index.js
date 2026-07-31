@@ -26867,7 +26867,7 @@ ${Math.max(0, follower.hp)}`
     (currentBoss.hp || 0) - damage
 )
 
-
+await Boss.updateOne(
     {},
     {
         $set: {
@@ -27263,15 +27263,7 @@ console.log(
 )
 
 
-    {},
-    {
-        $set: {
-            hp: 0,
-            finished: true,
-            respawnAt: currentBoss.respawnAt
-        }
-    }
-)
+    
 
 console.log(
     'RESPAWN AT:',
