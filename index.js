@@ -2160,7 +2160,19 @@ async function generateCharacterShop() {
     }
 }
 
+function shuffle(array) {
+    const arr = [...array]
 
+    for (let i = arr.length - 1; i > 0; i--) {
+
+        const j = Math.floor(Math.random() * (i + 1))
+
+        ;[arr[i], arr[j]] = [arr[j], arr[i]]
+
+    }
+
+    return arr
+}
 
 async function startBrawl(
     sock,
@@ -2237,16 +2249,13 @@ let dmg2 =
     char2.power || 0
 
 const activeAbilities1 =
-    [...(char1.urAbilities || [])]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 4)
+    shuffle(char1.urAbilities || []).slice(0, 4)
 
 const activeAbilities2 =
-    [...(char2.urAbilities || [])]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 4)
+    shuffle(char2.urAbilities || []).slice(0, 4)
 
-let roundLog = ''
+let log1 = ''
+let log2 = ''
 
         // =========================
 // PLAYER 1 ABILITIES
@@ -2263,11 +2272,25 @@ for (const ability of activeAbilities1) {
         (1 + ability.value / 100)
     )
 
-    roundLog += `
+    log1 += `
 
 🔥 ${ability.name}
 
 ⚔️ +${ability.value}% قوة`
+}
+    if (ability.type === 'defense') {
+
+    dmg2 = Math.floor(
+        dmg2 *
+        (1 - ability.value / 100)
+    )
+
+    log1 += `
+
+🛡️ ${ability.name}
+
+🛡️ قلل ضرر الخصم ${ability.value}%`
+
 }
 
     if (
@@ -2278,7 +2301,7 @@ for (const ability of activeAbilities1) {
 
     dmg1 *= 2
 
-    roundLog += `
+    log1 += `
 
 🎯 ${ability.name}
 
@@ -2297,7 +2320,7 @@ for (const ability of activeAbilities1) {
 
     dmg1 += bonus
 
-    roundLog += `
+    log1 += `
 
 💀 ${ability.name}
 
@@ -2315,7 +2338,7 @@ for (const ability of activeAbilities1) {
         )
     )
 
-    roundLog += `
+    log1 += `
 
 🛡️ ${ability.name}
 
@@ -2334,7 +2357,7 @@ for (const ability of activeAbilities1) {
 
     dmg1 += reflected
 
-    roundLog += `
+    log1 += `
 
 🪞 ${ability.name}
 
@@ -2349,7 +2372,7 @@ for (const ability of activeAbilities1) {
 
     dmg2 = 0
 
-    roundLog += `
+    log1 += `
 
 👻 ${ability.name}
 
@@ -2373,11 +2396,25 @@ for (const ability of activeAbilities2) {
         (1 + ability.value / 100)
     )
 
-    roundLog += `
+    log2 +=`
 
 🔥 ${ability.name}
 
 ⚔️ +${ability.value}% قوة`
+}
+    if (ability.type === 'defense') {
+
+    dmg1 = Math.floor(
+        dmg1 *
+        (1 - ability.value / 100)
+    )
+
+    log2 += `
+
+🛡️ ${ability.name}
+
+🛡️ قلل ضرر الخصم ${ability.value}%`
+
 }
 
     if (
@@ -2388,7 +2425,7 @@ for (const ability of activeAbilities2) {
 
     dmg2 *= 2
 
-    roundLog += `
+    log2 += `
 
 🎯 ${ability.name}
 
@@ -2407,7 +2444,7 @@ for (const ability of activeAbilities2) {
 
     dmg2 += bonus
 
-    roundLog += `
+    log2 += `
 
 💀 ${ability.name}
 
@@ -2426,7 +2463,7 @@ for (const ability of activeAbilities2) {
         )
     )
 
-    roundLog += `
+    log2 += `
 
 🛡️ ${ability.name}
 
@@ -2445,7 +2482,7 @@ for (const ability of activeAbilities2) {
 
     dmg2 += reflected
 
-    roundLog += `
+    log2 += `
 
 🪞 ${ability.name}
 
@@ -2458,9 +2495,9 @@ for (const ability of activeAbilities2) {
     ability.value
 ) {
 
-    dmg2 = 0
+    dmg1 = 0
 
-    roundLog += `
+    log2 += `
 
 👻 ${ability.name}
 
@@ -2473,9 +2510,9 @@ for (const ability of activeAbilities2) {
     wins1++
 
     await sock.sendMessage(
-        jid,
-        {
-            text:
+    jid,
+    {
+        text:
 `🥊 الجولة ${round + 1}
 
 👑 ${char1.name}
@@ -2489,11 +2526,21 @@ for (const ability of activeAbilities2) {
 🏆 الفائز:
 ${char1.name}
 
-${roundLog}
+━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━━`
-        }
-    )
+👑 قدرات ${char1.name}
+
+${log1 || "لا توجد قدرات مفعلة"}
+
+━━━━━━━━━━━━━━
+
+👑 قدرات ${char2.name}
+
+${log2 || "لا توجد قدرات مفعلة"}
+
+━━━━━━━━━━━━━━`
+    }
+)
 
     await new Promise(
         r => setTimeout(r, 2500)
@@ -2504,9 +2551,9 @@ ${roundLog}
     wins2++
 
     await sock.sendMessage(
-        jid,
-        {
-            text:
+    jid,
+    {
+        text:
 `🥊 الجولة ${round + 1}
 
 👑 ${char1.name}
@@ -2520,11 +2567,21 @@ ${roundLog}
 🏆 الفائز:
 ${char2.name}
 
-${roundLog}
+━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━━`
-        }
-    )
+👑 قدرات ${char1.name}
+
+${log1 || "لا توجد قدرات مفعلة"}
+
+━━━━━━━━━━━━━━
+
+👑 قدرات ${char2.name}
+
+${log2 || "لا توجد قدرات مفعلة"}
+
+━━━━━━━━━━━━━━`
+    }
+)
 
     await new Promise(
         r => setTimeout(r, 2500)
