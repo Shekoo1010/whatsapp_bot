@@ -4145,11 +4145,35 @@ round.defender
     // حساب القوة الحقيقي
     // =========================
 
-    const result =
-        await clanBattle(
-            attacker,
-            defender
-        )
+    let result
+
+try {
+
+    result = await clanBattle(
+        attacker,
+        defender
+    )
+
+} catch (err) {
+
+    console.log(
+        "Clan Battle Error:",
+        err
+    )
+
+    await safeSend(
+        war.chatId,
+        {
+            text:
+`❌ حدث خطأ أثناء الجولة ${round.round}
+
+${err.message}`
+        }
+    )
+
+    return
+
+}
 
     let winner
 
@@ -4230,13 +4254,6 @@ if (war.currentRound <= war.rounds.length) {
 }
 
 return finishClanWar(warId)
-
-// بدء الجولة التالية بعد 5 ثواني
-setTimeout(() => {
-
-    runClanRound(warId)
-
-}, 5000)
 
 }
 async function finishClanWar(warId) {
