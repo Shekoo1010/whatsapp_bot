@@ -4612,6 +4612,33 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.حذف_العشائر_الفارغة') {
+
+    if (!isOwner) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            {
+                text: '❌ هذا الأمر للمالك فقط.'
+            }
+        )
+
+    }
+
+    const result = await Clan.deleteMany({
+        members: { $size: 0 }
+    })
+
+    return safeSend(
+        msg.key.remoteJid,
+        {
+            text:
+`🗑️ تم حذف ${result.deletedCount} عشيرة فارغة بنجاح.`
+        }
+    )
+
+}
+
     if (text === '.قوتي') {
 
     let player = await Player.findOne({ userId })
