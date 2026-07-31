@@ -1,20 +1,45 @@
-const characters = require("../characters.json")
+const quizCharacters = require("../quizCharacters.json")
 const { giveAnimeReward } = require("./AnimeRewards")
 
 const states = new Map()
 
+function normalize(text) {
+    return String(text)
+        .toLowerCase()
+        .replace(/[جغق]/g, "ق")
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/ؤ/g, "و")
+        .replace(/ئ/g, "ي")
+        .replace(/[^\u0600-\u06FFa-z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+}
+
 function randomCharacter() {
 
-    const list = characters.filter(c =>
-        c.name &&
-        c.name.trim().split(/\s+/).length >= 2
-    )
+    const item =
+        quizCharacters[
+            Math.floor(
+                Math.random() *
+                quizCharacters.length
+            )
+        ]
 
-    return list[
-        Math.floor(
-            Math.random() * list.length
-        )
-    ]
+    const fullName =
+        item.answers[
+            Math.floor(
+                Math.random() *
+                item.answers.length
+            )
+        ]
+
+    return {
+        fullName,
+        answers: item.answers,
+        anime: item.anime
+    }
 
 }
 
@@ -24,44 +49,39 @@ async function start(sock, jid) {
         randomCharacter()
 
     const parts =
-        char.name.trim().split(/\s+/)
+    char.fullName.trim().split(/\s+/)
 
     const hideCount =
-        Math.min(
-            Math.floor(Math.random() * 3) + 1,
-            parts.length - 1
-        )
+    Math.min(
+        Math.floor(Math.random() * 3) + 1,
+        parts.length - 1
+    )
 
-    const hidden =
-        parts
-            .slice(parts.length - hideCount)
-            .join(" ")
+for (let i = 0; i < hideCount; i++) {
 
-    for (let i = 0; i < hideCount; i++) {
+    parts[
+        parts.length - 1 - i
+    ] = "_____"
 
-        parts[
-            parts.length - 1 - i
-        ] = "_____"
-
-    }
+}
 
     const state = {
 
-        answered: false,
+    answered: false,
 
-        currentQuestion: {
+    currentQuestion: {
 
-            answer: hidden,
+        answers: char.answers,
 
-            fullName: char.name,
+        fullName: char.fullName,
 
-            question: parts.join(" ")
+        question: parts.join(" ")
 
-        },
+    },
 
-        timeout: null
+    timeout: null
 
-    }
+}
 
     states.set(jid, state)
 
@@ -120,33 +140,26 @@ async function answer(sock, msg, player, text) {
     if (!text.startsWith(".جواب "))
         return { handled: false }
 
-    const normalize = str =>
-
-        str
-            .toLowerCase()
-            .replace(/[._-]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
+    
 
     const answer =
         normalize(
             text.slice(6)
         )
 
-    const correct =
-        normalize(
-            state.currentQuestion.fullName
-        )
+    const correctAnswers =
+    state.currentQuestion.answers.map(normalize)
 
-    if (
-        answer !== correct &&
-        !correct.includes(answer) &&
-        !answer.includes(correct)
-    ) {
+const matched =
+    correctAnswers.some(correct =>
+        answer === correct ||
+        correct.includes(answer) ||
+        answer.includes(correct)
+    )
 
-        return { handled: true }
-
-    }
+if (!matched) {
+    return { handled: true }
+}
 
     state.answered = true
 
