@@ -14655,56 +14655,35 @@ return sock.sendMessage(
         )
     }
 
-    const owned =
-        player.characters.find(
-            c => c.name === player.favoriteCharacter
+    const character = characters.find(
+        c => c.name === player.favoriteCharacter
+    )
+
+    if (!character) {
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: "❌ الشخصية غير موجودة في characters.json"
+            }
         )
 
-    const latest =
-        owned
-            ? characters.find(
-                c =>
-                    c.name === owned.name &&
-                    c.rarity === owned.rarity &&
-                    c.form === owned.form
-            )
-            : null
-
-    const character =
-        latest
-            ? {
-                ...owned,
-                image: latest.image,
-                anime: latest.anime,
-                ability: latest.ability,
-                rarity: latest.rarity,
-                form: latest.form || owned.form
-            }
-            : owned
-
-    const anime =
-        character?.anime || "غير معروف"
-
-    const power =
-        character?.power || "؟"
-
-    const rarity =
-        character?.rarity || "؟"
+    }
 
     const caption =
 `⭐ ═════〔 الشخصية المفضلة 〕═════ ⭐
 
 👤 الشخصية
-${player.favoriteCharacter}
+${character.name}
 
 🌌 الأنمي
-${anime}
+${character.anime}
 
 ⚔️ القوة
-${power}
+${character.power}
 
 🏆 الندرة
-${rarity}
+${character.rarity}
 
 ━━━━━━━━━━━━━━
 
@@ -14721,7 +14700,7 @@ ${rarity}
 ⌛ ${seconds} ثانية`
 
     if (
-        character?.image &&
+        character.image &&
         (
             character.image.startsWith("http://") ||
             character.image.startsWith("https://")
@@ -14740,22 +14719,18 @@ ${rarity}
 
     }
 
-    if (character?.image) {
+    const imagePath =
+        path.join(__dirname, "..", character.image)
 
-        const imagePath =
-            path.join(__dirname, character.image)
+    if (fs.existsSync(imagePath)) {
 
-        if (fs.existsSync(imagePath)) {
-
-            return sock.sendMessage(
-                msg.key.remoteJid,
-                {
-                    image: fs.readFileSync(imagePath),
-                    caption
-                }
-            )
-
-        }
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                image: fs.readFileSync(imagePath),
+                caption
+            }
+        )
 
     }
 
