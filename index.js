@@ -11489,11 +11489,15 @@ ${item.name}
 
     }
 
-    const total =
-        await Clan.countDocuments()
+    const lastClan = await Clan.findOne().sort({ clanId: -1 })
 
-    const clanId =
-        `CL${String(total + 1).padStart(3,'0')}`
+let lastNumber = 0
+
+if (lastClan) {
+    lastNumber = parseInt(lastClan.clanId.replace("CL", "")) || 0
+}
+
+const clanId = `CL${String(lastNumber + 1).padStart(3, "0")}`
 
     await Clan.create({
 
