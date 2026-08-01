@@ -11291,8 +11291,8 @@ if (
 
     player.clanCoins -= item.price
 
-    player.clanShop[week][item.id] =
-        bought + 1
+player.clanShop[week][item.id] = bought + 1
+player.markModified("clanShop")
         switch (item.id) {
 
 case "pull_ticket":
@@ -11384,15 +11384,18 @@ break
         await player.save()
 await clan.save()
 
-return safeSend(
-msg.key.remoteJid,
-{
+const remaining = item.limit - (bought + 1)
+
+return safeSend(msg.key.remoteJid,{
 text:
-`✅ اشتريت:
+`✅ تم شراء:
 
 ${item.name}
 
-💰-${item.price} 🪙`
+💰 -${item.price} 🪙
+
+📦 المتبقي:
+${remaining}/${item.limit}`
 }
 )
 
