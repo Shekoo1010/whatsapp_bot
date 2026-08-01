@@ -4316,7 +4316,8 @@ async function finishClanWar(warId) {
     const Clan = require("./models/Clan")
     const ClanWar = require("./models/ClanWar")
     const Player = require("./models/Player")
-const { addClanXP } = require("./clanXP")
+const { addClanXP } = require("./clanLevel")
+    
     const war = await ClanWar.findOne({
         warId
     })
