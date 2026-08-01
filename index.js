@@ -2911,7 +2911,7 @@ if (!state.creds.registered) {
 
             const code =
                 await sock.requestPairingCode(
-                    "966571111411"
+                    "966569281965"
                 )
 
             console.log(
@@ -4316,7 +4316,7 @@ async function finishClanWar(warId) {
     const Clan = require("./models/Clan")
     const ClanWar = require("./models/ClanWar")
     const Player = require("./models/Player")
-
+const { addClanXP } = require("./clanXP")
     const war = await ClanWar.findOne({
         warId
     })
@@ -4403,7 +4403,7 @@ else {
     const winnerMoney = 300000
     const loserMoney = 150000
 
-    const winnerCoins = 100
+    const winnerCoins = 10
 
     const winnerXP = 250
     const loserXP = 125
@@ -4434,12 +4434,14 @@ else {
     }
 
     winnerClan.rankPoints += winnerRating
+winnerClan.wins++
 
-    winnerClan.xp += winnerXP
+await addClanXP(
+    winnerClan.clanId,
+    winnerXP
+)
 
-    winnerClan.wins++
-
-    await winnerClan.save()
+await winnerClan.save()
         // =======================
 // الخاسر
     // =======================
@@ -4461,11 +4463,14 @@ else {
 
     }
 
-    loserClan.xp += loserXP
-
     loserClan.losses++
 
-    await loserClan.save()
+await addClanXP(
+    loserClan.clanId,
+    loserXP
+)
+
+await loserClan.save()
 
     war.status = "finished"
 
@@ -4505,7 +4510,7 @@ ${loserClan.emoji} ${loserClan.name}
 
 💰 +300,000
 
-🪙 +100 عملة عشيرة
+🪙 +10 عملة عشيرة
 
 ⭐ +250 XP
 
