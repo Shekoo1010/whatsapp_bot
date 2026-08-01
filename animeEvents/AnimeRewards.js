@@ -90,20 +90,9 @@ if (roll < 60) {
 
     const pulls = random(1, 5)
 
-const freshPlayer = await Player.findOne({
-    userId: player.userId
-})
+player.pulls = (player.pulls || 0) + pulls
 
-if (!freshPlayer) {
-    return {
-        type: "none",
-        text: "❌ تعذر العثور على اللاعب."
-    }
-}
-
-freshPlayer.pulls = (freshPlayer.pulls || 0) + pulls
-
-await freshPlayer.save()
+await player.save()
 
 return {
 
