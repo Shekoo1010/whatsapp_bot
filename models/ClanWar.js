@@ -42,18 +42,28 @@ const clanWarSchema = new mongoose.Schema({
     },
 
     mode: {
-        type: String,
-        enum: [
-            "member",
-            "power"
-        ],
-        default: "member"
-    },
+    type: String,
+    enum: [
+        "member",
+        "power"
+    ],
+    default: "member"
+},
 
-    rounds: {
-        type: Array,
-        default: []
-    },
+chatId: {
+    type: String,
+    default: null
+},
+
+currentRound: {
+    type: Number,
+    default: 0
+},
+
+rounds: {
+    type: Array,
+    default: []
+},
 
     attackerScore: {
         type: Number,
