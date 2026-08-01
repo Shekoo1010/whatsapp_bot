@@ -4188,13 +4188,12 @@ text:
 ━━━━━━━━━━━━━━`,
 
 mentions: [
-
-round.attacker,
-
-round.defender
-
-]
-
+    round.attacker,
+    round.defender
+].filter(jid =>
+    typeof jid === "string" &&
+    (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid"))
+)
         }
 
     )
@@ -4285,11 +4284,10 @@ ${result.powerB.toLocaleString()}
 
 🏯 ${war.defenderScore}`,
 
-mentions: [
-
-winner
-
-]
+mentions: [winner].filter(jid =>
+    typeof jid === "string" &&
+    (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid"))
+)
 
         }
 
@@ -4472,6 +4470,10 @@ else {
     war.status = "finished"
 
     await war.save()
+    if (!war.chatId || typeof war.chatId !== "string") {
+    console.log("Invalid chatId:", war.chatId)
+    return
+}
 
     await safeSend(
 
