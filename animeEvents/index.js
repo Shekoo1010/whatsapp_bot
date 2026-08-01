@@ -150,10 +150,7 @@ try {
 
     if (result.handled && result.winner) {
 
-    activeEvents.delete(jid)
-
     await sock.sendMessage(jid, {
-
         text:
 `🏆 إجابة صحيحة!
 
@@ -163,11 +160,13 @@ try {
 ━━━━━━━━━━━━━━
 
 ${result.extraText ? result.extraText + "\n\n" : ""}${result.reward.text}`,
-
         mentions: [result.winner]
-
     })
 
+    // لا نحذف الحدث إلا إذا انتهى
+    if (result.finished) {
+        activeEvents.delete(jid)
+    }
 }
 
     return result.handled
