@@ -27926,6 +27926,7 @@ player.characters.push({
     urAbilities: []
 })
 
+
 player.pulls -= 1
 
 await player.save()
@@ -28145,7 +28146,22 @@ if (text === '.رصيدي') {
                 text: '❌ لا تملك حساباً'
             })
         }
+        
+const cooldown = 60 * 60 * 1000
 
+const currentPeriod =
+    Math.floor(Date.now() / cooldown)
+
+if (player.lastReset !== currentPeriod) {
+
+    if (player.pulls < 5) {
+        player.pulls = 5
+    }
+
+    player.lastReset = currentPeriod
+
+    await player.save()
+}
         return safeSend(msg.key.remoteJid, {
             text:
 
