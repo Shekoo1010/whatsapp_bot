@@ -10537,32 +10537,25 @@ if (text.startsWith('.حرب_عشيرة')) {
 
         }
 
-        const war =
-            await ClanWar.create({
-                
+        const war = await ClanWar.create({
 
-                warId:
-                    generateId(),
+    warId: generateId(),
 
-                attackerClan:
-                    myClan.clanId,
+    chatId: msg.key.remoteJid,
 
-                defenderClan:
-                    enemyClan.clanId,
+    attackerClan: myClan.clanId,
 
-                attackerLeader:
-                    sender,
+    defenderClan: enemyClan.clanId,
 
-                defenderLeader:
-                    mentioned,
+    attackerLeader: sender,
 
-                status:
-                    "pending",
+    defenderLeader: mentioned,
 
-                mode:
-                    "member"
+    status: "pending",
 
-            })
+    mode: "member"
+
+})
         myClan.dailyWars--
 
 await myClan.save()
@@ -10702,10 +10695,6 @@ if (war.status !== "pending") {
 
 }
 
-war.status = "accepted"
-
-        war.status = "accepted"
-
         const attackerClan = await Clan.findOne({
             clanId: war.attackerClan
         })
@@ -10736,12 +10725,14 @@ if (
 
 }
 
-war.chatId = msg.key.remoteJid
+war.status = "accepted"
 
-        war.currentRound = 1
+if (!war.chatId) {
+    war.chatId = msg.key.remoteJid
+}
 
-        war.rounds = []
-
+war.currentRound = 1
+war.rounds = []
         const totalRounds = Math.min(
             attackerMembers.length,
             defenderMembers.length
