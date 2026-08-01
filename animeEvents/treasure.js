@@ -164,16 +164,17 @@ async function answer(sock, msg, player, text, userId) {
 
     return {
 
-        handled: true,
+    handled: true,
 
-        winner: player.userId,
+    winner: player.userId,
 
-        reward,
+    reward,
 
-        extraText:
-`🎁 فتح الصندوق رقم ${choice}`
+    extraText: `🎁 فتح الصندوق رقم ${choice}`,
 
-    }
+    finished: state.openedBoxes.size >= 3
+
+}
 
 }
 
