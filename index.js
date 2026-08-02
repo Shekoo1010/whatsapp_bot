@@ -61,7 +61,7 @@ function botAvailable() {
         })
     );
 
-    return hour < 12;
+    return hour >= 10;
 }
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
@@ -3617,8 +3617,9 @@ sock.ev.on('messages.upsert', async ({ messages }) => {
 msg.message.conversation ||
 msg.message.extendedTextMessage?.text
 
-if (!text) return
-    const quizCommands = [
+if (!text) return;
+
+const quizCommands = [
     '.بدا_مسابقة',
     '.بدا_مسابقة_صور',
     '.بدا_مسابقة_كت',
@@ -3630,7 +3631,7 @@ if (
     !quizCommands.some(cmd => text.startsWith(cmd))
 ) {
     return safeSend(msg.key.remoteJid, {
-        text: '⏰ البوت يعمل من 12:00 صباحًا حتى 12:00 ظهرًا بتوقيت السعودية.\n\n📚 أوامر المسابقات تعمل طوال اليوم.'
+        text: '⏰ البوت يعمل يوميًا من الساعة 10:00 صباحًا حتى 12:00 منتصف الليل بتوقيت السعودية 🇸🇦.\n\n📚 أوامر المسابقات تعمل طوال اليوم.'
     });
 }
 
