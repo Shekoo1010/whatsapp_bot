@@ -4071,7 +4071,15 @@ return
 // =========================
 
 const room = quizData.getQuizRoom(msg.key.remoteJid)
-
+console.log("========== NEW MESSAGE ==========");
+console.log("User:", pushName);
+console.log("UserId:", userId);
+console.log("Text:", text);
+console.log("MsgID:", msg.key.id);
+console.log("MessageTimestamp:", Number(msg.messageTimestamp));
+console.log("DateNow:", Date.now());
+console.log("QuestionSolved:", room.questionSolved);
+console.log("================================");
 if (
     room.quizActive &&
     text !== '.انهاء_مسابقة' &&
@@ -4079,23 +4087,24 @@ if (
 ) {
 
     enqueueQuiz(msg.key.remoteJid, async () => {
-
+console.log("➡️ ENTER QUEUE");
+console.log("User:", pushName);
+console.log("Queue:", quizQueues.get(msg.key.remoteJid).queue.length);
+console.log("MsgID:", msg.key.id);
         const result =
         await checkAnswer(
-            sock,
-            msg.key.remoteJid,
-            userId,
-            text,
-            Number(msg.messageTimestamp) * 1000
-        )
+    sock,
+    msg.key.remoteJid,
+    userId,
+    text,
+    Date.now()
+)
 
         if (result === "FINISHED") {
             return
         }
 
         if (result === true) {
-
-            room.questionSolved = true
 
             const endTime =
                 room.lastAnswerTimestamp ||
