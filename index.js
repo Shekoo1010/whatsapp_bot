@@ -29620,6 +29620,8 @@ ${me.xp}
 ⚔️ القتالات المتبقية:
 ${me.fights}/5`;
 
+battleLocks.delete(userId)
+
 return safeSend(msg.key.remoteJid, {
     text: battleMessage,
     mentions: [winnerId || userId || targetId]
@@ -29627,11 +29629,13 @@ return safeSend(msg.key.remoteJid, {
 
  } catch (err) {
 
-        console.log(err);
+    console.log(err)
 
-        return safeSend(msg.key.remoteJid, {
-            text: '❌ حدث خطأ أثناء القتال'
-        });
+    battleLocks.delete(userId)
+
+    return safeSend(msg.key.remoteJid, {
+        text: '❌ حدث خطأ أثناء القتال'
+    });
     }
 
 } // ← إغلاق if
