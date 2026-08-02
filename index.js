@@ -3631,9 +3631,7 @@ if (
     !botAvailable() &&
     !quizCommands.some(cmd => text.startsWith(cmd))
 ) {
-    return safeSend(msg.key.remoteJid, {
-        text: '⏰ البوت يعمل يوميًا من الساعة 10:00 صباحًا حتى 12:00 منتصف الليل بتوقيت السعودية 🇸🇦.\n\n📚 أوامر المسابقات تعمل طوال اليوم.'
-    });
+    return;
 }
 
     // منع استخدام البوت في الخاص
