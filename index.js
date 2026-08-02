@@ -4678,6 +4678,14 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.ريست_مجموع') {
+    battleLocks.clear();
+
+    return safeSend(msg.key.remoteJid, {
+        text: '✅ تم تصفير جميع القتالات المعلقة.'
+    });
+}
+
     if (text === '.حذف_العشائر_الفارغة') {
 
     if (!isOwner) {
@@ -29124,8 +29132,7 @@ if (battleLocks.has(userId)) {
     });
 }
 
-battleLocks.add(userId);
-battleLocks.add(targetId);
+
 
 me.rewardedLevels = me.rewardedLevels || [];
 me.specialAbilities = me.specialAbilities || [];
@@ -29170,7 +29177,8 @@ if (now - me.lastFightReset >= fightCooldown) {
             text: '❌ الخصم لا يملك شخصيات'
         });
     }
-
+battleLocks.add(userId);
+battleLocks.add(targetId);
     let myPower =
         me.characters.reduce((sum, c) => sum + Number(c.power || 0), 0);
 
