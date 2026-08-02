@@ -29628,7 +29628,7 @@ return safeSend(msg.key.remoteJid, {
     text: battleMessage,
     mentions: [winnerId || userId || targetId]
 });
-
+    }
 }
 catch (err) {
 
