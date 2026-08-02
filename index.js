@@ -29179,6 +29179,15 @@ if (now - me.lastFightReset >= fightCooldown) {
     }
 battleLocks.add(userId);
 battleLocks.add(targetId);
+
+const battleTimeout = setTimeout(() => {
+    battleLocks.delete(userId);
+    battleLocks.delete(targetId);
+
+    safeSend(msg.key.remoteJid, {
+        text: '⌛ انتهى وقت القتال وتم إلغاؤه تلقائيًا.'
+    }).catch(() => {});
+}, 30000);
     let myPower =
         me.characters.reduce((sum, c) => sum + Number(c.power || 0), 0);
 
@@ -29329,7 +29338,7 @@ if (tierChance <= 50) {
         winnerId = targetId;
         winner = 'الخصم';
         reward = Math.max(250, Math.floor(myPower / 25));
-
+    }
     me.money = (me.money || 0) + reward;
     me.xp = (me.xp || 0) + 100;
 
@@ -29628,7 +29637,7 @@ ${me.xp}
 
 ⚔️ القتالات المتبقية:
 ${me.fights}/5`;
-
+clearTimeout(battleTimeout);
 battleLocks.delete(userId)
 battleLocks.delete(targetId)
 
@@ -29639,16 +29648,17 @@ return safeSend(msg.key.remoteJid, {
     }
 }
 catch (err) {
+    clearTimeout(battleTimeout);
 
-    console.log(err)
+    battleLocks.delete(userId);
+    battleLocks.delete(targetId);
 
-    battleLocks.delete(userId)
-battleLocks.delete(targetId)
+    console.log(err);
 
     return safeSend(msg.key.remoteJid, {
-        text: '❌ حدث خطأ أثناء القتال'
+        text: '❌ حدث خطأ أثناء القتال.'
     });
-    }
+}
 
 } // ← إغلاق if
         
