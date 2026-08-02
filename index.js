@@ -52,6 +52,17 @@ async function cleanEmptyClans() {
     }
 
 }
+function botAvailable() {
+    const hour = Number(
+        new Date().toLocaleString("en-US", {
+            timeZone: "Asia/Riyadh",
+            hour: "2-digit",
+            hour12: false
+        })
+    );
+
+    return hour < 12;
+}
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
@@ -2912,7 +2923,7 @@ if (!state.creds.registered) {
 
             const code =
                 await sock.requestPairingCode(
-                    "966571111411"
+                    "966569281965"
                 )
 
             console.log(
@@ -3607,6 +3618,21 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text
 
 if (!text) return
+    const quizCommands = [
+    '.بدا_مسابقة',
+    '.بدا_مسابقة_صور',
+    '.بدا_مسابقة_كت',
+    '.بدا_مسابقة_سس'
+];
+
+if (
+    !botAvailable() &&
+    !quizCommands.some(cmd => text.startsWith(cmd))
+) {
+    return safeSend(msg.key.remoteJid, {
+        text: '⏰ البوت يعمل من 12:00 صباحًا حتى 12:00 ظهرًا بتوقيت السعودية.\n\n📚 أوامر المسابقات تعمل طوال اليوم.'
+    });
+}
 
     // منع استخدام البوت في الخاص
 if (!msg.key.remoteJid.endsWith("@g.us")) {
