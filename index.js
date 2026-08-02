@@ -29627,6 +29627,8 @@ if (currentLevel === 200) {
 }
 }
 
+// احفظ جميع التعديلات أولاً
+await me.save();
 const result = await Player.updateOne(
     {
         userId,
