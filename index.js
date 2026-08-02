@@ -29646,7 +29646,8 @@ return safeSend(msg.key.remoteJid, {
     mentions: [winnerId || userId || targetId]
 });
     }
-}
+
+            
 catch (err) {
     clearTimeout(battleTimeout);
 
