@@ -4678,6 +4678,23 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.تصحيح_لفل200') {
+
+    const result = await Player.updateMany(
+        { level: { $gt: 200 } },
+        {
+            $set: {
+                level: 200,
+                xp: 0
+            }
+        }
+    );
+
+    return safeSend(msg.key.remoteJid, {
+        text: `✅ تم إعادة ${result.modifiedCount} لاعب إلى المستوى 200 وتصفير خبرتهم.`
+    });
+}
+
     if (text === '.ريست_مجموع') {
     battleLocks.clear();
 
@@ -29351,6 +29368,12 @@ while ((me.xp || 0) >= Math.floor(300 + (me.level * 150))) {
     me.xp -= neededXp;
 me.level += 1;
 
+if (me.level > 200) {
+    me.level = 200;
+    me.xp = 0;
+    break;
+}
+
 // المستوى الجديد
 const currentLevel = me.level;
 
@@ -29557,15 +29580,6 @@ if (currentLevel === 200) {
 }
 
     me.rewardedLevels.push(currentLevel);
-}
-
-// الحد الأقصى للمستوى
-if (me.level >= 200) {
-
-    me.level = 200;
-    me.xp = 0;
-    break;
-
 }
 }
 
