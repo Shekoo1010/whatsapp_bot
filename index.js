@@ -29125,6 +29125,7 @@ if (battleLocks.has(userId)) {
 }
 
 battleLocks.add(userId);
+battleLocks.add(targetId);
 
 me.rewardedLevels = me.rewardedLevels || [];
 me.specialAbilities = me.specialAbilities || [];
@@ -29621,6 +29622,7 @@ ${me.xp}
 ${me.fights}/5`;
 
 battleLocks.delete(userId)
+battleLocks.delete(targetId)
 
 return safeSend(msg.key.remoteJid, {
     text: battleMessage,
@@ -29632,6 +29634,7 @@ return safeSend(msg.key.remoteJid, {
     console.log(err)
 
     battleLocks.delete(userId)
+battleLocks.delete(targetId)
 
     return safeSend(msg.key.remoteJid, {
         text: '❌ حدث خطأ أثناء القتال'
