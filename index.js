@@ -4678,6 +4678,22 @@ function findTradeCharacter(player, input) {
     // الأوامر العادية هنا
     // =========================
 
+    if (text === '.تصحيح_القتالات') {
+
+    const result = await Player.updateMany(
+        {},
+        {
+            $set: {
+                fights: 5
+            }
+        }
+    );
+
+    return safeSend(msg.key.remoteJid, {
+        text: `✅ تم إعادة قتالات ${result.modifiedCount} لاعب إلى 5/5.`
+    });
+}
+
     if (text === '.تصحيح_لفل200') {
 
     const result = await Player.updateMany(
@@ -29163,7 +29179,8 @@ const fightCooldown = 60 * 60 * 1000;
 if (now - me.lastFightReset >= fightCooldown) {
     me.fights = 5;
     me.lastFightReset = now;
-    }
+    await me.save();
+}
 
     if ((me.fights || 0) <= 0) {
 
@@ -29583,10 +29600,27 @@ if (currentLevel === 200) {
 }
 }
 
-await Player.updateOne(
-    { userId },
-    { $inc: { fights: -1 } }
+const result = await Player.updateOne(
+    {
+        userId,
+        fights: { $gt: 0 }
+    },
+    {
+        $inc: { fights: -1 }
+    }
 );
+
+if (result.modifiedCount === 0) {
+
+    clearTimeout(battleTimeout);
+
+    battleLocks.delete(userId);
+    battleLocks.delete(targetId);
+
+    return safeSend(msg.key.remoteJid, {
+        text: '❌ لا تملك قتالات متبقية.'
+    });
+}
 
 me = await Player.findOne({ userId });
 
