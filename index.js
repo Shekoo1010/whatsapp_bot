@@ -29629,7 +29629,8 @@ return safeSend(msg.key.remoteJid, {
     mentions: [winnerId || userId || targetId]
 });
 
- } catch (err) {
+}
+catch (err) {
 
     console.log(err)
 
