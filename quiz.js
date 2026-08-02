@@ -445,6 +445,13 @@ ${answers.map(a => `*${a}*`).join(" - ")}`
 async function checkAnswer(sock, jid, userId, answer, answerTimestamp = Date.now()) {
     
     const room = module.exports.quizData.getQuizRoom(jid)
+    console.log("========== CHECK ANSWER ==========");
+console.log("User:", userId);
+console.log("Answer:", answer);
+console.log("AnswerTimestamp:", answerTimestamp);
+console.log("QuestionSolved:", room.questionSolved);
+console.log("LastAnswerTimestamp:", room.lastAnswerTimestamp);
+console.log("==================================");
 
     if (!room.currentQuestion)
         return false
@@ -527,7 +534,12 @@ async function checkAnswer(sock, jid, userId, answer, answerTimestamp = Date.now
     return "FINISHED"
 }
 
-            room.lastAnswerTimestamp = answerTimestamp
+            console.log("🏆 WINNER");
+console.log("Winner:", userId);
+console.log("Answer:", answer);
+console.log("Timestamp:", answerTimestamp);
+
+room.lastAnswerTimestamp = answerTimestamp
 room.questionSolved = true
 
             delete room.playerProgress[userId]
@@ -600,7 +612,12 @@ room.questionSolved = true
         return "FINISHED"
     }
 
-    room.lastAnswerTimestamp = answerTimestamp
+    console.log("🏆 WINNER");
+console.log("Winner:", userId);
+console.log("Answer:", answer);
+console.log("Timestamp:", answerTimestamp);
+
+room.lastAnswerTimestamp = answerTimestamp
 room.questionSolved = true
 
     delete room.playerProgress[userId]
