@@ -2924,7 +2924,7 @@ if (!state.creds.registered) {
 
             const code =
                 await sock.requestPairingCode(
-                    "966569281965"
+                    "966571111411"
                 )
 
             console.log(
@@ -3601,6 +3601,60 @@ function getRandomPlayerAbility() {
 
     return playerAbilities[0]
 }
+    // =========================
+// Quiz Queue
+// =========================
+
+const quizQueues = new Map();
+
+function enqueueQuiz(jid, task) {
+
+    if (!quizQueues.has(jid)) {
+
+        quizQueues.set(jid, {
+            queue: [],
+            processing: false
+        });
+
+    }
+
+    const data = quizQueues.get(jid);
+
+    data.queue.push(task);
+
+    if (!data.processing) {
+        processQuizQueue(jid);
+    }
+
+}
+
+async function processQuizQueue(jid) {
+
+    const data = quizQueues.get(jid);
+
+    if (!data) return;
+
+    data.processing = true;
+
+    while (data.queue.length) {
+
+        const task = data.queue.shift();
+
+        try {
+
+            await task();
+
+        } catch (err) {
+
+            console.log("Quiz Queue Error:", err);
+
+        }
+
+    }
+
+    data.processing = false;
+
+}
 
     // =========================
 // الرسائل
@@ -4024,70 +4078,74 @@ if (
     text !== '.النقاط'
 ) {
 
-    const result =
-await checkAnswer(
-    sock,
-    msg.key.remoteJid,
-    userId,
-    text,
-    Number(msg.messageTimestamp) * 1000
-)
+    enqueueQuiz(msg.key.remoteJid, async () => {
 
-if (result === "FINISHED") {
-    return
-}
+        const result =
+        await checkAnswer(
+            sock,
+            msg.key.remoteJid,
+            userId,
+            text,
+            Number(msg.messageTimestamp) * 1000
+        )
 
-if (result === true) {
+        if (result === "FINISHED") {
+            return
+        }
 
-    room.questionSolved = true
+        if (result === true) {
 
-    const endTime =
-        room.lastAnswerTimestamp ||
-        Date.now()
+            room.questionSolved = true
 
-    const seconds =
-        (
-            endTime -
-            room.questionStartTime
-        ) / 1000
+            const endTime =
+                room.lastAnswerTimestamp ||
+                Date.now()
 
-    await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
+            const seconds =
+                (
+                    endTime -
+                    room.questionStartTime
+                ) / 1000
+
+            await sock.sendMessage(
+                msg.key.remoteJid,
+                {
+                    text:
 `🎉 إجابة صحيحة!
 
 ⏱️ الوقت: ${seconds.toFixed(1)} ثانية
 
 ⭐ +1 نقطة`
-        },
-        {
-            quoted: msg
-        }
-    )
-
-    setTimeout(async () => {
-
-        if (!room.quizActive) return
-
-        if (room.quizMode === "mixed") {
-
-            await startQuestion(
-                sock,
-                msg.key.remoteJid
+                },
+                {
+                    quoted: msg
+                }
             )
 
-        } else {
+            setTimeout(async () => {
 
-            await startCustomQuestion(
-                sock,
-                msg.key.remoteJid
-            )
+                if (!room.quizActive) return
 
+                if (room.quizMode === "mixed") {
+
+                    await startQuestion(
+                        sock,
+                        msg.key.remoteJid
+                    )
+
+                } else {
+
+                    await startCustomQuestion(
+                        sock,
+                        msg.key.remoteJid
+                    )
+
+                }
+
+            }, 2000)
         }
 
-    }, 2000)
-}
+    })
 
     return
 
