@@ -29304,7 +29304,7 @@ if (tierChance <= 50) {
     winner = 'أنت';
     reward = Math.max(
     250,
-    Math.floor(enemyPower / 25)
+    Math.floor(enemyPower / 20)
 );
 
     // مهمة الفوز اليومية
