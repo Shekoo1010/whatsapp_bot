@@ -53,15 +53,16 @@ async function cleanEmptyClans() {
 
 }
 function botAvailable() {
-    const hour = Number(
-        new Date().toLocaleString("en-US", {
+    const hour = parseInt(
+        new Intl.DateTimeFormat("en-GB", {
             timeZone: "Asia/Riyadh",
-            hour: "2-digit",
+            hour: "numeric",
             hour12: false
-        })
+        }).format(new Date()),
+        10
     );
 
-    return hour >= 10;
+    return hour >= 10 && hour < 24;
 }
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
