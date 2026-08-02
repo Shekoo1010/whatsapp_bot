@@ -29657,7 +29657,7 @@ battleLocks.delete(targetId)
         // =========================
 
     
-if (text.startsWith('.قتال')) {
+if (text === '.قتال' || text.startsWith('.قتال ')) {
 
     try {
 
