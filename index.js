@@ -29116,7 +29116,7 @@ try {
 
     const targetId = mentioned[0];
 
-const me = await Player.findOne({ userId });
+let me = await Player.findOne({ userId });
 const enemy = await Player.findOne({ userId: targetId });
 
 if (!me || !enemy) {
@@ -29126,7 +29126,7 @@ if (!me || !enemy) {
 }
 
 // 🔒 منع تشغيل أكثر من قتال بنفس الوقت
-if (battleLocks.has(userId)) {
+if (battleLocks.has(userId) || battleLocks.has(targetId)) {
     return safeSend(msg.key.remoteJid, {
         text: "⏳ انتظر حتى ينتهي القتال الحالي."
     });
@@ -29569,8 +29569,12 @@ if (me.level >= 200) {
 }
 }
 
-me.fights -= 1;
-await me.save();
+await Player.updateOne(
+    { userId },
+    { $inc: { fights: -1 } }
+);
+
+me = await Player.findOne({ userId });
 
 if (levelUpMessage) {
     await sock.sendMessage(
