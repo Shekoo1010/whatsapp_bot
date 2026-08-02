@@ -1,4 +1,5 @@
 const fs = require('fs')
+const battleLocks = new Set();
 const bankSystem = require("./bankSystem")
 const animeEvents = require("./animeEvents")
 
@@ -29107,7 +29108,7 @@ try {
 
     const targetId = mentioned[0];
 
-    const me = await Player.findOne({ userId });
+const me = await Player.findOne({ userId });
 const enemy = await Player.findOne({ userId: targetId });
 
 if (!me || !enemy) {
@@ -29116,6 +29117,15 @@ if (!me || !enemy) {
     });
 }
 
+// 🔒 منع تشغيل أكثر من قتال بنفس الوقت
+if (battleLocks.has(userId)) {
+    return safeSend(msg.key.remoteJid, {
+        text: "⏳ انتظر حتى ينتهي القتال الحالي."
+    });
+}
+
+battleLocks.add(userId);
+
 me.rewardedLevels = me.rewardedLevels || [];
 me.specialAbilities = me.specialAbilities || [];
     
@@ -29123,7 +29133,7 @@ me.specialAbilities = me.specialAbilities || [];
 if (!me.lastFightReset) me.lastFightReset = Date.now();
 
 const now = Date.now();
-const fightCooldown = 30 * 60 * 1000;
+const fightCooldown = 60 * 60 * 1000;
 
 if (now - me.lastFightReset >= fightCooldown) {
     me.fights = 5;
@@ -29144,7 +29154,7 @@ if (now - me.lastFightReset >= fightCooldown) {
 
 🕒 الوقت المتبقي: ${minutes} دقيقة
 
-🔄 تتجدد المحاولات كل 30 دقيقة`
+🔄 تتجدد المحاولات كل ساعة`
         });
     }
 
@@ -29292,9 +29302,9 @@ if (tierChance <= 50) {
     winnerId = userId;
     winner = 'أنت';
     reward = Math.max(
-        500,
-        Math.floor(enemyPower / 10)
-    );
+    250,
+    Math.floor(enemyPower / 25)
+);
 
     // مهمة الفوز اليومية
     if (me.dailyMissions) {
@@ -29309,8 +29319,7 @@ if (tierChance <= 50) {
 } else {
         winnerId = targetId;
         winner = 'الخصم';
-        reward = Math.max(500, Math.floor(myPower / 10));
-    }
+        reward = Math.max(250, Math.floor(myPower / 25));
 
     me.money = (me.money || 0) + reward;
     me.xp = (me.xp || 0) + 100;
