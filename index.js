@@ -3620,20 +3620,6 @@ msg.message.extendedTextMessage?.text
 
 if (!text) return;
 
-const quizCommands = [
-    '.بدا_مسابقة',
-    '.بدا_مسابقة_صور',
-    '.بدا_مسابقة_كت',
-    '.بدا_مسابقة_سس'
-];
-
-if (
-    !botAvailable() &&
-    !quizCommands.some(cmd => text.startsWith(cmd))
-) {
-    return;
-}
-
     // منع استخدام البوت في الخاص
 if (!msg.key.remoteJid.endsWith("@g.us")) {
     return
@@ -4699,7 +4685,22 @@ function findTradeCharacter(player, input) {
     )
 
 }
+const allowedCommands = [
+    '.بدا_مسابقة',
+    '.بدا_مسابقة_صور',
+    '.بدا_مسابقة_كت',
+    '.بدا_مسابقة_سس',
+    '.النقاط',
+    '.انهاء_مسابقة'
+]
 
+if (
+    text.startsWith('.') &&
+    !botAvailable() &&
+    !allowedCommands.some(cmd => text.startsWith(cmd))
+) {
+    return
+}
     // =========================
     // الأوامر العادية هنا
     // =========================
