@@ -28283,48 +28283,89 @@ if (text === '.شخصياتي') {
             )
         }
 
-        const evolutionRanks = [
-            "SSS",
-            "SSS+",
-            "SSS++",
-            "UR I",
-            "UR II",
-            "UR III",
-            "EX"
-        ]
+        const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
 
-        let txt =
-`👤 ━━〔 شخصياتك 〕━━ 👤
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const txtParts = []
+
+txtParts.push(
+`👤 شخصياتك (${player.characters.length}/${player.maxCharacters})
 
 `
+)
 
-player.characters.forEach((c, i) => {
+const groups = {}
+
+for (const c of player.characters) {
 
     const rank =
-        c.evolutionLevel > 0
-            ? [
-                "SSS",
-                "SSS+",
-                "SSS++",
-                "UR I",
-                "UR II",
-                "UR III",
-                "EX"
-            ][c.evolutionLevel]
-            : c.rarity
+        evolutionRanks[c.evolutionLevel] || c.rarity
 
-    txt +=
-`〔${i + 1}〕 ${c.name}
-⚔️ ${c.power} │ 🌟 ${rank}
+    if (!groups[rank]) {
+        groups[rank] = []
+    }
 
-━━━━━━━━━━━━━━━
+    groups[rank].push({
+        name: c.name,
+        power: c.power
+    })
 
-`
-})
+}
 
-txt +=
-`📦 إجمالي الشخصيات: ${player.characters.length}/${player.maxCharacters}`
+for (const rank of rankOrder) {
 
+    if (!groups[rank] || groups[rank].length === 0)
+        continue
+
+    groups[rank].sort((a, b) => b.power - a.power)
+
+    txtParts.push(`🌟 ${rank} (${groups[rank].length})`)
+
+    groups[rank].forEach((c, i) => {
+
+        const number =
+            i < 20
+                ? String.fromCharCode(9312 + i)
+                : `${i + 1}.`
+
+        txtParts.push(
+`${number} ${c.name} ⚔️${c.power}`
+        )
+
+    })
+
+    txtParts.push("━━━━━━━━━━━━")
+
+}
+
+txtParts.push(
+`📦 الإجمالي: ${player.characters.length}/${player.maxCharacters}`
+)
+
+const txt = txtParts.join("\n")
         return safeSend(
             msg.key.remoteJid,
             {
