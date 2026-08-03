@@ -8032,7 +8032,52 @@ const player =
     await Player.findOne({
         userId
     })
+const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
 
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const displayCharacters = [...player.characters].sort((a, b) => {
+
+    const rankA =
+        evolutionRanks[a.evolutionLevel] || a.rarity
+
+    const rankB =
+        evolutionRanks[b.evolutionLevel] || b.rarity
+
+    const orderA = rankOrder.indexOf(rankA)
+    const orderB = rankOrder.indexOf(rankB)
+
+    if (orderA !== orderB)
+        return orderA - orderB
+
+    if (b.power !== a.power)
+        return b.power - a.power
+
+    return a.name.localeCompare(b.name)
+
+})
 if (!player) {
 
     return safeSend(
@@ -8090,15 +8135,14 @@ if (!targetPlayer) {
 
 }
 
-const index =
+const displayIndex =
     parseInt(
         text.split(' ')[1]
     ) - 1
 
 if (
-    isNaN(index) ||
-    index < 0 ||
-    index >= player.characters.length
+    isNaN(displayIndex) ||
+    !displayCharacters[displayIndex]
 ) {
 
     return safeSend(
@@ -8111,11 +8155,13 @@ if (
 
 }
 
-const character =
-    player.characters[index]
+const realIndex =
+    displayCharacters[displayIndex].realIndex
 
+const character =
+    player.characters[realIndex]
 player.characters.splice(
-    index,
+    realIndex,
     1
 )
 
@@ -15206,7 +15252,7 @@ if (text === '.تشغيل') {
         participant?.admin === "superadmin"
 
     if (
-        !isOwner(msg) &&
+        !isOwner(msg) &&ه‍
         !isAdmin
     ) {
         return safeSend(
@@ -15761,7 +15807,52 @@ if (text.startsWith('.دمج')) {
         await Player.findOne({
             userId
         })
+const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
 
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const displayCharacters = [...player.characters].sort((a, b) => {
+
+    const rankA =
+        evolutionRanks[a.evolutionLevel] || a.rarity
+
+    const rankB =
+        evolutionRanks[b.evolutionLevel] || b.rarity
+
+    const orderA = rankOrder.indexOf(rankA)
+    const orderB = rankOrder.indexOf(rankB)
+
+    if (orderA !== orderB)
+        return orderA - orderB
+
+    if (b.power !== a.power)
+        return b.power - a.power
+
+    return a.name.localeCompare(b.name)
+
+})
     if (!player) {
         return safeSend(
             msg.key.remoteJid,
@@ -15817,12 +15908,12 @@ if (text.startsWith('.دمج')) {
     }
 
     const selected = [
-        player.characters[a],
-        player.characters[b],
-        player.characters[c],
-        player.characters[d],
-        player.characters[e]
-    ]
+    displayCharacters[a],
+    displayCharacters[b],
+    displayCharacters[c],
+    displayCharacters[d],
+    displayCharacters[e]
+]
 
     for (const char of selected) {
 
@@ -15877,9 +15968,13 @@ if (text.startsWith('.دمج')) {
             )
         )
 
-    const indexes =
-        [a, b, c, d, e]
-        .sort((x, y) => y - x)
+    const indexes = [
+    displayCharacters[a].realIndex,
+    displayCharacters[b].realIndex,
+    displayCharacters[c].realIndex,
+    displayCharacters[d].realIndex,
+    displayCharacters[e].realIndex
+].sort((x, y) => y - x)
 
     for (const i of indexes) {
         player.characters.splice(
@@ -16683,11 +16778,13 @@ if (text.startsWith('.ترتيب ')) {
     const args =
         text.split(' ')
 
-    const from =
-        parseInt(args[1]) - 1
+    const displayList = getDisplayCharacters(player.characters)
 
-    const to =
-        parseInt(args[2]) - 1
+const from =
+    displayList[parseInt(args[1]) - 1]?.realIndex
+
+const to =
+    displayList[parseInt(args[2]) - 1]?.realIndex
 
     if (
         isNaN(from) ||
@@ -16705,10 +16802,9 @@ if (text.startsWith('.ترتيب ')) {
     }
 
     if (
-        !player.characters[from] ||
-        to < 0 ||
-        to >= player.characters.length
-    ) {
+    from === undefined ||
+    to === undefined
+){
         return safeSend(
             msg.key.remoteJid,
             {
@@ -16719,16 +16815,21 @@ if (text.startsWith('.ترتيب ')) {
     }
 
     const char =
-        player.characters.splice(
-            from,
-            1
-        )[0]
-
     player.characters.splice(
-        to,
-        0,
-        char
-    )
+        from,
+        1
+    )[0]
+
+const insertIndex =
+    from < to
+        ? to - 1
+        : to
+
+player.characters.splice(
+    insertIndex,
+    0,
+    char
+)
 
     player.markModified(
         'characters'
@@ -16744,7 +16845,7 @@ if (text.startsWith('.ترتيب ')) {
 
 👑 ${char.name}
 
-📍 أصبح في المركز ${to + 1}`
+📍 أصبح في المركز ${parseInt(args[2])}`
         }
     )
 }
@@ -16899,6 +17000,52 @@ try {
         userId
     })
 
+    const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
+
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const displayCharacters = [...player.characters].sort((a, b) => {
+
+    const rankA =
+        evolutionRanks[a.evolutionLevel] || a.rarity
+
+    const rankB =
+        evolutionRanks[b.evolutionLevel] || b.rarity
+
+    const orderA = rankOrder.indexOf(rankA)
+    const orderB = rankOrder.indexOf(rankB)
+
+    if (orderA !== orderB)
+        return orderA - orderB
+
+    if (b.power !== a.power)
+        return b.power - a.power
+
+    return a.name.localeCompare(b.name)
+
+})
 if (!player) {
     return safeSend(
         msg.key.remoteJid,
@@ -16932,7 +17079,7 @@ if (!player.shards) {
     }
 
     const char =
-        player.characters[index]
+    displayCharacters[index]
 
     if (!char) {
         return safeSend(
@@ -17006,10 +17153,15 @@ if (!hasEvolved && normalCopies.length <= 1) {
     )
 }
 
-    player.characters.splice(
-        index,
-        1
+    const realIndex =
+    player.characters.findIndex(
+        c => c === char
     )
+
+player.characters.splice(
+    realIndex,
+    1
+)
 
     const shardKey =
     char.name.replace(/\./g, "．")
@@ -17196,6 +17348,52 @@ const player =
     await Player.findOne({
         userId
     })
+    const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
+
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const displayCharacters = [...player.characters].sort((a, b) => {
+
+    const rankA =
+        evolutionRanks[a.evolutionLevel] || a.rarity
+
+    const rankB =
+        evolutionRanks[b.evolutionLevel] || b.rarity
+
+    const orderA = rankOrder.indexOf(rankA)
+    const orderB = rankOrder.indexOf(rankB)
+
+    if (orderA !== orderB)
+        return orderA - orderB
+
+    if (b.power !== a.power)
+        return b.power - a.power
+
+    return a.name.localeCompare(b.name)
+
+})
 
 if (!player) {
     return safeSend(
@@ -17227,7 +17425,7 @@ if (isNaN(index)) {
 }
 
 const char =
-    player.characters[index]
+    displayCharacters[index]
 
 if (!char) {
     return safeSend(
@@ -28251,6 +28449,7 @@ return sock.sendMessage(msg.key.remoteJid, {
         // .شخصياتي
         // =========================
 
+
 if (text === '.شخصياتي') {
 
     try {
@@ -28267,6 +28466,7 @@ if (text === '.شخصياتي') {
                     userId,
                     characters: []
                 })
+
         }
 
         if (
@@ -28281,91 +28481,125 @@ if (text === '.شخصياتي') {
                     '📭 لا توجد شخصيات لديك'
                 }
             )
+
         }
 
         const rankOrder = [
-    "EX",
-    "UR III",
-    "UR II",
-    "UR I",
-    "SSS++",
-    "SSS+",
-    "SSS",
-    "اسطوري",
-    "ممتاز",
-    "عادي"
-]
+            "EX",
+            "UR III",
+            "UR II",
+            "UR I",
+            "SSS++",
+            "SSS+",
+            "SSS",
+            "اسطوري",
+            "ممتاز",
+            "عادي"
+        ]
 
-const evolutionRanks = [
-    "عادي",
-    "ممتاز",
-    "اسطوري",
-    "SSS",
-    "SSS+",
-    "SSS++",
-    "UR I",
-    "UR II",
-    "UR III",
-    "EX"
-]
+        const evolutionRanks = [
+            "عادي",
+            "ممتاز",
+            "اسطوري",
+            "SSS",
+            "SSS+",
+            "SSS++",
+            "UR I",
+            "UR II",
+            "UR III",
+            "EX"
+        ]
 
-const txtParts = []
+        const displayCharacters = [...player.characters].sort((a, b) => {
 
-txtParts.push(
+            const rankA =
+                evolutionRanks[a.evolutionLevel] || a.rarity
+
+            const rankB =
+                evolutionRanks[b.evolutionLevel] || b.rarity
+
+            const orderA =
+                rankOrder.indexOf(rankA)
+
+            const orderB =
+                rankOrder.indexOf(rankB)
+
+            if (orderA !== orderB)
+                return orderA - orderB
+
+            if (b.power !== a.power)
+                return b.power - a.power
+
+            return a.name.localeCompare(b.name)
+
+        })
+
+        const txtParts = []
+
+        txtParts.push(
 `👤 شخصياتك (${player.characters.length}/${player.maxCharacters})
 
 `
-)
-
-const groups = {}
-
-for (const c of player.characters) {
-
-    const rank =
-        evolutionRanks[c.evolutionLevel] || c.rarity
-
-    if (!groups[rank]) {
-        groups[rank] = []
-    }
-
-    groups[rank].push({
-        name: c.name,
-        power: c.power
-    })
-
-}
-
-for (const rank of rankOrder) {
-
-    if (!groups[rank] || groups[rank].length === 0)
-        continue
-
-    groups[rank].sort((a, b) => b.power - a.power)
-
-    txtParts.push(`🌟 ${rank} (${groups[rank].length})`)
-
-    groups[rank].forEach((c, i) => {
-
-        const number =
-            i < 20
-                ? String.fromCharCode(9312 + i)
-                : `${i + 1}.`
-
-        txtParts.push(
-`${number} ${c.name} ⚔️${c.power}`
         )
 
-    })
+        const groups = {}
 
-    txtParts.push("━━━━━━━━━━━━")
+        for (const c of displayCharacters) {
 
-}
+            const rank =
+                evolutionRanks[c.evolutionLevel] || c.rarity
 
-txtParts.push(
+            if (!groups[rank]) {
+                groups[rank] = []
+            }
+
+            groups[rank].push({
+                name: c.name,
+                power: c.power
+            })
+
+        }
+
+        let globalIndex = 1
+
+        for (const rank of rankOrder) {
+
+            if (!groups[rank] || groups[rank].length === 0)
+                continue
+
+            groups[rank].sort((a, b) => {
+
+                if (b.power !== a.power)
+                    return b.power - a.power
+
+                return a.name.localeCompare(b.name)
+
+            })
+
+            txtParts.push(
+`🌟 ${rank} (${groups[rank].length})`
+            )
+
+            groups[rank].forEach((c) => {
+
+                txtParts.push(
+`${globalIndex}. ${c.name} ⚔️${c.power}`
+                )
+
+                globalIndex++
+
+            })
+
+            txtParts.push("━━━━━━━━━━━━")
+
+        }
+
+        txtParts.push(
 `📦 الإجمالي: ${player.characters.length}/${player.maxCharacters}`
-)
+        )
 
-const txt = txtParts.join("\n")
+        const txt = txtParts.join("\n")
+
         return safeSend(
             msg.key.remoteJid,
             {
@@ -28387,10 +28621,10 @@ const txt = txtParts.join("\n")
                 '❌ حدث خطأ في عرض الشخصيات'
             }
         )
+
     }
+
 }
-
-
                     
 
         
@@ -28503,8 +28737,53 @@ try {
             text: '❌ لا تملك شخصيات'
         })
     }
+const rankOrder = [
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
 
-    const owned = player.characters[number]
+const evolutionRanks = [
+    "عادي",
+    "ممتاز",
+    "اسطوري",
+    "SSS",
+    "SSS+",
+    "SSS++",
+    "UR I",
+    "UR II",
+    "UR III",
+    "EX"
+]
+
+const displayCharacters = [...player.characters].sort((a, b) => {
+
+    const rankA =
+        evolutionRanks[a.evolutionLevel] || a.rarity
+
+    const rankB =
+        evolutionRanks[b.evolutionLevel] || b.rarity
+
+    const orderA = rankOrder.indexOf(rankA)
+    const orderB = rankOrder.indexOf(rankB)
+
+    if (orderA !== orderB)
+        return orderA - orderB
+
+    if (b.power !== a.power)
+        return b.power - a.power
+
+    return a.name.localeCompare(b.name)
+
+})
+    const owned = displayCharacters[number]
 
 if (!owned) {
 
