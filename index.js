@@ -3655,6 +3655,48 @@ async function processQuizQueue(jid) {
     data.processing = false;
 
 }
+    async function cleanMarket() {
+
+    const expired = await Market.find({
+        createdAt: {
+            $lte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+    })
+
+    for (const item of expired) {
+
+        try {
+
+            const seller = await Player.findOne({
+                userId: item.seller
+            })
+
+            if (seller) {
+
+                seller.characters.push(item.character)
+
+                await seller.save()
+
+            }
+
+            await Market.findByIdAndDelete(item._id)
+
+            console.log(
+                `📦 Returned ${item.character.name} to ${item.seller}`
+            )
+
+        } catch (err) {
+
+            console.log(
+                'Market Return Error:',
+                err
+            )
+
+        }
+
+    }
+
+}
 
     // =========================
 // الرسائل
@@ -4091,14 +4133,57 @@ console.log("➡️ ENTER QUEUE");
 console.log("User:", pushName);
 console.log("Queue:", quizQueues.get(msg.key.remoteJid).queue.length);
 console.log("MsgID:", msg.key.id);
-        const result =
-        await checkAnswer(
+        const room = quizData.getQuizRoom(msg.key.remoteJid)
+
+room.pendingAnswers.push({
     sock,
-    msg.key.remoteJid,
+    jid: msg.key.remoteJid,
     userId,
     text,
-    Date.now()
-)
+    msg,
+    timestamp: Number(msg.messageTimestamp),
+    receiveTime: Date.now()
+})
+
+if (!room.pendingTimer) {
+
+    room.pendingTimer = setTimeout(async () => {
+
+        room.pendingTimer = null
+
+        room.pendingAnswers.sort((a, b) => {
+
+            if (a.timestamp !== b.timestamp) {
+                return a.timestamp - b.timestamp
+            }
+
+            return a.receiveTime - b.receiveTime
+
+        })
+
+        const first = room.pendingAnswers[0]
+
+        room.pendingAnswers = []
+
+        const result = await checkAnswer(
+            first.sock,
+            first.jid,
+            first.userId,
+            first.text,
+            first.receiveTime
+        )
+
+        if (result !== true && result !== "FINISHED")
+            return
+
+        // هنا ضع نفس كود إرسال رسالة الفوز
+        // ونفس setTimeout(startQuestion)
+
+    }, 500)
+
+}
+
+return
 
         if (result === "FINISHED") {
             return
@@ -28789,48 +28874,7 @@ if (text === '.لا') {
     })
 }
 
-    async function cleanMarket() {
-
-    const expired = await Market.find({
-        createdAt: {
-            $lte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-    })
-
-    for (const item of expired) {
-
-        try {
-
-            const seller = await Player.findOne({
-                userId: item.seller
-            })
-
-            if (seller) {
-
-                seller.characters.push(item.character)
-
-                await seller.save()
-
-            }
-
-            await Market.findByIdAndDelete(item._id)
-
-            console.log(
-                `📦 Returned ${item.character.name} to ${item.seller}`
-            )
-
-        } catch (err) {
-
-            console.log(
-                'Market Return Error:',
-                err
-            )
-
-        }
-
-    }
-
-}
+    
 
 // =========================
 // .مزاد
