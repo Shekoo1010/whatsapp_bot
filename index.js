@@ -15252,7 +15252,7 @@ if (text === '.تشغيل') {
         participant?.admin === "superadmin"
 
     if (
-        !isOwner(msg) &&ه‍
+        !isOwner(msg) &&
         !isAdmin
     ) {
         return safeSend(
