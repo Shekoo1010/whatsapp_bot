@@ -659,7 +659,11 @@ module.exports = {
 
     quizMode: "mixed",
     targetScore: null,
-    maxRounds: DEFAULT_MAX_ROUNDS
+    maxRounds: DEFAULT_MAX_ROUNDS,
+
+    pendingAnswers: [],
+    pendingTimer: null,
+    lastAnswerTimestamp: 0
 }
 
             }
