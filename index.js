@@ -3601,102 +3601,6 @@ function getRandomPlayerAbility() {
 
     return playerAbilities[0]
 }
-    // =========================
-// Quiz Queue
-// =========================
-
-const quizQueues = new Map();
-
-function enqueueQuiz(jid, task) {
-
-    if (!quizQueues.has(jid)) {
-
-        quizQueues.set(jid, {
-            queue: [],
-            processing: false
-        });
-
-    }
-
-    const data = quizQueues.get(jid);
-
-    data.queue.push(task);
-
-    if (!data.processing) {
-        processQuizQueue(jid);
-    }
-
-}
-
-async function processQuizQueue(jid) {
-
-    const data = quizQueues.get(jid);
-
-    if (!data) return;
-
-    data.processing = true;
-
-    while (data.queue.length) {
-
-        const task = data.queue.shift();
-
-        try {
-
-            await task();
-
-        } catch (err) {
-
-            console.log("Quiz Queue Error:", err);
-
-        }
-
-    }
-
-    data.processing = false;
-
-}
-    async function cleanMarket() {
-
-    const expired = await Market.find({
-        createdAt: {
-            $lte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-    })
-
-    for (const item of expired) {
-
-        try {
-
-            const seller = await Player.findOne({
-                userId: item.seller
-            })
-
-            if (seller) {
-
-                seller.characters.push(item.character)
-
-                await seller.save()
-
-            }
-
-            await Market.findByIdAndDelete(item._id)
-
-            console.log(
-                `📦 Returned ${item.character.name} to ${item.seller}`
-            )
-
-        } catch (err) {
-
-            console.log(
-                'Market Return Error:',
-                err
-            )
-
-        }
-
-    }
-
-}
 
     // =========================
 // الرسائل
@@ -4130,112 +4034,52 @@ if (
     text !== '.النقاط'
 ) {
 
-    enqueueQuiz(msg.key.remoteJid, async () => {
+    const result = await checkAnswer(
+    sock,
+    msg.key.remoteJid,
+    userId,
+    text,
+    Number(msg.messageTimestamp) * 1000
+);
 
-        console.log("➡️ ENTER QUEUE");
-        console.log("User:", pushName);
-        console.log("Queue:", quizQueues.get(msg.key.remoteJid).queue.length);
-        console.log("MsgID:", msg.key.id);
+if (result !== true && result !== "FINISHED")
+    return;
 
-        const room = quizData.getQuizRoom(msg.key.remoteJid);
+if (result === "FINISHED")
+    return;
 
-        room.pendingAnswers.push({
-            sock,
-            jid: msg.key.remoteJid,
-            userId,
-            text,
-            msg,
-            timestamp: Number(msg.messageTimestamp),
-            receiveTime: Date.now()
-        });
+const seconds =
+(
+    (room.lastAnswerTimestamp || Date.now()) -
+    room.questionStartTime
+) / 1000;
 
-        if (!room.pendingTimer) {
-
-            room.pendingTimer = setTimeout(async () => {
-
-                room.pendingTimer = null;
-
-                room.pendingAnswers.sort((a, b) => {
-
-                    if (a.timestamp !== b.timestamp) {
-                        return a.timestamp - b.timestamp;
-                    }
-
-                    return a.receiveTime - b.receiveTime;
-
-                });
-
-                const first = room.pendingAnswers[0];
-
-                room.pendingAnswers = [];
-
-                const result = await checkAnswer(
-                    first.sock,
-                    first.jid,
-                    first.userId,
-                    first.text,
-                    first.receiveTime
-                );
-
-                if (result !== true && result !== "FINISHED")
-                    return;
-
-                if (result === "FINISHED")
-                    return;
-
-                const endTime =
-                    room.lastAnswerTimestamp ||
-                    Date.now();
-
-                const seconds =
-                    (
-                        endTime -
-                        room.questionStartTime
-                    ) / 1000;
-
-                await first.sock.sendMessage(
-                    first.jid,
-                    {
-                        text:
+await sock.sendMessage(
+    msg.key.remoteJid,
+    {
+        text:
 `🎉 إجابة صحيحة!
 
 ⏱️ الوقت: ${seconds.toFixed(1)} ثانية
 
 ⭐ +1 نقطة`
-                    },
-                    {
-                        quoted: first.msg
-                    }
-                );
+    },
+    {
+        quoted: msg
+    }
+);
 
-                setTimeout(async () => {
+setTimeout(async () => {
 
-                    if (!room.quizActive) return;
+    if (!room.quizActive) return;
 
-                    if (room.quizMode === "mixed") {
+    if (room.quizMode === "mixed") {
+        await startQuestion(sock, msg.key.remoteJid);
+    } else {
+        await startCustomQuestion(sock, msg.key.remoteJid);
+    }
 
-                        await startQuestion(
-                            first.sock,
-                            first.jid
-                        );
-
-                    } else {
-
-                        await startCustomQuestion(
-                            first.sock,
-                            first.jid
-                        );
-
-                    }
-
-                }, 2000);
-
-            }, 500);
-
-        }
-
-    });
-
+}, 2000);
     return;
 
 }
@@ -8892,7 +8736,29 @@ if (reachedReward) {
     }
 
 }
+        
+for (const jid of [
+    '120363020823525909@g.us',
+    '120363409897316453@g.us',
+    '120363116482407260@g.us'
+]) {
 
+    await sock.sendMessage(jid, {
+        text:
+`🎉 ═════〔 تم الوصول إلى 200 سحبة 〕═════
+
+🎁 تم توزيع الجوائز على جميع المشاركين في البنر.
+
+💰 500,000 ذهب
+🎟️ +5 سحبات
+📦 SSS Chance Box ×1
+
+━━━━━━━━━━━━━━
+
+🔄 تم إعادة عداد البنر إلى 0/200`
+    })
+
+}
         await player.save()
 
 await banner.save()
