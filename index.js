@@ -4113,6 +4113,7 @@ return
 // =========================
 
 const room = quizData.getQuizRoom(msg.key.remoteJid)
+
 console.log("========== NEW MESSAGE ==========");
 console.log("User:", pushName);
 console.log("UserId:", userId);
@@ -4122,6 +4123,7 @@ console.log("MessageTimestamp:", Number(msg.messageTimestamp));
 console.log("DateNow:", Date.now());
 console.log("QuestionSolved:", room.questionSolved);
 console.log("================================");
+
 if (
     room.quizActive &&
     text !== '.انهاء_مسابقة' &&
@@ -4129,121 +4131,115 @@ if (
 ) {
 
     enqueueQuiz(msg.key.remoteJid, async () => {
-console.log("➡️ ENTER QUEUE");
-console.log("User:", pushName);
-console.log("Queue:", quizQueues.get(msg.key.remoteJid).queue.length);
-console.log("MsgID:", msg.key.id);
-        const room = quizData.getQuizRoom(msg.key.remoteJid)
 
-room.pendingAnswers.push({
-    sock,
-    jid: msg.key.remoteJid,
-    userId,
-    text,
-    msg,
-    timestamp: Number(msg.messageTimestamp),
-    receiveTime: Date.now()
-})
+        console.log("➡️ ENTER QUEUE");
+        console.log("User:", pushName);
+        console.log("Queue:", quizQueues.get(msg.key.remoteJid).queue.length);
+        console.log("MsgID:", msg.key.id);
 
-if (!room.pendingTimer) {
+        const room = quizData.getQuizRoom(msg.key.remoteJid);
 
-    room.pendingTimer = setTimeout(async () => {
+        room.pendingAnswers.push({
+            sock,
+            jid: msg.key.remoteJid,
+            userId,
+            text,
+            msg,
+            timestamp: Number(msg.messageTimestamp),
+            receiveTime: Date.now()
+        });
 
-        room.pendingTimer = null
+        if (!room.pendingTimer) {
 
-        room.pendingAnswers.sort((a, b) => {
+            room.pendingTimer = setTimeout(async () => {
 
-            if (a.timestamp !== b.timestamp) {
-                return a.timestamp - b.timestamp
-            }
+                room.pendingTimer = null;
 
-            return a.receiveTime - b.receiveTime
+                room.pendingAnswers.sort((a, b) => {
 
-        })
+                    if (a.timestamp !== b.timestamp) {
+                        return a.timestamp - b.timestamp;
+                    }
 
-        const first = room.pendingAnswers[0]
+                    return a.receiveTime - b.receiveTime;
 
-        room.pendingAnswers = []
+                });
 
-        const result = await checkAnswer(
-            first.sock,
-            first.jid,
-            first.userId,
-            first.text,
-            first.receiveTime
-        )
+                const first = room.pendingAnswers[0];
 
-        if (result !== true && result !== "FINISHED")
-            return
+                room.pendingAnswers = [];
 
-        // هنا ضع نفس كود إرسال رسالة الفوز
-        // ونفس setTimeout(startQuestion)
+                const result = await checkAnswer(
+                    first.sock,
+                    first.jid,
+                    first.userId,
+                    first.text,
+                    first.receiveTime
+                );
 
-    }, 500)
+                if (result !== true && result !== "FINISHED")
+                    return;
 
-}
+                if (result === "FINISHED")
+                    return;
 
-return
+                const endTime =
+                    room.lastAnswerTimestamp ||
+                    Date.now();
 
-        if (result === "FINISHED") {
-            return
-        }
+                const seconds =
+                    (
+                        endTime -
+                        room.questionStartTime
+                    ) / 1000;
 
-        if (result === true) {
-
-            const endTime =
-                room.lastAnswerTimestamp ||
-                Date.now()
-
-            const seconds =
-                (
-                    endTime -
-                    room.questionStartTime
-                ) / 1000
-
-            await sock.sendMessage(
-                msg.key.remoteJid,
-                {
-                    text:
+                await first.sock.sendMessage(
+                    first.jid,
+                    {
+                        text:
 `🎉 إجابة صحيحة!
 
 ⏱️ الوقت: ${seconds.toFixed(1)} ثانية
 
 ⭐ +1 نقطة`
-                },
-                {
-                    quoted: msg
-                }
-            )
+                    },
+                    {
+                        quoted: first.msg
+                    }
+                );
 
-            setTimeout(async () => {
+                setTimeout(async () => {
 
-                if (!room.quizActive) return
+                    if (!room.quizActive) return;
 
-                if (room.quizMode === "mixed") {
+                    if (room.quizMode === "mixed") {
 
-                    await startQuestion(
-                        sock,
-                        msg.key.remoteJid
-                    )
+                        await startQuestion(
+                            first.sock,
+                            first.jid
+                        );
 
-                } else {
+                    } else {
 
-                    await startCustomQuestion(
-                        sock,
-                        msg.key.remoteJid
-                    )
+                        await startCustomQuestion(
+                            first.sock,
+                            first.jid
+                        );
 
-                }
+                    }
 
-            }, 2000)
+                }, 2000);
+
+            }, 500);
+
         }
 
-    })
+    });
 
-    return
+    return;
 
 }
+
 
 // =========================
 // cooldown
