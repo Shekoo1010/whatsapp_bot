@@ -3601,6 +3601,48 @@ function getRandomPlayerAbility() {
 
     return playerAbilities[0]
 }
+    async function cleanMarket() {
+
+    const expired = await Market.find({
+        createdAt: {
+            $lte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+    })
+
+    for (const item of expired) {
+
+        try {
+
+            const seller = await Player.findOne({
+                userId: item.seller
+            })
+
+            if (seller) {
+
+                seller.characters.push(item.character)
+
+                await seller.save()
+
+            }
+
+            await Market.findByIdAndDelete(item._id)
+
+            console.log(
+                `📦 Returned ${item.character.name} to ${item.seller}`
+            )
+
+        } catch (err) {
+
+            console.log(
+                'Market Return Error:',
+                err
+            )
+
+        }
+
+    }
+
+}
 
     // =========================
 // الرسائل
