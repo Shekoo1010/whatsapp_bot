@@ -1,9 +1,3 @@
-const dns = require('dns')
-dns.setServers(['8.8.8.8', '1.1.1.1'])
-
-const dotenv = require('dotenv')
-dotenv.config()
-
 const fs = require('fs')
 const battleLocks = new Set();
 const bankSystem = require("./bankSystem")
