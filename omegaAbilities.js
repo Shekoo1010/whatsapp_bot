@@ -1,7 +1,7 @@
 module.exports = [
 
 {
-name: "🌌 غضب الآلهة",
+name: "🌌 غضب العمالقة",
 type: "attack",
 value: 40,
 description: "+40% هجوم — قوة تفوق حدود EX",
@@ -113,7 +113,7 @@ chance: 9
 },
 
 {
-name: "🌈 هالة أوميقا",
+name: "🧟 هالة أوميقا",
 type: "shield",
 value: 45,
 description: "+45% درع",
