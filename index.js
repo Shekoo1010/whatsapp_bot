@@ -4698,22 +4698,7 @@ function findTradeCharacter(player, input) {
     )
 
 }
-const allowedCommands = [
-    '.بدا_مسابقة',
-    '.بدا_مسابقة_صور',
-    '.بدا_مسابقة_كت',
-    '.بدا_مسابقة_سس',
-    '.النقاط',
-    '.انهاء_مسابقة'
-]
 
-if (
-    text.startsWith('.') &&
-    !botAvailable() &&
-    !allowedCommands.some(cmd => text.startsWith(cmd))
-) {
-    return
-}
     // =========================
     // الأوامر العادية هنا
     // =========================
