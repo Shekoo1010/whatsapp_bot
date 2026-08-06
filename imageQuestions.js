@@ -55,7 +55,7 @@ const imageQuestions = [
 },
 
 {
-    image: 'https://files.catbox.moe/1w9r24.jpg',
+    image: 'https://i.postimg.cc/LsrRDCp2/75a13fb3354a192f3b9806446d846fc1.jpg',
     answers: ['ايس', 'ايس']
 },
 
