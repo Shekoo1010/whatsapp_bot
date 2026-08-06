@@ -3673,6 +3673,29 @@ msg.key.remoteJid
 
 const pushName = msg.pushName || ""
 
+    // =========================
+// 🧠 QUIZ SYSTEM (يُفحص أولاً وفوراً، قبل أي await آخر)
+// =========================
+
+const room = quizData.getQuizRoom(msg.key.remoteJid)
+
+if (
+    room.quizActive &&
+    text !== '.انهاء_مسابقة' &&
+    text !== '.النقاط'
+) {
+
+    await checkAnswer(
+        sock,
+        msg.key.remoteJid,
+        userId,
+        text,
+        Number(msg.messageTimestamp) * 1000,
+        msg
+    );
+
+    return;
+}
 await Player.updateOne(
     { userId },
     {
@@ -4053,79 +4076,6 @@ await sock.sendMessage(
 return
 
 }
-
-    // =========================
-// 🧠 QUIZ SYSTEM
-// =========================
-
-const room = quizData.getQuizRoom(msg.key.remoteJid)
-
-console.log("========== NEW MESSAGE ==========");
-console.log("User:", pushName);
-console.log("UserId:", userId);
-console.log("Text:", text);
-console.log("MsgID:", msg.key.id);
-console.log("MessageTimestamp:", Number(msg.messageTimestamp));
-console.log("DateNow:", Date.now());
-console.log("QuestionSolved:", room.questionSolved);
-console.log("================================");
-
-if (
-    room.quizActive &&
-    text !== '.انهاء_مسابقة' &&
-    text !== '.النقاط'
-) {
-
-    const result = await checkAnswer(
-    sock,
-    msg.key.remoteJid,
-    userId,
-    text,
-    Number(msg.messageTimestamp) * 1000
-);
-
-if (result !== true && result !== "FINISHED")
-    return;
-
-if (result === "FINISHED")
-    return;
-
-const seconds =
-(
-    (room.lastAnswerTimestamp || Date.now()) -
-    room.questionStartTime
-) / 1000;
-
-await sock.sendMessage(
-    msg.key.remoteJid,
-    {
-        text:
-`🎉 إجابة صحيحة!
-
-⏱️ الوقت: ${seconds.toFixed(1)} ثانية
-
-⭐ +1 نقطة`
-    },
-    {
-        quoted: msg
-    }
-);
-
-setTimeout(async () => {
-
-    if (!room.quizActive) return;
-
-    if (room.quizMode === "mixed") {
-        await startQuestion(sock, msg.key.remoteJid);
-    } else {
-        await startCustomQuestion(sock, msg.key.remoteJid);
-    }
-
-}, 2000);
-    return;
-
-}
-
 
 // =========================
 // cooldown
