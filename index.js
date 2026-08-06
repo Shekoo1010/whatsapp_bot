@@ -52,18 +52,7 @@ async function cleanEmptyClans() {
     }
 
 }
-function botAvailable() {
-    const hour = parseInt(
-        new Intl.DateTimeFormat("en-GB", {
-            timeZone: "Asia/Riyadh",
-            hour: "numeric",
-            hour12: false
-        }).format(new Date()),
-        10
-    );
 
-    return hour >= 10 && hour < 24;
-}
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
@@ -2896,7 +2885,7 @@ if (!state.creds.registered) {
 
             const code =
                 await sock.requestPairingCode(
-                    "966569281965"
+                    "966571111411"
                 )
 
             console.log(
