@@ -2340,41 +2340,7 @@ mongoose.connect(process.env.MONGO_URI)
 
     console.log('✅ MongoDB Connected')
     
-const target = [
-    'Mikoto Suoh',
-    'Ace',
-    'Big Mom',
-    'Erwin',
-    'Kirito',
-    'Naruto',
-    'Anos Voldigoad',
-    'Cheonma',
-    'Fujitora',
-    'Meliodas',
-    'Senjumaru',
-    'Shinra',
-    'Yhwach',
-    'Gouhin',
-    'Hikifune',
-    'Miguel',
-    'Eren',
-    'Gunko',
-    'Hisagi',
-    'Mihawk'
-]
 
-const players = await Player.find({})
-
-for (const p of players) {
-    const names = p.characters.map(c => c.name)
-
-    const matches = target.filter(name => names.includes(name))
-
-    if (matches.length === 20) {
-        console.log('🔥🔥 FOUND PLAYER ID:', p.userId)
-        console.log('MATCH:', matches.length + '/20')
-    }
-}
     console.log('✅ Beasts Loaded')
     await checkRespawn()
 
@@ -6172,6 +6138,39 @@ function findTradeCharacter(player, input) {
     // =========================
     // الأوامر العادية هنا
     // =========================
+    if (text === '.ايديات_اللاعبين') {
+
+    if (!isOwner(msg)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '❌ للمطور فقط'
+        })
+    }
+
+    const players = await Player.find(
+        {},
+        { userId: 1, name: 1 }
+    )
+
+    let result = `👥 عدد اللاعبين: ${players.length}\n\n`
+    const mentions = []
+
+    for (const p of players) {
+        if (!p.userId) continue
+
+        result += `@${p.userId.split('@')[0]}\n`
+        result += `${p.userId}\n\n`
+
+        mentions.push(p.userId)
+    }
+
+    return sock.sendMessage(
+        msg.key.remoteJid,
+        {
+            text: result,
+            mentions
+        }
+    )
+}
 
     if (text === '.تصحيح_القتالات') {
 
