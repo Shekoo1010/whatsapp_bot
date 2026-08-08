@@ -2339,31 +2339,42 @@ mongoose.connect(process.env.MONGO_URI)
 .then(async () => {
 
     console.log('✅ MongoDB Connected')
-    const players = await Player.find({})
+    
+const target = [
+    'Mikoto Suoh',
+    'Ace',
+    'Big Mom',
+    'Erwin',
+    'Kirito',
+    'Naruto',
+    'Anos Voldigoad',
+    'Cheonma',
+    'Fujitora',
+    'Meliodas',
+    'Senjumaru',
+    'Shinra',
+    'Yhwach',
+    'Gouhin',
+    'Hikifune',
+    'Miguel',
+    'Eren',
+    'Gunko',
+    'Hisagi',
+    'Mihawk'
+]
+
+const players = await Player.find({})
 
 for (const p of players) {
     const names = p.characters.map(c => c.name)
 
-    const target = [
-        'Mikoto Suoh',
-        'Ace',
-        'Big Mom',
-        'Erwin',
-        'Kirito',
-        'Naruto',
-        'Anos Voldigoad',
-        'Cheonma',
-        'Fujitora',
-        'Meliodas'
-    ]
+    const matches = target.filter(name => names.includes(name))
 
-    const matches = target.filter(n => names.includes(n))
-
-    if (matches.length >= 5) {
-        console.log('PLAYER ID:', p.userId)
+    if (matches.length === 20) {
+        console.log('🔥🔥 FOUND PLAYER ID:', p.userId)
+        console.log('MATCH:', matches.length + '/20')
     }
 }
-
     console.log('✅ Beasts Loaded')
     await checkRespawn()
 
