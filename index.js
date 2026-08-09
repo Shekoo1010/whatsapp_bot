@@ -65,7 +65,18 @@ async function cleanEmptyClans() {
     }
 
 }
+function botAvailable() {
+    const hour = parseInt(
+        new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Asia/Riyadh",
+            hour: "numeric",
+            hour12: false
+        }).format(new Date()),
+        10
+    );
 
+    return hour >= 10 && hour < 24;
+}
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
@@ -6157,7 +6168,22 @@ function findTradeCharacter(player, input) {
     )
 
 }
+const allowedCommands = [
+    '.بدا_مسابقة',
+    '.بدا_مسابقة_صور',
+    '.بدا_مسابقة_كت',
+    '.بدا_مسابقة_سس',
+    '.النقاط',
+    '.انهاء_مسابقة'
+]
 
+if (
+    text.startsWith('.') &&
+    !botAvailable() &&
+    !allowedCommands.some(cmd => text.startsWith(cmd))
+) {
+    return
+}
     // =========================
     // الأوامر العادية هنا
     // =========================
