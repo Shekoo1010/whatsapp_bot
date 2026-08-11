@@ -73,22 +73,7 @@ async function cleanEmptyClans() {
     }
 
 }
-function botAvailable() {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Riyadh",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: false
-    }).formatToParts(new Date());
 
-    const hour = parseInt(parts.find(p => p.type === "hour").value, 10);
-    const minute = parseInt(parts.find(p => p.type === "minute").value, 10);
-
-    // يعمل من 10:00 صباحاً حتى 12:05 منتصف الليل (بدل 12:00 — مهلة إضافية 5 دقائق)
-    if (hour >= 10) return true;
-    if (hour === 0 && minute < 5) return true;
-    return false;
-}
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
