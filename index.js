@@ -73,7 +73,22 @@ async function cleanEmptyClans() {
     }
 
 }
+function botAvailable() {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Riyadh",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false
+    }).formatToParts(new Date());
 
+    const hour = parseInt(parts.find(p => p.type === "hour").value, 10);
+    const minute = parseInt(parts.find(p => p.type === "minute").value, 10);
+
+    // يعمل من 10:00 صباحاً حتى 12:05 منتصف الليل (بدل 12:00 — مهلة إضافية 5 دقائق)
+    if (hour >= 10) return true;
+    if (hour === 0 && minute < 5) return true;
+    return false;
+}
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
@@ -5293,7 +5308,36 @@ if (!text) return;
     // ⚠️ لازم تكون هنا، بأول الأوامر العادية، قبل أي أمر ثاني
     // عشان تطبّق على كل الأوامر بدون استثناء (غير المسموح لهم بالقائمة أو المطور)
     // =========================
-    
+    const allowedCommands = [
+        '.بدا_مسابقة',
+'.اختيار',
+        '.بدا_مسابقة_صور',
+        '.بدا_مسابقة_كت',
+        '.بدا_مسابقة_سس',
+        '.النقاط',
+        '.انهاء_مسابقة',
+        // ⚠️ أوامر الرد/المشاركة بالفعاليات - لازم تكون مسموحة لأي شخص
+        // بغض النظر عن وقت عمل البوت (نفس منطق .جواب بالضبط)
+        '.الاجابة',   // فعالية التخمين (تخمين الشخصية)
+        '.تخمين',     // بدء لعبة التخمين + الرد على فعالية رقم الحظ (.تخمين <رقم>)
+        '.جواب',      // الرد على الفعاليات النشطة (نفس منطق .الاجابة/.تخمين)
+        '.مزايدة'     // المزايدة على مزاد نشط - ما لازم تتوقف بسبب وقت البوت
+    ]
+
+    // ⚠️ استثناء أمر الرد على الفعاليات (مثل .جواب) من بوابة الأوقات
+    // عشان أي شخص يقدر يجاوب على الفعالية النشطة بغض النظر عن وقت البوت
+    const activeEventCommand =
+        eventManager.getGroupData(msg.key.remoteJid)?.currentEvent?.command
+
+    if (
+        text.startsWith('.') &&
+        !botAvailable() &&
+        !allowedCommands.some(cmd => text.startsWith(cmd)) &&
+        text.trim() !== activeEventCommand &&
+        !isOwner(msg)
+    ) {
+        return
+    }
 
     // =========================
     // 🖼 .بدا_مسابقة_صور — يُفحص فوراً هنا (فوق كل الأوامر)
