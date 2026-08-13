@@ -38,9 +38,6 @@
 const Player = require('./models/Player')
 const Ship = require('./models/Ship')
 const ShipWar = require('./models/ShipWar')
-
-const ClanWar = require('./models/ClanWar')
-
 const { getShipShop } = require('./shipShop')
 const { addShipXP } = require('./shipLevel')
 const shipBattle = require('./shipBattleEngine')
