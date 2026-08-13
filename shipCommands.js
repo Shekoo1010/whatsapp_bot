@@ -38,7 +38,7 @@
 const Player = require('./models/Player')
 const Ship = require('./models/Ship')
 const ShipWar = require('./models/ShipWar')
-const Clan = require('./models/Clan')
+
 const ClanWar = require('./models/ClanWar')
 
 const { getShipShop } = require('./shipShop')
