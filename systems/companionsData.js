@@ -42,7 +42,7 @@ const ANIMALS = {
         key: 'cat',
         defaultName: 'قط',
         emoji: '🐱',
-        image: null, // 🖼️ يُضاف لاحقاً
+        image: 'https://i.postimg.cc/YjKhVjVR/file-00000000765881f496ff8545103a4edf.png',
         bonusType: 'moneyBonus', // نسبة زيادة على كل مال مكتسب (addMoney)
         bonusAtLevel1: 3,
         bonusAtLevel10: 6,
@@ -54,7 +54,7 @@ const ANIMALS = {
         key: 'dog',
         defaultName: 'كلب',
         emoji: '🐶',
-        image: null,
+        image: 'https://i.postimg.cc/sDmMKfmz/file-000000009df081f4b884dbf13b85ea14.png',
         bonusType: 'xpBonus', // نسبة زيادة على الخبرة المكتسبة
         bonusAtLevel1: 5,
         bonusAtLevel10: 10,
@@ -66,7 +66,7 @@ const ANIMALS = {
         key: 'rabbit',
         defaultName: 'ارنب',
         emoji: '🐰',
-        image: null,
+        image: 'https://i.postimg.cc/KzWKP0Dp/file-00000000577081f4815fefc3bd2ccf68.png',
         bonusType: 'extraFights', // عدد محاولات قتال إضافية يومياً (رقم صحيح، مو نسبة)
         // منحنى مرحلي (مو خطي): +1 من مستوى 1 إلى 6، ثم +2 من مستوى 7 إلى 10
         levelValues: [1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
@@ -78,7 +78,7 @@ const ANIMALS = {
         key: 'lion',
         defaultName: 'اسد',
         emoji: '🦁',
-        image: null,
+        image: 'https://i.postimg.cc/qqn8zfHD/file-00000000ab2081f49aa38f031a98ca66.png',
         bonusType: 'bossDamageBonus', // يُضاف مباشرة على bossDamageBonus بالـ Player
         bonusAtLevel1: 5,
         bonusAtLevel10: 10,
@@ -90,7 +90,7 @@ const ANIMALS = {
         key: 'tiger',
         defaultName: 'نمر',
         emoji: '🐯',
-        image: null,
+        image: 'https://i.postimg.cc/sgChH0dP/file-000000007000820abfab7542036b553d.png',
         bonusType: 'critRateBonus',
         bonusAtLevel1: 2,
         bonusAtLevel10: 4,
@@ -102,7 +102,7 @@ const ANIMALS = {
         key: 'bear',
         defaultName: 'دب',
         emoji: '🐻',
-        image: null,
+        image: 'https://i.postimg.cc/cJHwftGz/file-0000000022bc824683351b0c5d22542f.png',
         bonusType: 'hpBonus',
         bonusAtLevel1: 3,
         bonusAtLevel10: 6,
@@ -114,7 +114,7 @@ const ANIMALS = {
         key: 'duck',
         defaultName: 'بط',
         emoji: '🦆',
-        image: null,
+        image: 'https://i.postimg.cc/d0xd6Qqk/file-00000000c77481f4add92b30ed7e2c91.png',
         bonusType: 'boxLuckBonus', // نسبة رفع جودة الصندوق عند الفتح (rare → epic/legendary...)
         bonusAtLevel1: 5,
         bonusAtLevel10: 10,
@@ -126,7 +126,7 @@ const ANIMALS = {
         key: 'shadow',
         defaultName: 'شادو',
         emoji: '⚫',
-        image: null,
+        image: 'https://i.postimg.cc/brQtqQ1R/3c48495019f7e9975aa586bf2faa5cdc.jpg',
         bonusType: 'kingdomStageBonus', // نسبة تقدم إضافي بمرحلة غزو الممالك لكل غزوة ناجحة
         bonusAtLevel1: 5,
         bonusAtLevel10: 10,
@@ -138,7 +138,7 @@ const ANIMALS = {
         key: 'sonic',
         defaultName: 'سونيك',
         emoji: '💙',
-        image: null,
+        image: 'https://i.postimg.cc/g0nLx9vj/878167ff9aa4283930c51601586df9ce.jpg',
         // بونص خاص: فرصة (%) عند سحب شخصيتك المفضّلة بالذات (favoriteCharacter)
         // إنك تجدد فرصة سحبها (تسترجع سحبة من رصيدك) بدل ما تاخذ نسخة زيادة
         bonusType: 'favoriteRenewChance',
