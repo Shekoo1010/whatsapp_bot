@@ -1,613 +1,296 @@
-const domains = require('../data/domainMonsters')
-
 // =========================
-// إعدادات النظام
-// =========================
-
-const STAMINA_MAX = 150
-
-// 150 نقطة تتجدد كل 24 ساعة = نقطة كل 9.6 دقيقة
-const REGEN_INTERVAL_MS =
-    Math.floor((24 * 60 * 60 * 1000) / STAMINA_MAX)
-
-const DOMAIN_COST = 40
-
-const TEAM_SIZE = 3
-
-// جدول ندرة مكافآت الدومين (مستقل عن صناديق المتجر العادية)
-const REWARD_TABLE = [
-
-    { rarity: "Rare", chance: 50 },
-    { rarity: "Epic", chance: 33 },
-    { rarity: "Legendary", chance: 14 },
-    { rarity: "Mythical", chance: 3 }
-
-]
-
-// =========================
-// Helpers
+// 🌀 نظام الدومينات (Domain System) - مستوحى من Wuthering Waves
+// دومين واحد لكل عائلة إيكو (12 دومين) — كل دومين فيه 3 مستويات صعوبة:
+//   سهل   → يطيح قطعة كوست 1
+//   متوسط → يطيح قطعة كوست 3
+//   صعب   → يطيح قطعة كوست 4 (الأقوى والأصعب)
+// الستامينا: 200 كحد أقصى، كل دخول دومين يكلف 30، وتتجدد بالكامل خلال 24 ساعة
+// (تجدد مستمر بمعدل ثابت، مثل الـ Waveplates بالضبط - مو دفعة وحدة كل 24 ساعة)
 // =========================
 
-function random(min, max) {
-
-    return Math.floor(
-        Math.random() * (max - min + 1)
-    ) + min
-
-}
-
-function rollRewardRarity() {
-
-    const roll = random(1, 100)
-
-    let total = 0
-
-    for (const entry of REWARD_TABLE) {
-
-        total += entry.chance
-
-        if (roll <= total) {
-
-            return entry.rarity
-
-        }
-
-    }
-
-    return REWARD_TABLE[0].rarity
-
-}
-
-function makeUid() {
-
-    return (
-
-        Date.now().toString(36) +
-        Math.random().toString(36).slice(2, 8)
-
-    )
-
-}
+const echoFamilies = require('../data/echoFamilies')
+const echoMonsters = require('../data/echoMonsters')
+const equipmentSystem = require('./equipmentSystem')
 
 // =========================
-// تهيئة الستامينا + الفرق لأول مرة
+// إعدادات الستامينا
 // =========================
 
-function ensureDomainDefaults(player) {
+const MAX_STAMINA = 200
+const DOMAIN_COST = 30
 
-    if (player.stamina === undefined || player.stamina === null) {
+// وقت التجدد الكامل: 24 ساعة (ملي ثانية) — يتجدد باستمرار بمعدل ثابت لين يوصل الحد الأقصى
+const FULL_REGEN_MS = 24 * 60 * 60 * 1000
+const REGEN_MS_PER_POINT = FULL_REGEN_MS / MAX_STAMINA // كم ملي ثانية عشان تكسب نقطة وحدة
 
-        player.stamina = STAMINA_MAX
+// =========================
+// إعدادات الصعوبة (لكل دومين)
+// =========================
 
-    }
+const DIFFICULTY_LEVELS = {
 
-    if (!player.staminaUpdatedAt) {
+    easy: {
+        id: 'easy',
+        label: '🟢 سهل',
+        cost: 1,
+        // 🏆 قوة مطلوبة تقريبية لفريق صغير (قابلة للتعديل حسب توازن اللعبة)
+        requiredPower: 1500,
+        baseWinChance: 0.85
+    },
 
-        player.staminaUpdatedAt = Date.now()
+    medium: {
+        id: 'medium',
+        label: '🟡 متوسط',
+        cost: 3,
+        requiredPower: 6000,
+        baseWinChance: 0.60
+    },
 
-    }
-
-    if (!player.domainTeams) {
-
-        player.domainTeams = {}
-
+    hard: {
+        id: 'hard',
+        label: '🔴 صعب',
+        cost: 4,
+        requiredPower: 15000,
+        baseWinChance: 0.35
     }
 
 }
 
-// =========================
-// تطبيق تجدد الستامينا حسب الوقت المنقضي
-// (نفس منطق الوذرينق: نقطة نقطة كل فترة ثابتة)
-// =========================
+const DIFFICULTY_ALIASES = {
 
-function applyStaminaRegen(player) {
+    easy: 'easy', 'سهل': 'easy', '1': 'easy',
+    medium: 'medium', 'متوسط': 'medium', '3': 'medium',
+    hard: 'hard', 'صعب': 'hard', '4': 'hard'
 
-    ensureDomainDefaults(player)
+}
 
-    if (player.stamina >= STAMINA_MAX) {
+function normalizeDifficulty(input) {
 
-        player.staminaUpdatedAt = Date.now()
+    if (!input) return 'medium'
 
-        return player
+    const key = String(input).trim().toLowerCase()
 
-    }
-
-    const elapsed =
-        Date.now() - player.staminaUpdatedAt
-
-    if (elapsed < REGEN_INTERVAL_MS) {
-
-        return player
-
-    }
-
-    const gained =
-        Math.floor(elapsed / REGEN_INTERVAL_MS)
-
-    if (gained <= 0) {
-
-        return player
-
-    }
-
-    player.stamina =
-        Math.min(
-            STAMINA_MAX,
-            player.stamina + gained
-        )
-
-    // نحتفظ بالباقي (المدة اللي ما اكتملت لنقطة كاملة)
-    // عشان ما نخسر وقت تجدد اللاعب
-    player.staminaUpdatedAt +=
-        gained * REGEN_INTERVAL_MS
-
-    return player
+    return DIFFICULTY_ALIASES[key] || DIFFICULTY_ALIASES[input] || 'medium'
 
 }
 
 // =========================
-// معلومات الستامينا للعرض
-// =========================
-
-function getStaminaInfo(player) {
-
-    applyStaminaRegen(player)
-
-    let msToNext = 0
-
-    if (player.stamina < STAMINA_MAX) {
-
-        msToNext =
-            REGEN_INTERVAL_MS -
-            (Date.now() - player.staminaUpdatedAt)
-
-        if (msToNext < 0) msToNext = 0
-
-    }
-
-    return {
-
-        current: player.stamina,
-        max: STAMINA_MAX,
-        msToNext,
-        cost: DOMAIN_COST
-
-    }
-
-}
-
-// =========================
-// قائمة الدومينات (للعرض)
+// بناء قائمة الدومينات (دومين لكل عائلة من الـ12)
 // =========================
 
 function listDomains() {
 
-    return Object.values(domains)
+    return echoFamilies.map((family, index) => {
+
+        const monsters = echoMonsters[family.id] || {}
+
+        return {
+            id: index + 1,
+            familyId: family.id,
+            name: family.name,
+            nameAr: family.nameAr,
+            emoji: (family.name.match(/^\S+/) || ['🌀'])[0],
+            equipLabel: `إيكوز ${family.nameAr}`,
+            monsters: {
+                easy: monsters.cost1 || [],
+                medium: monsters.cost3 || [],
+                hard: monsters.cost4 || []
+            }
+        }
+
+    })
 
 }
 
-function getDomain(domainId) {
+function getDomainById(domainId) {
 
-    return domains[domainId] || null
+    const domains = listDomains()
+
+    return domains.find(d => d.id === Number(domainId)) || null
 
 }
 
 // =========================
-// تحديد فريق دومين معين
-// indices: مصفوفة أرقام الشخصيات كما تظهر في .شخصياتي (1-based)
+// ⚡ نظام الستامينا
+// =========================
+
+function applyStaminaRegen(player) {
+
+    if (typeof player.stamina !== 'number') {
+        player.stamina = MAX_STAMINA
+    }
+
+    if (!player.staminaUpdatedAt) {
+        player.staminaUpdatedAt = Date.now()
+    }
+
+    if (player.stamina >= MAX_STAMINA) {
+        player.staminaUpdatedAt = Date.now()
+        return player.stamina
+    }
+
+    const now = Date.now()
+    const elapsed = now - player.staminaUpdatedAt
+
+    if (elapsed <= 0) return player.stamina
+
+    const gained = Math.floor(elapsed / REGEN_MS_PER_POINT)
+
+    if (gained <= 0) return player.stamina
+
+    player.stamina = Math.min(MAX_STAMINA, player.stamina + gained)
+
+    // نرجّع الوقت المرجعي بقد النقاط المكتسبة بس (عشان الباقي المتبقي ما يضيع)
+    player.staminaUpdatedAt += gained * REGEN_MS_PER_POINT
+
+    if (player.stamina >= MAX_STAMINA) {
+        player.staminaUpdatedAt = now
+    }
+
+    return player.stamina
+
+}
+
+function getStaminaInfo(player) {
+
+    const current = typeof player.stamina === 'number' ? player.stamina : MAX_STAMINA
+
+    if (current >= MAX_STAMINA) {
+        return { current, max: MAX_STAMINA, msToNext: 0 }
+    }
+
+    const elapsedSinceUpdate = Date.now() - (player.staminaUpdatedAt || Date.now())
+
+    const msToNext = Math.max(0, REGEN_MS_PER_POINT - elapsedSinceUpdate)
+
+    return { current, max: MAX_STAMINA, msToNext }
+
+}
+
+// =========================
+// 👥 فريق الدومين (تخزينه بمفتاح رقم الدومين داخل player.domainTeams)
 // =========================
 
 function setDomainTeam(player, domainId, indices) {
 
-    ensureDomainDefaults(player)
-
-    const domain = getDomain(domainId)
+    const domain = getDomainById(domainId)
 
     if (!domain) {
-
-        return {
-
-            success: false,
-            message: "❌ رقم الدومين غير صحيح."
-
-        }
-
+        return { success: false, message: '❌ رقم دومين غير صحيح.' }
     }
 
-    if (!indices || !indices.length) {
+    const uniqueIndices = [...new Set(indices)]
 
+    if (uniqueIndices.length !== 3) {
         return {
-
             success: false,
-            message: "❌ لازم تحدد شخصيات للفريق."
-
+            message: '❌ لازم تحدد فريق من 3 شخصيات بالضبط لدخول الدومين.\nمثال: .فريق_دومين ' + domainId + ' 1 2 3'
         }
-
     }
 
-    if (indices.length > TEAM_SIZE) {
+    const characters = player.characters || []
 
-        return {
+    const selected = uniqueIndices
+        .map(i => characters[i - 1])
+        .filter(Boolean)
 
-            success: false,
-            message: `❌ الفريق يقبل بحد أقصى ${TEAM_SIZE} شخصيات.`
-
-        }
-
+    if (selected.length !== 3) {
+        return { success: false, message: '❌ أحد الأرقام اللي كتبتها ما يطابق شخصية موجودة عندك.' }
     }
 
-    const unique = [...new Set(indices)]
+    indices = uniqueIndices
 
-    if (unique.length !== indices.length) {
-
-        return {
-
-            success: false,
-            message: "❌ لا تكرر نفس الشخصية بالفريق."
-
-        }
-
-    }
-
-    for (const i of indices) {
-
-        if (
-
-            i < 1 ||
-            i > player.characters.length
-
-        ) {
-
-            return {
-
-                success: false,
-                message: `❌ لا توجد شخصية برقم ${i}.`
-
-            }
-
-        }
-
+    if (!player.domainTeams) {
+        player.domainTeams = {}
     }
 
     player.domainTeams[domainId] = indices
 
     if (player.markModified) {
-
         player.markModified('domainTeams')
-
     }
 
-    return {
-
-        success: true,
-        domain,
-        indices
-
-    }
+    return { success: true, domain }
 
 }
-
-// =========================
-// إرجاع شخصيات فريق دومين معين (لايف من player.characters
-// عشان يعكس آخر معدات/ليفل بدون نسخ قديمة)
-// =========================
 
 function getDomainTeamCharacters(player, domainId) {
 
-    ensureDomainDefaults(player)
+    const characters = player.characters || []
 
-    const indices = player.domainTeams[domainId]
+    const indices = (player.domainTeams && player.domainTeams[domainId]) || []
 
-    if (!indices || !indices.length) {
-
-        return []
-
-    }
-
-    const team = []
-
-    for (const i of indices) {
-
-        const character = player.characters[i - 1]
-
-        if (character) {
-
-            team.push(character)
-
-        }
-
-    }
-
-    return team
+    return indices
+        .map(i => characters[i - 1])
+        .filter(Boolean)
 
 }
 
 // =========================
-// محاكاة معركة الدومين
-// فريق اللاعب (مع بونص معداتهم) ضد موجة وحوش الدومين
-// الشخصيات "تترست" تلقائياً كل دخول (HP مؤقت لهذي المحاولة بس)
+// 💪 حساب قوة الفريق (شخصية.power + بونص المعدات)
 // =========================
 
-function simulateDomainBattle(team, domain) {
+function calculateTeamPower(team) {
 
-    const fighters = team.map(character => {
+    let power = 0
 
-        const eq = {}
+    for (const char of team) {
 
-        const maxHp =
-            (character.power || 100) +
-            (eq.hp || 0)
+        const base = Number(char.power || 0)
 
-        return {
+        const equip = equipmentSystem.calculateEquipmentStats(char)
 
-            name: character.name,
+        const critFactor =
+            1 + ((equip.critRate || 0) / 100) * ((equip.critDamage || 0) / 100)
 
-            hp: maxHp,
-            maxHp,
+        // ⚠️ هجوم/دفاع/HP كستات رئيسي أصبحوا % (attackPercent/defensePercent/hpPercent)
+        // تُحسب كنسبة من قوة الشخصية الأساسية (base) بدل رقم فلات ثابت
+        const equipPower =
+            (equip.attack || 0) +
+            (equip.hp || 0) / 10 +
+            (equip.defense || 0) * 3 +
+            base * ((equip.attackPercent || 0) / 100) +
+            base * ((equip.hpPercent || 0) / 100) / 10 +
+            base * ((equip.defensePercent || 0) / 100) * 3
 
-            attack:
-                Math.floor((character.power || 100) * 0.4) +
-                (eq.attack || 0),
-
-            defense: eq.defense || 0,
-            critRate: eq.critRate || 0,
-            critDamage: eq.critDamage || 0,
-            dodge: eq.dodge || 0,
-            lifesteal: eq.lifesteal || 0
-
-        }
-
-    })
-
-    const monsters = domain.monsters.map(m => ({
-
-        name: m.name,
-        emoji: m.emoji,
-
-        hp: m.hp,
-        maxHp: m.hp,
-
-        attack: m.attack,
-        defense: m.defense
-
-    }))
-
-    const log = []
-
-    log.push(`🚪 دخلت فرقتك ${domain.name} ${domain.emoji}`)
-    log.push(`👥 المقاتلون: ${fighters.map(f => f.name).join(' • ')}`)
-    log.push(`👹 الموجة: ${monsters.map(m => `${m.emoji}${m.name}`).join(' • ')}`)
-
-    let round = 1
-    const MAX_ROUNDS = 40
-
-    function aliveFighters() {
-
-        return fighters.filter(f => f.hp > 0)
+        power += Math.round((base + equipPower) * critFactor)
 
     }
 
-    function aliveMonsters() {
-
-        return monsters.filter(m => m.hp > 0)
-
-    }
-
-    function hpBar(current, max) {
-
-        const safeMax = max > 0 ? max : 1
-        const ratio = Math.max(0, Math.min(1, current / safeMax))
-        const filled = Math.round(ratio * 10)
-        const empty = 10 - filled
-
-        return '█'.repeat(filled) + '░'.repeat(empty)
-
-    }
-
-    while (
-
-        aliveFighters().length &&
-        aliveMonsters().length &&
-        round <= MAX_ROUNDS
-
-    ) {
-
-        const roundEvents = []
-        const killsThisRound = []
-
-        // فريق اللاعب يهاجم أول وحش حي
-        for (const fighter of aliveFighters()) {
-
-            const target = aliveMonsters()[0]
-
-            if (!target) break
-
-            let damage = fighter.attack - target.defense
-
-            if (damage < 1) damage = 1
-
-            const isCrit =
-                Math.random() * 100 <= fighter.critRate
-
-            if (isCrit) {
-
-                damage = Math.floor(
-                    damage * (1.5 + fighter.critDamage / 100)
-                )
-
-            }
-
-            target.hp -= damage
-
-            if (fighter.lifesteal > 0) {
-
-                fighter.hp = Math.min(
-                    fighter.maxHp,
-                    fighter.hp + Math.floor(
-                        damage * fighter.lifesteal / 100
-                    )
-                )
-
-            }
-
-            roundEvents.push(
-                `⚔️ ${fighter.name} ➜ ${target.emoji}${target.name} (-${damage})${isCrit ? ' 💥 حرجة!' : ''}`
-            )
-
-            if (target.hp <= 0) {
-
-                target.hp = 0
-
-                roundEvents.push(
-                    `☠️ ${target.emoji} ${target.name} قُضي عليه على يد ${fighter.name}!`
-                )
-
-                killsThisRound.push({
-                    fighter: fighter.name,
-                    monster: target.name
-                })
-
-            }
-
-        }
-
-        // الوحوش الأحياء ترد الهجوم على فريق عشوائي
-        for (const monster of aliveMonsters()) {
-
-            const targets = aliveFighters()
-
-            if (!targets.length) break
-
-            const fighter =
-                targets[random(0, targets.length - 1)]
-
-            const dodged =
-                Math.random() * 100 <= fighter.dodge
-
-            if (dodged) {
-
-                roundEvents.push(
-                    `🌀 ${fighter.name} تفادى هجوم ${monster.emoji}${monster.name}`
-                )
-
-                continue
-
-            }
-
-            let damage = monster.attack - fighter.defense
-
-            if (damage < 1) damage = 1
-
-            fighter.hp -= damage
-
-            if (fighter.hp <= 0) {
-
-                fighter.hp = 0
-
-                roundEvents.push(
-                    `🩸 ${monster.emoji} ${monster.name} ➜ ${fighter.name} (-${damage})`
-                )
-
-                roundEvents.push(
-                    `💀 ${fighter.name} سقط في المعركة!`
-                )
-
-            } else {
-
-                roundEvents.push(
-                    `🩸 ${monster.emoji} ${monster.name} ➜ ${fighter.name} (-${damage}) [${hpBar(fighter.hp, fighter.maxHp)}]`
-                )
-
-            }
-
-        }
-
-        log.push('')
-        log.push(`🌀 الجولة ${round}`)
-
-        if (killsThisRound.length) {
-
-            const killSummary =
-                killsThisRound
-                    .map(k => `${k.fighter} (${killsThisRound.filter(x => x.fighter === k.fighter).length})`)
-                    .filter((v, i, arr) => arr.indexOf(v) === i)
-                    .join(' • ')
-
-            log.push(`🎯 قتلى الجولة: ${killSummary}`)
-
-        }
-
-        log.push(...roundEvents)
-
-        round++
-
-    }
-
-    log.push('')
-    log.push('🏁 انتهت المعركة')
-
-    const win =
-        aliveMonsters().length === 0 &&
-        aliveFighters().length > 0
-
-    return {
-
-        win,
-        rounds: round - 1,
-        log,
-        survivors: aliveFighters().length,
-        totalFighters: fighters.length
-
-    }
+    return power
 
 }
 
 // =========================
-// تنسيق سجل المعركة لإرساله برسالة واحدة مرتبة
-// (لو المعركة طالت كثير نلخص المنتصف عشان الرسالة ما تطول أكثر من اللازم)
+// 🌀 دخول الدومين والقتال
+// domainId: رقم الدومين (1-12)
+// difficultyInput: 'سهل' / 'متوسط' / 'صعب' (أو easy/medium/hard) — افتراضي: متوسط
 // =========================
 
-function formatBattleLog(logLines) {
+function enterDomain(player, domainId, difficultyInput) {
 
-    const MAX_LINES = 45
-
-    if (logLines.length <= MAX_LINES) {
-
-        return logLines.join('\n')
-
-    }
-
-    const headCount = 30
-    const tailCount = 10
-
-    const head = logLines.slice(0, headCount)
-    const tail = logLines.slice(-tailCount)
-
-    return (
-        head.join('\n') +
-        `\n\n⏳ ... المعركة استمرت جولات إضافية ...\n` +
-        tail.join('\n')
-    )
-
-}
-
-// =========================
-// دخول الدومين (الوظيفة الرئيسية)
-// =========================
-
-function enterDomain(player, domainId) {
-
-    ensureDomainDefaults(player)
-
-    const domain = getDomain(domainId)
+    const domain = getDomainById(domainId)
 
     if (!domain) {
+        return { success: false, message: '❌ رقم دومين غير صحيح.' }
+    }
+
+    const difficultyKey = normalizeDifficulty(difficultyInput)
+    const difficulty = DIFFICULTY_LEVELS[difficultyKey]
+
+    applyStaminaRegen(player)
+
+    if ((player.stamina || 0) < DOMAIN_COST) {
+
+        const info = getStaminaInfo(player)
+        const minutesToNext = Math.ceil(info.msToNext / 60000)
 
         return {
-
             success: false,
-            message: "❌ رقم الدومين غير صحيح.\n\n📌 المتاح: 1 (إكسسوار) / 2 (سلاح) / 3 (درع)"
-
+            message:
+`⚡ ما عندك ستامينا كافية (تحتاج ${DOMAIN_COST}).
+رصيدك الحالي: ${info.current}/${info.max}
+⏳ أقرب نقطة تتجدد خلال ${minutesToNext} دقيقة`
         }
 
     }
@@ -617,101 +300,94 @@ function enterDomain(player, domainId) {
     if (!team.length) {
 
         return {
-
             success: false,
-            message:
-`❌ ما حددت فريق لهذا الدومين بعد.
-
-📌 حدده أول بـ:
-.فريق_دومين ${domainId} 123
-
-(الأرقام = أرقام شخصياتك من .شخصياتي، أقصى 3)`
-
+            message: `❌ ما حددت فريق لدومين ${domain.name}.\nاستخدم: .فريق_دومين ${domainId} أرقام_الشخصيات`
         }
 
     }
 
-    const stamina = getStaminaInfo(player)
-
-    if (stamina.current < DOMAIN_COST) {
-
-        const minutes = Math.ceil(stamina.msToNext / 60000)
-
-        return {
-
-            success: false,
-
-            message:
-`⚡ ستامينتك ما تكفي.
-
-📊 ${stamina.current}/${stamina.max}
-💸 التكلفة: ${DOMAIN_COST}
-
-⏳ أقرب نقطة تتجدد خلال ${minutes} دقيقة`
-
-        }
-
-    }
-
+    // خصم الستامينا (تُخصم بمحاولة الدخول سواء ربح أو خسر، مثل أي دومين حقيقي)
     player.stamina -= DOMAIN_COST
 
-    const result = simulateDomainBattle(team, domain)
+    const teamPower = calculateTeamPower(team)
 
-    const battleLog = formatBattleLog(result.log)
+    // معادلة فرصة الفوز: تتمركز حول baseWinChance وتتحرك حسب قوة الفريق مقابل القوة المطلوبة
+    const powerRatio = teamPower / difficulty.requiredPower
 
-    if (!result.win) {
+    let winChance = difficulty.baseWinChance * Math.min(1.5, Math.max(0.4, powerRatio))
+    winChance = Math.max(0.05, Math.min(0.95, winChance))
+
+    // 🎲 رمية حظ من 1-20: فوق 10 تزيد فرصة الفوز، وتحتها تنقصها
+    const luckRoll = Math.floor(Math.random() * 20) + 1
+    winChance += luckRoll > 10 ? 0.05 : -0.05
+    winChance = Math.max(0.05, Math.min(0.95, winChance))
+
+    const monsterPool = domain.monsters[difficultyKey] || []
+    const monster = monsterPool.length
+        ? monsterPool[Math.floor(Math.random() * monsterPool.length)]
+        : null
+
+    const won = Math.random() < winChance
+
+    if (!won) {
 
         return {
-
             success: true,
-            win: false,
-
-            domain,
-            battle: result,
-
-            staminaLeft: player.stamina,
-
+            won: false,
             message:
-`⚔️═══〔 محاكاة المعركة 〕═══⚔️
+`${domain.emoji} دومين ${domain.name} - ${difficulty.label}
+🎲 رميت: ${luckRoll}/20 ${luckRoll > 10 ? '(فوق 10 👍)' : '(تحت 10 👎)'}
+💀 خسرت أمام ${monster ? monster.name : 'الوحش'}!
+💪 قوة فريقك: ${teamPower.toLocaleString()}
+🎯 فرصة الفوز كانت: ${Math.round(winChance * 100)}%
+⚡ الستامينا المتبقية: ${player.stamina}/${MAX_STAMINA}
 
-${battleLog}
-
-━━━━━━━━━━━━━━━━━━
-
-${domain.emoji} خسرت بدومين ${domain.name}!
-
-💀 فريقك ما قدر يتخطى الموجة.
-
-⚡ الستامينا المتبقية: ${player.stamina}/${STAMINA_MAX}`
-
+جرب ترفع قوة فريقك أو انزل صعوبة أسهل.`
         }
 
     }
 
-    const item = null
+    const item = equipmentSystem.generateEchoFromDomainKill(domain.familyId, difficulty.cost)
+
+    if (!player.inventory) player.inventory = []
+
+    let inventoryMessage = ''
+
+    if (player.inventory.length >= (player.maxInventory || equipmentSystem.DEFAULT_MAX_INVENTORY)) {
+
+        inventoryMessage = '\n⚠️ حقيبتك ممتلئة! القطعة ما انحفظت، فضّي مكان وحاول مرة ثانية.'
+
+    } else {
+
+        player.inventory.push(item)
+
+        if (player.markModified) {
+            player.markModified('inventory')
+        }
+
+    }
+
+    // 🎼 مكافأة تيونر الصدى (5 لكل فوز بدومين)
+    const newTunerTotal = equipmentSystem.addTuners(player, equipmentSystem.TUNERS_PER_DOMAIN_WIN)
 
     return {
 
         success: true,
-        win: true,
-
-        domain,
-        battle: result,
-
-        staminaLeft: player.stamina,
+        won: true,
+        item,
 
         message:
-`⚔️═══〔 محاكاة المعركة 〕═══⚔️
+`${domain.emoji} دومين ${domain.name} - ${difficulty.label}
+🎲 رميت: ${luckRoll}/20 ${luckRoll > 10 ? '(فوق 10 👍)' : '(تحت 10 👎)'}
+⚔️ هزمت ${monster ? monster.name : 'الوحش'}!
+💪 قوة فريقك: ${teamPower.toLocaleString()}
+⚡ الستامينا المتبقية: ${player.stamina}/${MAX_STAMINA}
 
-${battleLog}
-
-━━━━━━━━━━━━━━━━━━
-
-${domain.emoji} فزت بدومين ${domain.name}!
-
-⚔️ نجا ${result.survivors}/${result.totalFighters} من فريقك
-
-⚡ الستامينا المتبقية: ${player.stamina}/${STAMINA_MAX}`
+🎁 القطعة اللي سقطت:
+${item.icon || '🔸'} ${item.familyNameAr || item.familyName} (كوست ${item.cost})
+📊 ستات رئيسي: ${item.mainStat.type} +${item.mainStat.value}
+${monster ? `🐉 أسقطها: ${monster.nameAr || monster.name}` : ''}
+🎼 +${equipmentSystem.TUNERS_PER_DOMAIN_WIN} ${equipmentSystem.TUNER_NAME_AR} (المجموع: ${newTunerTotal})${inventoryMessage}`
 
     }
 
@@ -723,19 +399,22 @@ ${domain.emoji} فزت بدومين ${domain.name}!
 
 module.exports = {
 
-    STAMINA_MAX,
+    MAX_STAMINA,
     DOMAIN_COST,
-    TEAM_SIZE,
+    DIFFICULTY_LEVELS,
 
     listDomains,
-    getDomain,
+    getDomainById,
 
-    getStaminaInfo,
     applyStaminaRegen,
+    getStaminaInfo,
 
     setDomainTeam,
     getDomainTeamCharacters,
 
-    enterDomain
+    calculateTeamPower,
+    enterDomain,
+
+    normalizeDifficulty
 
 }
