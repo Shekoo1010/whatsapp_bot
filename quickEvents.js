@@ -3,7 +3,6 @@ const characters = require('./characters.json')
 const EVENT_GROUPS = [
 '120363020823525909@g.us',
     '120363428933463078@g.us',
-'120363409897316453@g.us',
 '120363116482407260@g.us',
     '120363362807326585@g.us'
 ]
