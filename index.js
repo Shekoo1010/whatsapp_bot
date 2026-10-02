@@ -349,6 +349,7 @@ function getRiyadhHour() {
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
+const { handleEditOmega } = require('./systems/devOmegaEdit')
 const getPlayerPower = require('./utils/getPlayerPower')
 const { handleShipCommand, startShipDailyReset } = require('./shipCommands')
 startShipDailyReset()
@@ -10928,6 +10929,7 @@ const commandExplanations = {
         '.ريست_مجموع': 'أمر للمطور فقط - يصفّر إحصائيات القتال المجموعة للاعبين.',
         '.اعطاء_فلوس': 'أمر للمطور فقط - يعطي مبلغاً مالياً للاعب معيّن.',
         '.اعطاء_EX': 'أمر للمطور فقط - يعطي عملة/مورد EX للاعب معيّن.',
+        '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
         '.اصلاح_الالقاب': 'أمر للمطور فقط - يصلح ألقاب/رتب اللاعبين التالفة.',
         '.ايديات_اللاعبين': 'أمر للمطور فقط - يعرض قائمة آيديات كل اللاعبين المسجّلين.',
@@ -27839,6 +27841,11 @@ ${question}`
     )
 
 }
+
+    // 🛠️ .تعديل_اوميقا — للمطور فقط (systems/devOmegaEdit.js)
+    if (text === '.تعديل_اوميقا' || text.startsWith('.تعديل_اوميقا ')) {
+        return handleEditOmega({ text, msg, Player, safeSend, isOwner, omegaAbilities, userId })
+    }
 
     if (text === ".اعطاء_EX") {
 
