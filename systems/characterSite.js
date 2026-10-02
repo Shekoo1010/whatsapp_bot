@@ -56,6 +56,55 @@ function sortCharacters(chars) {
         .map(x => x.c)
 }
 
+// ---------------------------------------------------------------
+// 🔄 نفس منطق .عرض بالضبط: نجيب أحدث صورة/أنمي من كتالوج characters.json
+// (مطابقة name + rarity + form)، ثم لو اللاعب مستبدل صورة الشخصية بـ
+// .استبدال (customImage) تُفضَّل صورته. بدون هذا كانت الصفحة تعرض الصورة
+// القديمة المنسوخة داخل مستند اللاعب وقت سحب الشخصية.
+// الكتالوج يُجلب من نفس require('./characters.json') اللي يستخدمه البوت
+// (نفس النسخة بالذاكرة) — فأي تحديث له يظهر بعد إعادة تشغيل البوت، مثل .عرض.
+// ---------------------------------------------------------------
+let _catalogSrc = null
+let _catalogIdx = null
+
+function loadCatalog(getCatalog) {
+    try {
+        return (typeof getCatalog === 'function' ? getCatalog() : require('../characters.json')) || []
+    } catch (err) {
+        console.error('character site: catalog load error:', err)
+        return []
+    }
+}
+
+function getCatalogIndex(getCatalog) {
+    const cat = loadCatalog(getCatalog)
+    if (cat !== _catalogSrc || !_catalogIdx) {
+        const idx = new Map()
+        for (const c of cat) {
+            const key = `${c.name}|${c.rarity}|${c.form}`
+            if (!idx.has(key)) idx.set(key, c) // أول تطابق (نفس سلوك .find)
+        }
+        _catalogSrc = cat
+        _catalogIdx = idx
+    }
+    return _catalogIdx
+}
+
+function resolveDisplayChar(owned, catIdx) {
+    const latest = catIdx.get(`${owned.name}|${owned.rarity}|${owned.form}`)
+    const display = latest
+        ? {
+            ...owned,
+            image: latest.image,
+            anime: latest.anime,
+            rarity: latest.rarity,
+            form: latest.form || owned.form
+        }
+        : { ...owned }
+    if (owned.customImage) display.image = owned.customImage
+    return display
+}
+
 // نفس ترتيب .شخصياتي بالضبط: الشخصية رقم 1 ثابتة، والباقي حسب الرتبة ثم القوة
 function sortCharactersKeepFirst(chars) {
     if (!chars || chars.length <= 1) return chars || []
@@ -216,6 +265,7 @@ function generateSiteCode() {
  * يسجّل المسارات: /u/:code و /custom_images
  */
 function registerCharacterSite(app, Player, opts = {}) {
+    const getCatalog = opts.getCatalog
     const express = require('express')
     const path = require('path')
 
@@ -237,7 +287,9 @@ function registerCharacterSite(app, Player, opts = {}) {
             const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
             const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
             const offset = (page - 1) * PAGE_SIZE
-            const items = all.slice(offset, offset + PAGE_SIZE).map((c, i) => ({ ...c, __num: offset + i + 1 }))
+            const catIdx = getCatalogIndex(getCatalog)
+            const items = all.slice(offset, offset + PAGE_SIZE)
+                .map((c, i) => ({ ...resolveDisplayChar(c, catIdx), __num: offset + i + 1 }))
 
             const countMap = {}
             for (const c of all) {
@@ -262,4 +314,4 @@ function registerCharacterSite(app, Player, opts = {}) {
     })
 }
 
-module.exports = { registerCharacterSite, generateSiteCode, pageHTML, sortCharacters, sortCharactersKeepFirst }
+module.exports = { registerCharacterSite, generateSiteCode, pageHTML, sortCharacters, sortCharactersKeepFirst, getCatalogIndex, resolveDisplayChar }
