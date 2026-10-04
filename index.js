@@ -2901,7 +2901,7 @@ const Market = require('./models/Market')
 const Shop = require('./models/Shop')
 // require / imports هنا
 
-console.log("MONGO =", process.env.MONGO_URI)
+// (تم حذف طباعة MONGO_URI لأنها تكشف كلمة المرور في اللوق)
 
 if (!process.env.MONGO_URI) {
     console.log("❌ MONGO_URI is missing in Render!")
@@ -4287,6 +4287,127 @@ async function siteNotifyOwner(text) {
         console.log('site notify owner error:', err?.message || err)
     }
 }
+
+// ⚠️ نُقلت هذي الدوال والثوابت لهنا (المستوى العام) لأنها كانت داخل startBot()
+// وبالتالي غير مرئية لـ createGiftSystem أدناه (كان يسبب ReferenceError عند التشغيل)
+
+// ========================================
+// ترتيب تلقائي للشخصيات حسب الرتبة
+// (يُستخدم في .شخصياتي وعند كل إضافة شخصية
+// عبر .استرجاع / .اهداء / .شراء / .شراءمتجر)
+// ⚠️ نُقلت لهنا (خارج معالج الرسائل) عشان ثابت CHARACTER_RANK_ORDER
+// يتم تهيئته مرة وحدة عند تشغيل البوت، بدل ما يعتمد على ترتيب
+// تنفيذ الأوامر جوا كولباك الرسائل (كان يسبب خطأ
+// "Cannot access 'CHARACTER_RANK_ORDER' before initialization"
+// لأي أمر يوصلها قبل ما ينفّذ الكود اللي يصرح الثابت).
+// ========================================
+
+const CHARACTER_RANK_ORDER = [
+    "Ω",
+    "EX",
+    "UR III",
+    "UR II",
+    "UR I",
+    "SSS++",
+    "SSS+",
+    "SSS",
+    "اسطوري",
+    "ممتاز",
+    "عادي"
+]
+
+function getCharacterRank(c) {
+
+    const evolutionRanks = [
+        "SSS",
+        "SSS+",
+        "SSS++",
+        "UR I",
+        "UR II",
+        "UR III",
+        "EX",
+        "Ω"
+    ]
+
+    return (c.evolutionLevel || 0) > 0
+        ? evolutionRanks[c.evolutionLevel]
+        : c.rarity
+}
+
+
+function sortCharactersByRank(characters) {
+
+    return characters
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => {
+
+            const rankA =
+                CHARACTER_RANK_ORDER.indexOf(
+                    getCharacterRank(a.c)
+                )
+
+            const rankB =
+                CHARACTER_RANK_ORDER.indexOf(
+                    getCharacterRank(b.c)
+                )
+
+            const ra =
+                rankA === -1
+                    ? CHARACTER_RANK_ORDER.length
+                    : rankA
+
+            const rb =
+                rankB === -1
+                    ? CHARACTER_RANK_ORDER.length
+                    : rankB
+
+            if (ra !== rb) return ra - rb
+
+            // نفس الرتبة: الأقوى قوة (⚔️) أولاً
+            const powerA = a.c.power || 0
+            const powerB = b.c.power || 0
+
+            if (powerB !== powerA) return powerB - powerA
+
+            // نفس الرتبة ونفس القوة: نحافظ على ترتيب الحصول عليها
+            return a.i - b.i
+        })
+        .map(x => x.c)
+}
+
+// يعيد ترتيب مصفوفة شخصيات اللاعب فعليًا حسب الرتبة
+// (بدون حفظ — على المستدعي استدعاء player.save())
+function resortPlayerCharacters(player) {
+
+    player.characters =
+        sortCharactersByRank(player.characters)
+
+    player.markModified('characters')
+}
+
+// ترتيب تلقائي لكل الشخصيات ما عدا رقم 1 (تبقى بمكانها ثابتة دائماً)
+// يُستخدم في .شخصياتي فقط — الشخصية الأولى لا تتأثر بأي ترتيب تلقائي
+function sortCharactersByRankKeepFirst(characters) {
+
+    if (!characters || characters.length <= 1) {
+        return characters
+    }
+
+    const [first, ...rest] = characters
+
+    return [first, ...sortCharactersByRank(rest)]
+}
+
+// يطبق sortCharactersByRankKeepFirst على شخصيات اللاعب فعليًا
+// (بدون حفظ — على المستدعي استدعاء player.save())
+function resortPlayerCharactersKeepFirst(player) {
+
+    player.characters =
+        sortCharactersByRankKeepFirst(player.characters)
+
+    player.markModified('characters')
+}
+
 
 const { giftCharacters } = createGiftSystem({
     mongoose,
@@ -7202,49 +7323,6 @@ function getRandomPlayerAbility() {
     // =========================
 // الرسائل
 // =========================
-// ========================================
-// ترتيب تلقائي للشخصيات حسب الرتبة
-// (يُستخدم في .شخصياتي وعند كل إضافة شخصية
-// عبر .استرجاع / .اهداء / .شراء / .شراءمتجر)
-// ⚠️ نُقلت لهنا (خارج معالج الرسائل) عشان ثابت CHARACTER_RANK_ORDER
-// يتم تهيئته مرة وحدة عند تشغيل البوت، بدل ما يعتمد على ترتيب
-// تنفيذ الأوامر جوا كولباك الرسائل (كان يسبب خطأ
-// "Cannot access 'CHARACTER_RANK_ORDER' before initialization"
-// لأي أمر يوصلها قبل ما ينفّذ الكود اللي يصرح الثابت).
-// ========================================
-
-const CHARACTER_RANK_ORDER = [
-    "Ω",
-    "EX",
-    "UR III",
-    "UR II",
-    "UR I",
-    "SSS++",
-    "SSS+",
-    "SSS",
-    "اسطوري",
-    "ممتاز",
-    "عادي"
-]
-
-function getCharacterRank(c) {
-
-    const evolutionRanks = [
-        "SSS",
-        "SSS+",
-        "SSS++",
-        "UR I",
-        "UR II",
-        "UR III",
-        "EX",
-        "Ω"
-    ]
-
-    return (c.evolutionLevel || 0) > 0
-        ? evolutionRanks[c.evolutionLevel]
-        : c.rarity
-}
-
 // ============================================================
 // 🖼️ إطار موحّد لعرض صورة الشخصية (الصندوق ┏━━┓ + 👑 الاسم)
 // -----------------------------------------------------------------
@@ -7318,79 +7396,6 @@ async function sendCharacterCardFrame(sock, jid, character, captionText, extra =
 
         return sock.sendMessage(jid, { text: (captionText || fallbackText || '🎴 بطاقة الشخصية'), ...msgExtra })
     }
-}
-
-function sortCharactersByRank(characters) {
-
-    return characters
-        .map((c, i) => ({ c, i }))
-        .sort((a, b) => {
-
-            const rankA =
-                CHARACTER_RANK_ORDER.indexOf(
-                    getCharacterRank(a.c)
-                )
-
-            const rankB =
-                CHARACTER_RANK_ORDER.indexOf(
-                    getCharacterRank(b.c)
-                )
-
-            const ra =
-                rankA === -1
-                    ? CHARACTER_RANK_ORDER.length
-                    : rankA
-
-            const rb =
-                rankB === -1
-                    ? CHARACTER_RANK_ORDER.length
-                    : rankB
-
-            if (ra !== rb) return ra - rb
-
-            // نفس الرتبة: الأقوى قوة (⚔️) أولاً
-            const powerA = a.c.power || 0
-            const powerB = b.c.power || 0
-
-            if (powerB !== powerA) return powerB - powerA
-
-            // نفس الرتبة ونفس القوة: نحافظ على ترتيب الحصول عليها
-            return a.i - b.i
-        })
-        .map(x => x.c)
-}
-
-// يعيد ترتيب مصفوفة شخصيات اللاعب فعليًا حسب الرتبة
-// (بدون حفظ — على المستدعي استدعاء player.save())
-function resortPlayerCharacters(player) {
-
-    player.characters =
-        sortCharactersByRank(player.characters)
-
-    player.markModified('characters')
-}
-
-// ترتيب تلقائي لكل الشخصيات ما عدا رقم 1 (تبقى بمكانها ثابتة دائماً)
-// يُستخدم في .شخصياتي فقط — الشخصية الأولى لا تتأثر بأي ترتيب تلقائي
-function sortCharactersByRankKeepFirst(characters) {
-
-    if (!characters || characters.length <= 1) {
-        return characters
-    }
-
-    const [first, ...rest] = characters
-
-    return [first, ...sortCharactersByRank(rest)]
-}
-
-// يطبق sortCharactersByRankKeepFirst على شخصيات اللاعب فعليًا
-// (بدون حفظ — على المستدعي استدعاء player.save())
-function resortPlayerCharactersKeepFirst(player) {
-
-    player.characters =
-        sortCharactersByRankKeepFirst(player.characters)
-
-    player.markModified('characters')
 }
 
 // 🖼️ كاش مؤقت قصير جداً (بالذاكرة فقط) — يمسك آخر صور كل شخص
