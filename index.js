@@ -8742,6 +8742,7 @@ if (
 
     player.favoriteCharacter = null
     player.favoriteObtained = 0
+    player.sonicBonusUsed = 0
     player.favoriteExpires = 0
 }
 
@@ -8796,7 +8797,18 @@ if (
     const sonicChance =
         companionsData.getCompanionBonus('sonic', player.companion.level)
 
-    if (Math.random() * 100 < sonicChance) {
+    // 💙 حد أقصى: نسختين مضافتين من سونيك لكل مفضلة (2 أساسية + 2 مضافة = 4)
+    // ⚠️ يحتاج حقل sonicBonusUsed بـ Player.js — لو غير موجود نوقف البونص (أمان)
+    const sonicBonusUsed = player.sonicBonusUsed || 0
+    const sonicFieldOk = !!Player.schema.path('sonicBonusUsed')
+
+    if (
+        sonicFieldOk &&
+        sonicBonusUsed < 2 &&
+        Math.random() * 100 < sonicChance
+    ) {
+
+        player.sonicBonusUsed = sonicBonusUsed + 1
 
         // هذي السحبة ما تُحسب من رصيد المفضلة (2 سحبات بالأصل)
         player.favoriteObtained =
@@ -32137,6 +32149,8 @@ if (
 
     player.favoriteObtained = 0
 
+    player.sonicBonusUsed = 0
+
     player.favoriteExpires = 0
 
     await player.save()
@@ -32239,6 +32253,8 @@ player.favoriteCharacter =
     target.name
 
 player.favoriteObtained = 0
+
+player.sonicBonusUsed = 0
 
 player.favoriteExpires =
     Date.now() +
@@ -37506,22 +37522,23 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
         // =====================
 
         const now = Date.now()
-        const cooldown = 30 * 60 * 1000
+        const NORMAL_FIGHTS_MAX = 15
+        const cooldown = 24 * 60 * 60 * 1000 // يومي
 
-        if (me.normalFights == null) me.normalFights = 5
+        if (me.normalFights == null) me.normalFights = NORMAL_FIGHTS_MAX
         if (!me.lastNormalFightReset)
     me.lastNormalFightReset = now
 
         if (
     now - me.lastNormalFightReset >= cooldown
 ) {
-            me.normalFights = 5
+            me.normalFights = NORMAL_FIGHTS_MAX
             me.lastNormalFightReset = now
         }
 
         if (me.normalFights <= 0) {
             return safeSend(msg.key.remoteJid, {
-                text: '⏳ انتهت القتالات اليومية (5/5)'
+                text: `⏳ انتهت القتالات اليومية (0/${NORMAL_FIGHTS_MAX})`
             })
         }
 
@@ -37814,7 +37831,7 @@ ${reward}
 +200
 
 🎟️ القتالات المتبقية:
-${me.fights}/${maxFights}
+${me.normalFights}/${NORMAL_FIGHTS_MAX}
 
 ━━━━━━━━━━━━━━━━━━${normalFightViaUsername ? `\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)\n━━━━━━━━━━━━━━━━━━` : ''}
 🔥 نهاية القتال
