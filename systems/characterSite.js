@@ -653,34 +653,72 @@ function loginHTML({ code, csrf, error, disabled }) {
 </div></div></body></html>`
 }
 
-function viewerBarHTML(viewer, code) {
-    if (!viewer) return ''
-    if (viewer.isOwner) {
-        return `<div class="topbar">
-      <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span>
-      <span class="tb-r">
-        <a class="pill fill" href="/u/${code}/pull">🎴 سحب شخصية</a>
-        <span class="bcdw"><a class="pill fill" href="/u/${code}/boss">👑 هجوم الزعيم</a><small class="bcd" id="bcd" hidden></small></span>
-        <a class="pill fill" href="/u/${code}/gift">🎁 وضع الإهداء</a>
-        <a class="pill fill" href="/u/${code}/sell">💰 بيع شخصيات</a>
-        <a class="pill" href="/u/${code}/log">📜 سجل الإهداءات</a>
-        <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(viewer.csrf)}"><input type="hidden" name="code" value="${code}"><button class="pill" type="submit">خروج</button></form>
-      </span></div>
-<style>.bcdw{display:inline-flex;flex-direction:column;align-items:center;gap:3px;vertical-align:top}.bcd{font-size:11px;font-weight:800;color:var(--gold);font-family:'Cairo',sans-serif;white-space:nowrap}</style>
+// ☰ زر القائمة الجانبية (يوضع داخل .topbar) + القائمة نفسها (navDrawerHTML)
+const NAV_BTN = `<button class="nvbtn" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`
+
+// code: كود الصفحة · csrf: توكن الخروج · current: home|pull|boss|gift|sell|log · name: اسم اللاعب (اختياري)
+function navDrawerHTML(code, csrf, current, name) {
+    const c = esc(code)
+    const items = [
+        ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
+        ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
+        ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
+        ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
+        ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`]
+    ]
+    const list = items.map(([k, ic, label, href]) =>
+        `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`
+    ).join('')
+    const showCd = current !== 'boss'
+    return `<div class="nvbd" id="nv-bd" hidden></div>
+<nav class="nvdr" id="nv-dr" aria-label="القائمة" aria-hidden="true">
+  <div class="nvhd">
+    <span class="nvwho">${name ? `مسجّل كـ <b>${esc(name)}</b>` : 'القائمة'}</span>
+    <button class="nvx" id="nv-close" type="button" aria-label="إغلاق">✕</button>
+  </div>
+  <div class="nvls">${list}
+    <div class="nvsep"></div>
+    <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="code" value="${c}"><button class="nvit nvout" type="submit"><span class="nvic">🚪</span>خروج</button></form>
+  </div>
+</nav>
+<style>
+.nvbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--gold-dim);background:#0f1422;color:var(--gold);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;vertical-align:middle;flex:none}
+.nvbtn:active{transform:scale(.95)}
+.tb-l{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nvbd{position:fixed;inset:0;z-index:60;background:rgba(3,4,9,.7);opacity:0;transition:opacity .2s}
+.nvbd.on{opacity:1}
+.nvdr{position:fixed;top:0;bottom:0;right:0;width:min(82vw,320px);z-index:61;background:#0f1422;border-left:1px solid #1f2740;transform:translateX(100%);transition:transform .25s;visibility:hidden;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);font-family:'Cairo',sans-serif;direction:rtl}
+.nvdr.on{transform:none;visibility:visible}
+.nvhd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid #1f2740}
+.nvwho{color:var(--text-dim);font-size:14px}.nvwho b{color:var(--gold)}
+.nvx{width:34px;height:34px;border-radius:10px;border:1px solid #1f2740;background:transparent;color:var(--text-dim);font-size:16px;cursor:pointer}
+.nvls{overflow-y:auto;padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px))}
+.nvit{display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;font-family:'Cairo',sans-serif;font-weight:800;font-size:15px;color:var(--text);text-decoration:none;background:transparent;border:0;border-inline-start:3px solid transparent;cursor:pointer;text-align:start}
+.nvit:hover{background:#151b2e}
+.nvit.on{background:#171d30;border-inline-start-color:var(--gold);color:var(--gold)}
+.nvic{width:24px;text-align:center;font-size:18px}
+.nvcd{margin-inline-start:auto;font-size:11px;font-weight:800;color:var(--gold);white-space:nowrap}
+.nvsep{height:1px;background:#1f2740;margin:8px 0}
+.nvout{color:#ff6b86}
+.nvls form{margin:0}
+</style>
 <script>
 (function(){
-  var el=document.getElementById('bcd'); if(!el) return;
-  var end=0, fin=false, known=false, lastLoad=0;
+  var bt=document.getElementById('nv-open'), dr=document.getElementById('nv-dr'), bd=document.getElementById('nv-bd'), cl=document.getElementById('nv-close');
+  if(!bt||!dr||!bd) return;
+  var cd=document.getElementById('nv-bcd'), end=0, fin=false, known=false, lastLoad=0, t1=0, t2=0;
   function mm(ms){ var s=Math.ceil(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60; function z(n){ return (n<10?'0':'')+n; } return (h>0?h+':'+z(m):m)+':'+z(r); }
   function render(){
-    if(!fin){ el.hidden=true; return; }
-    el.hidden=false;
+    if(!cd) return;
+    if(!fin){ cd.hidden=true; return; }
+    cd.hidden=false;
     var l=end-Date.now();
     if(known && l<=0 && Date.now()-lastLoad>4000) load();
-    el.textContent=known?(l>0?'⏳ الزعيم القادم بعد '+mm(l):'جارٍ استدعاء الزعيم…'):'⏳ الزعيم القادم عند رأس الساعة';
+    cd.textContent=known?(l>0?'⏳ '+mm(l):'جارٍ الاستدعاء…'):'⏳ رأس الساعة';
   }
   function load(){
-    if(document.hidden) return; lastLoad=Date.now();
+    if(!cd||document.hidden) return; lastLoad=Date.now();
     fetch('/boss/state?since=999999999',{credentials:'same-origin'})
       .then(function(r){ return r.ok?r.json():null; })
       .then(function(j){
@@ -689,9 +727,31 @@ function viewerBarHTML(viewer, code) {
         end=known?Date.now()+b.respawnInMs:0; render();
       }).catch(function(){});
   }
-  load(); setInterval(load,15000); setInterval(render,1000);
+  function open(){
+    bd.hidden=false; dr.setAttribute('aria-hidden','false'); bt.setAttribute('aria-expanded','true');
+    void dr.offsetWidth; bd.classList.add('on'); dr.classList.add('on'); document.body.style.overflow='hidden';
+    if(cd){ load(); t1=setInterval(load,15000); t2=setInterval(render,1000); }
+    var f=dr.querySelector('.nvit.on')||dr.querySelector('.nvit'); if(f) f.focus({preventScroll:true});
+  }
+  function close(){
+    bd.classList.remove('on'); dr.classList.remove('on'); dr.setAttribute('aria-hidden','true'); bt.setAttribute('aria-expanded','false');
+    document.body.style.overflow=''; clearInterval(t1); clearInterval(t2);
+    setTimeout(function(){ if(!dr.classList.contains('on')) bd.hidden=true; },250);
+    bt.focus({preventScroll:true});
+  }
+  bt.addEventListener('click',open); cl.addEventListener('click',close); bd.addEventListener('click',close);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && dr.classList.contains('on')) close(); });
 })();
 </script>`
+}
+
+function viewerBarHTML(viewer, code) {
+    if (!viewer) return ''
+    if (viewer.isOwner) {
+        return `<div class="topbar">
+      <span class="tb-l">${NAV_BTN}<span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    </div>
+${navDrawerHTML(code, viewer.csrf, 'home', viewer.name)}`
     }
     return `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/login?code=${code}">🔐 تسجيل دخول</a></div>`
 }
@@ -720,7 +780,8 @@ function logPageHTML({ log, code, csrf }) {
 .lg-cost{margin-top:6px;opacity:.85}.lg-empty{text-align:center;opacity:.7;padding:40px 0}
 </style>
 <body>
-<div class="topbar"><span class="who">📜 سجل الإهداءات (آخر 100)</span><span class="tb-r"><a class="pill" href="/u/${esc(code)}">رجوع</a></span></div>
+<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">📜 سجل الإهداءات (آخر 100)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
+${navDrawerHTML(code, csrf, 'log')}
 <div class="lg-wrap">${rows || '<div class="lg-empty">لا توجد إهداءات بعد.</div>'}</div>
 </body></html>`
 }
@@ -802,9 +863,10 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
     return `${shellHead('وضع الإهداء')}
 <body><div style="padding:30px 16px 90px">
   <div class="topbar">
-    <span><span class="gmode">وضع الإهداء</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <span class="tb-l">${NAV_BTN}<span class="gmode">وضع الإهداء</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
+  ${navDrawerHTML(code, viewer.csrf, 'gift', viewer.name)}
   <div class="ginfo">اختر الشخصيات التي تريد إهداءها<br>(الحد الأقصى خمس شخصيات — شخصيات Ω لا تُهدى)<br><small>الصفحة ${page}/${pages}</small></div>
   <div class="ggrid">${items.map(giftCardHTML).join('')}</div>
   ${pagerHTML(`/u/${code}/gift`, page, pages)}
@@ -902,9 +964,10 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
     return `${shellHead('بيع الشخصيات')}
 <body><div style="padding:30px 16px 90px">
   <div class="topbar">
-    <span><span class="gmode">بيع الشخصيات</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <span class="tb-l">${NAV_BTN}<span class="gmode">بيع الشخصيات</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
+  ${navDrawerHTML(code, viewer.csrf, 'sell', viewer.name)}
   <div class="ginfo">اختر الشخصيات التي تريد بيعها ثم اكتب «تأكيد»<br>(سعر الشخصية = نصف قوتها وبحد أدنى 100 — شخصيات Ω لا تُباع)<br><small>الصفحة ${page}/${pages}</small></div>
   <div class="ggrid">${items.map(sellCardHTML).join('')}</div>
   ${pagerHTML(`/u/${code}/sell`, page, pages)}
@@ -1013,9 +1076,10 @@ function pullPageHTML({ viewer, code, state }) {
 </style>
 <body><div style="padding:30px 16px 60px">
   <div class="topbar">
-    <span><span class="gmode">سحب شخصية</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <span class="tb-l">${NAV_BTN}<span class="gmode">سحب شخصية</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
+  ${navDrawerHTML(code, viewer.csrf, 'pull', viewer.name)}
   <div class="pl-wrap">
     <section class="gpanel" style="margin-top:0">
       <div class="pl-stats">
@@ -1357,9 +1421,10 @@ function bossPageHTML({ viewer, code, data }) {
 </style>
 <body><div style="padding:30px 16px 60px">
   <div class="topbar">
-    <span><span class="gmode">هجوم الزعيم</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <span class="tb-l">${NAV_BTN}<span class="gmode">هجوم الزعيم</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
+  ${navDrawerHTML(code, viewer.csrf, 'boss', viewer.name)}
   <div class="bs-wrap">
     <section class="gpanel" style="margin-top:0;max-width:none">
       <div class="bs-head"><span class="bs-name"><span id="bn">الزعيم</span><span class="bs-rage" id="rage" hidden>غضب</span></span><span class="bs-num" id="bhpt"></span></div>
