@@ -2777,6 +2777,7 @@ const getRank = require('./utils/rank')
 const { getSkillDamage } = require('./utils/skills')
 const Boss = require('./models/Boss')
 const { getTotalStats } = require('./utils/stats')
+const pvpBattle = require('./systems/pvpBattle')
 // (تم حذف استيراد utils/shop القديم مع حذف نظام السوق القديم)
 
 const royaleDrops = [
@@ -10810,7 +10811,8 @@ const commandExplanations = {
         '.قبول_تحدي': 'يقبل تحدي قتال (PvP) معلّق أرسله لاعب آخر لك.',
         '.رفض_تحدي': 'يرفض تحدي قتال (PvP) معلّق أرسله لاعب آخر لك.',
         '.قتال': 'يبدأ قتال شخصية مباشرة بذكر اسمها وقوتها مع منشن الخصم. مثال: .قتال Hashirama 2300 @شخص',
-        '.قتال pvp': 'يبدأ مباراة PvP رسمية بينك وبين لاعب آخر بالمنشن. مثال: .قتال pvp @شخص',
+        '.قتال pvp': 'يبدأ قتال PvP فوري بفريقك (3 شخصيات). بدون منشن يعرض لك الخصوم القريبين منك، ومع منشن أو رقم الخصم يقاتله مباشرة. 20 قتال يومياً. مثال: .قتال pvp @شخص',
+        '.pvp': 'يحدد فريق PvP من 3 من شخصياتك بأرقامها (مستقل عن .تشكيلة). بدون أرقام يعرض فريقك الحالي. مثال: .pvp 1 2 3',
         '.هجوم الخصم': 'يوجّه هجوم لخصمك خلال قتال PvP نشط بينكم.',
         '.مهارة': 'يستخدم مهارة شخصيتك الخاصة خلال قتال PvP نشط.',
         '.ألتميت': 'يستخدم الهجوم الألتميت (القوي) لشخصيتك خلال قتال PvP نشط.',
@@ -35932,343 +35934,415 @@ if (text === '.تص_رانك') {
             )
         }
 
-        if (text.startsWith('.قتال pvp')) {
+        // ─── .pvp (تحديد فريق .قتال pvp: 3 شخصيات من شخصياتك) ───
+        if (text === '.pvp' || text.startsWith('.pvp ')) {
 
-    const attacker = await Player.findOne({ userId })
+            const me = await Player.findOne({ userId })
 
-    if (!attacker) {
-        return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساب' })
-    }
-
-    const rawPvpTargetWord = text.trim().split(/\s+/)[2]
-
-    const { target: defenderJid, viaUsername: pvpViaUsername } =
-        await resolveTarget(msg, rawPvpTargetWord)
-
-    if (!defenderJid) {
-        return safeSend(msg.key.remoteJid, { text: '❌ استخدم:\n.قتال pvp @user\nأو:\n.قتال pvp يوزرنيم' })
-    }
-
-    // 💰 استخدام اليوزرنيم بدل المنشن يكلف 20 ألف (المنشن العادي يبقى مجاني كما هو)
-    if (pvpViaUsername && (attacker.money || 0) < USERNAME_ACTION_COST) {
-        return safeSend(msg.key.remoteJid, {
-            text:
-`❌ تحتاج ${USERNAME_ACTION_COST.toLocaleString()} مال لاستخدام اليوزرنيم بهذه العملية.
-💰 رصيدك الحالي: ${(attacker.money || 0).toLocaleString()}`
-        })
-    }
-
-    const defender = await Player.findOne({ userId: defenderJid })
-
-    if (!defender) {
-        return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود' })
-    }
-
-    if (attacker.userId === defender.userId) {
-        return safeSend(msg.key.remoteJid, { text: '❌ لا يمكنك قتال نفسك' })
-    }
-
-    // =========================
-    // ⏳ COOLDOWN المضاد للسبام
-    // =========================
-    const now = Date.now()
-
-if (attacker.lastPvP && now - attacker.lastPvP < 30000) {
-    return safeSend(msg.key.remoteJid, {
-        text: '⏳ انتظر 30 ثانية'
-    })
-}
-
-    // =========================
-    // 🎟️ القتالات اليومية (5 قتالات كل يوم)
-    // =========================
-    const today = Number(getSaudiDate().replace(/-/g, ''))
-
-    if (attacker.lastPvpReset !== today) {
-        attacker.pvpFights = 5
-        attacker.lastPvpReset = today
-    }
-
-    if ((attacker.pvpFights || 0) <= 0) {
-        return safeSend(msg.key.remoteJid, {
-            text: `⏳ انتهت قتالاتك اليومية (0/5)
-
-🌙 تُجدَّد تلقائياً الساعة 12 صباحاً بتوقيت السعودية`
-        })
-    }
-
-    attacker.pvpFights -= 1
-attacker.lastPvP = now
-if (pvpViaUsername) {
-    attacker.money -= USERNAME_ACTION_COST
-}
-await attacker.save()
-
-    // =========================
-    // 🧠 STATS + EQUIPMENT
-    // =========================
-    const aEq = {}
-    const dEq = {}
-
-    const aStats = {
-        hp: attacker.hp,
-        attack: (attacker.attack || 500) + (aEq.weapon?.attack || 0),
-        crit: (attacker.crit || 5) + (aEq.accessory?.crit || 0),
-        dodge: (attacker.dodge || 3) + (aEq.accessory?.dodge || 0),
-        burn: 0,
-        bleed: 0,
-        stun: 0
-    }
-
-    const dStats = {
-        hp: defender.hp,
-        attack: (defender.attack || 500) + (dEq.weapon?.attack || 0),
-        crit: (defender.crit || 5) + (dEq.accessory?.crit || 0),
-        dodge: (defender.dodge || 3) + (dEq.accessory?.dodge || 0),
-        burn: 0,
-        bleed: 0,
-        stun: 0
-    }
-
-    let aHP = aStats.hp
-    let dHP = dStats.hp
-
-    let log =
-`⚔️ PvP بدأ!
-
-🥊 @${attacker.userId.split('@')[0]}
-VS
-🥊 @${defender.userId.split('@')[0]}
-
-━━━━━━━━━━━━━━
-`
-
-    let turn = 1
-let turnAttacker = true
-
-function getSkill() {
-    const r = Math.random()
-    if (r > 0.85) return "ultimate"
-    if (r > 0.55) return "skill"
-    return "normal"
-}
-
-function applyStatus(target, skill) {
-
-    if (skill === "skill") {
-        if (Math.random() < 0.3) target.burn = 2
-    }
-
-    if (skill === "ultimate") {
-        if (Math.random() < 0.3) target.stun = 1
-        if (Math.random() < 0.2) target.bleed = 3
-    }
-}
-
-const MAX_TURNS = 50
-
-while (
-    aHP > 0 &&
-    dHP > 0 &&
-    turn <= MAX_TURNS
-) {
-
-    log += `\n🔁 الدور ${turn}\n`
-
-
-
-    // =========================
-    // ⚔️ FIGHT LOOP
-    // =========================
-    
-
-        log += `\n🔁 الدور ${turn}\n`
-
-        let atk = turnAttacker ? aStats : dStats
-        let def = turnAttacker ? dStats : aStats
-
-        let defHP = turnAttacker ? dHP : aHP
-
-        // 🔥 status damage
-
-if (atk.burn > 0) {
-    defHP -= 80
-    atk.burn--
-    log += `🔥 حرق -80 HP\n`
-}
-
-if (atk.bleed > 0) {
-    defHP -= 120
-    atk.bleed--
-    log += `🩸 نزيف -120 HP\n`
-}
-
-if (defHP <= 0) {
-    if (turnAttacker) dHP = 0
-    else aHP = 0
-    break
-}
-
-if (atk.stun > 0) {
-    atk.stun--
-    log += `💫 مذهول - خسر دوره\n`
-    turnAttacker = !turnAttacker
-    turn++
-    continue
-}
-
-        // 🛡️ dodge
-        if (Math.random() * 100 < def.dodge) {
-            log += `💨 تفادى الضربة!\n`
-        } else {
-
-            let skill = getSkill()
-
-            let damage = atk.attack
-
-            if (skill === "skill") damage *= 1.5
-            if (skill === "ultimate") damage *= 2.5
-
-            // crit
-            if (Math.random() * 100 < atk.crit) {
-                damage *= 2
-                log += `🔥 CRIT!\n`
+            if (!me) {
+                return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساب' })
             }
 
-            defHP -= Math.floor(damage)
+            const pvpArgs = text.trim().split(/\s+/).slice(1)
 
-            applyStatus(def, skill)
+            // بدون أرقام: عرض الفريق الحالي
+            if (!pvpArgs.length) {
 
-            log += `⚔️ ${skill.toUpperCase()} - ${Math.floor(damage)} dmg\n`
+                const { characters: teamChars, auto } = pvpBattle.resolveTeamCharacters(me)
+
+                if (!teamChars.length) {
+                    return safeSend(msg.key.remoteJid, { text: '❌ لا تملك شخصيات' })
+                }
+
+                const teamLines = teamChars.map((c, i) =>
+                    `${i + 1}. ${c.name} — ⚔️ ${Number(c.power || 0).toLocaleString('en-US')}`
+                )
+
+                return safeSend(msg.key.remoteJid, {
+                    text:
+`🥊 فريق .قتال pvp${auto ? ' (تلقائي: أقوى 3 شخصيات عندك)' : ''}
+
+${teamLines.join('\n')}
+
+لتغييره اكتب: .pvp 1 2 3
+(أرقام شخصياتك بنفس ترتيبها في .تشكيلة)`
+                })
+            }
+
+            if (pvpArgs.length !== 3) {
+                return safeSend(msg.key.remoteJid, {
+                    text: '❌ الاستخدام الصحيح:\n\n.pvp 1 2 3\n\n(أرقام 3 شخصيات من شخصياتك)'
+                })
+            }
+
+            const pvpIdx = pvpArgs.map(a => parseInt(a, 10) - 1)
+
+            if (pvpIdx.some(i => isNaN(i) || i < 0)) {
+                return safeSend(msg.key.remoteJid, { text: '❌ أرقام غير صحيحة' })
+            }
+
+            if (new Set(pvpIdx).size !== 3) {
+                return safeSend(msg.key.remoteJid, { text: '❌ لا يمكن تكرار نفس الشخصية' })
+            }
+
+            for (const i of pvpIdx) {
+                if (!me.characters[i]) {
+                    return safeSend(msg.key.remoteJid, { text: `❌ الشخصية رقم ${i + 1} غير موجودة` })
+                }
+            }
+
+            me.pvpBattleTeam = pvpIdx.map(i => me.characters[i].name)
+            await me.save()
+
+            return safeSend(msg.key.remoteJid, {
+                text:
+`🥊 تم حفظ فريق PvP
+
+${pvpIdx.map(i => `👑 ${me.characters[i].name}`).join('\n')}
+
+⚔️ للقتال اكتب: .قتال pvp`
+            })
         }
 
-        if (turnAttacker) dHP = defHP
-        else aHP = defHP
-        log += `
-❤️ ${attacker.userId.split('@')[0]}: ${Math.max(0, aHP)} HP
-💙 ${defender.userId.split('@')[0]}: ${Math.max(0, dHP)} HP
-`
+        if (text.startsWith('.قتال pvp')) {
 
-        turnAttacker = !turnAttacker
-        turn++
-    }
+            const attacker = await Player.findOne({ userId })
 
-    // =========================
-    // 🏆 RESULT
-    // (يُحسم بمن وصلت صحته للصفر أولاً،
-    //  وإذا انتهت الأدوار الـ50 بدون حسم يفوز صاحب الصحة المتبقية الأعلى
-    //  حتى يكون عادلاً للطرفين ولا يُفضَّل المهاجم تلقائياً)
-    // =========================
-    let winner, loser
+            if (!attacker) {
+                return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساب' })
+            }
 
-    if (aHP <= 0 && dHP > 0) {
-        winner = defender
-        loser = attacker
-    } else if (dHP <= 0 && aHP > 0) {
-        winner = attacker
-        loser = defender
-    } else if (aHP > dHP) {
-        winner = attacker
-        loser = defender
-    } else if (dHP > aHP) {
-        winner = defender
-        loser = attacker
-    } else {
-        // تعادل تام (نادر) → عشوائي عادل بنسبة 50/50
-        winner = Math.random() < 0.5 ? attacker : defender
-        loser = winner === attacker ? defender : attacker
-    }
+            const today = Number(getSaudiDate().replace(/-/g, ''))
+            const rawPvpTargetWord = text.trim().split(/\s+/)[2]
+            const hasPvpMention = !!msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
 
-    winner.wins = (winner.wins || 0) + 1
-    loser.losses = (loser.losses || 0) + 1
+            // ذاكرة قوائم الخصوم القريبين (تنتهي بعد 10 دقائق)
+            if (!global.pvpNearbyLists) global.pvpNearbyLists = new Map()
 
-    winner.mmr += 25
-    loser.mmr = Math.max(0, loser.mmr - 15)
+            // =========================
+            // 📋 بدون هدف: عرض الخصوم القريبين منك
+            // =========================
+            if (!rawPvpTargetWord && !hasPvpMention) {
 
-    const attackerOldRank = attacker.rank
-    const defenderOldRank = defender.rank
+                if (!attacker.characters || !attacker.characters.length) {
+                    return safeSend(msg.key.remoteJid, { text: '❌ لا تملك شخصيات للقتال' })
+                }
 
-    attacker.rank = getRank(attacker.mmr)
-    defender.rank = getRank(defender.mmr)
+                const myMmr = attacker.mmr || 0
+                const myPower = pvpBattle.teamPower(attacker)
 
-    // =========================
-    // 🎁 مكافآت الفائز
-    // =========================
-    const moneyReward = 80000
+                let found = []
 
-    const xpReward =
-        Math.floor(200 + Math.random() * 300)
+                for (const range of [150, 300, 600, 1200, 1000000]) {
+                    found = await Player.find(
+                        {
+                            userId: { $ne: userId },
+                            'characters.0': { $exists: true },
+                            mmr: { $gte: myMmr - range, $lte: myMmr + range }
+                        },
+                        'userId name username mmr rank pvpBattleTeam characters.name characters.power'
+                    ).limit(40).lean()
 
-    await winner.addMoney(moneyReward)
+                    if (found.length >= 5) break
+                }
 
-    winner.xp = (winner.xp || 0) + applyDogBonus(winner, xpReward)
+                if (!found.length) {
+                    return safeSend(msg.key.remoteJid, { text: '❌ لا يوجد خصوم متاحون حالياً' })
+                }
 
-    const rankBoxMap = {
-        'برونزي': { key: 'basic', label: '📦 صندوق عادي' },
-        'فضي': { key: 'rare', label: '🎁 صندوق نادر' },
-        'ذهبي': { key: 'epic', label: '✨ صندوق ملحمي' },
-        'بلاتيني': { key: 'legendary', label: '👑 صندوق أسطوري' },
-        'ماستر': { key: 'sss_chance', label: '🌟 صندوق فرصة SSS' },
-        'أسطوري': { key: 'sss_high', label: '💎 صندوق SSS عالي' }
-    }
+                // الأقرب بالـMMR أولاً، ثم نختار 5 عشوائياً من أقرب 10 حتى تتنوع القائمة
+                const closest = found
+                    .sort((a, b) => Math.abs((a.mmr || 0) - myMmr) - Math.abs((b.mmr || 0) - myMmr))
+                    .slice(0, 10)
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 5)
+                    .sort((a, b) => (b.mmr || 0) - (a.mmr || 0))
 
-    const boxInfo =
-        rankBoxMap[winner.rank] || rankBoxMap['برونزي']
+                global.pvpNearbyLists.set(userId, {
+                    at: Date.now(),
+                    ids: closest.map(p => p.userId)
+                })
 
-    winner.boxes = winner.boxes || {}
+                const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
 
-    winner.boxes[boxInfo.key] =
-        (winner.boxes[boxInfo.key] || 0) + 1
+                const listLines = closest.map((p, i) => {
 
-    await attacker.save()
-    await defender.save()
+                    const power = pvpBattle.teamPower(p)
 
-    // 🔮 مهمة الأورب: الفوز في PvP
-    await orbs.trackMission(winner.userId, 'pvpWins', { sock, jid: msg.key.remoteJid })
+                    let level = '🟡 متكافئ'
+                    if (myPower > 0) {
+                        const ratio = power / myPower
+                        if (ratio > 1.15) level = '🔴 أقوى منك'
+                        else if (ratio < 0.87) level = '🟢 أضعف منك'
+                    }
 
-    await checkAndGrantAchievement(winner, 'pvp', winner.wins, sock, msg.key.remoteJid)
-    await checkAndGrantAchievement(winner, 'wealth', winner.totalEarnedMoney, sock, msg.key.remoteJid)
+                    const displayName = p.name || 'لاعب'
 
-    // =========================
-    // 🎉 رسائل تغيّر الرتبة (لأي من الطرفين إن تغيّرت رتبته)
-    // =========================
-    let rankMessages = ''
+                    return `${numberEmojis[i]} ${displayName}${p.username ? ` (${p.username})` : ''}
+🏅 ${p.mmr || 0} • ${p.rank || getRank(p.mmr || 0)} | ⚔️ ${power.toLocaleString('en-US')} | ${level}`
+                })
 
-    if (attackerOldRank !== attacker.rank) {
+                const fightsLeftNow =
+                    attacker.lastPvpReset === today ? (attacker.pvpFights || 0) : 20
 
-        const isUp = winner === attacker
+                return safeSend(msg.key.remoteJid, {
+                    text:
+`⚔️ خصوم قريبون منك
+🏅 ${myMmr} • ${attacker.rank || getRank(myMmr)} | ⚔️ ${myPower.toLocaleString('en-US')}
 
-        rankMessages +=
+${listLines.join('\n\n')}
+
+━━━━━━━━━━━━━━
+للقتال: .قتال pvp 2  (رقم الخصم)
+أو: .قتال pvp @شخص
+🎟️ قتالاتك اليوم: ${fightsLeftNow}/20`
+                })
+            }
+
+            // =========================
+            // 🎯 تحديد الخصم: رقم من القائمة، أو منشن/يوزرنيم (مثل القديم)
+            // =========================
+            let defenderJid = null
+            let pvpViaUsername = false
+
+            if (!hasPvpMention && /^[1-9]$/.test(rawPvpTargetWord || '')) {
+
+                const saved = global.pvpNearbyLists.get(userId)
+                const picked = saved && (Date.now() - saved.at <= 10 * 60 * 1000)
+                    ? saved.ids[Number(rawPvpTargetWord) - 1]
+                    : null
+
+                if (!picked) {
+                    return safeSend(msg.key.remoteJid, {
+                        text: '❌ القائمة انتهت أو الرقم غير صحيح\n\nاكتب .قتال pvp لعرض الخصوم من جديد'
+                    })
+                }
+
+                defenderJid = picked
+
+            } else {
+
+                const resolved = await resolveTarget(msg, rawPvpTargetWord)
+                defenderJid = resolved.target
+                pvpViaUsername = resolved.viaUsername
+            }
+
+            if (!defenderJid) {
+                return safeSend(msg.key.remoteJid, { text: '❌ استخدم:\n.قتال pvp @user\nأو:\n.قتال pvp يوزرنيم\nأو اكتب .قتال pvp لعرض الخصوم القريبين' })
+            }
+
+            // 💰 استخدام اليوزرنيم بدل المنشن يكلف 20 ألف (المنشن العادي والقائمة مجانيان)
+            if (pvpViaUsername && (attacker.money || 0) < USERNAME_ACTION_COST) {
+                return safeSend(msg.key.remoteJid, {
+                    text:
+`❌ تحتاج ${USERNAME_ACTION_COST.toLocaleString()} مال لاستخدام اليوزرنيم بهذه العملية.
+💰 رصيدك الحالي: ${(attacker.money || 0).toLocaleString()}`
+                })
+            }
+
+            const defender = await Player.findOne({ userId: defenderJid })
+
+            if (!defender) {
+                return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود' })
+            }
+
+            if (attacker.userId === defender.userId) {
+                return safeSend(msg.key.remoteJid, { text: '❌ لا يمكنك قتال نفسك' })
+            }
+
+            if (!attacker.characters || !attacker.characters.length) {
+                return safeSend(msg.key.remoteJid, { text: '❌ لا تملك شخصيات للقتال' })
+            }
+
+            if (!defender.characters || !defender.characters.length) {
+                return safeSend(msg.key.remoteJid, { text: '❌ الخصم لا يملك شخصيات' })
+            }
+
+            // =========================
+            // ⏳ COOLDOWN المضاد للسبام
+            // =========================
+            const now = Date.now()
+
+            if (attacker.lastPvP && now - attacker.lastPvP < 30000) {
+                return safeSend(msg.key.remoteJid, { text: '⏳ انتظر 30 ثانية' })
+            }
+
+            // =========================
+            // 🎟️ القتالات اليومية (20 قتال كل يوم)
+            // =========================
+            if (attacker.lastPvpReset !== today) {
+                attacker.pvpFights = 20
+                attacker.lastPvpReset = today
+            }
+
+            if ((attacker.pvpFights || 0) <= 0) {
+                return safeSend(msg.key.remoteJid, {
+                    text: `⏳ انتهت قتالاتك اليومية (0/20)
+
+🌙 تُجدَّد تلقائياً الساعة 12 صباحاً بتوقيت السعودية`
+                })
+            }
+
+            attacker.pvpFights -= 1
+            attacker.lastPvP = now
+            if (pvpViaUsername) {
+                attacker.money -= USERNAME_ACTION_COST
+            }
+            await attacker.save()
+
+            try {
+
+                // =========================
+                // 🧠 بناء الفريقين: شخصيات + معدات + سلاح + إيكو + ستات اللاعب
+                // =========================
+                const pvpCompanionExtras = (p) => {
+                    const out = { critRate: 0, damageReduction: 0 }
+                    const c = p.companion
+                    if (c && (c.level || 0) >= 1) {
+                        if (c.key === 'tiger') out.critRate = companionsData.getCompanionBonus('tiger', c.level)
+                        if (c.key === 'bear') out.damageReduction = companionsData.getCompanionBonus('bear', c.level)
+                    }
+                    return out
+                }
+
+                const battleDeps = {
+                    getTotalStats,
+                    equipmentSystem,
+                    getWeaponBonus: getWeaponBonusForCharacter,
+                    getExtras: pvpCompanionExtras
+                }
+
+                const teamA = pvpBattle.buildTeam(attacker, 'A', battleDeps)
+                const teamB = pvpBattle.buildTeam(defender, 'B', battleDeps)
+
+                const sim = pvpBattle.simulate(teamA.fighters, teamB.fighters)
+
+                const tagA = attacker.userId.split('@')[0]
+                const tagB = defender.userId.split('@')[0]
+
+                const rosterText = (team) => team.fighters.map(f =>
+                    `• ${f.name} — ⚔️ ${f.atk.toLocaleString('en-US')} | ❤️ ${f.maxHp.toLocaleString('en-US')}`
+                ).join('\n')
+
+                const header =
+`⚔️ PvP بدأ!
+
+🟦 @${tagA}
+${rosterText(teamA)}
+
+🆚
+
+🟥 @${tagB}
+${rosterText(teamB)}
+
+━━━━━━━━━━━━━━`
+
+                const logText = pvpBattle.formatLog(sim)
+
+                // =========================
+                // 🏆 RESULT
+                // =========================
+                const winner = sim.winner === 'A' ? attacker : defender
+                const loser = sim.winner === 'A' ? defender : attacker
+
+                const winnerMmrBefore = winner.mmr || 0
+                const loserMmrBefore = loser.mmr || 0
+
+                const elo = pvpBattle.eloChange(winnerMmrBefore, loserMmrBefore)
+                const reward = pvpBattle.moneyReward(winnerMmrBefore, loserMmrBefore)
+
+                winner.wins = (winner.wins || 0) + 1
+                loser.losses = (loser.losses || 0) + 1
+
+                winner.mmr = winnerMmrBefore + elo.gain
+                loser.mmr = Math.max(0, loserMmrBefore - elo.loss)
+
+                const loserLost = loserMmrBefore - loser.mmr
+
+                const attackerOldRank = attacker.rank
+                const defenderOldRank = defender.rank
+
+                attacker.rank = getRank(attacker.mmr)
+                defender.rank = getRank(defender.mmr)
+
+                // =========================
+                // 🎁 مكافآت الفائز
+                // =========================
+                const moneyReward = reward.money
+
+                const xpReward = Math.floor(200 + Math.random() * 300)
+
+                await winner.addMoney(moneyReward)
+
+                winner.xp = (winner.xp || 0) + applyDogBonus(winner, xpReward)
+
+                const rankBoxMap = {
+                    'برونزي': { key: 'basic', label: '📦 صندوق عادي' },
+                    'فضي': { key: 'rare', label: '🎁 صندوق نادر' },
+                    'ذهبي': { key: 'epic', label: '✨ صندوق ملحمي' },
+                    'بلاتيني': { key: 'legendary', label: '👑 صندوق أسطوري' },
+                    'ماستر': { key: 'sss_chance', label: '🌟 صندوق فرصة SSS' },
+                    'أسطوري': { key: 'sss_high', label: '💎 صندوق SSS عالي' }
+                }
+
+                const boxInfo = rankBoxMap[winner.rank] || rankBoxMap['برونزي']
+
+                winner.boxes = winner.boxes || {}
+                winner.boxes[boxInfo.key] = (winner.boxes[boxInfo.key] || 0) + 1
+
+                await attacker.save()
+                await defender.save()
+
+                // 🔮 مهمة الأورب: الفوز في PvP
+                await orbs.trackMission(winner.userId, 'pvpWins', { sock, jid: msg.key.remoteJid })
+
+                await checkAndGrantAchievement(winner, 'pvp', winner.wins, sock, msg.key.remoteJid)
+                await checkAndGrantAchievement(winner, 'wealth', winner.totalEarnedMoney, sock, msg.key.remoteJid)
+
+                // =========================
+                // 🎉 رسائل تغيّر الرتبة (لأي من الطرفين إن تغيّرت رتبته)
+                // =========================
+                let rankMessages = ''
+
+                if (attackerOldRank !== attacker.rank) {
+                    const isUp = winner === attacker
+                    rankMessages +=
 `
 
 ${isUp ? '🎉 ترقية رتبة!' : '🔻 تراجع رتبة'}
-@${attacker.userId.split('@')[0]}
+@${tagA}
 ${attackerOldRank}
 ⬇️
 ${attacker.rank}`
-    }
+                }
 
-    if (defenderOldRank !== defender.rank) {
-
-        const isUp = winner === defender
-
-        rankMessages +=
+                if (defenderOldRank !== defender.rank) {
+                    const isUp = winner === defender
+                    rankMessages +=
 `
 
 ${isUp ? '🎉 ترقية رتبة!' : '🔻 تراجع رتبة'}
-@${defender.userId.split('@')[0]}
+@${tagB}
 ${defenderOldRank}
 ⬇️
 ${defender.rank}`
-    }
+                }
 
-    return safeSend(msg.key.remoteJid, {
-    text: `${log}
+                const winnerTag = winner === attacker ? tagA : tagB
+                const winnerMmrDelta = `+${elo.gain}`
+                const loserMmrDelta = loserLost > 0 ? `-${loserLost}` : '0'
+
+                const attackerDelta = winner === attacker ? winnerMmrDelta : loserMmrDelta
+                const defenderDelta = winner === defender ? winnerMmrDelta : loserMmrDelta
+
+                return safeSend(msg.key.remoteJid, {
+                    text: `${header}
+${logText}
 
 ━━━━━━━━━━━━━━━━━━
 
 🏆 الفائز:
-@${winner.userId.split('@')[0]}
+@${winnerTag}${sim.timeout ? '\n⌛ (انتهت الجولات — حُسمت بالصحة المتبقية)' : ''}
 
 💰 المكافأة:
 +${moneyReward.toLocaleString()} مال
@@ -36280,21 +36354,43 @@ ${boxInfo.label}
 
 📊 النتائج:
 
-🥇 @${attacker.userId.split('@')[0]}
-${attacker.rank} (${attacker.mmr})
+🥇 @${tagA}
+${attacker.rank} (${attacker.mmr}) ${attackerDelta}
 
-🥈 @${defender.userId.split('@')[0]}
-${defender.rank} (${defender.mmr})
+🥈 @${tagB}
+${defender.rank} (${defender.mmr}) ${defenderDelta}
 
 🎟️ قتالاتك المتبقية اليوم:
-${attacker.pvpFights}/5${rankMessages}${pvpViaUsername ? `\n\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}`,
+${attacker.pvpFights}/20${teamA.auto ? '\n\n💡 فريقك تلقائي (أقوى 3 شخصيات). حدده بـ: .pvp 1 2 3' : ''}${rankMessages}${pvpViaUsername ? `\n\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}`,
 
-    mentions: [
-        attacker.userId,
-        defender.userId
-    ]
-})
-}
+                    mentions: [
+                        attacker.userId,
+                        defender.userId
+                    ]
+                })
+
+            } catch (pvpErr) {
+
+                console.log('PvP fight error:', pvpErr)
+
+                // ↩️ نرجع القتال المخصوم والكولداون (والمال لو اليوزرنيم) لو صار خطأ قبل الحسم
+                try {
+                    const fresh = await Player.findOne({ userId })
+                    if (fresh) {
+                        fresh.pvpFights = (fresh.pvpFights || 0) + 1
+                        fresh.lastPvP = 0
+                        if (pvpViaUsername) fresh.money = (fresh.money || 0) + USERNAME_ACTION_COST
+                        await fresh.save()
+                    }
+                } catch (refundErr) {
+                    console.log('PvP refund error:', refundErr)
+                }
+
+                return safeSend(msg.key.remoteJid, {
+                    text: '❌ صار خطأ بالقتال، تم إرجاع محاولتك. حاول مرة ثانية.'
+                })
+            }
+        }
 
         if (text.startsWith('.اشرح pvp')) {
 
@@ -36302,87 +36398,49 @@ ${attacker.pvpFights}/5${rankMessages}${pvpViaUsername ? `\n\n💰 تم خصم $
 `⚔️ شرح نظام PvP (المطور)
 
 ━━━━━━━━━━━━━━━
-🧠 1) نظام القتال
+👥 1) الفرق
 ━━━━━━━━━━━━━━━
-• القتال يعتمد على نظام أدوار (Turn-Based)
-• كل لاعب يهاجم بالتناوب
-• القتال يستمر حتى ينتهي HP أحد اللاعبين
+• كل لاعب يقاتل بفريق من 3 شخصيات
+• الفريق يُحدَّد بـ .pvp 1 2 3 (مستقل عن .تشكيلة)
+• بدون تحديد: أقوى 3 شخصيات تلقائياً
+• الخصم يقاتل بفريقه المحفوظ حتى لو غير متصل
 
 ━━━━━━━━━━━━━━━
-🔥 2) المهارات (Skills)
+📊 2) ستات كل شخصية
 ━━━━━━━━━━━━━━━
-يوجد 3 أنواع:
-
-• NORMAL → ضربة عادية
-• SKILL → ضرر أقوى + احتمال تأثير
-• ULTIMATE → ضرر عالي + تأثيرات قوية
-
-━━━━━━━━━━━━━━━
-💥 3) الضرر (Damage System)
-━━━━━━━━━━━━━━━
-• يعتمد على Attack الأساسي
-• يتم ضربه في:
-  - Skill multiplier
-  - Critical Hit (ضربة حرجة)
+• الهجوم/HP من قوة الشخصية (مضغوطة بـ POWER_EXP)
+• + المعدات والإيكو (equipmentSystem) + السلاح المركب عليها
+• + ستات اللاعب (getTotalStats) + بونص النمر/الدب
+• سقوف: تفادي 25% / امتصاص حياة 15% / عكس 10% / تخفيض ضرر 60%
 
 ━━━━━━━━━━━━━━━
-🔥 4) الضربة الحرجة (Critical)
+⚔️ 3) القتال
 ━━━━━━━━━━━━━━━
-• احتمال بنسبة crit%
-• تضاعف الضرر ×2
+• كل الشخصيات تتحرك كل جولة بترتيب السرعة
+• الفعل: ألتميت لو الطاقة 100، وإلا مهارة (كولداون جولتين)، وإلا ضربة
+• الضرر × K/(K+دفاع) ثم تخفيض %، ثم كريتيكال، ثم الدرع
+• حرق (من المهارة) وذهول (من الألتميت، لا يتكرر مباشرة)
+• بعد الجولة 8 يزيد الضرر لمنع التطويل
+• أقصى 20 جولة: يفوز الأعلى صحة متبقية، وعند التعادل المدافع
 
 ━━━━━━━━━━━━━━━
-💨 5) التفادي (Dodge)
+🏅 4) MMR والمكافآت
 ━━━━━━━━━━━━━━━
-• احتمال dodge%
-• إذا نجح:
-  ❌ لا يتم استقبال أي ضرر
+• MMR بنمط Elo: الفوز على الأقوى يعطي أكثر
+• المال يكبر عند الفوز على خصم أعلى منك
+• 20 قتال يومياً، كولداون 30 ثانية
 
 ━━━━━━━━━━━━━━━
-🩸 6) حالات القتال (Status Effects)
+🔧 5) الضبط
 ━━━━━━━━━━━━━━━
-• BURN → ضرر كل دور
-• BLEED → نزيف لعدة أدوار
-• STUN → فقدان دور كامل
-
-━━━━━━━━━━━━━━━
-📊 7) نظام الرانك (Rank System)
-━━━━━━━━━━━━━━━
-يعتمد على MMR:
-
-• برونزي
-• فضي
-• ذهبي
-• بلاتيني
-• ماستر
-• أسطوري
-
-كل قتال:
-✔ يزيد أو ينقص MMR
-
-━━━━━━━━━━━━━━━
-🏆 8) المكافآت
-━━━━━━━━━━━━━━━
-الفائز يحصل على:
-• 💰 فلوس
-• ⭐ XP
-• 📦 صناديق حسب الرانك
-
-━━━━━━━━━━━━━━━
-⚔️ الخلاصة
-━━━━━━━━━━━━━━━
-PvP الآن = نظام RPG كامل داخل البوت
-(مهارات + حالات + رانك + مكافآت)
-
-🔥 مستعد للتطوير القادم`;
+كل الأرقام في CFG داخل systems/pvpBattle.js`;
 
     return safeSend(msg.key.remoteJid, {
         text: explanation
     });
 }
-        
-        
-        
+
+
 if (text === '.قدراتي') {
 
     const me = await Player.findOne({ userId })
