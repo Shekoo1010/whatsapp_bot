@@ -7,6 +7,7 @@
 // =====================================================================
 
 const crypto = require('crypto')
+const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
 
 const PAGE_SIZE = 40
 
@@ -387,24 +388,7 @@ function pagerHTML(base, page, pages) {
     return `<nav class="pager">${out}</nav>`
 }
 
-function pageHTML({ title, total, counts, items, page, pages, base }) {
-    const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
-    const namesOnly = items.filter(c => !withImg.includes(c))
-
-    const countsHTML = counts
-        .map(([k, n]) => `<span class="count" style="--tier:${TIERS[k].color}">${esc(k)} <b>${n}</b></span>`)
-        .join('')
-
-    return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow">
-<title>${esc(title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
+const BASE_CSS = `
   :root{ --bg:#0a0d16; --bg2:#0f1422; --gold:#f0c04a; --gold-dim:#8a6d24; --text:#eef1f8; --text-dim:#8891a3; }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
@@ -558,10 +542,339 @@ function pageHTML({ title, total, counts, items, page, pages, base }) {
     .anime-chip{font-size:11px; padding:3px 9px; margin-top:8px;}
     .chip{font-size:15px; padding:5px 12px;}
   }
+`
+
+// =====================================================================
+// 🔐 واجهات تسجيل الدخول + الإهداء + صندوق الهدايا
+// =====================================================================
+
+const EXTRA_CSS = `
+  .shell{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px;}
+  .panel{width:100%; max-width:420px; background:#080b14; border:1px solid #1c2236; border-radius:22px; padding:28px 22px; text-align:center;}
+  .panel h2{color:var(--gold); font-weight:800; font-size:28px; margin-bottom:18px;}
+  .panel .q{margin:18px 0 6px; color:#dfe4f1;}
+  .btn{display:block; width:100%; font-family:'Cairo',sans-serif; font-weight:800; font-size:16px; padding:14px; border-radius:14px; border:1.5px solid var(--gold); cursor:pointer; text-decoration:none; text-align:center; margin-top:10px; color:#fff; background:#080b14;}
+  .btn.gold{background:var(--gold); color:#0a0d16;}
+  .btn.line{border-color:var(--gold-dim);}
+  .btn.danger{background:#ff3860; border-color:#ff3860; color:#fff;}
+  .btn.purple{background:#b83fff; border-color:#b83fff; color:#fff;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .fld{width:100%; background:#0d1220; border:1px solid #1f2740; border-radius:14px; color:#fff; font-family:'Cairo',sans-serif; font-size:16px; padding:14px; margin-bottom:12px; direction:rtl;}
+  .fld:focus{outline:none; border-color:var(--gold);}
+  .hint{color:var(--text-dim); font-size:13px; line-height:1.9; margin-top:16px;}
+  .hint code{color:var(--gold); font-family:'Oswald',sans-serif; direction:ltr; display:inline-block;}
+  .err{color:#ff6b86; font-size:14px; margin:0 0 12px; line-height:1.7;}
+  .topbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; max-width:1700px; margin:0 auto 20px;}
+  .who{color:var(--text-dim); font-size:14px;} .who b{color:var(--gold);}
+  .pill{display:inline-block; font-family:'Cairo',sans-serif; font-weight:800; font-size:13px; color:var(--gold); border:1px solid var(--gold-dim); border-radius:20px; padding:6px 14px; background:#0f1422; text-decoration:none; cursor:pointer;}
+  .pill.fill{background:var(--gold); color:#0a0d16; border-color:var(--gold);}
+  .tb-r{display:flex; gap:8px; align-items:center;} .tb-r form{display:inline;}
+  .gbox{width:100%; max-width:420px; max-height:100%; overflow-y:auto; background:linear-gradient(180deg,#121830,#0c101e); border:2px solid var(--tier,#b83fff); border-radius:22px; padding:16px; box-shadow:0 0 40px color-mix(in srgb, var(--tier,#b83fff) 30%, transparent), 0 20px 60px rgba(0,0,0,.6);}
+  .g-top{display:flex; justify-content:space-between; font-size:13px; color:var(--tier,#b83fff);}
+  .g-line{text-align:center; margin:12px 0; color:#fff; font-size:15px;} .g-line b{color:var(--tier,#b83fff);}
+  .g-art{height:230px; border-radius:16px; border:2px solid var(--tier,#b83fff); background:color-mix(in srgb, var(--tier,#b83fff) 14%, #0c101e); background-size:cover; background-position:center top; display:flex; align-items:center; justify-content:center; font-size:72px; color:var(--tier,#b83fff);}
+  .g-name{font-family:'Oswald',sans-serif; font-size:28px; font-weight:600; color:#fff; text-align:center; direction:ltr; margin:14px 0 8px; word-break:break-word;}
+  .g-chip{display:table; margin:0 auto 14px; font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--tier,#b83fff); border:1px solid var(--tier,#b83fff); border-radius:20px; padding:3px 14px; direction:ltr;}
+  .g-stats{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+  .g-stats div{padding:10px 6px; text-align:center; border-radius:12px; background:#0b0e18; border:1px solid #1f2740;}
+  .g-stats i{display:block; font-style:normal; font-size:12px; color:var(--text-dim);} .g-stats b{font-family:'Oswald',sans-serif; font-size:20px; color:var(--tier,#b83fff); direction:ltr; display:inline-block;}
+  .g-evo{text-align:center; font-size:14px; color:var(--text-dim);} .g-evo span{color:var(--tier,#b83fff); letter-spacing:2px; direction:ltr; display:inline-block;}
+  .g-ago{text-align:center; font-size:12px; color:var(--text-dim); margin:6px 0 12px;}
+  .gmode{display:inline-block; font-weight:800; font-size:12px; color:var(--gold); border:1px solid var(--gold-dim); border-radius:20px; padding:4px 12px;}
+  .ginfo{max-width:1700px; margin:0 auto 18px; text-align:center; color:var(--text-dim); font-size:14px; line-height:1.9;}
+  .ggrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:14px; max-width:1700px; margin:0 auto 26px;}
+  .gcard{position:relative; border:2.5px solid var(--tier); border-radius:14px; background:color-mix(in srgb, var(--tier) 8%, #0f1422); padding:8px; text-align:center; cursor:pointer; user-select:none; transition:transform .12s, box-shadow .12s;}
+  .gcard .gt{font-family:'Oswald',sans-serif; font-size:12px; text-align:left; color:var(--tier); direction:ltr; letter-spacing:.08em; margin-bottom:6px;}
+  .gcard .ga{height:150px; border-radius:10px; border:2px solid color-mix(in srgb, var(--tier) 70%, transparent); background-size:cover; background-position:center top; background-color:#151a28; display:flex; align-items:center; justify-content:center; font-size:44px; color:var(--tier);}
+  .gcard .gn{margin-top:8px; font-family:'Oswald',sans-serif; font-size:15px; color:#fff; direction:ltr; word-break:break-word;}
+  .gcard .gs{font-size:12px; color:var(--tier); min-height:18px; font-weight:800;}
+  .gcard.on{box-shadow:0 0 22px color-mix(in srgb, var(--tier) 60%, transparent); transform:translateY(-2px); background:color-mix(in srgb, var(--tier) 22%, #0f1422);}
+  .gcard.locked{opacity:.45; cursor:not-allowed; filter:grayscale(.5);}
+  .gcard.text .ga{display:none;}
+  .gpanel{max-width:560px; margin:0 auto 30px; background:#0f1426; border:1px solid #232b45; border-radius:20px; padding:18px;}
+  .gp-count{text-align:center; font-weight:800; color:#fff;} .gp-count b{color:var(--gold);}
+  .gp-price{text-align:center; color:var(--text-dim); font-size:14px; margin:6px 0 14px;}
+  .gp-sum{font-size:14px; line-height:1.9; color:#cfd6e6; text-align:center; margin:0 0 12px; padding:10px; border-top:1px dashed #2a3350; border-bottom:1px dashed #2a3350;} .gp-sum b{color:var(--gold);}
+  .gp-msg{text-align:center; font-size:14px; line-height:1.8; margin:0 0 10px; padding:9px; border-radius:12px;}
+  .gp-msg.bad{color:#ff8aa0; background:rgba(255,56,96,.1);} .gp-msg.good{color:#7dffb0; background:rgba(60,255,140,.1);} .gp-msg.warn{color:var(--gold); background:rgba(240,192,74,.1);}
+  .jump{position:fixed; bottom:calc(14px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); z-index:40; background:var(--gold); color:#0a0d16; font-weight:800; border-radius:30px; padding:10px 22px; text-decoration:none; box-shadow:0 8px 24px rgba(0,0,0,.5); font-size:14px;}
+  .jump[hidden]{display:none;}
+`
+
+function jsonForScript(o) {
+    return JSON.stringify(o)
+        .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+        .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+}
+
+function shellHead(title) {
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>${BASE_CSS}${EXTRA_CSS}</style>
+</head>`
+}
+
+// 1) الشاشة الأولى: مشاهدة فقط / تسجيل دخول
+function gateHTML({ code, title, total }) {
+    return `${shellHead(title)}
+<body><div class="shell"><div class="panel">
+  <div class="eyebrow">Character Roster</div>
+  <h1 style="font-size:34px">شخصيات ${esc(title)}</h1>
+  <div class="sub" style="margin-bottom:6px">CHARACTERS ${Number(total) || 0}</div>
+  <div class="q">كيف تريد الدخول؟</div>
+  <a class="btn line" href="/u/${code}/view">مشاهدة فقط</a>
+  <a class="btn gold" href="/login?code=${code}">تسجيل دخول</a>
+  <div class="hint">تسجيل الدخول لصاحب الحساب فقط،<br>ويفتح الإهداء وصندوق الهدايا.</div>
+</div></div></body></html>`
+}
+
+// 2) شاشة تسجيل الدخول
+function loginHTML({ code, csrf, error, disabled }) {
+    return `${shellHead('تسجيل الدخول')}
+<body><div class="shell"><div class="panel">
+  <h2>تسجيل الدخول</h2>
+  ${error ? `<p class="err">${esc(error)}</p>` : ''}
+  ${disabled ? '' : `<form method="post" action="/login" autocomplete="on">
+    <input type="hidden" name="csrf" value="${esc(csrf)}">
+    <input type="hidden" name="code" value="${esc(code)}">
+    <input class="fld" name="username" placeholder="اليوزر" autocomplete="username" maxlength="20" required>
+    <input class="fld" name="password" type="password" placeholder="كلمة المرور" autocomplete="current-password" maxlength="200" required>
+    <button class="btn gold" type="submit">دخول</button>
+  </form>`}
+  <a class="btn line" href="/u/${esc(code)}">رجوع</a>
+  <div class="hint">نسيت كلمة المرور أو أول مرة؟<br>اكتب أمر السر للبوت في الخاص:<br><code>.كلمة_السر</code></div>
+</div></div></body></html>`
+}
+
+function viewerBarHTML(viewer, code) {
+    if (!viewer) return ''
+    if (viewer.isOwner) {
+        return `<div class="topbar">
+      <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span>
+      <span class="tb-r">
+        <a class="pill fill" href="/u/${code}/gift">🎁 وضع الإهداء</a>
+        <a class="pill" href="/u/${code}/log">📜 سجل الإهداءات</a>
+        <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(viewer.csrf)}"><input type="hidden" name="code" value="${code}"><button class="pill" type="submit">خروج</button></form>
+      </span></div>`
+    }
+    return `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/login?code=${code}">🔐 تسجيل دخول</a></div>`
+}
+
+// صفحة سجل الإهداءات (للمالك فقط)
+function logPageHTML({ log, code, csrf }) {
+    const fmt = t => { try { return new Date(Number(t)).toLocaleString('ar-EG', { timeZone: 'Asia/Riyadh' }) } catch (e) { return '' } }
+    const rows = log.map(e => {
+        const out = e.dir === 'out'
+        const who = esc(String(e.otherName || 'لاعب')) + (e.otherUsername ? ` <small>(@${esc(String(e.otherUsername))})</small>` : '')
+        const chars = (Array.isArray(e.chars) ? e.chars : []).map(c =>
+            `<span class="lg-ch">${esc(String(c.name || ''))} <small>${esc(String(c.rarity || ''))} · ⚡${Number(c.power) || 0}</small></span>`).join('')
+        const cost = out && Number(e.cost) > 0 ? `<div class="lg-cost">💰 ${Number(e.cost).toLocaleString('en-US')}</div>` : ''
+        return `<div class="lg-row ${out ? 'lg-out' : 'lg-in'}">
+      <div class="lg-h"><b>${out ? '📤 أهديت إلى' : '📥 وصلتك هدية من'} ${who}</b><span class="lg-t">${esc(fmt(e.at))}${e.source === 'site' ? ' · من الموقع' : e.source === 'command' ? ' · بالأمر' : ''}</span></div>
+      <div class="lg-c">${chars}</div>${cost}</div>`
+    }).join('')
+    return shellHead('سجل الإهداءات') + `
+<style>
+.lg-wrap{max-width:760px;margin:0 auto;padding:16px}
+.lg-row{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;margin:10px 0}
+.lg-out{border-inline-start:4px solid #e67e22}.lg-in{border-inline-start:4px solid #2ecc71}
+.lg-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.lg-t{opacity:.7;font-size:.85em}
+.lg-ch{display:inline-block;background:rgba(255,255,255,.1);border-radius:8px;padding:3px 8px;margin:6px 4px 0 0}
+.lg-cost{margin-top:6px;opacity:.85}.lg-empty{text-align:center;opacity:.7;padding:40px 0}
+</style>
+<body>
+<div class="topbar"><span class="who">📜 سجل الإهداءات (آخر 100)</span><span class="tb-r"><a class="pill" href="/u/${esc(code)}">رجوع</a></span></div>
+<div class="lg-wrap">${rows || '<div class="lg-empty">لا توجد إهداءات بعد.</div>'}</div>
+</body></html>`
+}
+
+// تجهيز الهدايا غير المستلمة للعرض (الصورة الأحدث من الكتالوج، ونمرر فقط روابط آمنة)
+function prepareGifts(inbox, catIdx) {
+    return (inbox || [])
+        .filter(g => g && !g.seen)
+        .sort((a, b) => (a.at || 0) - (b.at || 0))
+        .slice(0, 50)
+        .map(g => {
+            const tierKey = resolveTierKey(g.rarity, g.evolutionLevel)
+            const t = TIERS[tierKey] || TIERS['SSS']
+            const latest = catIdx.get(`${g.name}|${g.rarity}|${g.form}`)
+            const evo = Number(g.evolutionLevel) || 0
+            return {
+                id: String(g.id || ''),
+                from: String(g.fromName || 'لاعب'),
+                name: String(g.name || ''),
+                anime: String((latest && latest.anime) || g.anime || ''),
+                tier: tierKey === 'Ω OMEGA' ? 'Ω OMEGA' : tierKey,
+                color: t.color,
+                power: Number(g.power) || 0,
+                evo: tierKey === 'Ω OMEGA' ? 7 : Math.min(evo, 6),
+                omega: tierKey === 'Ω OMEGA',
+                img: safeImageUrl(g.image || (latest && latest.image)),
+                at: Number(g.at) || Date.now()
+            }
+        })
+        .filter(g => /^[a-f0-9]{16}$/.test(g.id))
+}
+
+// نافذة صندوق الهدايا عند الدخول
+function inboxPopupHTML(viewer) {
+    if (!viewer || !viewer.isOwner || !viewer.gifts || !viewer.gifts.length) return ''
+    return `<div class="overlay" id="gov" hidden><div class="gbox" id="gbox"></div></div>
+<script>
+(function(){
+  var G=${jsonForScript(viewer.gifts)}, CSRF=${jsonForScript(viewer.csrf)}, i=0;
+  var ov=document.getElementById('gov'), box=document.getElementById('gbox');
+  function ago(t){var s=Math.floor((Date.now()-t)/1000); if(s<120) return 'قبل قليل'; var m=Math.floor(s/60); if(m<60) return 'قبل '+m+' دقيقة'; var h=Math.floor(m/60); if(h<24) return 'قبل '+h+' ساعة'; return 'قبل '+Math.floor(h/24)+' يوم';}
+  function el(tag,cls,txt){var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;}
+  function ack(id){ try{ fetch('/gift/ack',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:CSRF,id:id})}).catch(function(){}); }catch(e){} }
+  function render(){
+    var g=G[i]; if(!g){ ov.hidden=true; document.body.style.overflow=''; return; }
+    box.style.setProperty('--tier', g.color); box.innerHTML='';
+    var top=el('div','g-top'); top.appendChild(el('span','',(i+1)+' / '+G.length)); top.appendChild(el('span','','هدية جديدة')); box.appendChild(top);
+    var line=el('div','g-line','أهداك '); line.appendChild(el('b','',g.from)); line.appendChild(document.createTextNode(' شخصية')); box.appendChild(line);
+    var art=el('div','g-art'); if(g.img){ art.style.backgroundImage="url('"+g.img+"')"; } else { art.textContent='👤'; } box.appendChild(art);
+    box.appendChild(el('div','g-name',g.name)); if(g.anime) box.appendChild(el('div','g-chip',g.anime));
+    var st=el('div','g-stats'); var a=el('div'); a.appendChild(el('i','','القوة')); a.appendChild(el('b','',Number(g.power).toLocaleString('en-US'))); var b=el('div'); b.appendChild(el('i','','الرتبة')); b.appendChild(el('b','',g.tier)); st.appendChild(a); st.appendChild(b); box.appendChild(st);
+    var evo=el('div','g-evo','التطوير '); var stars=g.omega? '🌌' : new Array(g.evo+1).join('★')+new Array(6-g.evo+1).join('☆'); evo.appendChild(el('span','',stars)); evo.appendChild(document.createTextNode(g.omega? ' (Ω)' : ' ('+g.evo+'/6)')); box.appendChild(evo);
+    box.appendChild(el('div','g-ago',ago(g.at)));
+    var btn=el('button','btn purple','استلام والتالية'); btn.type='button';
+    btn.onclick=function(){ btn.disabled=true; ack(g.id); i++; render(); };
+    box.appendChild(btn);
+  }
+  ov.hidden=false; document.body.style.overflow='hidden'; render();
+})();
+</script>`
+}
+
+// 3) وضع الإهداء
+function giftCardHTML(c) {
+    const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
+    const t = TIERS[tierKey] || TIERS['عادي']
+    const omega = tierKey === 'Ω OMEGA' || Number(c.evolutionLevel) >= 7
+    const hasImg = t.idx >= FIRST_IMAGE_TIER
+    const src = hasImg ? safeImageUrl(c.image) : null
+    const art = hasImg
+        ? `<div class="ga" style="${src ? `background-image:url('${esc(src)}')` : ''}">${src ? '' : '👤'}</div>`
+        : ''
+    const data = omega ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}"`
+    return `<div class="gcard ${hasImg ? '' : 'text'} ${omega ? 'locked' : ''}" style="--tier:${t.color}" ${data} role="button" tabindex="0">
+      <div class="gt">${esc(tierKey)}</div>${art}<div class="gn">${esc(c.name)}</div><div class="gs">${omega ? 'لا يُهدى' : ''}</div></div>`
+}
+
+function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
+    return `${shellHead('وضع الإهداء')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span><span class="gmode">وضع الإهداء</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  <div class="ginfo">اختر الشخصيات التي تريد إهداءها<br>(الحد الأقصى خمس شخصيات — شخصيات Ω لا تُهدى)<br><small>الصفحة ${page}/${pages}</small></div>
+  <div class="ggrid">${items.map(giftCardHTML).join('')}</div>
+  ${pagerHTML(`/u/${code}/gift`, page, pages)}
+  <section class="gpanel" id="gp" style="margin-top:26px">
+    <div class="gp-count">المحددة: <b id="gc">0</b> من 5</div>
+    <div class="gp-price">سعر الإهداء: ${esc(costText)}</div>
+    <input class="fld" id="to" placeholder="يوزر المستلم" autocomplete="off" autocapitalize="off" maxlength="10">
+    <div class="gp-sum" id="sum" hidden></div>
+    <input class="fld" id="pw" type="password" placeholder="أعد كتابة كلمة المرور للتأكيد" autocomplete="current-password" maxlength="200">
+    <div class="gp-msg" id="msg" hidden></div>
+    <button class="btn danger" id="go" type="button" disabled>تأكيد الإهداء</button>
+  </section>
+  <a class="jump" id="jump" href="#gp" hidden></a>
+</div>
+<script>
+(function(){
+  var MAX=5, CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, KEY='gsel:'+CODE;
+  var sel={}; try{ sel=JSON.parse(sessionStorage.getItem(KEY)||'{}')||{}; }catch(e){ sel={}; }
+  var busy=false, op=uuid();
+  function $(id){ return document.getElementById(id); }
+  function uuid(){ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); var s=''; for(var i=0;i<36;i++){ if(i==8||i==13||i==18||i==23) s+='-'; else s+=Math.floor(Math.random()*16).toString(16); } return s; }
+  function save(){ try{ sessionStorage.setItem(KEY,JSON.stringify(sel)); }catch(e){} }
+  function keys(){ return Object.keys(sel); }
+  function validUser(v){ return /^[A-Za-z\u0600-\u06FF]{1,10}$/.test(v); }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function rotate(){ op=uuid(); }
+  function refresh(){
+    var n=keys().length, to=$('to').value.trim(), pw=$('pw').value;
+    $('gc').textContent=n;
+    var cards=document.querySelectorAll('.gcard[data-k]');
+    for(var i=0;i<cards.length;i++){ var on=!!sel[cards[i].getAttribute('data-k')]; cards[i].classList.toggle('on',on); cards[i].querySelector('.gs').textContent=on?'✓ محدد':''; }
+    var sum=$('sum');
+    if(n>0&&validUser(to)){ var names=keys().map(function(k){return sel[k];}).join('، '); sum.innerHTML=''; sum.appendChild(document.createTextNode('سيتم إهداء ')); var b=document.createElement('b'); b.textContent=names; sum.appendChild(b); sum.appendChild(document.createTextNode(' إلى @'+to+'. ستُخصم ${esc(costText)} ولا يمكن التراجع.')); sum.hidden=false; } else { sum.hidden=true; }
+    $('go').disabled = busy || n<1 || !validUser(to) || !pw;
+    var j=$('jump'); if(n>0){ j.textContent='المحددة '+n+'/'+MAX+' — متابعة ↓'; j.hidden=false; } else { j.hidden=true; }
+  }
+  function toggle(card){
+    var k=card.getAttribute('data-k'); if(!k||busy) return;
+    if(sel[k]){ delete sel[k]; } else { if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصيات.'); return; } sel[k]=card.getAttribute('data-n'); }
+    show(null); save(); rotate(); refresh();
+  }
+  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.gcard[data-k]'); if(c) toggle(c); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.gcard[data-k]')){ e.preventDefault(); toggle(c); } } });
+  $('to').addEventListener('input',function(){ rotate(); refresh(); });
+  $('pw').addEventListener('input',refresh);
+  $('go').addEventListener('click',function(){
+    if(busy) return;
+    var to=$('to').value.trim(), pw=$('pw').value, ks=keys();
+    if(ks.length<1||!validUser(to)||!pw) return;
+    busy=true; $('go').disabled=true; $('go').textContent='جارٍ التنفيذ…'; show('warn','جارٍ تنفيذ الإهداء، لا تغلق الصفحة…');
+    var picks=ks.map(function(k){ return k.split(':')[0]; });
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/gift',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE,op:op,picks:picks,to:to,password:pw})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm);
+      if(x.j.ok){ sel={}; save(); $('pw').value=''; show('good',x.j.message); setTimeout(function(){ location.href='/u/'+CODE; },1800); return; }
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      $('go').textContent='تأكيد الإهداء';
+      if(x.j.code==='BAD_PW'){ $('pw').value=''; }
+      if(x.j.code==='STALE'){ sel={}; save(); show('bad',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
+      show('bad',x.j.message||'فشل الإهداء'); busy=false; refresh();
+    })
+    .catch(function(){
+      clearTimeout(tm); $('go').textContent='تأكيد الإهداء';
+      show('warn','لم يصلنا رد من السيرفر — قد تكون العملية تمت. افتح صفحة شخصياتك للتأكد. إعادة المحاولة آمنة ولن تكرر الإهداء.');
+      busy=false; refresh();
+    });
+  });
+  refresh();
+})();
+</script></body></html>`
+}
+
+function pageHTML({ title, total, counts, items, page, pages, base, viewer, code }) {
+    const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
+    const namesOnly = items.filter(c => !withImg.includes(c))
+
+    const countsHTML = counts
+        .map(([k, n]) => `<span class="count" style="--tier:${TIERS[k].color}">${esc(k)} <b>${n}</b></span>`)
+        .join('')
+
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+${BASE_CSS}${EXTRA_CSS}
 </style>
 </head>
 <body>
   <div class="frame">
+    ${viewerBarHTML(viewer, code)}
     <div class="eyebrow">Character Roster</div>
     <h1>${esc(title)}</h1>
     <div class="sub">${total} CHARACTERS · PAGE ${page}/${pages}</div>
@@ -603,6 +916,7 @@ function pageHTML({ title, total, counts, items, page, pages, base }) {
   });
 })();
 </script>
+${inboxPopupHTML(viewer)}
 </body>
 </html>`
 }
@@ -618,30 +932,118 @@ function generateSiteCode() {
     return crypto.randomBytes(5).toString('hex')
 }
 
+const GIFT_ERRORS = {
+    LOCKED: '⏳ فيه عملية إهداء شغالة على أحد الطرفين حالياً، حاول بعد ثواني.',
+    NO_SENDER: 'حسابك غير موجود.',
+    NO_TARGET: 'هذا اللاعب غير موجود.',
+    SELF: 'لا يمكنك إهداء نفسك.',
+    OMEGA: '🌌 شخصيات أوميقا Ω لا تُهدى.',
+    STALE: 'تغيّرت قائمة شخصياتك (أو بيعت/أُهديت شخصية). سنحدّث الصفحة — أعد الاختيار.',
+    TOO_MANY: `الحد الأقصى ${MAX_GIFT_CHARACTERS} شخصيات بكل عملية.`,
+    BAD_PICKS: 'اختر شخصية واحدة على الأقل.',
+    BAD_INDEX: 'اختيار غير صحيح.',
+    DUP_INDEX: 'اختيار مكرر.',
+    TX_FAILED: '❌ صار خطأ تقني — لم يُخصم منك شيء ولم تُنقل أي شخصية. حاول مرة ثانية.'
+}
+
+function giftErrorMessage(r, costText) {
+    if (r.code === 'NO_MONEY') {
+        return `تحتاج ${costText} لهذه العملية. رصيدك الحالي: ${Number(r.extra?.balance || 0).toLocaleString('en-US')}`
+    }
+    return GIFT_ERRORS[r.code] || GIFT_ERRORS.TX_FAILED
+}
+
+function securityHeaders(res) {
+    res.set({
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'same-origin',
+        'Content-Security-Policy':
+            "default-src 'self'; img-src https: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; " +
+            "form-action 'self'; base-uri 'none'"
+    })
+}
+
 /**
  * app: express app | Player: mongoose model
- * يسجّل المسارات: /u/:code و /custom_images
+ * opts: {
+ *   getCatalog,
+ *   giftCharacters,           // من systems/giftSystem.js
+ *   usernameCost,             // 20000
+ *   notifyDm(userId, text),   // رسالة خاصة بالبوت (آمنة: لا ترمي أخطاء)
+ *   notifyOwner(text)         // إشعار المالك
+ * }
+ * يسجّل المسارات: /u/:code و /login و /logout و /gift ...
  */
 function registerCharacterSite(app, Player, opts = {}) {
     const getCatalog = opts.getCatalog
+    const giftCharacters = opts.giftCharacters
+    const usernameCost = Number(opts.usernameCost) || 20000
+    const notifyDm = opts.notifyDm || (async () => {})
+    const notifyOwner = opts.notifyOwner || (async () => {})
+    const costText = 'عشرون ألف مال'
+
     const express = require('express')
     const path = require('path')
+    const auth = require('./siteAuth')
 
-    // صور .استبدال المحلية (للشخصيات SSS وفوق فقط إن كانت مستبدلة بصورة محلية)
+    const urlenc = express.urlencoded({ extended: false, limit: '4kb' })
+    const jsonBody = express.json({ limit: '8kb' })
+
+    if (!auth.authEnabled()) {
+        console.log('⚠️ SESSION_SECRET غير مضبوط (أو أقصر من 16 حرف) — تسجيل الدخول والإهداء من الموقع معطّلان')
+    }
+
+    const loginIp = auth.createLimiter({ max: 15, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 })
+    const loginUser = auth.createLimiter({ max: 5, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 })
+    const giftPw = auth.createLimiter({ max: 5, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 })
+
+    // حد عدد الطلبات للإهداء: 12 بالدقيقة لكل لاعب
+    const giftHits = new Map()
+    function giftRate(userId) {
+        const now = Date.now()
+        const arr = (giftHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 12) { giftHits.set(userId, arr); return false }
+        arr.push(now); giftHits.set(userId, arr); return true
+    }
+
+    const CODE_RE = /^[a-f0-9]{10}$/
+
+    // صور .استبدال المحلية
     app.use('/custom_images', express.static(path.join(__dirname, '..', 'custom_images'), { maxAge: '1d' }))
 
+    // جلسة المالك لهذه الصفحة (تتحقق من نسخة الجلسة من قاعدة البيانات)
+    function ownerSession(req, player) {
+        const s = auth.readSession(req)
+        if (s && player && s.u === player.userId && s.v === (player.sessionVersion || 0)) return s
+        return null
+    }
+
+    function html404(res) { return res.status(404).send(notFoundHTML()) }
+
+    // ─────────────── الصفحة العامة / الرئيسية ───────────────
     app.get('/u/:code', async (req, res) => {
         try {
+            securityHeaders(res)
             const code = String(req.params.code || '')
-            if (!/^[a-f0-9]{10}$/.test(code)) return res.status(404).send(notFoundHTML())
+            if (!CODE_RE.test(code)) return html404(res)
 
             const player = await Player.findOne({ siteCode: code })
-                .select('name username characters weaponsInventory')
+                .select('userId name username characters weaponsInventory giftInbox sessionVersion')
                 .lean()
+            if (!player) return html404(res)
 
-            if (!player) return res.status(404).send(notFoundHTML())
-
+            const title = player.username || player.name || 'شخصياتي'
+            const sess = ownerSession(req, player)
             const all = sortCharactersKeepFirst(player.characters || [])
+
+            // الشاشة الأولى: مشاهدة فقط / تسجيل دخول
+            if (!sess && !auth.hasViewOnly(req)) {
+                return res.send(gateHTML({ code, title, total: all.length }))
+            }
+
             const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
             const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
             const offset = (page - 1) * PAGE_SIZE
@@ -650,7 +1052,6 @@ function registerCharacterSite(app, Player, opts = {}) {
                 .map((c, i) => ({
                     ...resolveDisplayChar(c, catIdx),
                     __num: offset + i + 1,
-                    // السلاح المركّب على الشخصية (نفس منطق البوت: equippedTo = اسم الشخصية)
                     __weapon: (player.weaponsInventory || []).find(w => w && w.equippedTo === c.name) || null
                 }))
 
@@ -663,16 +1064,281 @@ function registerCharacterSite(app, Player, opts = {}) {
                 .sort((a, b) => TIERS[b].idx - TIERS[a].idx)
                 .map(k => [k, countMap[k]])
 
-            const title = player.username || player.name || 'شخصياتي'
+            const viewer = sess
+                ? {
+                    isOwner: true,
+                    name: player.name || player.username || 'لاعب',
+                    csrf: auth.csrfForSession(sess),
+                    gifts: prepareGifts(player.giftInbox, catIdx)
+                }
+                : { isOwner: false }
 
-            res.set('Cache-Control', 'no-store')
             res.send(pageHTML({
                 title, total: all.length, counts, items, page, pages,
-                base: `/u/${code}`
+                base: `/u/${code}`, viewer, code
             }))
         } catch (err) {
             console.error('character site error:', err)
             res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // مشاهدة فقط
+    app.get('/u/:code/view', (req, res) => {
+        securityHeaders(res)
+        const code = String(req.params.code || '')
+        if (!CODE_RE.test(code)) return html404(res)
+        auth.setViewOnlyCookie(res)
+        res.redirect(303, `/u/${code}`)
+    })
+
+    // ─────────────── تسجيل الدخول ───────────────
+    app.get('/login', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.query.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const exists = await Player.exists({ siteCode: code })
+            if (!exists) return html404(res)
+            if (!auth.authEnabled()) {
+                return res.send(loginHTML({ code, disabled: true, error: 'تسجيل الدخول غير مفعّل حالياً.' }))
+            }
+            res.send(loginHTML({ code, csrf: auth.makeLoginCsrf() }))
+        } catch (err) {
+            console.error('login page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/login', urlenc, async (req, res) => {
+        const code = String(req.body?.code || '')
+        const back = (error, status = 200) => {
+            securityHeaders(res)
+            return res.status(status).send(loginHTML({ code, csrf: auth.makeLoginCsrf(), error }))
+        }
+        try {
+            if (!CODE_RE.test(code)) return html404(res)
+            if (!auth.authEnabled()) return back('تسجيل الدخول غير مفعّل حالياً.', 503)
+            if (!auth.sameOrigin(req)) return back('طلب غير مسموح.', 403)
+            if (!auth.verifyLoginCsrf(req.body?.csrf)) return back('انتهت صلاحية الصفحة، حاول مرة ثانية.', 403)
+
+            const ip = auth.clientIp(req)
+            const username = String(req.body?.username || '').trim().toLowerCase().slice(0, 30)
+            const password = String(req.body?.password || '').slice(0, 200)
+            const userKey = `${code}|${username}`
+
+            const lim = loginIp.check(ip)
+            const limU = loginUser.check(userKey)
+            if (lim.blocked || limU.blocked) {
+                const mins = Math.ceil(Math.max(lim.retryAfter, limU.retryAfter) / 60)
+                return back(`محاولات كثيرة. حاول بعد ${mins} دقيقة.`, 429)
+            }
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('+passwordHash +passwordSalt userId username name sessionVersion')
+                .lean()
+
+            let ok = false
+            if (player && player.username && player.username === username && player.passwordHash) {
+                ok = await auth.verifyPassword(password, player.passwordHash, player.passwordSalt)
+            } else {
+                await auth.dummyVerify(password)
+            }
+
+            if (!ok) {
+                loginIp.fail(ip); loginUser.fail(userKey)
+                return back('اليوزر أو كلمة المرور غير صحيحة.', 401)
+            }
+
+            loginUser.reset(userKey)
+            auth.setSessionCookie(res, player.userId, player.sessionVersion || 0)
+            securityHeaders(res)
+            res.redirect(303, `/u/${code}`)
+
+            // 📩 إشعار المالك بكل تسجيل دخول (بعد الرد، لا يؤخر ولا يفشل الدخول)
+            notifyOwner(`🔐 تسجيل دخول لموقع الشخصيات\n👤 ${player.username} (${player.name || '-'})\n🌐 ${ip}\n🕒 ${new Date().toISOString()}`)
+                .catch(() => {})
+        } catch (err) {
+            console.error('login error:', err)
+            return back('صار خطأ بالخادم، حاول مرة ثانية.', 500)
+        }
+    })
+
+    app.post('/logout', urlenc, (req, res) => {
+        securityHeaders(res)
+        const code = String(req.body?.code || '')
+        const sess = auth.readSession(req)
+        if (sess && auth.sameOrigin(req) && auth.verifyCsrf(sess, req.body?.csrf)) {
+            auth.clearSessionCookie(res)
+        }
+        res.redirect(303, CODE_RE.test(code) ? `/u/${code}` : '/')
+    })
+
+    // ─────────────── وضع الإهداء ───────────────
+    app.get('/u/:code/gift', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            const all = sortCharactersKeepFirst(player.characters || [])
+            const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
+            const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
+            const offset = (page - 1) * PAGE_SIZE
+            const catIdx = getCatalogIndex(getCatalog)
+
+            // مفتاح فريد لكل بطاقة = hash المحتوى + رقم تكرار (لدعم نسختين متطابقتين)
+            const seen = new Map()
+            const keyed = all.map(c => {
+                const h = charHash(c)
+                const n = seen.get(h) || 0
+                seen.set(h, n + 1)
+                return { c, key: `${h}:${n}` }
+            })
+
+            const items = keyed.slice(offset, offset + PAGE_SIZE)
+                .map(({ c, key }) => ({ ...resolveDisplayChar(c, catIdx), __key: key }))
+
+            res.send(giftPageHTML({
+                title: player.username || player.name || 'شخصياتي',
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                items, page, pages, code, costText
+            }))
+        } catch (err) {
+            console.error('gift page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── سجل الإهداءات ───────────────
+    app.get('/u/:code/log', async (req, res) => {
+        try {
+            securityHeaders(res)
+            res.set('Cache-Control', 'no-store')
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username giftLog sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            const log = (player.giftLog || []).filter(Boolean).slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 100)
+            res.send(logPageHTML({ log, code, csrf: auth.csrfForSession(sess) }))
+        } catch (err) {
+            console.error('gift log page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // تأكيد استلام هدية (تعليم "مقروءة")
+    app.post('/gift/ack', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            const sess = auth.readSession(req)
+            const b = req.body || {}
+            if (!sess || !auth.sameOrigin(req) || !auth.verifyCsrf(sess, b.csrf)) return res.status(403).json({ ok: false })
+            const id = String(b.id || '')
+            if (!/^[a-f0-9]{16}$/.test(id)) return res.status(400).json({ ok: false })
+            await Player.updateOne({ userId: sess.u, 'giftInbox.id': id }, { $set: { 'giftInbox.$.seen': true } })
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('gift ack error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    // تنفيذ الإهداء
+    app.post('/gift', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message) => res.status(status).json({ ok: false, code, message })
+        try {
+            if (!auth.authEnabled()) return fail(503, 'DISABLED', 'الإهداء من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!giftRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            // ── التحقق من المدخلات ──
+            const op = String(b.op || '')
+            if (!/^[0-9a-f-]{36}$/i.test(op)) return fail(400, 'BAD_OP', 'طلب غير صحيح، حدّث الصفحة.')
+
+            const hashes = Array.isArray(b.picks) ? b.picks.map(String) : []
+            if (hashes.length < 1) return fail(400, 'BAD_PICKS', GIFT_ERRORS.BAD_PICKS)
+            if (hashes.length > MAX_GIFT_CHARACTERS) return fail(400, 'TOO_MANY', GIFT_ERRORS.TOO_MANY)
+            if (hashes.some(h => !/^[a-f0-9]{40}$/.test(h))) return fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
+
+            const to = String(b.to || '').trim().toLowerCase()
+            if (!/^[a-z\u0600-\u06FF]{1,10}$/.test(to)) return fail(400, 'BAD_USER', 'يوزر المستلم غير صحيح (حروف فقط، حد أقصى 10).')
+
+            const password = String(b.password || '')
+            if (!password || password.length > 200) return fail(400, 'BAD_PW', 'أدخل كلمة المرور للتأكيد.')
+
+            // ── كلمة المرور + حد المحاولات ──
+            const lk = 'gp:' + sess.u
+            const lc = giftPw.check(lk)
+            if (lc.blocked) return fail(429, 'PW_LOCK', `محاولات خاطئة كثيرة. حاول بعد ${Math.ceil(lc.retryAfter / 60)} دقيقة.`)
+
+            const me = await Player.findOne({ userId: sess.u })
+                .select('+passwordHash +passwordSalt sessionVersion username')
+                .lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const pwOk = await auth.verifyPassword(password, me.passwordHash, me.passwordSalt)
+            if (!pwOk) { giftPw.fail(lk); return fail(403, 'BAD_PW', 'كلمة المرور غير صحيحة.') }
+            giftPw.reset(lk)
+
+            // ── المستلم (باليوزر فقط → خصم 20 ألف مثل الأمر) ──
+            const target = await Player.findOne({ username: to }, { userId: 1, username: 1 }).lean()
+            if (!target) return fail(404, 'NO_TARGET', 'لا يوجد لاعب بهذا اليوزر.')
+            if (target.userId === sess.u) return fail(400, 'SELF', GIFT_ERRORS.SELF)
+
+            // ── التنفيذ (القفل + transaction + opKey داخل giftCharacters) ──
+            const r = await giftCharacters({
+                senderId: sess.u,
+                targetId: target.userId,
+                picks: { hashes },
+                viaUsername: true,
+                opKey: op,
+                source: 'site'
+            })
+
+            if (!r.ok) {
+                const status = r.code === 'LOCKED' ? 409 : r.code === 'TX_FAILED' ? 500 : 400
+                return fail(status, r.code, giftErrorMessage(r, costText))
+            }
+
+            if (r.duplicate) {
+                return res.json({ ok: true, duplicate: true, message: '✅ هذه العملية تمت سابقاً — لم يتكرر شيء.' })
+            }
+
+            const list = r.characters.map(c => `${c.name} (${c.rarity})`).join('، ')
+            res.json({
+                ok: true,
+                message: `✅ تم إهداء ${r.characters.length} شخصية إلى @${target.username}. خُصم ${usernameCost.toLocaleString('en-US')} مال.`
+            })
+
+            // 📩 إشعارات بالخاص بعد النجاح (لا تدخل بالتراجع، وفشلها لا يؤثر على الإهداء)
+            notifyDm(sess.u, `🎁 تم الإهداء من الموقع\n➡️ إلى: @${target.username}\n🧿 ${list}\n💰 خُصم ${usernameCost.toLocaleString('en-US')} مال — رصيدك: ${Number(r.senderBalance).toLocaleString('en-US')}`).catch(() => {})
+            notifyDm(target.userId, `🎁 وصلتك هدية!\n👤 من: ${r.senderName}\n🧿 ${list}\n🌐 تجدها في صندوق الهدايا عند فتح رابطك (.رابط)`).catch(() => {})
+        } catch (err) {
+            console.error('gift route error:', err)
+            return fail(500, 'SERVER', 'صار خطأ بالخادم — لم يتأكد تنفيذ الإهداء، تحقق من قائمتك قبل الإعادة (إعادة المحاولة آمنة).')
         }
     })
 }
