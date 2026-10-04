@@ -543,24 +543,8 @@ ${list}
 ⏳ يغلق الاثنين 5:00 م 🇸🇦 (24 ساعة)
 🌌 الأكثر أصواتاً يصير بنر الخميس`
 
-    const CHUNK = 50
-
-    if (!tagIds.length) {
-        await sock.sendMessage(jid, { text: body })
-        return
-    }
-
-    for (let i = 0; i < tagIds.length; i += CHUNK) {
-        const part = tagIds.slice(i, i + CHUNK)
-        const tags = part.map(id => '@' + id.split('@')[0]).join(' ')
-
-        if (i > 0) await sleep(1200)
-
-        await sock.sendMessage(jid, {
-            text: i === 0 ? `${body}\n\n👥 ${tags}` : tags,
-            mentions: part
-        })
-    }
+    // منشن خفي: رسالة واحدة فقط، الأسماء ما تظهر بالنص (mentions فقط)
+    await sock.sendMessage(jid, tagIds.length ? { text: body, mentions: tagIds } : { text: body })
 }
 
 // 🏆 الاثنين 5 م — صورة الشخصية المختارة واسمها (بدون منشن)
