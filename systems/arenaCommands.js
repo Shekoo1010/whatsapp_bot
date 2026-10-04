@@ -31,6 +31,8 @@ const {
     ARENA_CHARACTERS
 } = require('./arenaSystem')
 
+const orbs = require('./orbSystem')
+
 const DAILY_ATTEMPTS = 10
 
 function tag(jid) {
@@ -299,6 +301,11 @@ ${attackerWon
 ⏳ محاولاتك المتبقية اليوم: ${attacker.arena.attemptsToday}`,
             mentions: [userId, target]
         })
+
+        // 🔮 مهمة أورب: الفوز في الأرينا (للمهاجم الفائز فقط)
+        if (attackerWon) {
+            await orbs.trackMission(userId, 'arenaWins', { sock, jid })
+        }
 
         return true
     }
