@@ -726,6 +726,13 @@ pvpTeam: {
     default: []
 },
 
+// فريق .قتال pvp (أسماء 3 شخصيات) — مستقل عن pvpTeam الخاص بـ .تشكيلة/.مضاربة
+// يُحدَّد بأمر: .pvp 1 2 3
+pvpBattleTeam: {
+    type: [String],
+    default: []
+},
+
 pvpWins: {
     type: Number,
     default: 0
@@ -738,7 +745,7 @@ pvpLosses: {
 
 pvpFights: {
     type: Number,
-    default: 5
+    default: 20
 },
 
 lastPvpReset: {
