@@ -4260,7 +4260,138 @@ app.get("/", (req, res) => {
 
 // 🌐 موقع عرض شخصيات اللاعبين (/u/<كود>) — systems/characterSite.js
 const { registerCharacterSite, generateSiteCode } = require('./systems/characterSite')
-registerCharacterSite(app, Player)
+// 🎁 منطق الإهداء الموحّد (الأمر + الموقع) و🔐 كلمة السر بالخاص
+const { createGiftSystem } = require('./systems/giftSystem')
+const siteAuth = require('./systems/siteAuth')
+const siteSockRef = { current: null } // يُضبط داخل startBot (الـ sock مو متاح خارجها)
+
+async function siteNotifyDm(userId, text) {
+    try {
+        const s = siteSockRef.current
+        if (!s || !userId) return
+        const jid = await resolveDmJid(userId)
+        await s.sendMessage(jid, { text })
+    } catch (err) {
+        console.log('site notify DM error:', err?.message || err)
+    }
+}
+
+async function siteNotifyOwner(text) {
+    try {
+        const ownerPlayer = await Player.findOne(
+            { userId: new RegExp('^' + ownerId + '@') },
+            { userId: 1 }
+        ).lean()
+        await siteNotifyDm(ownerPlayer ? ownerPlayer.userId : ownerId + '@lid', text)
+    } catch (err) {
+        console.log('site notify owner error:', err?.message || err)
+    }
+}
+
+const { giftCharacters } = createGiftSystem({
+    mongoose,
+    Player,
+    giftLocks,
+    resortPlayerCharacters,
+    usernameCost: USERNAME_ACTION_COST
+})
+
+registerCharacterSite(app, Player, {
+    giftCharacters,
+    usernameCost: USERNAME_ACTION_COST,
+    notifyDm: siteNotifyDm,
+    notifyOwner: siteNotifyOwner
+})
+
+// ─── .كلمة_السر (بالخاص فقط) ───
+// .كلمة_السر          → يطلب كلمة المرور برسالتك التالية
+// .كلمة_السر <كلمة>   → يحفظها مباشرة
+// تكرار الأمر = تغيير كلمة المرور (ويُلغي كل الجلسات القديمة بالموقع)
+const pendingPasswordSet = new Map() // chatJid -> وقت الانتهاء
+
+async function handlePasswordPrivate(sockRef, msg, text) {
+
+    const chat = msg.key.remoteJid
+    const trimmed = (text || '').trim()
+    const isCmd = trimmed === '.كلمة_السر' || trimmed.startsWith('.كلمة_السر ')
+    const pending = (pendingPasswordSet.get(chat) || 0) > Date.now()
+
+    if (!isCmd && !pending) return false
+
+    const send = t => sockRef.sendMessage(chat, { text: t }).catch(err => console.log('password DM send error:', err?.message || err))
+
+    if (!isCmd && trimmed === 'إلغاء') {
+        pendingPasswordSet.delete(chat)
+        await send('✅ تم الإلغاء.')
+        return true
+    }
+
+    const ids = [...new Set([
+        msg.key.participant, msg.key.remoteJid,
+        msg.key.remoteJidAlt, msg.key.participantAlt
+    ].filter(Boolean))]
+
+    const player = await Player.findOne(
+        { $or: [{ userId: { $in: ids } }, { phoneJid: { $in: ids } }] },
+        { userId: 1, username: 1 }
+    ).lean()
+
+    if (!player) {
+        pendingPasswordSet.delete(chat)
+        await send('❌ ما قدرت أربط هذا الرقم بحسابك.\nاكتب أي أمر في القروب أولاً (مثل .يوزر)، ثم أعد المحاولة هنا.')
+        return true
+    }
+
+    if (!player.username) {
+        pendingPasswordSet.delete(chat)
+        await send('❌ لازم تسجل يوزر أولاً من القروب:\n.يوزر اسمك')
+        return true
+    }
+
+    let password = null
+
+    if (isCmd) {
+        const inline = trimmed.slice('.كلمة_السر'.length).trim()
+        if (!inline) {
+            pendingPasswordSet.set(chat, Date.now() + 3 * 60 * 1000)
+            await send(`🔐 اكتب كلمة المرور الجديدة في رسالتك التالية.\n\n• من ${siteAuth.MIN_PASSWORD} إلى ${siteAuth.MAX_PASSWORD} خانة\n• أي حروف وأرقام ورموز (عربي أو إنجليزي)\n• للإلغاء اكتب: إلغاء\n\n⏳ صالحة 3 دقائق.`)
+            return true
+        }
+        password = inline
+    } else {
+        password = trimmed
+    }
+
+    const formatError = siteAuth.validatePasswordFormat(password)
+    if (formatError) {
+        await send(formatError + '\nاكتب كلمة مرور أخرى (أو اكتب: إلغاء).')
+        return true
+    }
+
+    try {
+        const { hash, salt } = await siteAuth.hashPassword(password)
+        await Player.updateOne(
+            { _id: player._id },
+            { $set: { passwordHash: hash, passwordSalt: salt }, $inc: { sessionVersion: 1 } }
+        )
+        pendingPasswordSet.delete(chat)
+    } catch (err) {
+        console.log('password save error:', err)
+        await send('❌ صار خطأ أثناء حفظ كلمة المرور، حاول مرة ثانية.')
+        return true
+    }
+
+    await send(
+`✅ تم حفظ كلمة المرور.
+
+👤 يوزرك للدخول: ${player.username}
+🌐 افتح رابطك (.رابط) واختر "تسجيل دخول".
+
+🧹 يفضّل تحذف رسالتك اللي فيها كلمة المرور من هذي المحادثة.
+🔄 لتغييرها: كرر الأمر .كلمة_السر${siteAuth.authEnabled() ? '' : '\n\n⚠️ تسجيل الدخول بالموقع غير مفعّل حالياً (إعدادات السيرفر) — أبلغ المطوّر.'}`)
+
+    return true
+}
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("Server running")
@@ -6435,6 +6566,8 @@ ${juubi.maxHp.toLocaleString()}
     // =========================
    
 
+siteSockRef.current = sock
+
 console.log("BEFORE CONNECTION UPDATE")
 
 sock.ev.on('connection.update', async (update) => {
@@ -7645,6 +7778,14 @@ if (!text) return;
     if (!msg.key.remoteJid.endsWith("@g.us")) {
         if (msg.key.remoteJid.endsWith("@s.whatsapp.net") || msg.key.remoteJid.endsWith("@lid")) {
 
+            const consumedByPassword = await handlePasswordPrivate(sock, msg, text)
+                .catch(err => {
+                    console.log('Password private handler error:', err)
+                    return false
+                })
+
+            if (consumedByPassword) return
+
             const consumedByWerewolf = await werewolfGame
                 .handlePrivateMessage(sock, userIdPrivate, text)
                 .catch(err => {
@@ -7664,6 +7805,19 @@ if (!text) return;
     }
 
     const userId = userIdPrivate
+
+    // 🔒 .كلمة_السر تعمل بالخاص فقط — بالقروب نرفض ونحاول نحذف الرسالة (لو البوت مشرف)
+    if (text.trim() === '.كلمة_السر' || text.startsWith('.كلمة_السر ')) {
+
+        if (text.trim() !== '.كلمة_السر') {
+            await sock.sendMessage(msg.key.remoteJid, { delete: msg.key }).catch(() => {})
+        }
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+'🔒 أمر كلمة السر يعمل في الخاص فقط، مو في القروبات.\nراسل البوت خاص واكتب: .كلمة_السر\n\n⚠️ لو كتبت كلمة مرور هنا لا تستخدمها — اختر غيرها بالخاص.'
+        })
+    }
 
     lastChatByUser.set(userId, msg.key.remoteJid)
 
@@ -10641,6 +10795,7 @@ const commandExplanations = {
         '.مفضلة': 'يضيف أو يزيل شخصية من قائمة المفضلة برقمها. مثال: .مفضلة رقم',
         '.مجموعة': 'يعرض بطاقة/صورة تجمع كل شخصيات لاعب معيّن (نفسك أو لاعب تمنشنه).',
         '.مجموعتي': 'يعرض بطاقة تجمع شخصياتك الحالية.',
+        '.كلمة_السر': 'تسجّل/تغيّر كلمة مرور موقع شخصياتك (بالخاص فقط). بعدها تدخل بيوزرك من رابط .رابط وتقدر تهدي شخصيات من الموقع.',
         '.اهداء': `يهدي حتى 5 شخصيات من عندك دفعة وحدة للاعب آخر بالمنشن مجاناً، أو بيوزرنيمه (حتى لو بقروب ثاني) مقابل ${USERNAME_ACTION_COST.toLocaleString()} مال ثابت للعملية كلها. مثال: .اهداء رقم_الشخصية @شخص أو .اهداء 3 10 22 @شخص`,
         '.صوره': 'يرسل صورة عشوائية من مجلد الصور بالبوت.',
     },
@@ -12061,7 +12216,9 @@ if (text.trim() === '.رابط' || text.trim() === '.رابط جديد') {
 `🌐 رابط شخصياتك:
 ${base}/u/${player.siteCode}
 
-🔄 لتجديد الرابط (يلغي القديم): .رابط جديد`
+🔄 لتجديد الرابط (يلغي القديم): .رابط جديد
+
+🔐 للدخول والإهداء من الموقع: اكتب للبوت بالخاص .كلمة_السر`
         }
     )
 }
@@ -24850,7 +25007,11 @@ if (text === '.نقل_حساب' || text.startsWith('.نقل_حساب ')) {
             'userId',
             'phoneJid',
             'createdAt',
-            'updatedAt'
+            'updatedAt',
+            // 🔐 بيانات دخول الموقع مرتبطة برقم الواتساب نفسه (لا تنتقل)
+            'passwordHash',
+            'passwordSalt',
+            'sessionVersion'
         ])
 
         const transferObjA = playerA.toObject()
@@ -25064,7 +25225,11 @@ if (text.startsWith('.نقل_حساب_قديم')) {
             'userId',
             'phoneJid',
             'createdAt',
-            'updatedAt'
+            'updatedAt',
+            // 🔐 بيانات دخول الموقع مرتبطة برقم الواتساب نفسه (لا تنتقل)
+            'passwordHash',
+            'passwordSalt',
+            'sessionVersion'
         ])
 
         const moveData = oldPlayer.toObject()
@@ -27365,6 +27530,8 @@ if (!player) {
 
 // 🎁 حتى 5 شخصيات دفعة واحدة: .اهداء 180 5 10 99 50 @شخص
 // آخر كلمة دائماً هي الهدف (منشن أو يوزرنيم)، وكل ما بينها وبين الأمر أرقام شخصيات
+// ⚙️ التنفيذ الفعلي (القفل + transaction + القواعد) بدالة مشتركة مع موقع الشخصيات:
+// systems/giftSystem.js — القواعد واحدة بالأمر والموقع
 const MAX_GIFT_CHARACTERS = 5
 
 const giftTokens = text.trim().split(/\s+/)
@@ -27410,57 +27577,6 @@ if (target === userId) {
 
 }
 
-// 🔒 قفل الإهداء: يمنع أي عملية إهداء ثانية متزامنة تلمس نفس الطرفين
-// لين ما تخلص هذي العملية بالكامل
-if (giftLocks.has(userId) || giftLocks.has(target)) {
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-'⏳ فيه عملية إهداء ثانية شغالة على أحد الطرفين حالياً، حاول بعد كم ثانية.'
-        }
-    )
-
-}
-
-giftLocks.add(userId)
-giftLocks.add(target)
-
-try {
-
-// 💰 استخدام اليوزرنيم بدل المنشن يكلف 20 ألف (المنشن العادي يبقى مجاني كما هو)
-// نفس المبلغ الثابت بغض النظر عن عدد الشخصيات بالعملية
-if (viaUsername && (player.money || 0) < USERNAME_ACTION_COST) {
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-`❌ تحتاج ${USERNAME_ACTION_COST.toLocaleString()} مال لاستخدام اليوزرنيم بهذه العملية.
-💰 رصيدك الحالي: ${(player.money || 0).toLocaleString()}`
-        }
-    )
-
-}
-
-const targetPlayer =
-    await Player.findOne({
-        userId: target
-    })
-
-if (!targetPlayer) {
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-'❌ هذا اللاعب لا يملك حساباً.'
-        }
-    )
-
-}
-
 // 🔢 تحويل كل الأرقام المدخلة إلى indices، والتأكد إنها كلها صحيحة وبدون تكرار
 const parsedIndices = rawIndexTokens.map(t => parseInt(t) - 1)
 
@@ -27490,68 +27606,41 @@ if (uniqueIndices.length !== parsedIndices.length) {
 
 }
 
-const selectedCharacters = uniqueIndices.map(i => player.characters[i])
+// 🔒 الدالة المشتركة: تقفل الطرفين (giftLocks) وتنفذ transaction ذرية
+// (قراءة جديدة داخلها، خصم اليوزرنيم، منع Ω، صندوق هدايا الموقع)
+const giftResult = await giftCharacters({
+    senderId: userId,
+    targetId: target,
+    picks: { indices: uniqueIndices },
+    viaUsername,
+    source: 'command'
+})
 
-// 🌌 حماية: شخصية أوميقا Ω ما تُهدى أبداً
-if (selectedCharacters.some(c => c.evolutionLevel === 7)) {
+if (!giftResult.ok) {
+
+    const giftErrorTexts = {
+        LOCKED: '⏳ فيه عملية إهداء ثانية شغالة على أحد الطرفين حالياً، حاول بعد كم ثانية.',
+        NO_SENDER: '❌ لا يوجد لديك حساب.',
+        NO_TARGET: '❌ هذا اللاعب لا يملك حساباً.',
+        SELF: '❌ لا يمكنك إهداء نفسك.',
+        OMEGA: '🌌 شخصيات أوميقا Ω ما تقدر تهديها، هي حصرية لصاحبها فقط.',
+        NO_MONEY: `❌ تحتاج ${USERNAME_ACTION_COST.toLocaleString()} مال لاستخدام اليوزرنيم بهذه العملية.\n💰 رصيدك الحالي: ${(giftResult.extra?.balance ?? player.money ?? 0).toLocaleString()}`,
+        BAD_INDEX: '❌ رقم شخصية غير صحيح ضمن الأرقام اللي كتبتها.',
+        DUP_INDEX: '❌ فيه رقم شخصية مكرر بالطلب، اكتب كل رقم مرة وحدة.',
+        TOO_MANY: `❌ الحد الأقصى ${MAX_GIFT_CHARACTERS} شخصيات بكل عملية إهداء.`,
+        TX_FAILED: '❌ صار خطأ تقني أثناء تنفيذ الإهداء.\n\n✅ لم يُخصم منك أي شيء، ولا شيء وصل للطرف الآخر — حاول مرة ثانية.'
+    }
 
     return safeSend(
         msg.key.remoteJid,
         {
-            text:
-'🌌 شخصيات أوميقا Ω ما تقدر تهديها، هي حصرية لصاحبها فقط.'
+            text: giftErrorTexts[giftResult.code] || giftErrorTexts.TX_FAILED
         }
     )
 
 }
 
-// 🔒 Transaction ذرية حقيقية (MongoDB): إما الحفظين ينجحان معاً، أو
-// لو فشل أي واحد منهم تتراجع قاعدة البيانات عن الاثنين تلقائياً —
-// يمنع نهائياً احتمال "انخصمت من المُرسل وما وصلت للمستلم" (أو العكس)
-const giftSession = await mongoose.startSession()
-
-try {
-
-    await giftSession.withTransaction(async () => {
-
-        // نحذف من الأكبر للأصغر عشان ما تنزاح الأرقام أثناء splice
-        const descendingIndices =
-            [...uniqueIndices].sort((a, b) => b - a)
-
-        for (const i of descendingIndices) {
-            player.characters.splice(i, 1)
-        }
-
-        for (const character of selectedCharacters) {
-            targetPlayer.characters.push(character)
-        }
-
-        resortPlayerCharacters(targetPlayer)
-
-        if (viaUsername) {
-            player.money -= USERNAME_ACTION_COST
-        }
-
-        await player.save({ session: giftSession })
-        await targetPlayer.save({ session: giftSession })
-
-    })
-
-} catch (err) {
-
-    console.log('❌ خطأ transaction الإهداء (تراجعت العملية بالكامل):', err)
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-'❌ صار خطأ تقني أثناء تنفيذ الإهداء.\n\n✅ لم يُخصم منك أي شيء، ولا شيء وصل للطرف الآخر — حاول مرة ثانية.'
-        }
-    )
-
-} finally {
-    await giftSession.endSession()
-}
+const selectedCharacters = giftResult.characters
 
 const charactersListText =
     selectedCharacters
@@ -27603,11 +27692,6 @@ ${charactersListText}
         ]
     }
 )
-
-} finally {
-    giftLocks.delete(userId)
-    giftLocks.delete(target)
-}
 
 }
     
