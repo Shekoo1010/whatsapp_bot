@@ -589,6 +589,11 @@ const BOSS_ATTACK_GROUP = '120363409442561948@g.us'
 // هذا القروب شغال طول الوقت، فقط القروب المجدول أدناه هو اللي يفتح وينقفل)
 const BOSS_ATTACK_GROUP_ALWAYS = '120363426139697960@g.us'
 
+// 🌐 هجوم الزعيم صار من الموقع فقط. false = النافذة (رأس الساعة 10 دقائق)
+// تتحكم فيها الذاكرة فقط بدون أي فتح/إغلاق أو رسائل بالقروب.
+// لو رجّعتها true يرجع السلوك القديم (فتح/إغلاق القروب برسائله).
+const BOSS_GROUP_CONTROL = false
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -694,6 +699,22 @@ const minutes = now.getMinutes()
 // ما يفتح القروب إطلاقاً حتى لو صار رأس ساعة بهذي الفترة.
 const riyadhHour = getRiyadhHour()
 const withinAttackHours = riyadhHour >= 10 && riyadhHour <= 23
+
+// 🌐 وضع الموقع: النافذة تفتح رأس الساعة (10ص–11م) وتبقى مفتوحة بدون
+// وقت محدد، وتقفل فقط لما يسقط الزعيم (closeWindow من bossAttackSystem).
+// مفتاح الساعة يمنع إعادة الفتح بنفس الساعة بعد موت الزعيم.
+if (!BOSS_GROUP_CONTROL) {
+    const hourKey = Math.floor(Date.now() / 3600000)
+    if (withinAttackHours && global.bossWindowHourKey !== hourKey) {
+        const firstRun = global.bossWindowHourKey === undefined
+        global.bossWindowHourKey = hourKey
+        // أول تشغيل بعد إعادة تشغيل البوت: نفتح فقط لو الزعيم حي
+        global.bossAttackWindowOpen = firstRun
+            ? !!(currentBoss && !currentBoss.finished && (currentBoss.hp || 0) > 0)
+            : true
+    }
+    return
+}
 
 // 🟢 فتح القروب عند رأس كل ساعة (00 دقيقة)، وبس لو داخل ساعات العمل
 if (
@@ -4441,9 +4462,47 @@ const { pullCharacter } = createPullSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 👑 هجوم الزعيم من الموقع — نفس منطق .هجوم بالواتس (systems/bossAttackSystem.js)
+// يشارك كولداون الـ30 ثانية وحالة الزعيم مع الأمر. أحداث الزعيم العامة تظهر بالموقع فقط
+// (لا يُرسل شيء لأي قروب). الإشعارات الجانبية (إنجازات/نقاط عالم) تروح لخاص اللاعب.
+const { createBossAttackSystem } = require('./systems/bossAttackSystem')
+
+const bossAttackSystem = createBossAttackSystem({
+    Player,
+    Boss,
+    getBoss: () => currentBoss,
+    setBoss: v => { currentBoss = v },
+    fastCd: bossAttackFastCd,
+    equipmentSystem,
+    getWeaponBonusForCharacter,
+    companionsData,
+    rollCrit,
+    useEXAbilities,
+    useAttackAbilities,
+    applyCatBonus,
+    bumpWeekly,
+    getSaudiDate,
+    resetDailyMissions,
+    checkAndGrantAchievement,
+    worlds,
+    isBanned,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => await resolveDmJid(uid),
+    isAttackOpen: () => !!global.bossAttackWindowOpen,
+    closeWindow: () => { global.bossAttackWindowOpen = false },
+    xp: {
+        divisor: BOSS_HIT_XP_DIVISOR,
+        min: BOSS_HIT_XP_MIN,
+        cap: BOSS_HIT_XP_CAP,
+        followerDrop: BOSS_FOLLOWER_DROP_XP
+    },
+    allowResummonFollowers: ALLOW_RESUMMON_FOLLOWERS
+})
+
 registerCharacterSite(app, Player, {
     giftCharacters,
     pullCharacter,
+    bossAttack: bossAttackSystem,
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
@@ -37928,12 +37987,16 @@ if (third) {
     await third.save()
 }
 
+const _siteRestMoney = {}
+
 for (let i = 3; i < players.length; i++) {
 
     const player = players[i]
 
+    _siteRestMoney[i] = applyCatBonus(player, 2500)
+
     player.money =
-        (player.money || 0) + applyCatBonus(player, 2500)
+        (player.money || 0) + _siteRestMoney[i]
 
     player.xp =
         (player.xp || 0) + 500
@@ -37974,6 +38037,39 @@ for (let i = 3; i < players.length; i++) {
 )
 
 console.log("All boss damage reset")
+
+// 🌐 نتائج الزعيم تظهر بالموقع كمان (بدون أي إرسال إضافي للقروب)
+try {
+    const _siteBoxes = [
+        ['1 SSS Chance Box', '1 SSS High Box'],
+        ['1 SSS High Box', '1 Legendary Box'],
+        ['1 Legendary Box', '1 Epic Box']
+    ]
+    const _siteMoney = [firstMoneyReward, secondMoneyReward, thirdMoneyReward]
+    const _siteXp = [1000, 500, 500]
+    const _siteName = p => p.username || p.name || String(p.userId || '').split('@')[0]
+    const _killerP = players.find(p => p.userId === killerId)
+
+    bossAttackSystem.recordResults({
+        bossName: currentBoss?.name || '',
+        bossImage: currentBoss?.image || null,
+        entries: players.map((p, i) => ({
+            rank: i + 1,
+            userId: p.userId,
+            name: _siteName(p),
+            damage: rankingData[i]?.damage || 0,
+            money: i < 3 ? (_siteMoney[i] || 0) : (_siteRestMoney[i] || 0),
+            xp: i < 3 ? _siteXp[i] : 500,
+            boxes: i < 3 ? _siteBoxes[i] : ['2 Epic Boxes']
+        })),
+        killer: _killerP
+            ? { userId: _killerP.userId, name: _siteName(_killerP), boxes: ['1 SSS High Box إضافي'] }
+            : null,
+        at: Date.now()
+    })
+} catch (e) {
+    console.log('site boss results record error:', e?.message || e)
+}
 
     const mentions = [
     ...new Set([
