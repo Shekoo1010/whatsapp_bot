@@ -4418,8 +4418,32 @@ const { giftCharacters } = createGiftSystem({
     usernameCost: USERNAME_ACTION_COST
 })
 
+// 🎴 .اسحب من الموقع — نفس منطق الأمر بالضبط (systems/pullSystem.js)
+// يشارك قفل pullLocks مع .اسحب و .سحب_بنر فما يصير سحبتين متزامنتين (موقع + واتساب)
+const { createPullSystem } = require('./systems/pullSystem')
+
+const { pullCharacter } = createPullSystem({
+    Player,
+    pullLocks,
+    getCharsByRarityFast,
+    getCharByNameRarityFast,
+    companionsData,
+    trackWeeklyPull,
+    addCommandXp,
+    COMMAND_XP,
+    checkAndGrantAchievement,
+    worlds,
+    isBanned,
+    botAvailable,
+    isOwnerId: uid => String(uid || '').split('@')[0] === ownerId,
+    getSock: () => siteSockRef.current,
+    // إشعارات الإنجاز/الترقية تنرسل لآخر قروب تكلم فيه اللاعب (مثل الأمر)، وإلا للخاص
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 registerCharacterSite(app, Player, {
     giftCharacters,
+    pullCharacter,
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
