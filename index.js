@@ -4499,9 +4499,26 @@ const bossAttackSystem = createBossAttackSystem({
     allowResummonFollowers: ALLOW_RESUMMON_FOLLOWERS
 })
 
+// 💰🔥 بيع الشخصية المسحوبة + دمج الكل من صفحة السحب بالموقع — نفس منطق .بيع و .دمج_الكل
+// (systems/characterTradeSystem.js) ويشارك أقفال giftLocks و pullLocks
+const { createCharacterTradeSystem } = require('./systems/characterTradeSystem')
+
+const { sellCharacters, mergeAll } = createCharacterTradeSystem({
+    Player,
+    giftLocks,
+    pullLocks,
+    applyCatBonus,
+    getCatalog: () => characters,
+    checkAndGrantAchievement,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 registerCharacterSite(app, Player, {
     giftCharacters,
     pullCharacter,
+    sellCharacters,
+    mergeAll,
     bossAttack: bossAttackSystem,
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
