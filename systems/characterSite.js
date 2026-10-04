@@ -659,6 +659,7 @@ function viewerBarHTML(viewer, code) {
         return `<div class="topbar">
       <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span>
       <span class="tb-r">
+        <a class="pill fill" href="/u/${code}/pull">🎴 سحب شخصية</a>
         <a class="pill fill" href="/u/${code}/gift">🎁 وضع الإهداء</a>
         <a class="pill" href="/u/${code}/log">📜 سجل الإهداءات</a>
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(viewer.csrf)}"><input type="hidden" name="code" value="${code}"><button class="pill" type="submit">خروج</button></form>
@@ -851,6 +852,119 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
 </script></body></html>`
 }
 
+// 4) صفحة السحب (.اسحب من الموقع)
+function pullPageHTML({ viewer, code, state }) {
+    return `${shellHead('سحب شخصية')}
+<style>
+.pl-wrap{max-width:560px;margin:0 auto;}
+.pl-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+.pl-st{padding:12px 6px; text-align:center; border-radius:14px; background:#0b0e18; border:1px solid #1f2740;}
+.pl-st i{display:block; font-style:normal; font-size:12px; color:var(--text-dim); margin-bottom:2px;}
+.pl-st b{font-family:'Oswald',sans-serif; font-size:22px; color:var(--gold); direction:ltr; display:inline-block;}
+.pl-reset{text-align:center; font-size:13px; color:var(--text-dim); margin-bottom:14px; min-height:20px;}
+.pl-res{display:flex; flex-direction:column; align-items:center; margin:22px 0 6px;}
+.pl-res .card{width:100%; max-width:320px; cursor:default;}
+.pl-res .art{min-height:340px;}
+.pl-sss{font-weight:900; font-size:18px; color:#ff3860; text-align:center; margin-bottom:12px; text-shadow:0 0 14px rgba(255,56,96,.55);}
+.pl-note{max-width:320px; width:100%; margin-top:12px; font-size:13.5px; line-height:1.9; text-align:center; color:#cfd6e6; white-space:pre-wrap;}
+.pl-note b{color:var(--gold);}
+.pl-pop{animation:plpop .45s ease-out;}
+@keyframes plpop{from{opacity:0; transform:scale(.88) translateY(10px);} to{opacity:1; transform:none;}}
+.pl-hist-t{text-align:center; font-weight:800; color:var(--gold-dim); margin:26px 0 10px; font-size:15px;}
+.pl-hist{display:flex; flex-wrap:wrap; justify-content:center; gap:8px;}
+.pl-hist .chip{font-size:14px; padding:4px 12px;}
+@media (max-width:560px){ .pl-res .art{min-height:280px;} }
+</style>
+<body><div style="padding:30px 16px 60px">
+  <div class="topbar">
+    <span><span class="gmode">سحب شخصية</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  <div class="pl-wrap">
+    <section class="gpanel" style="margin-top:0">
+      <div class="pl-stats">
+        <div class="pl-st"><i>🎟️ السحبات</i><b id="s-pulls">-</b></div>
+        <div class="pl-st"><i>🎯 الضمان</i><b id="s-pity">-</b></div>
+        <div class="pl-st"><i>📦 المخزون</i><b id="s-cap">-</b></div>
+      </div>
+      <div class="pl-reset" id="reset"></div>
+      <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap"></div>
+      <button class="btn gold" id="go" type="button">🎴 اسحب</button>
+    </section>
+    <div class="pl-res" id="res"></div>
+    <div id="histw" hidden><div class="pl-hist-t">سحباتك في هذه الجلسة</div><div class="pl-hist" id="hist"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, S=${jsonForScript(state)};
+  var busy=false, hist=[], endAt=Date.now()+S.resetIn*1000, reloading=false;
+  function $(id){ return document.getElementById(id); }
+  function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function stats(){
+    $('s-pulls').textContent=S.pulls+'/'+S.max;
+    $('s-pity').textContent=S.pity+'/'+S.pityMax;
+    $('s-cap').textContent=S.count+'/'+S.cap;
+    $('go').disabled=busy;
+  }
+  function tick(){
+    var s=Math.max(0,Math.ceil((endAt-Date.now())/1000));
+    $('reset').textContent='🎁 تتجدد السحبات عند رأس الساعة — بعد '+Math.floor(s/60)+' دقيقة '+(s%60)+' ثانية';
+    if(s<=0 && !reloading && S.pulls<=0){ reloading=true; location.reload(); }
+  }
+  function card(c){
+    var d=el('div','card pl-pop'); d.style.setProperty('--tier',c.color);
+    var tt=el('div','tier-tag'); tt.appendChild(el('span','tier-name '+c.lang,c.tier)); tt.appendChild(el('span','pwr-badge',Number(c.power).toLocaleString('en-US')+' PWR')); d.appendChild(tt);
+    d.appendChild(el('div','stars',new Array(c.stars+1).join('★')));
+    var art=el('div','art'); if(c.img){ art.style.backgroundImage="url('"+c.img+"')"; } else { art.style.background='linear-gradient(160deg,#333,#111)'; } art.appendChild(el('div','fade')); d.appendChild(art);
+    var pl=el('div','plate'); pl.appendChild(el('div','name-en',c.name)); if(c.anime) pl.appendChild(el('div','anime-chip',c.anime)); d.appendChild(pl);
+    return d;
+  }
+  function renderResult(j){
+    var r=$('res'); r.innerHTML='';
+    var c=j.card;
+    if(c.sss) r.appendChild(el('div','pl-sss','🌌 إيقاظ أسطوري 🌌'));
+    r.appendChild(card(c));
+    var notes=j.notes||[];
+    if(notes.length){ var n=el('div','pl-note'); n.textContent=notes.join('\\n\\n'); r.appendChild(n); }
+    hist.unshift(c); if(hist.length>12) hist.pop();
+    var h=$('hist'); h.innerHTML='';
+    hist.forEach(function(x,i){ var ch=el('span','chip'); ch.style.setProperty('--tier',x.color); var ix=el('i','',String(hist.length-i)); ch.appendChild(ix); ch.appendChild(document.createTextNode(x.name)); h.appendChild(ch); });
+    $('histw').hidden=false;
+  }
+  $('go').addEventListener('click',function(){
+    if(busy) return;
+    busy=true; $('go').disabled=true; $('go').textContent='جارٍ السحب…'; show(null);
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/pull',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm); busy=false; $('go').textContent='🎴 اسحب';
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      var j=x.j;
+      if(j.state){
+        if(j.state.pulls!=null) S.pulls=j.state.pulls;
+        if(j.state.pity!=null) S.pity=j.state.pity;
+        if(j.state.count!=null) S.count=j.state.count;
+        if(j.state.cap!=null) S.cap=j.state.cap;
+        if(j.state.resetIn!=null){ S.resetIn=j.state.resetIn; endAt=Date.now()+S.resetIn*1000; }
+      }
+      if(j.ok){ renderResult(j); } else { show('bad',j.message||'فشل السحب'); }
+      stats();
+    })
+    .catch(function(){
+      clearTimeout(tm); busy=false; $('go').textContent='🎴 اسحب';
+      show('warn','لم يصلنا رد من السيرفر — قد تكون السحبة تمت. حدّث الصفحة للتأكد من سحباتك ومخزونك قبل المحاولة من جديد.');
+      stats();
+    });
+  });
+  stats(); tick(); setInterval(tick,1000);
+})();
+</script></body></html>`
+}
+
 function pageHTML({ title, total, counts, items, page, pages, base, viewer, code }) {
     const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
     const namesOnly = items.filter(c => !withImg.includes(c))
@@ -953,6 +1067,42 @@ function giftErrorMessage(r, costText) {
     return GIFT_ERRORS[r.code] || GIFT_ERRORS.TX_FAILED
 }
 
+const PULL_ERRORS = {
+    BUSY: '⏳ انتظر حتى تنتهي عملية السحب السابقة.',
+    NO_PLAYER: 'حسابك غير موجود.',
+    BANNED: '🚫 حسابك محظور من استخدام البوت.',
+    CLOSED: '⏰ البوت خارج وقت العمل (من 10:00 صباحاً حتى 12:05 منتصف الليل بتوقيت الرياض).',
+    OFFLINE: '📡 البوت غير متصل حالياً، حاول بعد قليل.',
+    SERVER: '❌ صار خطأ بالخادم أثناء السحب — حدّث الصفحة وتأكد من شخصياتك قبل إعادة المحاولة.'
+}
+
+function pullErrorMessage(r) {
+    if (r.code === 'FULL') return `❌ المخزون ممتلئ\n\n📦 السعة: ${Number(r.capacity) || 30}`
+    if (r.code === 'NO_PULLS') {
+        const sec = Math.max(0, Math.ceil((Number(r.retryInMs) || 0) / 1000))
+        return `⏳ انتهت السحبات\n\n🕒 الوقت المتبقي: ${Math.floor(sec / 60)} دقيقة ${sec % 60} ثانية\n\n🎁 تتجدد السحبات تلقائياً عند رأس كل ساعة`
+    }
+    if (r.code === 'NO_POOL') return `❌ لا توجد شخصيات بهذا التصنيف: ${r.rarity || ''}`
+    return PULL_ERRORS[r.code] || PULL_ERRORS.SERVER
+}
+
+// بيانات بطاقة نتيجة السحب (نفس ألوان/نجوم .المعرض) — تُرسل للمتصفح كـ JSON آمن
+function pullCardData(disp) {
+    const tierKey = resolveTierKey(disp.rarity, 0)
+    const t = TIERS[tierKey] || TIERS['عادي']
+    return {
+        name: String(disp.name || ''),
+        anime: String(disp.anime || ''),
+        tier: tierKey,
+        color: t.color,
+        stars: t.stars,
+        lang: t.lang,
+        power: Number(disp.power) || 0,
+        img: safeImageUrl(disp.image),
+        sss: tierKey === 'SSS'
+    }
+}
+
 function securityHeaders(res) {
     res.set({
         'Cache-Control': 'no-store',
@@ -983,6 +1133,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const usernameCost = Number(opts.usernameCost) || 20000
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
+    const pullCharacter = opts.pullCharacter // من systems/pullSystem.js (نفس منطق .اسحب)
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -1007,6 +1158,31 @@ function registerCharacterSite(app, Player, opts = {}) {
         const arr = (giftHits.get(userId) || []).filter(t => now - t < 60 * 1000)
         if (arr.length >= 12) { giftHits.set(userId, arr); return false }
         arr.push(now); giftHits.set(userId, arr); return true
+    }
+
+    // حد عدد طلبات السحب: 30 بالدقيقة لكل لاعب (حماية فقط — القيد الحقيقي هو رصيد السحبات)
+    const pullHits = new Map()
+    function pullRate(userId) {
+        const now = Date.now()
+        const arr = (pullHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { pullHits.set(userId, arr); return false }
+        arr.push(now); pullHits.set(userId, arr); return true
+    }
+
+    // حالة صفحة السحب (نفس حساب .اسحب: لو تغيّرت الساعة ورصيده أقل من 5 يعتبر 5)
+    function pullState(player) {
+        const COOLDOWN = 60 * 60 * 1000
+        let pulls = Number(player.pulls) || 0
+        if (player.lastReset !== Math.floor(Date.now() / COOLDOWN) && pulls < 5) pulls = 5
+        return {
+            pulls,
+            max: 5,
+            pity: Number(player.sssPity) || 0,
+            pityMax: 30,
+            count: (player.characters || []).length,
+            cap: Number(player.maxCharacters) || 30,
+            resetIn: Math.ceil((COOLDOWN - (Date.now() % COOLDOWN)) / 1000)
+        }
     }
 
     const CODE_RE = /^[a-f0-9]{10}$/
@@ -1213,6 +1389,87 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('gift page error:', err)
             res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── سحب شخصية (نفس .اسحب) ───────────────
+    app.get('/u/:code/pull', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters sessionVersion pulls lastReset sssPity maxCharacters')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            res.send(pullPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                state: pullState(player)
+            }))
+        } catch (err) {
+            console.error('pull page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/pull', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message, extra = {}) => res.status(status).json({ ok: false, code, message, ...extra })
+        try {
+            if (typeof pullCharacter !== 'function') return fail(503, 'DISABLED', 'السحب من الموقع غير مفعّل حالياً.')
+            if (!auth.authEnabled()) return fail(503, 'DISABLED', 'السحب من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!pullRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            // نسخة الجلسة (تتبدل لما يغيّر كلمة السر)
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const r = await pullCharacter({ userId: sess.u })
+
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : r.code === 'OFFLINE' ? 503 : 400
+                const extra = {}
+                if (r.code === 'NO_PULLS') {
+                    extra.state = { pulls: 0, resetIn: Math.ceil((Number(r.retryInMs) || 0) / 1000) }
+                }
+                return fail(status, r.code, pullErrorMessage(r), extra)
+            }
+
+            // نفس .اسحب: أحدث صورة/أنمي من الكتالوج (name + rarity + form)
+            const disp = resolveDisplayChar(r.character, getCatalogIndex(getCatalog))
+
+            const notes = []
+            if (r.guaranteedSSS) notes.push('🎯 هذه الشخصية حصلت عليها من الضمان!')
+            if (r.sonicBonusText) notes.push(r.sonicBonusText)
+            if (r.worldPointsText) notes.push(String(r.worldPointsText))
+
+            res.json({
+                ok: true,
+                card: pullCardData(disp),
+                notes,
+                state: {
+                    pulls: Number(r.pullsLeft) || 0,
+                    pity: Number(r.sssPity) || 0,
+                    count: Number(r.charCount) || 0,
+                    cap: Number(r.capacity) || 30
+                }
+            })
+        } catch (err) {
+            console.error('pull route error:', err)
+            return fail(500, 'SERVER', PULL_ERRORS.SERVER)
         }
     })
 
