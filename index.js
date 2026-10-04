@@ -10635,15 +10635,6 @@ return sock.sendMessage(
 
 if (text === '.ترتيب_العوالم') {
 
-        if (!isOwner(msg)) {
-            return safeSend(
-                msg.key.remoteJid,
-                {
-                    text: '❌ هذا الأمر للمطور فقط'
-                }
-            )
-        }
-
         await worlds.showWorldStandings(
             sock,
             msg.key.remoteJid
@@ -37522,8 +37513,8 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
         // =====================
 
         const now = Date.now()
-        const NORMAL_FIGHTS_MAX = 15
-        const cooldown = 24 * 60 * 60 * 1000 // يومي
+        const NORMAL_FIGHTS_MAX = 5
+        const cooldown = 60 * 60 * 1000 // كل ساعة
 
         if (me.normalFights == null) me.normalFights = NORMAL_FIGHTS_MAX
         if (!me.lastNormalFightReset)
@@ -37538,7 +37529,7 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
 
         if (me.normalFights <= 0) {
             return safeSend(msg.key.remoteJid, {
-                text: `⏳ انتهت القتالات اليومية (0/${NORMAL_FIGHTS_MAX})`
+                text: `⏳ انتهت القتالات (0/${NORMAL_FIGHTS_MAX})\n\n🎁 تتجدد كل ساعة`
             })
         }
 
