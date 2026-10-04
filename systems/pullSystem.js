@@ -190,6 +190,7 @@ function createPullSystem(deps) {
 
                 player.favoriteCharacter = null
                 player.favoriteObtained = 0
+                player.sonicBonusUsed = 0
                 player.favoriteExpires = 0
             }
 
@@ -233,7 +234,18 @@ function createPullSystem(deps) {
                 const sonicChance =
                     companionsData.getCompanionBonus('sonic', player.companion.level)
 
-                if (Math.random() * 100 < sonicChance) {
+                // 💙 حد أقصى: نسختين مضافتين من سونيك لكل مفضلة (2 أساسية + 2 مضافة = 4)
+                // ⚠️ يحتاج حقل sonicBonusUsed بـ Player.js — لو غير موجود نوقف البونص (أمان)
+                const sonicBonusUsed = player.sonicBonusUsed || 0
+                const sonicFieldOk = !!Player.schema.path('sonicBonusUsed')
+
+                if (
+                    sonicFieldOk &&
+                    sonicBonusUsed < 2 &&
+                    Math.random() * 100 < sonicChance
+                ) {
+
+                    player.sonicBonusUsed = sonicBonusUsed + 1
 
                     // هذي السحبة ما تُحسب من رصيد المفضلة
                     player.favoriteObtained =

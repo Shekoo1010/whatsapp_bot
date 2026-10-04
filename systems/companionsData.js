@@ -52,7 +52,7 @@ const ANIMALS = {
         ],
         bonusType: 'moneyBonus', // نسبة زيادة على كل مال مكتسب (addMoney)
         bonusAtLevel1: 3,
-        bonusAtLevel10: 6,
+        bonusAtLevel10: 20,
         unit: '%',
         description: 'رفيق هادئ يزيد نسبة بسيطة من كل مال تكسبه من أي أمر بالبوت.'
     },
@@ -71,7 +71,7 @@ const ANIMALS = {
         ],
         bonusType: 'xpBonus', // نسبة زيادة على الخبرة المكتسبة
         bonusAtLevel1: 5,
-        bonusAtLevel10: 10,
+        bonusAtLevel10: 20,
         unit: '%',
         description: 'رفيق وفي يسرّع تقدمك بالخبرة من القتالات والمهام.'
     },
@@ -89,8 +89,8 @@ const ANIMALS = {
             'https://i.postimg.cc/qBK4vCZj/88fc891cbda3303beb19806de48e6025.jpg'
         ],
         bonusType: 'extraFights', // عدد محاولات قتال إضافية يومياً (رقم صحيح، مو نسبة)
-        // منحنى مرحلي (مو خطي): +1 من مستوى 1 إلى 6، ثم +2 من مستوى 7 إلى 10
-        levelValues: [1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+        // منحنى مرحلي (مو خطي): +1 من مستوى 1 إلى 6، ثم يرتفع +1 كل مستوى لين +5 عند مستوى 10
+        levelValues: [1, 1, 1, 1, 1, 1, 2, 3, 4, 5],
         unit: 'محاولة',
         description: 'رفيق نشيط يرجّع لك محاولة قتال إضافية يومياً.'
     },
@@ -128,7 +128,7 @@ const ANIMALS = {
         ],
         bonusType: 'critRateBonus',
         bonusAtLevel1: 2,
-        bonusAtLevel10: 4,
+        bonusAtLevel10: 20,
         unit: '%',
         description: 'رفيق شرس يرفع فرصة الضربة الحرجة بالـ PvP.'
     },
@@ -147,7 +147,7 @@ const ANIMALS = {
         ],
         bonusType: 'hpBonus',
         bonusAtLevel1: 3,
-        bonusAtLevel10: 6,
+        bonusAtLevel10: 20,
         unit: '%',
         description: 'رفيق متين يرفع دمك الأقصى.'
     },
@@ -209,7 +209,7 @@ const ANIMALS = {
         // إنك تجدد فرصة سحبها (تسترجع سحبة من رصيدك) بدل ما تاخذ نسخة زيادة
         bonusType: 'favoriteRenewChance',
         bonusAtLevel1: 5,
-        bonusAtLevel10: 10,
+        bonusAtLevel10: 75,
         unit: '%',
         description: 'رفيق سريع البرق — لما تسحب شخصيتك المفضّلة، عنده فرصة يجدد لك فرصة سحبها بدل ما تُحسب من رصيدك.'
     }
@@ -308,9 +308,21 @@ function buildCompanionCard(animalKey, level, foodProgress, customName, selected
         ? 0
         : getFoodNeededForNextLevel(level)
 
-    const progressLine = isMaxLevel
-        ? '🌟 وصل أعلى مستوى'
-        : `🍖 التقدم: ${foodProgress || 0}/${foodNeeded} طعام للمستوى القادم`
+    // 📊 شريط المستوى (10 خانات)
+    const lvlSafe = Math.max(0, Math.min(MAX_LEVEL, Math.floor(level || 0)))
+    const levelBar = '▰'.repeat(lvlSafe) + '▱'.repeat(MAX_LEVEL - lvlSafe)
+    const levelPct = Math.round((lvlSafe / MAX_LEVEL) * 100)
+
+    // 🍖 شريط التقدم بالطعام (خانة لكل وحدة طعام مطلوبة)
+    let foodBlock
+    if (isMaxLevel) {
+        foodBlock = '🌟 وصل أعلى مستوى'
+    } else {
+        const done = Math.max(0, Math.min(foodNeeded, Math.floor(foodProgress || 0)))
+        const foodBar = '■'.repeat(done) + '□'.repeat(foodNeeded - done)
+        const foodPct = Math.round((done / foodNeeded) * 100)
+        foodBlock = `🍖 التقدم: ${done}/${foodNeeded}\n${foodBar} ${foodPct}%`
+    }
 
     return {
         image: getCompanionImage(animalKey, selectedImageIndex),
@@ -318,12 +330,16 @@ function buildCompanionCard(animalKey, level, foodProgress, customName, selected
 `${animal.emoji} ═══〔 ${name} 〕═══ ${animal.emoji}
 
 📛 النوع: ${animal.defaultName}
-📊 المستوى: ${level}/${MAX_LEVEL}
 ✨ البونص الحالي: +${bonus}${animal.unit}
 
-📝 ${animal.description}
+━━━━━━━━━━━━━━
+📊 المستوى ${level}/${MAX_LEVEL}
+${levelBar} ${levelPct}%
 
-${progressLine}`
+${foodBlock}
+━━━━━━━━━━━━━━
+
+📝 ${animal.description}`
     }
 }
 
