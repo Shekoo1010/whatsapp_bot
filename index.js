@@ -69,12 +69,7 @@ const animeEvents = require("./animeEvents")
 
 // ⚡ تحسين أداء: نُقلت من داخل معالج الرسائل (كانت تُبنى من جديد
 // مع كل رسالة توصل) — قيمتها ثابتة فلا داعي لإعادة إنشائها كل مرة.
-const EVENT_GROUPS = [
-    '120363400448225715@g.us',
-    '120363020823525909@g.us',
-    '120363116482407260@g.us',
-    '120363362807326585@g.us'
-]
+// قروبات الفعاليات: مصدرها الوحيد quickEvents.js (انظر EVENT_GROUPS بعد require('./quickEvents'))
 
 const {
     announceRaid,
@@ -916,6 +911,7 @@ const allowedGroups = [
 ]
 const {
     quickEvents,
+    QUICK_EVENT_GROUPS,
     giveQuickReward,
     startQuickEvents,
     startSniper,
@@ -924,6 +920,9 @@ const {
     normalizeTyper,
     buildWinMessage
 } = require('./quickEvents')
+
+// نفس قائمة quickEvents.js بالضبط (لا تعدّلها هنا، عدّلها في quickEvents.js فقط)
+const EVENT_GROUPS = QUICK_EVENT_GROUPS
 
 const disabledGroups = new Set()
 
@@ -8123,21 +8122,29 @@ if (!text) return;
     // يلتقطها أمر ثاني (مثل .نامي) ولا تنحجب بعد 12:05 لو البوت مقفل.
     // كل شرط يشترط فعالية نشطة، فأي رسالة عادية تكمل طريقها طبيعي.
     // =========================
-    if (EVENT_GROUPS.includes(msg.key.remoteJid)) {
+    if (QUICK_EVENT_GROUPS.includes(msg.key.remoteJid)) {
 
         const _qeText = text.trim()
+        const _qeGroup = msg.key.remoteJid
+
+        // يقدر يفوز فقط: فعالية نشطة + القروب ما فيه فائز + اللاعب ما فاز بنفس الفعالية بقروب ثاني
+        const _qeOpen = (ev) =>
+            !!ev &&
+            ev.active &&
+            !ev.winners[_qeGroup] &&
+            !Object.values(ev.winners).includes(userId)
 
         const _qeWin = async (evKey, title) => {
 
-            quickEvents[evKey].winner = {
-                groupId: msg.key.remoteJid,
-                userId
-            }
+            const ev = quickEvents[evKey]
+
+            // نسجّل الفائز فوراً (بدون await) عشان إجابتين متزامنتين بنفس القروب ما تفوزان معاً
+            ev.winners[_qeGroup] = userId
 
             const rewardText = await giveQuickReward(userId)
 
             await sock.sendMessage(
-                msg.key.remoteJid,
+                _qeGroup,
                 {
                     text: buildWinMessage(
                         '@' + userId.split('@')[0],
@@ -8149,14 +8156,18 @@ if (!text) return;
                 { quoted: msg }
             )
 
-            quickEvents[evKey] = null
+            // الفعالية تنتهي لما يفوز شخص بكل قروب (وإلا ينهيها المؤقت)
+            if (
+                quickEvents[evKey] === ev &&
+                QUICK_EVENT_GROUPS.every(g => ev.winners[g])
+            ) {
+                quickEvents[evKey] = null
+            }
         }
 
         // 🎯 القناص السريع
         if (
-            quickEvents.sniper &&
-            quickEvents.sniper.active &&
-            !quickEvents.sniper.winner &&
+            _qeOpen(quickEvents.sniper) &&
             _qeText.toUpperCase() === quickEvents.sniper.code
         ) {
             await _qeWin('sniper', 'القناص السريع')
@@ -8165,9 +8176,7 @@ if (!text) return;
 
         // ⌨️ اكتب التالي (النقطة قبل الجواب إجبارية: .لوفي ناروتو)
         if (
-            quickEvents.typer &&
-            quickEvents.typer.active &&
-            !quickEvents.typer.winner &&
+            _qeOpen(quickEvents.typer) &&
             _qeText.startsWith('.') &&
             quickEvents.typer.answers.includes(
                 normalizeTyper(_qeText.slice(1))
@@ -8179,9 +8188,7 @@ if (!text) return;
 
         // 🎲 رقم الحظ (.99)
         if (
-            quickEvents.lucky &&
-            quickEvents.lucky.active &&
-            !quickEvents.lucky.winner &&
+            _qeOpen(quickEvents.lucky) &&
             /^\.\d{1,4}$/.test(_qeText) &&
             parseInt(_qeText.slice(1)) === quickEvents.lucky.answer
         ) {

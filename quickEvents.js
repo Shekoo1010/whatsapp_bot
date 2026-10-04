@@ -4,6 +4,7 @@ const characters = require('./characters.json')
 const repeatQuestions = require('./repeatQuestions')
 const EVENT_GROUPS = [
 '120363020823525909@g.us',
+    '120363400448225715@g.us',
     '120363428933463078@g.us',
 '120363116482407260@g.us',
     '120363362807326585@g.us'
@@ -334,6 +335,30 @@ await player.save()
 return '📦 SSS High Box ×1'
 }
 
+// ينهي الفعالية: يرسل "انتهى الوقت" فقط للقروبات اللي ما فاز فيها أحد
+async function endQuickEvent(sock, key, ev, title, extra) {
+
+if (quickEvents[key] !== ev) return
+
+// نقفلها أولاً عشان ما تُقبل إجابات أثناء إرسال الرسائل
+quickEvents[key] = null
+
+for (const group of EVENT_GROUPS) {
+
+if (ev.winners && ev.winners[group]) continue
+
+try {
+await sock.sendMessage(group, {
+text: buildEndMessage(title, extra)
+})
+} catch (err) {
+console.log('quick event end send error:', group, err?.message || err)
+}
+
+}
+
+}
+
 async function startSniper(
 sock
 ) {
@@ -341,13 +366,13 @@ sock
 const code =
 randomCode()
 
-quickEvents.sniper = {
+const ev = quickEvents.sniper = {
 
 active: true,
 
 code,
 
-winner: null
+winners: {}
 }
 
 for (
@@ -365,39 +390,14 @@ buildStartMessage(
 `✍️ اكتب الكود التالي:
 
 *${code}*`,
-'⚡ أول شخص يرسله يفوز'
+'⚡ أول شخص بكل قروب يرسله يفوز'
 ).replace('{TIME}', '4:30')
 }
 )
 }
 
 setTimeout(
-async () => {
-
-if (
-!quickEvents.sniper ||
-quickEvents.sniper.winner
-)
-return
-
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
-buildEndMessage('القناص السريع')
-}
-)
-}
-
-quickEvents.sniper =
-null
-
-},
+() => endQuickEvent(sock, 'sniper', ev, 'القناص السريع'),
 270000
 )
 }
@@ -429,13 +429,13 @@ numbers.length
 )
 ]
 
-quickEvents.lucky = {
+const ev = quickEvents.lucky = {
 
 active: true,
 
 answer,
 
-winner: null
+winners: {}
 }
 
 for (
@@ -461,35 +461,10 @@ buildStartMessage(
 }
 
 setTimeout(
-async () => {
-
-if (
-!quickEvents.lucky ||
-quickEvents.lucky.winner
-)
-return
-
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
-buildEndMessage(
-'رقم الحظ',
+() => endQuickEvent(
+sock, 'lucky', ev, 'رقم الحظ',
 `🔑 الرقم الصحيح ➤ *${answer}*`
-)
-}
-)
-}
-
-quickEvents.lucky =
-null
-
-},
+),
 270000
 )
 }
@@ -588,7 +563,7 @@ p => normalizeTyper(p.join(' '))
 )
 ],
 
-winner: null
+winners: {}
 
 }
 
@@ -612,7 +587,7 @@ buildStartMessage(
 `📝 *${words.join(' ')}*`,
 `${words.length > 1
 ? '⚡ اكتبها كلها في رسالة واحدة بأي ترتيب'
-: '⚡ أول شخص يكتبها يفوز'}
+: '⚡ أول شخص بكل قروب يكتبها يفوز'}
 
 ✍️ مثال للجواب:
 ${example}`
@@ -622,32 +597,7 @@ ${example}`
 }
 
 setTimeout(
-async () => {
-
-if (
-quickEvents.typer !== ev ||
-ev.winner
-)
-return
-
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
-buildEndMessage('اكتب التالي')
-}
-)
-}
-
-quickEvents.typer =
-null
-
-},
+() => endQuickEvent(sock, 'typer', ev, 'اكتب التالي'),
 275000
 )
 }
@@ -728,6 +678,7 @@ return quickEvents
 
 module.exports = {
     quickEvents,
+    QUICK_EVENT_GROUPS: EVENT_GROUPS,
     startQuickEvents,
     startSniper,
     startLucky,
