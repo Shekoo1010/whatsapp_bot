@@ -660,11 +660,38 @@ function viewerBarHTML(viewer, code) {
       <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span>
       <span class="tb-r">
         <a class="pill fill" href="/u/${code}/pull">🎴 سحب شخصية</a>
-        <a class="pill fill" href="/u/${code}/boss">👑 هجوم الزعيم</a>
+        <span class="bcdw"><a class="pill fill" href="/u/${code}/boss">👑 هجوم الزعيم</a><small class="bcd" id="bcd" hidden></small></span>
         <a class="pill fill" href="/u/${code}/gift">🎁 وضع الإهداء</a>
+        <a class="pill fill" href="/u/${code}/sell">💰 بيع شخصيات</a>
         <a class="pill" href="/u/${code}/log">📜 سجل الإهداءات</a>
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(viewer.csrf)}"><input type="hidden" name="code" value="${code}"><button class="pill" type="submit">خروج</button></form>
-      </span></div>`
+      </span></div>
+<style>.bcdw{display:inline-flex;flex-direction:column;align-items:center;gap:3px;vertical-align:top}.bcd{font-size:11px;font-weight:800;color:var(--gold);font-family:'Cairo',sans-serif;white-space:nowrap}</style>
+<script>
+(function(){
+  var el=document.getElementById('bcd'); if(!el) return;
+  var end=0, fin=false, known=false, lastLoad=0;
+  function mm(ms){ var s=Math.ceil(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60; function z(n){ return (n<10?'0':'')+n; } return (h>0?h+':'+z(m):m)+':'+z(r); }
+  function render(){
+    if(!fin){ el.hidden=true; return; }
+    el.hidden=false;
+    var l=end-Date.now();
+    if(known && l<=0 && Date.now()-lastLoad>4000) load();
+    el.textContent=known?(l>0?'⏳ الزعيم القادم بعد '+mm(l):'جارٍ استدعاء الزعيم…'):'⏳ الزعيم القادم عند رأس الساعة';
+  }
+  function load(){
+    if(document.hidden) return; lastLoad=Date.now();
+    fetch('/boss/state?since=999999999',{credentials:'same-origin'})
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(j){
+        if(!j||!j.ok||!j.state||!j.state.boss){ fin=false; render(); return; }
+        var b=j.state.boss; fin=!!b.finished; known=(b.respawnInMs!=null);
+        end=known?Date.now()+b.respawnInMs:0; render();
+      }).catch(function(){});
+  }
+  load(); setInterval(load,15000); setInterval(render,1000);
+})();
+</script>`
     }
     return `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/login?code=${code}">🔐 تسجيل دخول</a></div>`
 }
@@ -853,6 +880,111 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
 </script></body></html>`
 }
 
+// 3.5) صفحة بيع الشخصيات: اختيار من القائمة + كتابة «تأكيد»
+function sellCardHTML(c) {
+    const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
+    const t = TIERS[tierKey] || TIERS['عادي']
+    const omega = tierKey === 'Ω OMEGA' || Number(c.evolutionLevel) >= 7
+    const hasImg = t.idx >= FIRST_IMAGE_TIER
+    const src = hasImg ? safeImageUrl(c.image) : null
+    const art = hasImg
+        ? `<div class="ga" style="${src ? `background-image:url('${esc(src)}')` : ''}">${src ? '' : '👤'}</div>`
+        : ''
+    const price = Math.max(100, Math.floor((Number(c.power) || 0) / 2))
+    const important = t.idx >= TIERS['SSS'].idx || Number(c.evolutionLevel) > 0
+    const label = omega ? 'لا تُباع' : '💰 ' + price.toLocaleString('en-US')
+    const data = omega ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}" data-p="${price}" data-i="${important ? 1 : 0}" data-gs="${esc(label)}"`
+    return `<div class="gcard ${hasImg ? '' : 'text'} ${omega ? 'locked' : ''}" style="--tier:${t.color}" ${data} role="button" tabindex="0">
+      <div class="gt">${esc(tierKey)}</div>${art}<div class="gn">${esc(c.name)}</div><div class="gs">${esc(label)}</div></div>`
+}
+
+function sellPageHTML({ viewer, items, page, pages, code }) {
+    return `${shellHead('بيع الشخصيات')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span><span class="gmode">بيع الشخصيات</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  <div class="ginfo">اختر الشخصيات التي تريد بيعها ثم اكتب «تأكيد»<br>(سعر الشخصية = نصف قوتها وبحد أدنى 100 — شخصيات Ω لا تُباع)<br><small>الصفحة ${page}/${pages}</small></div>
+  <div class="ggrid">${items.map(sellCardHTML).join('')}</div>
+  ${pagerHTML(`/u/${code}/sell`, page, pages)}
+  <section class="gpanel" id="gp" style="margin-top:26px">
+    <div class="gp-count">المحددة: <b id="gc">0</b></div>
+    <div class="gp-price" id="gprice">إجمالي سعر البيع: 0</div>
+    <div class="gp-sum" id="sum" hidden></div>
+    <input class="fld" id="cf" placeholder="اكتب: تأكيد" autocomplete="off" maxlength="20">
+    <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap"></div>
+    <button class="btn danger" id="go" type="button" disabled>تأكيد البيع</button>
+  </section>
+  <a class="jump" id="jump" href="#gp" hidden></a>
+</div>
+<script>
+(function(){
+  var MAX=50, CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, KEY='ssel:'+CODE;
+  var sel={}; try{ sel=JSON.parse(sessionStorage.getItem(KEY)||'{}')||{}; }catch(e){ sel={}; }
+  var busy=false;
+  function $(id){ return document.getElementById(id); }
+  function save(){ try{ sessionStorage.setItem(KEY,JSON.stringify(sel)); }catch(e){} }
+  function keys(){ return Object.keys(sel); }
+  function fm(n){ return Number(n).toLocaleString('en-US'); }
+  function okWord(v){ return v.trim().replace(/[\\u0623\\u0625\\u0622]/g,'\\u0627')==='\\u062a\\u0627\\u0643\\u064a\\u062f'; }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function refresh(){
+    var ks=keys(), n=ks.length, total=0, imp=0;
+    ks.forEach(function(k){ total+=sel[k].p; if(sel[k].i) imp++; });
+    $('gc').textContent=n;
+    $('gprice').textContent='إجمالي سعر البيع: '+fm(total);
+    var cards=document.querySelectorAll('.gcard[data-k]');
+    for(var i=0;i<cards.length;i++){ var on=!!sel[cards[i].getAttribute('data-k')]; cards[i].classList.toggle('on',on); cards[i].querySelector('.gs').textContent=on?'✓ محدد':cards[i].getAttribute('data-gs'); }
+    var sum=$('sum');
+    if(n>0){
+      var names=ks.slice(0,8).map(function(k){ return sel[k].n; }).join('، ')+(n>8?' … و '+(n-8)+' أخرى':'');
+      sum.innerHTML=''; sum.appendChild(document.createTextNode('سيتم بيع ')); var b=document.createElement('b'); b.textContent=names; sum.appendChild(b);
+      sum.appendChild(document.createTextNode(' مقابل '+fm(total)+' (قبل بونص القط). لا يمكن التراجع.'+(imp?' ⚠️ منها '+imp+' شخصية مهمة (SSS أو مطوّرة).':'')));
+      sum.hidden=false;
+    } else { sum.hidden=true; }
+    $('go').disabled = busy || n<1 || !okWord($('cf').value);
+    var j=$('jump'); if(n>0){ j.textContent='المحددة '+n+' — متابعة ↓'; j.hidden=false; } else { j.hidden=true; }
+  }
+  function toggle(card){
+    var k=card.getAttribute('data-k'); if(!k||busy) return;
+    if(sel[k]){ delete sel[k]; } else {
+      if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصية بكل عملية.'); return; }
+      sel[k]={n:card.getAttribute('data-n'),p:Number(card.getAttribute('data-p'))||0,i:card.getAttribute('data-i')==='1'};
+    }
+    show(null); save(); refresh();
+  }
+  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.gcard[data-k]'); if(c) toggle(c); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.gcard[data-k]')){ e.preventDefault(); toggle(c); } } });
+  $('cf').addEventListener('input',refresh);
+  $('go').addEventListener('click',function(){
+    if(busy) return;
+    var ks=keys(); if(ks.length<1||!okWord($('cf').value)) return;
+    busy=true; $('go').disabled=true; $('go').textContent='جارٍ البيع…'; show('warn','جارٍ تنفيذ البيع، لا تغلق الصفحة…');
+    var picks=ks.map(function(k){ return k.split(':')[0]; });
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/sell',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE,picks:picks,confirm:$('cf').value.trim()})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm);
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.ok){ sel={}; save(); $('cf').value=''; show('good',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
+      $('go').textContent='تأكيد البيع';
+      if(x.j.code==='STALE'){ sel={}; save(); show('bad',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
+      show('bad',x.j.message||'فشل البيع'); busy=false; refresh();
+    })
+    .catch(function(){
+      clearTimeout(tm); $('go').textContent='تأكيد البيع';
+      show('warn','لم يصلنا رد من السيرفر — قد يكون البيع تم. حدّث الصفحة للتأكد من شخصياتك ورصيدك قبل إعادة المحاولة.');
+      busy=false; refresh();
+    });
+  });
+  refresh();
+})();
+</script></body></html>`
+}
+
 // 4) صفحة السحب (.اسحب من الموقع)
 function pullPageHTML({ viewer, code, state }) {
     return `${shellHead('سحب شخصية')}
@@ -874,6 +1006,9 @@ function pullPageHTML({ viewer, code, state }) {
 .pl-hist-t{text-align:center; font-weight:800; color:var(--gold-dim); margin:26px 0 10px; font-size:15px;}
 .pl-hist{display:flex; flex-wrap:wrap; justify-content:center; gap:8px;}
 .pl-hist .chip{font-size:14px; padding:4px 12px;}
+.pl-sell{max-width:320px; width:100%;}
+.pl-mg{margin-top:14px; padding-top:14px; border-top:1px solid #1f2740;}
+.pl-mg-t{text-align:center; font-weight:800; color:var(--gold-dim); font-size:14px; margin-bottom:2px;}
 @media (max-width:560px){ .pl-res .art{min-height:280px;} }
 </style>
 <body><div style="padding:30px 16px 60px">
@@ -891,6 +1026,15 @@ function pullPageHTML({ viewer, code, state }) {
       <div class="pl-reset" id="reset"></div>
       <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap"></div>
       <button class="btn gold" id="go" type="button">🎴 اسحب</button>
+      <div class="pl-mg">
+        <div class="pl-mg-t">🔥 الدمج الشامل (كل 5 شخصيات ➜ شخصية أعلى)</div>
+        <button class="btn purple" id="mg-good" type="button">🔥 دمج الكل ممتاز ➜ أسطوري</button>
+        <button class="btn purple" id="mg-leg" type="button">🔥 دمج الكل أسطوري ➜ SSS</button>
+      </div>
+      <div class="pl-mg">
+        <div class="pl-mg-t">💰 بيع الشخصيات (تختار اللي تبيعه وتكتب تأكيد)</div>
+        <a class="btn danger" href="/u/${code}/sell">💰 بيع شخصيات</a>
+      </div>
     </section>
     <div class="pl-res" id="res"></div>
     <div id="histw" hidden><div class="pl-hist-t">سحباتك في هذه الجلسة</div><div class="pl-hist" id="hist"></div></div>
@@ -908,6 +1052,7 @@ function pullPageHTML({ viewer, code, state }) {
     $('s-pity').textContent=S.pity+'/'+S.pityMax;
     $('s-cap').textContent=S.count+'/'+S.cap;
     $('go').disabled=busy;
+    $('mg-good').disabled=busy; $('mg-leg').disabled=busy;
   }
   function tick(){
     var s=Math.max(0,Math.ceil((endAt-Date.now())/1000));
@@ -929,11 +1074,47 @@ function pullPageHTML({ viewer, code, state }) {
     r.appendChild(card(c));
     var notes=j.notes||[];
     if(notes.length){ var n=el('div','pl-note'); n.textContent=notes.join('\\n\\n'); r.appendChild(n); }
+
     hist.unshift(c); if(hist.length>12) hist.pop();
     var h=$('hist'); h.innerHTML='';
     hist.forEach(function(x,i){ var ch=el('span','chip'); ch.style.setProperty('--tier',x.color); var ix=el('i','',String(hist.length-i)); ch.appendChild(ix); ch.appendChild(document.createTextNode(x.name)); h.appendChild(ch); });
     $('histw').hidden=false;
   }
+  function post(url,body,done){
+    busy=true; stats();
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    body.csrf=CSRF; body.code=CODE;
+    fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,body:JSON.stringify(body)})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm); busy=false;
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.state && x.j.state.count!=null) S.count=x.j.state.count;
+      done(x.j);
+      stats();
+    })
+    .catch(function(){
+      clearTimeout(tm); busy=false;
+      show('warn','لم يصلنا رد من السيرفر — حدّث الصفحة للتأكد من شخصياتك ورصيدك قبل إعادة المحاولة.');
+      stats();
+    });
+  }
+  function mergeAll(rarity,label){
+    if(busy) return;
+    if(!window.confirm('تأكيد: '+label+'؟\\nسيتم دمج كل شخصياتك من هذه الرتبة (كل 5 تعطي شخصية).')) return;
+    show(null);
+    post('/pull/merge-all',{rarity:rarity},function(j){
+      if(j.ok){
+        var lines=['✨ الدمج الشامل','🔥 تم الحصول على '+j.rewards.length+' شخصية جديدة ('+j.to+')',''];
+        j.rewards.slice(0,15).forEach(function(x,i){ lines.push((i+1)+'- 👑 '+x.name+' • ⚔️ '+Number(x.power).toLocaleString('en-US')); });
+        if(j.rewards.length>15) lines.push('… و '+(j.rewards.length-15)+' أخرى');
+        lines.push('','📦 تم استهلاك: '+j.consumed+' شخصية '+j.from);
+        show('good',lines.join('\\n'));
+      } else { show('bad',j.message||'فشل الدمج'); }
+    });
+  }
+  $('mg-good').addEventListener('click',function(){ mergeAll('ممتاز','دمج الكل ممتاز ➜ أسطوري'); });
+  $('mg-leg').addEventListener('click',function(){ mergeAll('اسطوري','دمج الكل أسطوري ➜ SSS'); });
   $('go').addEventListener('click',function(){
     if(busy) return;
     busy=true; $('go').disabled=true; $('go').textContent='جارٍ السحب…'; show(null);
@@ -1087,6 +1268,24 @@ function pullErrorMessage(r) {
     return PULL_ERRORS[r.code] || PULL_ERRORS.SERVER
 }
 
+const TRADE_ERRORS = {
+    BUSY: '⏳ فيه عملية ثانية شغالة على حسابك، حاول بعد ثواني.',
+    NO_PLAYER: 'حسابك غير موجود.',
+    BAD_CONFIRM: 'اكتب كلمة «تأكيد» لإتمام البيع.',
+    TOO_MANY: 'الحد الأقصى 50 شخصية بكل عملية بيع.',
+    BAD_PICKS: 'اختر شخصية واحدة على الأقل.',
+    OMEGA: '🌌 شخصية أوميقا Ω ما تقدر تبيعها أبداً.',
+    STALE: 'تغيّرت قائمة شخصياتك (بيعت أو اندمجت أو أُهديت شخصية). سنحدّث الصفحة — أعد الاختيار.',
+    BAD_RARITY: '❌ الدمج متاح فقط لرتبة ممتاز أو اسطوري.',
+    SERVER: '❌ صار خطأ بالخادم — حدّث الصفحة وتأكد من شخصياتك قبل إعادة المحاولة.'
+}
+
+function tradeErrorMessage(r) {
+    if (r.code === 'NOT_ENOUGH') return `❌ تحتاج إلى 5 شخصيات من رتبة ${r.rarity} على الأقل\n\n📦 لديك: ${Number(r.have) || 0}`
+    if (r.code === 'NO_POOL') return `❌ لا توجد شخصيات من رتبة ${r.rarity || ''}`
+    return TRADE_ERRORS[r.code] || TRADE_ERRORS.SERVER
+}
+
 // بيانات بطاقة نتيجة السحب (نفس ألوان/نجوم .المعرض) — تُرسل للمتصفح كـ JSON آمن
 function pullCardData(disp) {
     const tierKey = resolveTierKey(disp.rarity, 0)
@@ -1136,6 +1335,7 @@ function bossPageHTML({ viewer, code, data }) {
 .bs-dmg{position:absolute;font-family:'Oswald',sans-serif;font-weight:700;pointer-events:none;white-space:nowrap;text-shadow:0 2px 8px #000;z-index:5;}
 .bs-sel{width:100%;margin:6px 0 4px;padding:11px;border-radius:12px;background:#080b14;color:#fff;border:1px solid #232b45;font-family:'Cairo',sans-serif;font-size:15px;}
 .bs-go{position:relative;overflow:hidden;}
+.bs-resp{text-align:center;margin:10px 0 0;padding:10px;border-radius:12px;background:#10162a;border:1px dashed var(--gold-dim);color:var(--gold);font-weight:800;font-size:14px;direction:rtl;}
 .bs-cd{position:absolute;bottom:0;right:0;height:4px;width:0;background:#ff3860;}
 .bs-stat{font-size:12.5px;color:var(--text-dim);display:flex;justify-content:space-between;margin:12px 0 4px;}
 .bs-msg{background:#0f1426;border:1px solid #232b45;border-radius:14px;padding:12px 14px;margin-top:10px;font-size:14px;line-height:1.9;animation:bsin .35s ease-out;}
@@ -1176,6 +1376,7 @@ function bossPageHTML({ viewer, code, data }) {
       <div class="bs-bar"><div class="bs-fill me" id="mhp"></div></div>
 
       <select class="bs-sel" id="sel" aria-label="اختيار الشخصية"></select>
+      <div class="bs-resp" id="resp" hidden></div>
       <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap;margin-top:10px"></div>
       <button class="btn danger bs-go" id="go" type="button"><span id="lbl">⚔️ هجوم</span><div class="bs-cd" id="cd"></div></button>
     </section>
@@ -1191,7 +1392,9 @@ function bossPageHTML({ viewer, code, data }) {
 <script>
 (function(){
   var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, D=${jsonForScript(data)};
-  var S=D.state, lastId=D.lastId||0, seen={}, busy=false, cdEnd=0, pollTimer=null;
+  var S=D.state, lastId=D.lastId||0, seen={}, busy=false, cdEnd=0, pollTimer=null, respEnd=0, bossDeadShown=false, pubQ=[], pubRun=false;
+  function setResp(b){ respEnd=(b&&b.finished&&b.respawnInMs!=null)?Date.now()+b.respawnInMs:0; }
+  function mmss(ms){ var s=Math.ceil(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60; function z(n){ return (n<10?'0':'')+n; } return (h>0?h+':'+z(m):m)+':'+z(r); }
   function $(id){ return document.getElementById(id); }
   function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
   function fmt(n){ return Number(n||0).toLocaleString('en-US'); }
@@ -1205,6 +1408,7 @@ function bossPageHTML({ viewer, code, data }) {
     if(!b){ $('bn').textContent='لا يوجد زعيم'; $('bhpt').textContent=''; $('bhp').style.width='0%'; $('fol').innerHTML=''; return; }
     $('bn').textContent=b.name; $('fbn').textContent=b.name; img($('fboss'),b.img);
     $('rage').hidden=!b.enraged;
+    if(bossDeadShown && !b.finished && b.hp>0){ bossDeadShown=false; $('fboss').getAnimations().forEach(function(a){ a.cancel(); }); }
     $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
     $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
     renderFollowers(b.followers||[]);
@@ -1262,11 +1466,18 @@ function bossPageHTML({ viewer, code, data }) {
     S.open=st.open; S.boss=st.boss; S.me=st.me; S.cooldownMs=st.cooldownMs;
     if(st.characters && st.characters.length){ S.characters=st.characters; }
     cdEnd=Date.now()+(st.cooldownMs||0);
+    setResp(st.boss);
     renderBoss(st.boss); renderMe(st.me);
   }
 
   // ───── زر الهجوم والكولداون ─────
   function tick(){
+    var rs=$('resp');
+    if(S.boss && S.boss.finished){
+      var rl=Math.max(0,respEnd-Date.now());
+      rs.hidden=false;
+      rs.textContent=respEnd?(rl>0?'⏳ الزعيم القادم يظهر بعد '+mmss(rl):'👑 جارٍ استدعاء الزعيم القادم…'):'⏳ الزعيم القادم يظهر عند رأس الساعة';
+    } else { rs.hidden=true; }
     var left=Math.max(0,cdEnd-Date.now());
     var btn=$('go'), lbl=$('lbl');
     if(busy){ btn.disabled=true; return; }
@@ -1376,15 +1587,15 @@ function bossPageHTML({ viewer, code, data }) {
   // ───── تشغيل أحداث الهجوم بالترتيب مع أنيميشنها ─────
   async function playEvent(ev){
     if(ev.id) addPub(ev); else addTo($('log'),eventNode(ev,false),10);
-    if(ev.anim==='hit_me'){ shake($('fme'),9); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); }
+    if(ev.anim==='hit_me'){ var hb=lunge($('fboss'),$('fme'),-1); await wait(360); flash(); shake($('fme'),9); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); await hb.finished; }
     else if(ev.anim==='ability'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],{duration:600}); }
     else if(ev.anim==='buff'){ $('fboss').animate([{filter:'brightness(1)'},{filter:'brightness(1.8)'},{filter:'brightness(1)'}],{duration:600}); }
     else if(ev.anim==='kill'){ /* موت التابع يُعرض على بطاقته (renderFollowers) */ }
     else if(ev.anim==='enrage'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:700}); $('fboss').style.animation='bsrage 1.2s 3'; setTimeout(function(){ $('fboss').style.animation=''; },3700); }
-    else if(ev.anim==='raid'){ shake($('arena'),10); flash(); $('arena').animate([{background:'#2a0c14'},{background:'#0b0e18'}],{duration:900}); }
-    else if(ev.anim==='counter'){ var b=lunge($('fboss'),$('fme'),-1); await wait(360); shake($('fme'),10); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); await b.finished; }
+    else if(ev.anim==='raid'){ shake($('arena'),10); flash(); $('arena').animate([{background:'#2a0c14'},{background:'#0b0e18'}],{duration:900}); if(ev.amount){ shake($('fme'),9); floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); } }
+    else if(ev.anim==='counter'){ var b=lunge($('fboss'),$('fme'),-1); await wait(360); flash(); shake($('fme'),10); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); await b.finished; }
     else if(ev.anim==='player_dead'){ $('fme').animate([{opacity:1,filter:'grayscale(0)'},{opacity:.4,filter:'grayscale(1)'}],{duration:800,fill:'forwards'}); }
-    else if(ev.anim==='boss_dead'){ await $('fboss').animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished; }
+    else if(ev.anim==='boss_dead'){ bossDeadShown=true; await $('fboss').animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished; }
     await wait(450);
   }
 
@@ -1415,6 +1626,7 @@ function bossPageHTML({ viewer, code, data }) {
 
     S.boss.hp=st.bossHp; S.boss.maxHp=st.bossMax; S.boss.enraged=st.enraged; S.boss.followers=st.followers; S.boss.finished=(st.bossHp<=0);
     S.me.hp=st.myHp; S.me.maxHp=st.myMax;
+    S.boss.respawnInMs=(st.respawnInMs!=null?st.respawnInMs:null); setResp(S.boss);
     renderBoss(S.boss); renderMe(S.me);
     await wait(isFol?700:0);
   }
@@ -1449,6 +1661,21 @@ function bossPageHTML({ viewer, code, data }) {
   });
   $('sel').addEventListener('change',renderChar);
 
+  // ───── أنيميشن الأحداث العامة لباقي اللاعبين (غير المهاجم) ─────
+  async function animPublic(ev,drop){
+    if(ev.anim==='raid'){
+      shake($('arena'),10); flash(); $('arena').animate([{background:'#2a0c14'},{background:'#0b0e18'}],{duration:900});
+      if(drop>0){ shake($('fme'),9); floatNum($('fme'),'-'+fmt(drop),'#ff5c7a',22); }
+    }
+    else if(ev.anim==='enrage'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:700}); $('fboss').style.animation='bsrage 1.2s 3'; setTimeout(function(){ $('fboss').style.animation=''; },3700); }
+    else if(ev.anim==='boss_dead'){ bossDeadShown=true; await $('fboss').animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished; }
+    await wait(450);
+  }
+  async function runPubQ(){
+    if(pubRun) return; pubRun=true;
+    try{ while(pubQ.length){ var x=pubQ.shift(); await animPublic(x.ev,x.drop); } } finally { pubRun=false; }
+  }
+
   // ───── متابعة أحداث الزعيم العامة (Polling) ─────
   function poll(){
     if(document.hidden||busy) return;
@@ -1456,12 +1683,17 @@ function bossPageHTML({ viewer, code, data }) {
     .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
     .then(function(j){
       if(!j||!j.ok) return;
-      var keepChars=S.characters; applyState(j.state); S.characters=keepChars;
-      (j.feed||[]).forEach(addPub);
+      var keepChars=S.characters, hpBefore=(S.me&&S.me.hp)||0;
+      applyState(j.state); S.characters=keepChars;
+      var drop=Math.max(0,hpBefore-((S.me&&S.me.hp)||0)), fresh=[];
+      (j.feed||[]).forEach(function(e){ var isNew=!(e.id&&seen[e.id]); addPub(e); if(isNew && e.type!=='results') fresh.push(e); });
+      fresh.slice(-3).forEach(function(e){ if(e.anim==='raid'||e.anim==='enrage'||e.anim==='boss_dead'){ pubQ.push({ev:e,drop:(e.anim==='raid'?drop:0)}); if(e.anim==='raid') drop=0; } });
+      runPubQ();
     }).catch(function(){});
   }
 
   S.characters=S.characters||[];
+  setResp(S.boss);
   renderSel(); renderBoss(S.boss); renderMe(S.me); cdEnd=Date.now()+(S.cooldownMs||0);
   (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
   (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results') addTo($('pub'),eventNode(e,true),12); });
@@ -1502,6 +1734,8 @@ function registerCharacterSite(app, Player, opts = {}) {
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
     const pullCharacter = opts.pullCharacter // من systems/pullSystem.js (نفس منطق .اسحب)
+    const sellCharacters = opts.sellCharacters // من systems/characterTradeSystem.js (نفس منطق .بيع)
+    const mergeAll = opts.mergeAll     // من systems/characterTradeSystem.js (نفس منطق .دمج_الكل)
     const bossAttack = opts.bossAttack // من systems/bossAttackSystem.js (نفس منطق .هجوم)
     const costText = 'عشرون ألف مال'
 
@@ -1842,6 +2076,139 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ─────────────── 💰 بيع + 🔥 دمج من صفحة السحب ───────────────
+    const tradeHits = new Map()
+    function tradeRate(userId) {
+        const now = Date.now()
+        const arr = (tradeHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { tradeHits.set(userId, arr); return false }
+        arr.push(now); tradeHits.set(userId, arr); return true
+    }
+
+    // فحوصات مشتركة (نفس /pull): مفعّل، نفس الأصل، جلسة، CSRF، حد الطلبات، نسخة الجلسة
+    async function tradeGuard(req, res, fn) {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message, extra = {}) => res.status(status).json({ ok: false, code, message, ...extra })
+        try {
+            if (typeof fn !== 'function') return fail(503, 'DISABLED', 'هذه الميزة غير مفعّلة حالياً.')
+            if (!auth.authEnabled()) return fail(503, 'DISABLED', 'هذه الميزة غير مفعّلة حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!tradeRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            return { sess, body: b, fail }
+        } catch (err) {
+            console.error('trade guard error:', err)
+            return fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    }
+
+    // ─────────────── 💰 صفحة بيع الشخصيات (قائمة + اختيار + كتابة تأكيد) ───────────────
+    app.get('/u/:code/sell', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            const all = sortCharactersKeepFirst(player.characters || [])
+            const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
+            const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
+            const offset = (page - 1) * PAGE_SIZE
+            const catIdx = getCatalogIndex(getCatalog)
+
+            // نفس مفاتيح صفحة الإهداء: hash المحتوى + رقم تكرار (لدعم نسختين متطابقتين)
+            const seen = new Map()
+            const keyed = all.map(c => {
+                const h = charHash(c)
+                const n = seen.get(h) || 0
+                seen.set(h, n + 1)
+                return { c, key: `${h}:${n}` }
+            })
+
+            const items = keyed.slice(offset, offset + PAGE_SIZE)
+                .map(({ c, key }) => ({ ...resolveDisplayChar(c, catIdx), __key: key }))
+
+            res.send(sellPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                items, page, pages, code
+            }))
+        } catch (err) {
+            console.error('sell page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/sell', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, sellCharacters)
+        if (!g || !g.sess) return
+        try {
+            const b = g.body
+            const confirmWord = String(b.confirm || '').trim().replace(/[أإآ]/g, 'ا')
+            if (confirmWord !== 'تاكيد') return g.fail(400, 'BAD_CONFIRM', TRADE_ERRORS.BAD_CONFIRM)
+
+            const hashes = Array.isArray(b.picks) ? b.picks.map(String) : []
+            if (hashes.length < 1) return g.fail(400, 'BAD_PICKS', TRADE_ERRORS.BAD_PICKS)
+            if (hashes.length > 50) return g.fail(400, 'TOO_MANY', TRADE_ERRORS.TOO_MANY)
+            if (hashes.some(h => !/^[a-f0-9]{40}$/.test(h))) return g.fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
+
+            const r = await sellCharacters({ userId: g.sess.u, hashes })
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return g.fail(status, r.code, tradeErrorMessage(r))
+            }
+            res.json({
+                ok: true,
+                sold: Number(r.sold) || 0,
+                gained: Number(r.gained) || 0,
+                money: Number(r.money) || 0,
+                names: (r.names || []).map(String),
+                message: `✅ تم بيع ${Number(r.sold) || 0} شخصية\n💵 إجمالي الأرباح: ${(Number(r.gained) || 0).toLocaleString('en-US')}\n💳 رصيدك الحالي: ${(Number(r.money) || 0).toLocaleString('en-US')}`
+            })
+        } catch (err) {
+            console.error('sell route error:', err)
+            return g.fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    })
+
+    app.post('/pull/merge-all', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, mergeAll)
+        if (!g || !g.sess) return
+        try {
+            const r = await mergeAll({ userId: g.sess.u, rarity: String(g.body.rarity || '') })
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return g.fail(status, r.code, tradeErrorMessage(r))
+            }
+            res.json({
+                ok: true,
+                from: String(r.from),
+                to: String(r.to),
+                consumed: Number(r.consumed) || 0,
+                rewards: (r.rewards || []).map(x => ({ name: String(x.name || ''), rarity: String(x.rarity || ''), power: Number(x.power) || 0 })),
+                state: { count: Number(r.count) || 0 }
+            })
+        } catch (err) {
+            console.error('pull merge route error:', err)
+            return g.fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    })
+
 
     // ─────────────── 👑 هجوم الزعيم ───────────────
     // حد عدد الطلبات: 20 بالدقيقة لكل لاعب (حماية فقط — القيد الحقيقي كولداون الـ30 ثانية)
@@ -1862,6 +2229,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             boss: st.boss ? {
                 name: st.boss.name, img: safeImageUrl(st.boss.image),
                 hp: st.boss.hp, maxHp: st.boss.maxHp, enraged: st.boss.enraged, finished: st.boss.finished,
+                respawnInMs: st.boss.respawnInMs,
                 followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
             } : null,
             me: st.me,
@@ -1990,7 +2358,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 report,
                 events: bossEventsOut(r.events),
                 state: {
-                    bossHp: st.bossHp, bossMax: st.bossMax, myHp: st.myHp, myMax: st.myMax, enraged: st.enraged,
+                    bossHp: st.bossHp, bossMax: st.bossMax, myHp: st.myHp, myMax: st.myMax, enraged: st.enraged, respawnInMs: st.respawnInMs,
                     followers: (st.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
                 }
             })

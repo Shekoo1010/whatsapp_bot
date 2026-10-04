@@ -104,6 +104,10 @@ function createBossAttackSystem(deps) {
                 maxHp: Number(boss.maxHp) || 0,
                 enraged: !!boss.enraged,
                 finished: !!boss.finished || (Number(boss.hp) || 0) <= 0,
+                // ⏳ كم باقي على ظهور الزعيم القادم (null = غير معروف)
+                respawnInMs: (!!boss.finished || (Number(boss.hp) || 0) <= 0) && boss.respawnAt
+                    ? Math.max(0, new Date(boss.respawnAt).getTime() - now)
+                    : null,
                 followers: followersView(boss)
             } : null,
             me: {
@@ -563,6 +567,9 @@ function createBossAttackSystem(deps) {
                 myHp: me.bossHp || me.bossMaxHp || 0,
                 myMax: me.bossMaxHp || 0,
                 enraged: !!boss.enraged,
+                respawnInMs: boss.respawnAt
+                    ? Math.max(0, new Date(boss.respawnAt).getTime() - Date.now())
+                    : null,
                 followers: followersView(boss)
             })
 
@@ -790,6 +797,7 @@ function createBossAttackSystem(deps) {
                     type: 'raid', anim: 'raid', image: boss.image,
                     title: `🌋 ${boss.name}`,
                     lines: ['💥 أطلق ضربة جماعية', `⚔️ أصاب ${players.length} مقاتل`, `❤️ الضرر: ${raidDamage}`],
+                    amount: raidDamage,
                     targets: players.map(p => ({ userId: p.userId, name: nameOf(p) }))
                 }, true)
 
