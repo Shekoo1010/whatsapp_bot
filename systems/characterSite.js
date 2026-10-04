@@ -660,6 +660,7 @@ function viewerBarHTML(viewer, code) {
       <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span>
       <span class="tb-r">
         <a class="pill fill" href="/u/${code}/pull">🎴 سحب شخصية</a>
+        <a class="pill fill" href="/u/${code}/boss">👑 هجوم الزعيم</a>
         <a class="pill fill" href="/u/${code}/gift">🎁 وضع الإهداء</a>
         <a class="pill" href="/u/${code}/log">📜 سجل الإهداءات</a>
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(viewer.csrf)}"><input type="hidden" name="code" value="${code}"><button class="pill" type="submit">خروج</button></form>
@@ -1103,6 +1104,373 @@ function pullCardData(disp) {
     }
 }
 
+// ---------------------------------------------------------------
+// 👑 صفحة هجوم الزعيم (نفس منطق .هجوم بالواتس — الحساب كله بالسيرفر
+// عبر systems/bossAttackSystem.js، والصفحة تعرض النتيجة بأنيميشن)
+// ---------------------------------------------------------------
+function bossPageHTML({ viewer, code, data }) {
+    return `${shellHead('هجوم الزعيم')}
+<style>
+.bs-wrap{max-width:620px;margin:0 auto;}
+.bs-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+.bs-name{font-weight:900;font-size:19px;color:var(--gold);}
+.bs-rage{display:inline-block;font-size:12px;font-weight:800;color:#fff;background:#ff3860;border-radius:20px;padding:2px 10px;margin-inline-start:6px;}
+.bs-num{font-family:'Oswald',sans-serif;direction:ltr;font-size:14px;color:var(--text-dim);}
+.bs-bar{height:14px;border-radius:8px;background:#0b0e18;border:1px solid #1f2740;overflow:hidden;}
+.bs-fill{height:100%;width:100%;transition:width .9s cubic-bezier(.2,.8,.2,1);}
+.bs-fill.boss{background:linear-gradient(90deg,#ff3860,#ff7a5c);}
+.bs-fill.me{background:linear-gradient(90deg,#2ecc71,#7dffb0);}
+.bs-fol{position:relative;direction:ltr;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:10px 0 0;}
+.bs-fol:empty{display:none;}
+.bs-fc{position:relative;width:84px;aspect-ratio:3/4;border-radius:12px;border:2px solid #3a2330;background:#10162a center/cover no-repeat;overflow:hidden;will-change:transform;}
+.bs-fc.front{border-color:#ff3860;box-shadow:0 0 14px rgba(255,56,96,.45);}
+.bs-fc .fn{position:absolute;left:0;right:0;bottom:7px;padding:12px 3px 2px;font-size:11px;font-weight:800;text-align:center;direction:rtl;color:#fff;background:linear-gradient(transparent,rgba(5,7,14,.92));line-height:1.3;}
+.bs-fc .fb{position:absolute;left:0;right:0;bottom:0;height:7px;background:#1a0f16;}
+.bs-fc .fb i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff3860,#ff7a5c);transition:width .6s ease-out;}
+.bs-arena{position:relative;direction:ltr;display:flex;justify-content:space-between;align-items:center;margin:16px 0 10px;padding:16px 10px;background:#0b0e18;border:1px solid #1f2740;border-radius:18px;overflow:hidden;}
+.bs-fig{position:relative;width:41%;max-width:190px;aspect-ratio:3/4;border-radius:14px;border:2px solid var(--gold-dim);background:#10162a center/cover no-repeat;overflow:hidden;will-change:transform;}
+.bs-fig.boss{border-color:#ff3860;}
+.bs-fig .pl{position:absolute;left:0;right:0;bottom:0;padding:18px 6px 6px;font-size:12.5px;font-weight:800;text-align:center;direction:rtl;background:linear-gradient(transparent,rgba(5,7,14,.92));}
+.bs-flash{position:absolute;inset:0;background:#ff3860;opacity:0;pointer-events:none;}
+.bs-vs{font-family:'Oswald',sans-serif;font-size:22px;color:var(--gold-dim);}
+.bs-dmg{position:absolute;font-family:'Oswald',sans-serif;font-weight:700;pointer-events:none;white-space:nowrap;text-shadow:0 2px 8px #000;z-index:5;}
+.bs-sel{width:100%;margin:6px 0 4px;padding:11px;border-radius:12px;background:#080b14;color:#fff;border:1px solid #232b45;font-family:'Cairo',sans-serif;font-size:15px;}
+.bs-go{position:relative;overflow:hidden;}
+.bs-cd{position:absolute;bottom:0;right:0;height:4px;width:0;background:#ff3860;}
+.bs-stat{font-size:12.5px;color:var(--text-dim);display:flex;justify-content:space-between;margin:12px 0 4px;}
+.bs-msg{background:#0f1426;border:1px solid #232b45;border-radius:14px;padding:12px 14px;margin-top:10px;font-size:14px;line-height:1.9;animation:bsin .35s ease-out;}
+.bs-msg.pub{border-color:#5a3340;}
+.bs-msg b.t{display:block;color:var(--gold);font-weight:900;margin-bottom:2px;}
+.bs-msg .sec{color:var(--gold);font-weight:800;margin-top:8px;}
+.bs-msg .sep{border:0;border-top:1px dashed #2a3350;margin:8px 0;}
+.bs-msg .ln{white-space:pre-wrap;}
+.bs-img{height:120px;border-radius:10px;background:#10162a center/cover no-repeat;margin-bottom:8px;}
+.bs-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.bs-chips span{font-size:12.5px;padding:2px 10px;border-radius:14px;background:#1a0f16;border:1px solid #5a3340;color:#ffb3c2;}
+.bs-h{text-align:center;font-weight:800;color:var(--gold-dim);margin:22px 0 4px;font-size:15px;}
+.bs-res{margin-top:18px;background:#0f1426;border:1px solid var(--gold-dim);border-radius:18px;padding:16px;}
+.bs-res h3{text-align:center;color:var(--gold);font-size:18px;font-weight:900;margin-bottom:6px;}
+.bs-rk{border-top:1px dashed #2a3350;padding:10px 0;line-height:1.9;font-size:14px;}
+.bs-rk .who2{font-weight:900;color:#fff;font-size:15px;}
+@keyframes bsin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes bsrage{0%,100%{box-shadow:0 0 0 rgba(255,56,96,0)}50%{box-shadow:0 0 36px rgba(255,56,96,.8)}}
+</style>
+<body><div style="padding:30px 16px 60px">
+  <div class="topbar">
+    <span><span class="gmode">هجوم الزعيم</span> <span class="who">مسجّل كـ <b>${esc(viewer.name)}</b></span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  <div class="bs-wrap">
+    <section class="gpanel" style="margin-top:0;max-width:none">
+      <div class="bs-head"><span class="bs-name"><span id="bn">الزعيم</span><span class="bs-rage" id="rage" hidden>غضب</span></span><span class="bs-num" id="bhpt"></span></div>
+      <div class="bs-bar"><div class="bs-fill boss" id="bhp"></div></div>
+      <div class="bs-fol" id="fol"></div>
+
+      <div class="bs-arena" id="arena">
+        <div class="bs-fig" id="fme"><div class="pl" id="fmen"></div></div>
+        <div class="bs-vs">VS</div>
+        <div class="bs-fig boss" id="fboss"><div class="pl" id="fbn"></div><div class="bs-flash" id="flash"></div></div>
+      </div>
+
+      <div class="bs-stat"><span>❤️ دمك</span><span class="bs-num" id="mhpt"></span></div>
+      <div class="bs-bar"><div class="bs-fill me" id="mhp"></div></div>
+
+      <select class="bs-sel" id="sel" aria-label="اختيار الشخصية"></select>
+      <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap;margin-top:10px"></div>
+      <button class="btn danger bs-go" id="go" type="button"><span id="lbl">⚔️ هجوم</span><div class="bs-cd" id="cd"></div></button>
+    </section>
+
+    <div id="log"></div>
+
+    <div id="resbox" hidden></div>
+
+    <div class="bs-h">📢 أحداث الزعيم العامة</div>
+    <div id="pub"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, D=${jsonForScript(data)};
+  var S=D.state, lastId=D.lastId||0, seen={}, busy=false, cdEnd=0, pollTimer=null;
+  function $(id){ return document.getElementById(id); }
+  function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  function fmt(n){ return Number(n||0).toLocaleString('en-US'); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+  function img(node,url){ if(url){ node.style.backgroundImage="url('"+url+"')"; } }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function pct(a,b){ return b>0?Math.max(0,Math.min(100,a/b*100)):0; }
+
+  // ───── عرض الحالة ─────
+  function renderBoss(b){
+    if(!b){ $('bn').textContent='لا يوجد زعيم'; $('bhpt').textContent=''; $('bhp').style.width='0%'; $('fol').innerHTML=''; return; }
+    $('bn').textContent=b.name; $('fbn').textContent=b.name; img($('fboss'),b.img);
+    $('rage').hidden=!b.enraged;
+    $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
+    $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
+    renderFollowers(b.followers||[]);
+  }
+  // ───── الأتباع: نزول من فوق / تحديث HP / تلاشي عند الموت ─────
+  var fmap={}, folInit=false;
+  function folKeys(list){ var occ={}; return list.map(function(x){ occ[x.name]=(occ[x.name]||0)+1; return x.name+'#'+occ[x.name]; }); }
+  function folNode(key){ return fmap[key]?fmap[key].el:null; }
+  function renderFollowers(list){
+    var f=$('fol'), keys=folKeys(list), alive={}, animate=folInit, dying=[];
+    list.forEach(function(x,i){
+      var k=keys[i]; alive[k]=1;
+      var n=fmap[k];
+      if(!n){
+        var c=el('div','bs-fc'); c.appendChild(el('div','fn','')); var bar=el('div','fb'); bar.appendChild(el('i','')); c.appendChild(bar);
+        n={el:c,max:Math.max(1,x.hp||1)}; fmap[k]=n; f.appendChild(c);
+        if(animate){ c.animate([{transform:'translateY(-90px) scale(.7)',opacity:0},{transform:'translateY(8px) scale(1.06)',opacity:1,offset:.65},{transform:'translateY(-3px) scale(.98)',offset:.82},{transform:'translateY(0) scale(1)',opacity:1}],{duration:750,easing:'ease-out',delay:i*120,fill:'backwards'}); }
+      }
+      if((x.hp||0)>n.max) n.max=x.hp;
+      if(x.img) img(n.el,x.img);
+      n.el.firstChild.textContent=x.name;
+      n.el.title=x.name+' — '+fmt(x.hp)+' HP';
+      n.el.lastChild.firstChild.style.width=pct(x.hp,n.max)+'%';
+      n.el.classList.toggle('front',i===0);
+    });
+    Object.keys(fmap).forEach(function(k){
+      if(alive[k]) return;
+      var n=fmap[k]; delete fmap[k];
+      if(!animate){ n.el.remove(); return; }
+      n.el.classList.remove('front');
+      dying.push(n.el.animate([{transform:'scale(1) rotate(0)',opacity:1,filter:'grayscale(0)'},{transform:'scale(1.12) rotate(-4deg)',opacity:.8,filter:'grayscale(.6) brightness(1.6)',offset:.35},{transform:'scale(.4) rotate(10deg) translateY(30px)',opacity:0,filter:'grayscale(1)'}],{duration:850,easing:'ease-in',fill:'forwards'}).finished.then(function(){ n.el.remove(); }));
+    });
+    folInit=true;
+    return Promise.all(dying);
+  }
+  // ضربة على تابع: اهتزاز + وميض أحمر + رقم الضرر
+  function hitFollower(node,dmg,crit){
+    if(!node) return;
+    shake(node,crit?9:6);
+    node.animate([{filter:'brightness(1)'},{filter:'brightness(2.2) saturate(2)',offset:.25},{filter:'brightness(1)'}],{duration:420});
+    floatNum(node,(crit?'🎯 ':'')+fmt(dmg),crit?'#f0c04a':'#ff5c7a',crit?24:18,$('fol'));
+  }
+  function renderMe(m){
+    $('mhp').style.width=pct(m.hp,m.maxHp)+'%';
+    $('mhpt').textContent=fmt(m.hp)+' / '+fmt(m.maxHp);
+  }
+  function curChar(){ var i=Number($('sel').value)||1; for(var k=0;k<S.characters.length;k++){ if(S.characters[k].index===i) return S.characters[k]; } return S.characters[0]||null; }
+  function renderChar(){ var c=curChar(); if(!c) return; img($('fme'),c.img); $('fmen').textContent=c.name; }
+  function renderSel(){
+    var s=$('sel'); s.innerHTML='';
+    S.characters.forEach(function(c){ var o=el('option','','#'+c.index+' — '+c.name+' ('+fmt(c.power)+' PWR)'); o.value=String(c.index); s.appendChild(o); });
+    renderChar();
+  }
+  function applyState(st){
+    S.open=st.open; S.boss=st.boss; S.me=st.me; S.cooldownMs=st.cooldownMs;
+    if(st.characters && st.characters.length){ S.characters=st.characters; }
+    cdEnd=Date.now()+(st.cooldownMs||0);
+    renderBoss(st.boss); renderMe(st.me);
+  }
+
+  // ───── زر الهجوم والكولداون ─────
+  function tick(){
+    var left=Math.max(0,cdEnd-Date.now());
+    var btn=$('go'), lbl=$('lbl');
+    if(busy){ btn.disabled=true; return; }
+    if(!S.boss || S.boss.finished){ btn.disabled=true; lbl.textContent='👑 لا يوجد زعيم نشط'; $('cd').style.width='0'; return; }
+    if(!S.open){ btn.disabled=true; lbl.textContent='🔴 باب الهجوم مغلق'; $('cd').style.width='0'; return; }
+    if(S.me.dead && S.me.deadLeftMs>0){ btn.disabled=true; lbl.textContent='💀 أنت ميت'; return; }
+    if(left>0){ btn.disabled=true; lbl.textContent='⏳ '+Math.ceil(left/1000)+' ث'; $('cd').style.width=(left/${'30000'}*100)+'%'; return; }
+    btn.disabled=false; lbl.textContent='⚔️ هجوم'; $('cd').style.width='0';
+  }
+
+  // ───── أنيميشن ─────
+  function shake(node,s){ node.animate([{transform:'translateX(0)'},{transform:'translateX('+(-s)+'px)'},{transform:'translateX('+s+'px)'},{transform:'translateX('+(-s/2)+'px)'},{transform:'translateX(0)'}],{duration:380}); }
+  function lunge(from,to,dir){
+    var f=from.getBoundingClientRect(), t=to.getBoundingClientRect();
+    var x=dir>0?(t.left-f.right+16):-(f.left-t.right+16);
+    from.style.zIndex=3;
+    return from.animate([{transform:'translateX(0) scale(1)'},{transform:'translateX('+(dir>0?-8:8)+'px) scale(.95)',offset:.2},{transform:'translateX('+x+'px) scale(1.08)',offset:.55},{transform:'translateX(0) scale(1)'}],{duration:650,easing:'ease-in-out'});
+  }
+  function floatNum(target,text,color,size,box){
+    box=box||$('arena');
+    var a=box.getBoundingClientRect(), r=target.getBoundingClientRect();
+    var d=el('div','bs-dmg',text); d.style.color=color; d.style.fontSize=size+'px';
+    d.style.left=(r.left-a.left+r.width/2-40)+'px'; d.style.top=(r.top-a.top+r.height*0.25)+'px';
+    box.appendChild(d);
+    d.animate([{transform:'translateY(0) scale(.6)',opacity:0},{transform:'translateY(-20px) scale(1.15)',opacity:1,offset:.25},{transform:'translateY(-70px) scale(1)',opacity:0}],{duration:1200,easing:'ease-out'}).onfinish=function(){ d.remove(); };
+  }
+  function flash(){ $('flash').animate([{opacity:.6},{opacity:0}],{duration:380}); }
+
+  // ───── رسائل (بنفس تقسيم رسالة الواتس) ─────
+  function addTo(box,node,max){ box.insertBefore(node,box.firstChild); while(box.children.length>max) box.removeChild(box.lastChild); }
+  function sec(m,title,lines,emptyTxt){
+    m.appendChild(el('hr','sep'));
+    m.appendChild(el('div','sec',title));
+    var arr=(lines&&lines.length)?lines:[emptyTxt||'لا يوجد'];
+    arr.forEach(function(l){ m.appendChild(el('div','ln',l)); });
+  }
+  function reportNode(r){
+    var m=el('div','bs-msg');
+    if(r.kind==='follower'){
+      m.appendChild(el('b','t','⚔️ هجوم على تابع'));
+      m.appendChild(el('div','ln','👥 التابع: '+r.follower.name));
+      m.appendChild(el('div','ln','💥 الضرر: '+fmt(r.damage)));
+      m.appendChild(el('div','ln','❤️ المتبقي: '+fmt(r.follower.remaining)));
+      (r.notes||[]).forEach(function(n){ m.appendChild(el('div','ln',n)); });
+      return m;
+    }
+    m.appendChild(el('b','t','⚔️ ═════〔 هجوم الزعيم 〕═════ ⚔️'));
+    m.appendChild(el('div','ln','🧿 المهاجم: '+r.attacker.name));
+    m.appendChild(el('div','ln','👑 الزعيم: '+r.bossName));
+    sec(m,'👑 قدرات اللاعب',r.playerSkills);
+    sec(m,'✨ قدرات EX',r.exSkills);
+    sec(m,'🛡️ دمج الإيكوز '+r.attacker.name,r.equip,'لا توجد معدات مجهزة');
+    sec(m,'⚔️ دمج السلاح '+r.attacker.name,r.weapon,'لا يوجد سلاح مركّب');
+    sec(m,'🐾 دمج الرفيق',r.companion,'لا يوجد رفيق مؤثر بهجوم الزعيم');
+    sec(m,'🩸 امتصاص الحياة',r.lifesteal?r.lifesteal.lines.concat(['❤️ استعدت '+fmt(r.lifesteal.heal)+' HP فعلي']):[]);
+    sec(m,'📊 نتيجة الهجوم',['💥 الضرر: '+fmt(r.damage)+(r.crit?' (حرج 🎯)':''),'⭐ الخبرة: +'+fmt(r.xp)+' XP']);
+    if(r.beastAssist){ sec(m,'🐉 مساعدة الوحش المركب',['👹 '+r.beastAssist.name,'💥 ضرر إضافي: '+fmt(r.beastAssist.damage)]); }
+    if(r.worldPoints){ m.appendChild(el('hr','sep')); m.appendChild(el('div','ln',r.worldPoints)); }
+    return m;
+  }
+  function eventNode(ev,pub){
+    var m=el('div','bs-msg'+(pub?' pub':''));
+    if(ev.img){ var i=el('div','bs-img'); img(i,ev.img); m.appendChild(i); }
+    m.appendChild(el('b','t',ev.title||''));
+    (ev.lines||[]).forEach(function(l){ m.appendChild(el('div','ln',l)); });
+    if(ev.targets){ m.appendChild(el('div','sec','🎯 المتضررون ('+ev.targets.length+')')); var c=el('div','bs-chips'); ev.targets.forEach(function(t){ c.appendChild(el('span','',t.name)); }); m.appendChild(c); }
+    return m;
+  }
+  function addPub(ev){
+    if(ev.id){ if(seen[ev.id]) return; seen[ev.id]=1; if(ev.id>lastId) lastId=ev.id; }
+    if(ev.type==='results'){ renderResults(ev.results); return; }
+    addTo($('pub'),eventNode(ev,true),12);
+  }
+
+  // ───── رسالة نتائج الزعيم (نفس ترتيب رسالة الواتس) ─────
+  function renderResults(R){
+    if(!R||!R.entries) return;
+    var box=$('resbox'); box.innerHTML=''; box.hidden=false;
+    var w=el('div','bs-res'); box.appendChild(w);
+    w.appendChild(el('h3','','🏆 ═════〔 نتائج الزعيم العالمي 〕═════ 🏆'));
+    if(R.bossName) w.appendChild(el('div','bs-num',R.bossName)).style.textAlign='center';
+    var heads=['🥇 ═══ المركز الأول ═══','🥈 ═══ المركز الثاني ═══','🥉 ═══ المركز الثالث ═══'];
+    function rewardLines(e){ var l=['💰 '+fmt(e.money)+' مال','⭐ '+fmt(e.xp)+' XP']; (e.boxes||[]).forEach(function(b){ l.push('📦 '+b); }); return l; }
+    for(var i=0;i<3;i++){
+      var e=R.entries[i], d=el('div','bs-rk');
+      d.appendChild(el('div','sec',heads[i]));
+      d.appendChild(el('div','who2',e?e.name:'لا يوجد'));
+      if(e) rewardLines(e).forEach(function(l){ d.appendChild(el('div','ln',l)); });
+      w.appendChild(d);
+    }
+    var rest=R.entries.slice(3);
+    if(rest.length){
+      var d2=el('div','bs-rk'); d2.appendChild(el('div','sec','🎖️ بقية المشاركين'));
+      rest.forEach(function(e){ d2.appendChild(el('div','ln',e.rank+'- '+e.name+' — 💰 '+fmt(e.money)+' ⭐ '+fmt(e.xp)+' XP 📦 '+(e.boxes||[]).join(' + '))); });
+      w.appendChild(d2);
+    }
+    var dk=el('div','bs-rk'); dk.appendChild(el('div','sec','☠️ ═══ الضربة القاضية ═══'));
+    dk.appendChild(el('div','who2',R.killer?R.killer.name:'لا يوجد'));
+    if(R.killer) (R.killer.boxes||[]).forEach(function(b){ dk.appendChild(el('div','ln','🎁 '+b)); });
+    w.appendChild(dk);
+    var dr=el('div','bs-rk'); dr.appendChild(el('div','sec','📊 ═══ الترتيب النهائي ═══'));
+    R.entries.forEach(function(e){ dr.appendChild(el('div','ln',e.rank+'- '+e.name+'  💥 الضرر: '+fmt(e.damage))); });
+    w.appendChild(dr);
+    var df=el('div','bs-rk'); df.appendChild(el('div','ln','🎉 تم توزيع جميع الجوائز بنجاح')); df.appendChild(el('div','ln','🌍 الزعيم العالمي سقط!')); df.appendChild(el('div','ln','⚔️ استعدوا للمعركة القادمة!')); w.appendChild(df);
+  }
+
+  // ───── تشغيل أحداث الهجوم بالترتيب مع أنيميشنها ─────
+  async function playEvent(ev){
+    if(ev.id) addPub(ev); else addTo($('log'),eventNode(ev,false),10);
+    if(ev.anim==='hit_me'){ shake($('fme'),9); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); }
+    else if(ev.anim==='ability'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],{duration:600}); }
+    else if(ev.anim==='buff'){ $('fboss').animate([{filter:'brightness(1)'},{filter:'brightness(1.8)'},{filter:'brightness(1)'}],{duration:600}); }
+    else if(ev.anim==='kill'){ /* موت التابع يُعرض على بطاقته (renderFollowers) */ }
+    else if(ev.anim==='enrage'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:700}); $('fboss').style.animation='bsrage 1.2s 3'; setTimeout(function(){ $('fboss').style.animation=''; },3700); }
+    else if(ev.anim==='raid'){ shake($('arena'),10); flash(); $('arena').animate([{background:'#2a0c14'},{background:'#0b0e18'}],{duration:900}); }
+    else if(ev.anim==='counter'){ var b=lunge($('fboss'),$('fme'),-1); await wait(360); shake($('fme'),10); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff5c7a',22); await b.finished; }
+    else if(ev.anim==='player_dead'){ $('fme').animate([{opacity:1,filter:'grayscale(0)'},{opacity:.4,filter:'grayscale(1)'}],{duration:800,fill:'forwards'}); }
+    else if(ev.anim==='boss_dead'){ await $('fboss').animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished; }
+    await wait(450);
+  }
+
+  async function playAttack(j){
+    var ev=j.events||[], pre=[], post=[];
+    ev.forEach(function(e){ (e.type==='ability'||e.type==='fx'?pre:post).push(e); });
+    for(var i=0;i<pre.length;i++){ await playEvent(pre[i]); }
+
+    var l=lunge($('fme'),$('fboss'),1);
+    await wait(360);
+    var r=j.report, crit=!!r.crit;
+    var isFol=(r.kind==='follower'), fnode=null;
+    if(isFol){
+      var fk=folKeys(S.boss.followers||[])[0]; fnode=folNode(fk);
+      hitFollower(fnode,r.damage,crit);
+    } else {
+      flash(); shake($('fboss'),crit?13:7); if(crit) shake($('arena'),5);
+      floatNum($('fboss'),(crit?'🎯 ':'')+fmt(r.damage),crit?'#f0c04a':'#ff5c7a',crit?30:22);
+    }
+    var st=j.state;
+    $('bhp').style.width=pct(st.bossHp,st.bossMax)+'%';
+    $('bhpt').textContent=fmt(st.bossHp)+' / '+fmt(st.bossMax);
+    addTo($('log'),reportNode(r),10);
+    await l.finished;
+    await wait(300);
+
+    for(var k=0;k<post.length;k++){ await playEvent(post[k]); }
+
+    S.boss.hp=st.bossHp; S.boss.maxHp=st.bossMax; S.boss.enraged=st.enraged; S.boss.followers=st.followers; S.boss.finished=(st.bossHp<=0);
+    S.me.hp=st.myHp; S.me.maxHp=st.myMax;
+    renderBoss(S.boss); renderMe(S.me);
+    await wait(isFol?700:0);
+  }
+
+  // ───── الإرسال ─────
+  $('go').addEventListener('click',function(){
+    if(busy) return;
+    busy=true; $('go').disabled=true; $('lbl').textContent='جارٍ الهجوم…'; show(null);
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/boss/attack',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE,index:Number($('sel').value)||1})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(async function(x){
+      clearTimeout(tm);
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      var j=x.j;
+      if(j.ok){
+        cdEnd=Date.now()+${'30000'};
+        await playAttack(j);
+      } else {
+        if(j.code==='COOLDOWN'){ cdEnd=Date.now()+(j.retryInMs||${'30000'}); }
+        else if(j.code==='DEAD'){ S.me.dead=true; S.me.deadLeftMs=j.retryInMs||0; show('bad',j.message); }
+        else { show('bad',j.message||'فشل الهجوم'); }
+      }
+      busy=false; tick();
+    })
+    .catch(function(){
+      clearTimeout(tm); busy=false;
+      show('warn','لم يصلنا رد من السيرفر — قد يكون الهجوم تم. حدّث الصفحة للتأكد.');
+      tick();
+    });
+  });
+  $('sel').addEventListener('change',renderChar);
+
+  // ───── متابعة أحداث الزعيم العامة (Polling) ─────
+  function poll(){
+    if(document.hidden||busy) return;
+    fetch('/boss/state?since='+lastId,{credentials:'same-origin'})
+    .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
+    .then(function(j){
+      if(!j||!j.ok) return;
+      var keepChars=S.characters; applyState(j.state); S.characters=keepChars;
+      (j.feed||[]).forEach(addPub);
+    }).catch(function(){});
+  }
+
+  S.characters=S.characters||[];
+  renderSel(); renderBoss(S.boss); renderMe(S.me); cdEnd=Date.now()+(S.cooldownMs||0);
+  (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
+  (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results') addTo($('pub'),eventNode(e,true),12); });
+  if(D.results) renderResults(D.results);
+  tick(); setInterval(tick,500); pollTimer=setInterval(poll,5000);
+})();
+</script></body></html>`
+}
+
 function securityHeaders(res) {
     res.set({
         'Cache-Control': 'no-store',
@@ -1134,6 +1502,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
     const pullCharacter = opts.pullCharacter // من systems/pullSystem.js (نفس منطق .اسحب)
+    const bossAttack = opts.bossAttack // من systems/bossAttackSystem.js (نفس منطق .هجوم)
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -1473,6 +1842,164 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+
+    // ─────────────── 👑 هجوم الزعيم ───────────────
+    // حد عدد الطلبات: 20 بالدقيقة لكل لاعب (حماية فقط — القيد الحقيقي كولداون الـ30 ثانية)
+    const bossHits = new Map()
+    function bossRate(userId) {
+        const now = Date.now()
+        const arr = (bossHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 20) { bossHits.set(userId, arr); return false }
+        arr.push(now); bossHits.set(userId, arr); return true
+    }
+
+    // يحوّل حالة الزعيم/اللاعب لشكل آمن للمتصفح (روابط صور مفلترة فقط)
+    function bossStateOut(st) {
+        const catIdx = getCatalogIndex(getCatalog)
+        return {
+            open: st.open,
+            cooldownMs: st.cooldownMs,
+            boss: st.boss ? {
+                name: st.boss.name, img: safeImageUrl(st.boss.image),
+                hp: st.boss.hp, maxHp: st.boss.maxHp, enraged: st.boss.enraged, finished: st.boss.finished,
+                followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
+            } : null,
+            me: st.me,
+            characters: (st.characters || []).map(c => {
+                const disp = resolveDisplayChar(c, catIdx)
+                return { index: c.index, name: c.name, power: c.power, img: safeImageUrl(disp.image) }
+            })
+        }
+    }
+
+    function bossEventsOut(events) {
+        return (events || []).map(e => {
+            const out = {
+                id: e.id, type: e.type, anim: e.anim, title: e.title,
+                lines: (e.lines || []).map(String), amount: e.amount,
+                img: safeImageUrl(e.image)
+            }
+            if (e.targets) out.targets = e.targets.map(t => ({ name: String(t.name || '') }))
+            if (e.results) out.results = { ...e.results, bossImage: safeImageUrl(e.results.bossImage) }
+            return out
+        })
+    }
+
+    async function bossSession(req) {
+        const sess = auth.readSession(req)
+        if (!sess) return null
+        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        if (!me || (me.sessionVersion || 0) !== sess.v) return null
+        return sess
+    }
+
+    app.get('/u/:code/boss', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!bossAttack) return res.status(503).send('هجوم الزعيم من الموقع غير مفعّل حالياً.')
+
+            const st = await bossAttack.getState(player.userId)
+            if (!st) return html404(res)
+
+            res.send(bossPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                data: {
+                    state: bossStateOut(st),
+                    feed: bossEventsOut(bossAttack.getFeed(Math.max(0, bossAttack.latestFeedId() - 15))),
+                    lastId: bossAttack.latestFeedId(),
+                    results: (() => {
+                        const r = bossAttack.getLastResults()
+                        return r ? { ...r, bossImage: safeImageUrl(r.bossImage) } : null
+                    })()
+                }
+            }))
+        } catch (err) {
+            console.error('boss page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/boss/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!bossAttack || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = await bossSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            const since = Math.max(0, parseInt(req.query.since, 10) || 0)
+            const st = await bossAttack.getState(sess.u)
+            if (!st) return res.status(404).json({ ok: false })
+            res.json({ ok: true, state: bossStateOut(st), feed: bossEventsOut(bossAttack.getFeed(since)) })
+        } catch (err) {
+            console.error('boss state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/boss/attack', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message, extra = {}) => res.status(status).json({ ok: false, code, message, ...extra })
+        try {
+            if (!bossAttack || !auth.authEnabled()) return fail(503, 'DISABLED', 'هجوم الزعيم من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!bossRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const r = await bossAttack.attack({ userId: sess.u, charIndex: b.index })
+
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : r.code === 'OFFLINE' ? 503 : 400
+                return fail(status, r.code, r.message || 'فشل الهجوم', r.retryInMs != null ? { retryInMs: Math.ceil(r.retryInMs) } : {})
+            }
+
+            // صورة المهاجم: نفس .هجوم (أحدث صورة من الكتالوج، أو صورة .استبدال)
+            const ch = (r.report.attacker && r.report.attacker.character) || {}
+            const disp = resolveDisplayChar({
+                name: ch.name, rarity: ch.rarity, form: ch.form,
+                customImage: ch.customImage, image: ch.image, anime: ch.anime
+            }, getCatalogIndex(getCatalog))
+
+            const report = {
+                ...r.report,
+                attacker: { name: r.report.attacker.name, index: r.report.attacker.index, img: safeImageUrl(disp.image) }
+            }
+            if (report.follower) report.follower = { ...report.follower, img: safeImageUrl(report.follower.image) }
+
+            const st = r.state
+            res.json({
+                ok: true,
+                kind: r.kind,
+                report,
+                events: bossEventsOut(r.events),
+                state: {
+                    bossHp: st.bossHp, bossMax: st.bossMax, myHp: st.myHp, myMax: st.myMax, enraged: st.enraged,
+                    followers: (st.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
+                }
+            })
+        } catch (err) {
+            console.error('boss attack route error:', err)
+            return fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
+
     // ─────────────── سجل الإهداءات ───────────────
     app.get('/u/:code/log', async (req, res) => {
         try {
@@ -1598,4 +2125,4 @@ function registerCharacterSite(app, Player, opts = {}) {
     })
 }
 
-module.exports = { registerCharacterSite, generateSiteCode, pageHTML, sortCharacters, sortCharactersKeepFirst, getCatalogIndex, resolveDisplayChar }
+module.exports = { registerCharacterSite, generateSiteCode, bossPageHTML, pageHTML, sortCharacters, sortCharactersKeepFirst, getCatalogIndex, resolveDisplayChar }
