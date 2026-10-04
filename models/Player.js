@@ -9,6 +9,28 @@ const PlayerSchema = new mongoose.Schema({
     },
 
     // =========================
+    // 🔐 SITE LOGIN (تسجيل دخول موقع الشخصيات) — scrypt + salt
+    // select:false = ما يظهر بأي استعلام عادي، يُطلب صراحة بـ .select('+passwordHash +passwordSalt')
+    // =========================
+    passwordHash: { type: String, default: null, select: false },
+    passwordSalt: { type: String, default: null, select: false },
+    // يزيد مع كل تغيير لكلمة المرور → يُلغي كل الجلسات القديمة
+    sessionVersion: { type: Number, default: 0 },
+
+    // =========================
+    // 🎁 GIFT INBOX (صندوق الهدايا) — آخر 50 هدية، تُكتب بنفس transaction الإهداء
+    // كل عنصر: { id, fromUserId, fromName, name, rarity, form, anime, evolutionLevel, power, image, at, seen, source }
+    // =========================
+    giftInbox: { type: Array, default: [] },
+
+    // أرقام عمليات الإهداء الأخيرة (idempotency) — تمنع تنفيذ نفس الطلب مرتين
+    giftOpKeys: { type: [String], default: [] },
+
+    // 📜 سجل الإهداءات الدائم (آخر 100) — صادر ووارد، يظهر في الموقع
+    // كل عنصر: { id, dir:'in'|'out', at, source, cost, otherName, otherUsername, chars:[{name,rarity,power,evolutionLevel}] }
+    giftLog: { type: Array, default: [] },
+
+    // =========================
     // 🔁 نظام حل مشكلة إرسال الرسائل الخاصة عبر @lid
     // =========================
     // الرقم الحقيقي (@s.whatsapp.net) المرافق لهوية اللاعب المخفية (@lid)،
@@ -30,9 +52,7 @@ const PlayerSchema = new mongoose.Schema({
 // اليوزرنيم يُحفظ بحروف صغيرة (lowercase) عشان ما تكون حساسة لحالة الأحرف
 // (موساشي بالإنجليزي أو الأحرف الكبيرة/الصغيرة تعتبر نفس اليوزر).
 username: {
-    type: String,
-    unique: true,
-    sparse: true // ما يتحطش الحقل أصلاً إلا بعد ما اللاعب يسجّل يوزر فعلي عبر .يوزر
+    type: String // الفهرس الفريد (partial) معرّف أسفل عبر PlayerSchema.index ليطابق index.js
 },
 
 // =========================
@@ -1325,6 +1345,9 @@ PlayerSchema.post('save', function (doc) {
         console.log('Level-up post-save error:', err)
     }
 })
+
+// نفس تعريف الفهرس الذي ينشئه index.js (username_1 partial unique) — بدون تعارض
+PlayerSchema.index({ username: 1 }, { unique: true, partialFilterExpression: { username: { $type: 'string' } } })
 
 const PlayerModel = mongoose.model('Player', PlayerSchema)
 
