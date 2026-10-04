@@ -92,9 +92,10 @@ const {
     createURIReward
 } = require('./systems/RollRewards')
 const Banner = require('./models/Banner')
-const {
-    refreshBanner
-} = require('./systems/bannerManager')
+const bannerMgr = require('./systems/bannerManager')
+const { refreshBanner } = bannerMgr
+const orbs = require('./systems/orbSystem')
+const { PULL_COST, MULTI_COST, MULTI_COUNT } = require('./systems/orbConfig')
 // =========================
 // Co-Op System
 // =========================
@@ -5573,6 +5574,8 @@ ${equipSummaryText(char2EquipBonus)}
 
 if (winner) {
     await checkAndGrantAchievement(winner, 'brawl', winner.brawlWins, sock, jid)
+    // 🔮 مهمة الأورب: الفوز في المضاربة
+    await orbs.trackMission(winner.userId, 'brawlWins', { sock, jid })
 }
 
 // 🌍 نقاط العوالم: تُمنح للفائز بس إذا كان الخصم من عالم مختلف عن عالمه
@@ -5948,61 +5951,37 @@ function startDailyBannerRefresh(sock) {
 
     liveBannerSock = sock
 
-    setInterval(async () => {
+    // 🌌 البنر يتجدد كل خميس 12:00 ص بتوقيت السعودية.
+    // refreshBanner تقارن مفتاح الأسبوع، فلو البوت كان نايم وقت التجديد
+    // يتجدد فور ما يصحى، وإعلان القروبات (والتصويت) يطلع مرة وحدة فقط.
+    const tick = async () => {
+
+        if (global.bannerRefreshRunning) return
+
+        global.bannerRefreshRunning = true
 
         try {
 
-            const riyadhTime =
-                new Date().toLocaleString(
-                    'en-US',
-                    { timeZone: 'Asia/Riyadh', hour12: false }
-                )
-
-            const riyadhDate =
-                new Date(riyadhTime)
-
-            const today = getSaudiDate()
-
-            // ⚠️ نفس مشكلة المساهمات اليومية: لو خدمة Render كانت نايمة
-            // (spin down) طوال الساعة 0 بالضبط، الشرط === 0 ما يتحقق
-            // أبداً ذاك اليوم حتى لو صحت الخدمة بعدها بدقايق. نستخدم
-            // نافذة أوسع (0 أو 1 صباحاً) بدل ساعة واحدة بالضبط، مع
-            // الحماية بـ lastBannerRefreshDate تمنع التكرار بنفس اليوم.
-            if (
-                (riyadhDate.getHours() === 0 || riyadhDate.getHours() === 1) &&
-                lastBannerRefreshDate !== today
-            ) {
-
-                // 🔧 قبل: كان lastBannerRefreshDate يتعيّن قبل التنفيذ، فلو فشل
-                // التجديد (انقطاع اتصال) ما يعاد إلا بكرة. الحين 5 محاولات،
-                // ولا نعلّم اليوم "تم" إلا بعد نجاحه فعلاً.
-                if (!global.bannerRefreshRunning) {
-
-                    global.bannerRefreshRunning = true
-
-                    try {
-                        await retryOnDisconnect(
-                            'refreshBanner',
-                            () => refreshBanner(liveBannerSock || sock),
-                            5,
-                            3000
-                        )
-                        lastBannerRefreshDate = today
-                    } finally {
-                        global.bannerRefreshRunning = false
-                    }
-                }
-            }
+            await retryOnDisconnect(
+                'refreshBanner',
+                () => refreshBanner(liveBannerSock || sock),
+                5,
+                3000
+            )
 
         } catch (err) {
 
-            console.log(
-                'Daily Banner Refresh Error:',
-                err
-            )
-        }
+            console.log('Weekly Banner Refresh Error:', err)
 
-    }, 60000)
+        } finally {
+
+            global.bannerRefreshRunning = false
+        }
+    }
+
+    tick()
+
+    setInterval(tick, 60000)
 }
 
 async function distributeDailyContributionRewards(sock) {
@@ -10956,8 +10935,10 @@ const commandExplanations = {
         '.بيعت': 'صاحب المزاد الحي ينهي مزاده فوراً ويبيع الشخصية لآخر (أعلى) مزايد، فتنتقل له ويُخصم منه المبلغ ويروح للبائع.',
         '.الغاء_مزاد_حي': 'صاحب المزاد الحي (أو المطور) يلغي المزاد بدون بيع.',
         '.متجرالتذاكر': 'يعرض متجر شراء الصناديق مقابل تذاكر المتجر بدل الذهب.',
-        '.بنر': 'يعرض تفاصيل البانر (Banner) الحالي وشخصياته المميزة.',
-        '.سحب_بنر': 'يسحب شخصية من البانر المميز الحالي (نظام Gacha خاص بالبانر).',
+        '.بنر': 'يعرض البنر الحالي (يتجدد كل خميس 12 ص) مع رصيد الأورب والضمان والنسب.',
+        '.سحب_بنر': 'يسحب من البنر: .سحب_بنر = سحبة (160 أورب) — .سحب_بنر 10 = عشر سحبات (1600 أورب). ضمان SSS عند 50، و70% للبنر.',
+        '.اورب': 'يعرض رصيد الأورب والمهام اليومية (1200 أورب يومياً) والضمان. اللي يفوتك ما يتعوض.',
+        '.مرشح': 'يعرض مرشحي البنر القادم والنتائج. للتصويت: .تص 1 أو 2 أو 3 (الصوت نهائي ولا يمكن تغييره).',
         '.سحب_سلاح': 'يسحب سلاح عشوائي (10 سحبات يومياً، تتجدد 12:00 ص بتوقيت السعودية، عداد ضمان 80).',
         '.تركيب_سلاح': 'يركّب سلاح من مخزونك على إحدى شخصياتك (يفك أي سلاح قديم عليها تلقائياً). استخدم بدون أرقام لعرض القائمة.',
         '.فك_سلاح': 'يفك السلاح المركب على شخصية معينة ويرجعه لحقيبتك دون تركيب غيره.',
@@ -15078,6 +15059,8 @@ newRankBlock3 += await applyRankTierPromotion(winnerData, winnerOldRankTier3)
 newRankBlock3 += await applyRankTierPromotion(loserData, loserOldRankTier3)
 
 await winnerData.save()
+// 🔮 مهمة الأورب: الفوز في التحدي
+await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })
 await loserData.save()
 
 await PvP.deleteOne({
@@ -15522,7 +15505,9 @@ let newRankBlock1 = ''
 newRankBlock1 += await applyRankTierPromotion(winnerData, winnerOldRankTier1)
 newRankBlock1 += await applyRankTierPromotion(loserData, loserOldRankTier1)
 
-await winnerData.save()  
+await winnerData.save()
+// 🔮 مهمة الأورب: الفوز في التحدي
+await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })  
 await loserData.save()  
 
 await PvP.deleteOne({  
@@ -16027,7 +16012,9 @@ let newRankBlock2 = ''
 newRankBlock2 += await applyRankTierPromotion(winnerData, winnerOldRankTier2)
 newRankBlock2 += await applyRankTierPromotion(loserData, loserOldRankTier2)
 
-await winnerData.save()  
+await winnerData.save()
+// 🔮 مهمة الأورب: الفوز في التحدي
+await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })  
 await loserData.save()  
 
 await PvP.deleteOne({  
@@ -28066,165 +28053,183 @@ ${question}`
 
 if (text === '.بنر') {
 
-    const banner =
-    await refreshBanner(sock)
+    try {
 
-    const player =
-        await Player.findOne({
-            userId
-        })
+        const bannerState = await refreshBanner(sock)
 
-    if (!banner.character) {
+        if (!bannerState || !bannerState.character) {
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                { text: '❌ لا يوجد بنر حالياً' }
+            )
+        }
+
+        const bannerOrbDoc = await orbs.getStatus(userId)
+
+        const bannerCaption =
+            bannerMgr.buildBannerCaption(bannerState, bannerOrbDoc)
+
+        return bannerMgr.sendCharacterMessage(
+            sock,
+            msg.key.remoteJid,
+            bannerState.character,
+            bannerCaption
+        )
+
+    } catch (e) {
+        console.log('.بنر error:', e)
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            { text: '❌ حدث خطأ أثناء عرض البنر' }
+        )
+    }
+
+}
+
+// =========================
+// 🔮 .اورب — الرصيد + مهام اليوم
+// =========================
+
+if (
+    text === '.اورب' ||
+    text === '.اوراب' ||
+    text === '.اورباتي' ||
+    text === '.مهام_اورب'
+) {
+
+    try {
+
+        if (!(await Player.exists({ userId }))) {
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                { text: '❌ لا يوجد حساب' }
+            )
+        }
+
+        return sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: await orbs.buildOrbsText(userId),
+                mentions: [userId]
+            }
+        )
+
+    } catch (e) {
+        console.log('.اورب error:', e)
+    }
+
+}
+
+// =========================
+// 🗳️ .مرشح — التصويت على بنر الأسبوع القادم
+// =========================
+
+if (text === '.مرشح' || text.startsWith('.مرشح ') || text === '.تص' || text.startsWith('.تص ')) {
+
+    try {
+
+        if (!(await Player.exists({ userId }))) {
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                { text: '❌ التصويت للاعبين المسجلين فقط' }
+            )
+        }
+
+        await refreshBanner(sock)
+
+        const voteArg = text.split(/\s+/)[1]
+
+        if (!voteArg) {
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                { text: await bannerMgr.buildVoteText(userId) }
+            )
+        }
+
+        const voteChoice = Number(
+            String(voteArg).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        )
+
+        const voteRes = await bannerMgr.castVote(userId, voteChoice)
+
+        if (!voteRes.ok) {
+            return sock.sendMessage(
+                msg.key.remoteJid,
+                {
+                    text: voteRes.reason === 'badChoice'
+                        ? `❌ اختر رقم من 1 إلى ${voteRes.n}\n\nمثال: .تص 1`
+                        : voteRes.reason === 'alreadyVoted'
+                            ? `🔒 صوتك مسجّل مسبقاً ولا يمكن تغييره\n\n👑 ${voteRes.candidate?.name || ''}\n🌌 ${voteRes.candidate?.anime || ''}\n\n📊 النتائج: .مرشح`
+                            : '❌ لا يوجد تصويت حالياً'
+                }
+            )
+        }
 
         return sock.sendMessage(
             msg.key.remoteJid,
             {
                 text:
-`❌ لا يوجد بنر حالياً`
+`🗳️ تم تسجيل صوتك
+
+@${userId.split('@')[0]}
+👑 ${voteRes.candidate.name}
+🌌 ${voteRes.candidate.anime}
+
+🔒 الصوت نهائي ولا يمكن تغييره
+📊 النتائج: .مرشح`,
+                mentions: [userId]
             }
         )
 
+    } catch (e) {
+        console.log('.مرشح error:', e)
     }
-
-    const pity =
-        player?.bannerPity || 0
-
-    const pityLeft =
-        pity === 0
-        ? 30
-        : 30 - pity
-
-    const pulls =
-        player?.pulls || 0
-
-    const caption =
-`🌌 ═════〔 LIMITED BANNER 〕═════ 🌌
-
-👑 ${banner.character.name}
-
-⚔️ القوة
-${banner.character.power}
-
-🌌 الأنمي
-${banner.character.anime}
-
-━━━━━━━━━━━━
-
-🎯 عداد الضمان
-${pity}/30
-
-🎟️ السحبات المتبقية
-${pulls}/5
-
-🌍 السحبات العالمية
-${banner.globalPulls}/200
-
-━━━━━━━━━━━━
-
-🎁 عند وصول المجتمع إلى 200 سحبة
-
-💰 500,000 ذهب
-🎟️ +5 سحبات
-📦 SSS Chance Box ×1
-
-━━━━━━━━━━━━
-
-⏳ يتجدد يومياً
-
-🕛 12:00 AM 🇸🇦
-
-📌 المتبقي للضمان
-${pityLeft} سحبة
-
-━━━━━━━━━━━━
-
-🎮 اكتب
-
-.سحب_بنر
-
-للسحب من البنر المحدود`
-
-    // =========================
-    // إذا لم توجد صورة
-    // =========================
-
-    if (!banner.character.image) {
-
-        return sock.sendMessage(
-            msg.key.remoteJid,
-            {
-                text: caption
-            }
-        )
-
-    }
-
-    // =========================
-    // صورة محلية
-    // =========================
-
-    if (
-        !banner.character.image.startsWith('http')
-    ) {
-
-        const imagePath =
-            path.join(
-                __dirname,
-                banner.character.image
-            )
-
-        if (!(await fileExists(imagePath))) {
-
-            return sock.sendMessage(
-                msg.key.remoteJid,
-                {
-                    text: caption
-                }
-            )
-
-        }
-
-        return sock.sendMessage(
-            msg.key.remoteJid,
-            {
-                image:
-                    await fs.promises.readFile(imagePath),
-
-                caption
-            }
-        )
-
-    }
-
-    // =========================
-    // صورة رابط
-    // =========================
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            image: {
-                url:
-                banner.character.image
-            },
-
-            caption
-        }
-    )
 
 }
 
-    
-    if (text === '.سحب_بنر') {
+// =========================
+// 🌌 .سحب_بنر — سحبة (160 أورب) أو 10 سحبات (1600 أورب)
+// =========================
 
-    // 🔒 نفس قفل .اسحب — الأمرين يستهلكان نفس رصيد player.pulls،
-    // فلازم يشتركوا بنفس القفل لمنع تنفيذ سحبة من الاثنين بنفس الوقت
+if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
+
+    const bpJid = msg.key.remoteJid
+
+    // عدد السحبات: 1 أو 10 فقط
+    let bpCount = 1
+    const bpArg = text.split(/\s+/)[1]
+
+    if (bpArg !== undefined) {
+        const n = Number(
+            String(bpArg).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        )
+
+        if (n === 1 || n === MULTI_COUNT) {
+            bpCount = n
+        } else {
+            return sock.sendMessage(
+                bpJid,
+                {
+                    text:
+`❌ استخدم:
+
+.سحب_بنر
+➤ سحبة واحدة (${PULL_COST} 🔮)
+
+.سحب_بنر ${MULTI_COUNT}
+➤ ${MULTI_COUNT} سحبات (${MULTI_COST} 🔮)`
+                }
+            )
+        }
+    }
+
+    const bpCost = bpCount === 1 ? PULL_COST : MULTI_COST
+
+    // 🔒 نفس قفل .اسحب — يمنع تنفيذ سحبتين بنفس الوقت لنفس اللاعب
     if (pullLocks.has(userId)) {
         return sock.sendMessage(
-            msg.key.remoteJid,
-            {
-                text: '⏳ انتظر حتى تنتهي عملية السحب السابقة.'
-            }
+            bpJid,
+            { text: '⏳ انتظر حتى تنتهي عملية السحب السابقة.' }
         )
     }
 
@@ -28234,408 +28239,166 @@ ${pityLeft} سحبة
         pullLocks.delete(userId)
     }, 20000)
 
+    let bpCharged = false
+
     try {
 
-    await refreshBanner(sock)
+        const bannerState = await refreshBanner(sock)
 
-    const banner = await Banner.findOne()
+        if (!bannerState || !bannerState.character) {
+            return sock.sendMessage(bpJid, { text: '❌ لا يوجد بنر حالياً' })
+        }
 
-    if (!banner || !banner.character) {
+        let player = await Player.findOne({ userId })
 
-        return sock.sendMessage(
-            msg.key.remoteJid,
-            {
-                text: '❌ لا يوجد بنر حالياً'
+        if (!player) {
+            player = new Player({
+                userId,
+                pulls: 5,
+                lastReset: Math.floor(Date.now() / (60 * 60 * 1000)),
+                characters: []
+            })
+        }
+
+        // المخزون لازم يكفي لكل السحبات
+        const bpMax = player.maxCharacters || 30
+        const bpFree = bpMax - player.characters.length
+
+        if (bpFree < bpCount) {
+            return sock.sendMessage(
+                bpJid,
+                {
+                    text:
+`❌ المخزون لا يكفي
+
+📦 السعة: ${bpMax}
+🆓 المتاح: ${Math.max(0, bpFree)}
+🎟️ المطلوب: ${bpCount}`
+                }
+            )
+        }
+
+        // خصم الأورب (ذري — يفشل لو الرصيد ما يكفي)
+        const spentDoc = await orbs.spendOrbs(userId, bpCost)
+
+        if (!spentDoc) {
+            const cur = await orbs.getStatus(userId)
+            return sock.sendMessage(
+                bpJid,
+                {
+                    text:
+`❌ الأورب غير كافية
+
+🔮 رصيدك: ${(cur.orbs || 0).toLocaleString()}
+🎟️ المطلوب: ${bpCost.toLocaleString()}
+
+📜 اربح الأورب من المهام اليومية:
+.اورب`
+                }
+            )
+        }
+
+        bpCharged = true
+
+        // 🎲 السحب
+        const rolled = bannerMgr.rollPulls(bpCount, spentDoc, bannerState.character)
+
+        for (const r of rolled.results) {
+
+            const c = r.character
+
+            if (player.dailyMissions) {
+
+                player.dailyMissions.pulls += 1
+
+                if (c.rarity === 'اسطوري') {
+                    player.dailyMissions.gotLegendary += 1
+                }
+
+                if (c.rarity === 'SSS') {
+                    player.dailyMissions.gotSSS = true
+                }
+
+                player.markModified('dailyMissions')
             }
-        )
 
-    }
+            trackWeeklyPull(player, c)
 
-    let player = await Player.findOne({ userId })
+            player.characters.push({
+                ...c,
+                originalPower: c.power,
+                evolutionLevel: 0,
+                urAbilities: []
+            })
 
-    if (!player) {
+            player.totalPulls = (player.totalPulls || 0) + 1
 
-        player = new Player({
-            userId,
-            pulls: 5,
-            bannerPity: 0,
-            lastReset: Math.floor(Date.now() / (60 * 60 * 1000)),
-            characters: []
-        })
-
-    }
-        if (
-    player.characters.length >=
-    (player.maxCharacters || 30)
-) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`❌ المخزون ممتلئ
-
-📦 السعة:
-${player.maxCharacters || 30}`
+            addCommandXp(player, COMMAND_XP.bannerPull)
         }
-    )
-
-}
-        const cooldown = 60 * 60 * 1000
-
-const currentPeriod =
-Math.floor(Date.now() / cooldown)
-
-if (player.lastReset !== currentPeriod) {
-
-    if (player.pulls < 5) {
-        player.pulls = 5
-    }
-
-    player.lastReset = currentPeriod
-
-}
-
-if (player.pulls <= 0) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text:
-`❌ انتهت السحبات
-
-⏳ تتجدد كل ساعة`
-        }
-    )
-
-}
-        player.bannerPity =
-(player.bannerPity || 0) + 1
-
-let guaranteed = false
-
-if (player.bannerPity >= 30) {
-
-    guaranteed = true
-    player.bannerPity = 0
-
-}
-        const pityLeft =
-guaranteed
-? 30
-: 30 - player.bannerPity
-        let rarity = 'عادي'
-
-let luckBonus = 0
-
-if ((player.level || 1) >= 10)
-    luckBonus = 3
-
-if (guaranteed) {
-
-    rarity = 'SSS'
-
-} else {
-
-    let chance = Math.random() * 100
-
-    chance -= luckBonus
-
-    if (chance <= 5) {
-
-        rarity = 'SSS'
-
-    } else if (chance <= 22) {
-
-        rarity = 'اسطوري'
-
-    } else if (chance <= 50) {
-
-        rarity = 'ممتاز'
-
-    }
-
-}
-        let randomCharacter
-
-if (rarity !== 'SSS') {
-
-    const pool =
-    characters.filter(
-        c => c.rarity === rarity
-    )
-
-    randomCharacter =
-    pool[
-        Math.floor(
-            Math.random() *
-            pool.length
-        )
-    ]
-
-}
-        else {
-
-    if (guaranteed || Math.random() < 0.70) {
-
-        randomCharacter =
-        banner.character
-
-    } else {
-
-        const sss =
-        characters.filter(
-            c => c.rarity === 'SSS'
-        )
-
-        randomCharacter =
-        sss[
-            Math.floor(
-                Math.random() *
-                sss.length
-            )
-        ]
-
-    }
-
-}
-        if (!randomCharacter) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text: "❌ تعذر اختيار شخصية."
-        }
-    )
-
-}
-        
-    if (player.dailyMissions) {
-
-    player.dailyMissions.pulls += 1
-
-    if (randomCharacter.rarity === 'اسطوري') {
-
-        player.dailyMissions.gotLegendary += 1
-
-    }
-
-    if (randomCharacter.rarity === 'SSS') {
-
-        player.dailyMissions.gotSSS = true
-
-    }
-
-    player.markModified('dailyMissions')
-
-}
-trackWeeklyPull(player, randomCharacter)
-player.characters.push({
-
-    ...randomCharacter,
-
-    originalPower: randomCharacter.power,
-
-    evolutionLevel: 0,
-
-    urAbilities: []
-
-})
-
-player.pulls--
-player.totalPulls = (player.totalPulls || 0) + 1
-        player.bannerParticipated = true
-        banner.globalPulls++
-
-const reachedReward = banner.globalPulls >= 200
-if (reachedReward) {
-
-    banner.globalPulls = 0
-
-    // 🔧 إصلاح حرج: كانت المكافأة (+5 سحبات، فلوس، صندوق SSS) تُعطى عبر
-    // Player.find + p.save() لنسخة ثانية من مستند اللاعب — ولما اللاعب
-    // الحالي (اللي نفّذ السحبة رقم 200) يكون ضمن المشاركين، نسخته بالذاكرة
-    // (اللي فيها pulls القديم-1) كانت تنحفظ بعدها وتدوس على الـ +5 فتضيع،
-    // وأحياناً ما يدخل ضمن المكافأة أصلاً. الحين:
-    //   1) اللاعب الحالي يستلم المكافأة مباشرة على نفس نسخته قبل player.save()
-    //   2) باقي المشاركين بتحديث ذري ($inc) بدل قراءة/حفظ مستند كامل
-
-    player.money = (player.money || 0) + applyCatBonus(player, 500000)
-    player.pulls = (player.pulls || 0) + 5
-
-    if (!player.boxes) {
-        player.boxes = {}
-    }
-
-    player.boxes.sss_chance = (player.boxes.sss_chance || 0) + 1
-    player.markModified('boxes')
-    player.bannerParticipated = false
-
-    try {
-
-        const otherParticipants =
-            await Player.find({
-                bannerParticipated: true,
-                userId: { $ne: userId }
-            }).lean()
-
-        if (otherParticipants.length) {
-
-            await Player.bulkWrite(
-                otherParticipants.map(p => {
-
-                    const money = applyCatBonus(p, 500000)
-
-                    const update = p.boxes
-                        ? {
-                            $inc: {
-                                money,
-                                pulls: 5,
-                                'boxes.sss_chance': 1
-                            },
-                            $set: { bannerParticipated: false }
-                        }
-                        : {
-                            $inc: { money, pulls: 5 },
-                            $set: {
-                                bannerParticipated: false,
-                                boxes: { sss_chance: 1 }
-                            }
-                        }
-
-                    return {
-                        updateOne: {
-                            filter: { _id: p._id },
-                            update
-                        }
-                    }
-                })
-            )
-        }
-
-    } catch (rewardErr) {
-        console.log('خطأ توزيع مكافأة البنر (200 سحبة):', rewardErr)
-    }
-
-}
-
-        addCommandXp(player, COMMAND_XP.bannerPull)
 
         await player.save()
 
-await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, msg.key.remoteJid)
-await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, msg.key.remoteJid)
+        bpCharged = false // الشخصيات انحفظت — ما نسترجع الأورب بعد كذا
 
-await banner.save()
+        const orbDocAfter =
+            await bannerMgr.savePullState(userId, rolled, bannerState.bannerName)
 
-// ⚡ دمج رسالة "+نقطة عالم" بكابشن نتيجة السحب بدل رسالة واتساب مستقلة
-const bannerWorldPointsText = await worlds.awardPullPoints(
-    player,
-    sock,
-    msg.key.remoteJid,
-    randomCharacter.rarity
-)
-const bannerWorldPointsSuffix = bannerWorldPointsText ? `\n\n${bannerWorldPointsText}` : ''
-        
-        const bannerText =
-randomCharacter.name === banner.character.name
-? "🌌 الشخصية المميزة لهذا اليوم"
-: "✨ حصلت على SSS عشوائية خارج البنر!"
+        await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, bpJid)
+        await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, bpJid)
 
-const caption =
-`╭━━〔 🌌 LIMITED BANNER 🌌 〕━━╮
+        // ⚡ نقاط العوالم تندمج بكابشن النتيجة
+        const bpWorldTexts = []
 
-👑 ${randomCharacter.name}
-
-${randomCharacter.rarity === "SSS"
-? `${bannerText}
-
-`
-: ""}🌟 التصنيف ➤ ${randomCharacter.rarity}
-
-⚔ القوة ➤ ${randomCharacter.power}
-
-🌌 الأنمي ➤ ${randomCharacter.anime}
-
-━━━━━━━━━━━━
-
-🎟️ السحبات المتبقية ➤ ${player.pulls}/5
-
-🎯 عداد الضمان ➤ ${player.bannerPity}/30
-
-📌 المتبقي للضمان ➤ ${pityLeft} سحبة
-
-${guaranteed ? "🎯 حصلت عليها من ضمان البنر!" : ""}
-
-╰━━━━━━━━━━━━━━━━━━━━━━╯${bannerWorldPointsSuffix}`
-
-// ======================
-// إذا لا توجد صورة
-// ======================
-
-if (!randomCharacter.image) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text: caption
+        for (const r of rolled.results) {
+            const wt = await worlds.awardPullPoints(player, sock, bpJid, r.rarity)
+            if (wt) bpWorldTexts.push(wt)
         }
-    )
 
-}
+        const bpExtra = bpWorldTexts.length
+            ? `\n\n${[...new Set(bpWorldTexts)].join('\n')}`
+            : ''
 
-// ======================
-// إذا الصورة رابط
-// ======================
+        let bpCaption
+        let bpShow
 
-if (randomCharacter.image.startsWith("http")) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            image: {
-                url: randomCharacter.image
-            },
-            caption
+        if (bpCount === 1) {
+            bpShow = rolled.results[0].character
+            bpCaption = bannerMgr.buildSingleResult(
+                rolled.results[0], orbDocAfter, bannerState, bpCost, bpExtra
+            )
+        } else {
+            bpShow = bannerMgr.bestResult(rolled.results).character
+            bpCaption = bannerMgr.buildMultiResult(
+                rolled.results, orbDocAfter, bpCost, bpExtra
+            )
         }
-    )
 
-}
+        return bannerMgr.sendCharacterMessage(sock, bpJid, bpShow, bpCaption)
 
-// ======================
-// إذا الصورة داخل المشروع
-// ======================
+    } catch (e) {
 
-const imagePath =
-path.join(
-    __dirname,
-    randomCharacter.image
-)
+        console.log('.سحب_بنر error:', e)
 
-if (!(await fileExists(imagePath))) {
-
-    return sock.sendMessage(
-        msg.key.remoteJid,
-        {
-            text: caption
+        // فشل بعد الخصم وقبل حفظ الشخصيات → نسترجع الأورب
+        if (bpCharged) {
+            try {
+                await orbs.refundOrbs(userId, bpCost)
+            } catch (re) {
+                console.log('refund orbs error:', re)
+            }
         }
-    )
 
-}
-
-return sock.sendMessage(
-    msg.key.remoteJid,
-    {
-        image: await fs.promises.readFile(imagePath),
-        caption
-    }
-)
+        return sock.sendMessage(
+            bpJid,
+            { text: '❌ حدث خطأ أثناء السحب' + (bpCharged ? '\n🔮 تم استرجاع الأورب' : '') }
+        )
 
     } finally {
         clearTimeout(bannerPullLockTimeout)
         pullLocks.delete(userId)
     }
-        } // <-- أغلق .سحب_بنر هنا
+
+} // <-- أغلق .سحب_بنر هنا
 
     // =========================
     // ⚔️ WEAPONS SYSTEM COMMANDS (نظام الأسلحة)
@@ -30790,6 +30553,9 @@ today
 await player.save()
 
 await checkAndGrantAchievement(player, 'daily', player.dailyStreak, sock, msg.key.remoteJid)
+
+// 🔮 مهمة الأورب: استلام .يومي
+await orbs.trackMission(userId, 'daily', { sock, jid: msg.key.remoteJid })
 await checkAndGrantAchievement(player, 'wealth', player.totalEarnedMoney, sock, msg.key.remoteJid)
 
 return safeSend(
@@ -36450,6 +36216,9 @@ if (atk.stun > 0) {
     await attacker.save()
     await defender.save()
 
+    // 🔮 مهمة الأورب: الفوز في PvP
+    await orbs.trackMission(winner.userId, 'pvpWins', { sock, jid: msg.key.remoteJid })
+
     await checkAndGrantAchievement(winner, 'pvp', winner.wins, sock, msg.key.remoteJid)
     await checkAndGrantAchievement(winner, 'wealth', winner.totalEarnedMoney, sock, msg.key.remoteJid)
 
@@ -37436,6 +37205,11 @@ if (tierChance <= 50) {
 // احفظ جميع التعديلات أولاً
 await me.save();
 
+// 🔮 مهمة الأورب: الفوز في قتال المجموعات
+if (winnerId === userId) {
+    await orbs.trackMission(userId, 'groupWins', { sock, jid: msg.key.remoteJid })
+}
+
 // 🌍 نقاط العوالم: تُمنح للفائز بس إذا كان الخصم من عالم مختلف عن عالمه
 // ⚡ دمج رسالة "+نقطة عالم" برسالة نتيجة القتال بدل رسالة واتساب مستقلة
 let groupBattleWorldPointsText = null
@@ -37904,6 +37678,11 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
 
         await me.save()
         await enemy.save()
+
+        // 🔮 مهمة الأورب: الفوز في قتال عادي
+        if (finalMyAttack >= finalEnemyAttack) {
+            await orbs.trackMission(me.userId || userId, 'fightWins', { sock, jid: msg.key.remoteJid })
+        }
 
         // =====================
         // الرسالة النهائية
