@@ -384,6 +384,12 @@ favoriteObtained: {
     default: 0
 },
 
+// 💙 عدد النسخ المضافة من رفيق سونيك للمفضلة الحالية (الحد الأقصى 2)
+sonicBonusUsed: {
+    type: Number,
+    default: 0
+},
+
 lastPvP: {
     type: Number,
     default: 0
