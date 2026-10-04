@@ -64,6 +64,10 @@ const weeklyLocks = new Set();
 const dailyLocks = new Set();
 // 🔒 قفل لأمر .استلام_المهام يمنع استلام جائزة المهام اليومية مرتين من رسائل متزامنة
 const missionsClaimLocks = new Set();
+// 🔒 قفل لأوامر المضاربة (.مضاربة / .قبول مضاربة) — يمنع الخصم المزدوج أو تجاوز الحد من رسائل متزامنة (نفس فكرة قفل .اسحب)
+const brawlLocks = new Set();
+// 🔒 قفل لأوامر .قتال و .تحدي و .قبول_تحدي — نفس فكرة قفل .اسحب (رسالتين متزامنتين لنفس اللاعب ما تنفذان معاً)
+const fightCmdLocks = new Set();
 const bankSystem = require("./bankSystem")
 const animeEvents = require("./animeEvents")
 
@@ -241,7 +245,7 @@ async function retryOnDisconnect(label, fn, tries = 5, delayMs = 3000) {
 // =========================
 // 🟢 فتح البوت للأعضاء خارج وقت العمل (بأمر المطور .فتح_البوت)
 // - يفتح البوت حتى أول 10:00 صباحاً بتوقيت الرياض (وقت الفتح العادي)،
-//   بعدها يرجع الجدول الطبيعي تلقائياً (10ص - 12:05).
+//   بعدها يرجع الجدول الطبيعي تلقائياً (10ص - 12:00).
 // - .قفل_البوت يلغي الفتح اليدوي فوراً.
 // - يُحفظ بملف عشان ما يضيع مع ريستارت البوت.
 // =========================
@@ -313,12 +317,9 @@ function regularBotAvailable() {
     }).formatToParts(new Date());
 
     const hour = parseInt(parts.find(p => p.type === "hour").value, 10);
-    const minute = parseInt(parts.find(p => p.type === "minute").value, 10);
 
-    // يعمل من 10:00 صباحاً حتى 12:05 منتصف الليل (بدل 12:00 — مهلة إضافية 5 دقائق)
-    let result = false;
-    if (hour >= 10) result = true;
-    else if (hour === 0 && minute < 5) result = true;
+    // يعمل من 10:00 صباحاً حتى 12:00 منتصف الليل (أُزيلت مهلة الـ5 دقائق)
+    const result = hour >= 10;
 
     _botAvailableCache = { value: result, at: now }
     return result;
@@ -793,6 +794,24 @@ timeZone: 'Asia/Riyadh'
 }
 )
 
+}
+
+// 🥊 المضاربات: 15 مضاربة يومياً لكل لاعب، تتجدد 12:00 ص بتوقيت السعودية (نفس يوم getSaudiDate)
+const BRAWL_DAILY_LIMIT = 15
+
+function getBrawlDayKey() {
+    return Number(getSaudiDate().replace(/-/g, ''))
+}
+
+// يجدّد عدّاد اللاعب لو صار يوم جديد. يرجّع true لو تغيّر شي (لازم save بعدها)
+function refreshBrawlDaily(player) {
+    const key = getBrawlDayKey()
+    if (player.lastBrawlReset !== key) {
+        player.brawlFights = BRAWL_DAILY_LIMIT
+        player.lastBrawlReset = key
+        return true
+    }
+    return false
 }
 
 async function resetDailyMissions(player) {
@@ -5649,17 +5668,8 @@ ${equipSummaryText(char2EquipBonus)}
     player1.rankTier = getRankTier(player1.rankPoints)
 }
 
-    player1.brawlFights =
-        Math.max(
-            0,
-            (player1.brawlFights || 0) - 1
-        )
-
-    player2.brawlFights =
-        Math.max(
-            0,
-            (player2.brawlFights || 0) - 1
-        )
+    // ⚠️ كان هنا خصم ثاني للمحاولات (الخصم الأول يصير بـ .قبول مضاربة قبل البدء)
+    // فكانت كل مضاربة تنحسب مرتين. الآن تنخصم مرة وحدة فقط عند القبول.
 
     // 🎉 مكافآت الترقية + إشعار فوري عند تغيّر الرانك (لكل من الفائز والخاسر)
     let rankBlock = ''
@@ -7969,7 +7979,7 @@ if (!text) return;
 
     // =========================
     // 🟢 .فتح_البوت / .قفل_البوت — للمطور فقط (isOwner)
-    // يفتح البوت للأعضاء خارج وقت العمل (بعد 12:05 وقبل 10 ص) ويرسل
+    // يفتح البوت للأعضاء خارج وقت العمل (بعد 12:00 وقبل 10 ص) ويرسل
     // رسالة واحدة "البوت عاد للعمل" لكل القروبات. أسماء مستقلة تماماً
     // عن .تشغيل/.ايقاف (اللي تخص قروب واحد) — مطابقة تامة للنص، ومكانها
     // هنا فوق كل الأنظمة عشان ما يتعارض معها أي أمر ثاني.
@@ -7994,7 +8004,7 @@ if (!text) return;
 
                 if (!isBotForceOpen()) {
                     return sock.sendMessage(msg.key.remoteJid, {
-                        text: 'ℹ️ البوت مو مفتوح يدوياً — يشتغل حسب جدوله العادي (10 ص - 12:05 ص)'
+                        text: 'ℹ️ البوت مو مفتوح يدوياً — يشتغل حسب جدوله العادي (10 ص - 12:00 ص)'
                     })
                 }
 
@@ -8002,7 +8012,7 @@ if (!text) return;
                 saveBotForceOpen(0)
 
                 return sock.sendMessage(msg.key.remoteJid, {
-                    text: '🔴 تم قفل البوت عن الأعضاء — رجع للجدول العادي (10 ص - 12:05 ص)'
+                    text: '🔴 تم قفل البوت عن الأعضاء — رجع للجدول العادي (10 ص - 12:00 ص)'
                 })
             }
 
@@ -8015,7 +8025,7 @@ if (!text) return;
 
             if (regularBotAvailable()) {
                 return sock.sendMessage(msg.key.remoteJid, {
-                    text: 'ℹ️ البوت شغال أصلاً بوقته العادي (10 ص - 12:05 ص)، ما يحتاج فتح'
+                    text: 'ℹ️ البوت شغال أصلاً بوقته العادي (10 ص - 12:00 ص)، ما يحتاج فتح'
                 })
             }
 
@@ -8202,7 +8212,7 @@ if (!text) return;
     // 🎯 لعبة كود نيمز (أوامر القروب: تسجيل/فرق/بدء/تخمين)
     // ⚠️ استُثنيت من بوابة أوقات عمل البوت (نُقلت لهنا قبل البوابة) —
     // نفس أسلوب استثناء برا السالفة/الذئاب فوق، عشان أوامرها تشتغل
-    // حتى بعد 12:05 وقبل 10 صباحاً.
+    // حتى بعد 12:00 وقبل 10 صباحاً.
     // =========================
     if (
         textMatchesAnyPrefix(text, CODENAMES_PREFIXES) &&
@@ -8220,7 +8230,7 @@ if (!text) return;
     // =========================
     // 🎯⌨️🎲 إجابات الفعاليات السريعة (القناص / اكتب التالي / رقم الحظ)
     // ⚡ نُقلت لهنا (قبل بوابة الأوقات وقبل بقية الأوامر) عشان الإجابة ما
-    // يلتقطها أمر ثاني (مثل .نامي) ولا تنحجب بعد 12:05 لو البوت مقفل.
+    // يلتقطها أمر ثاني (مثل .نامي) ولا تنحجب بعد 12:00 لو البوت مقفل.
     // كل شرط يشترط فعالية نشطة، فأي رسالة عادية تكمل طريقها طبيعي.
     // =========================
     if (QUICK_EVENT_GROUPS.includes(msg.key.remoteJid)) {
@@ -8299,12 +8309,12 @@ if (!text) return;
     }
 
     // =========================
-    // ⏰ بوابة أوقات عمل البوت (10:00 صباحاً - 12:05 منتصف الليل)
+    // ⏰ بوابة أوقات عمل البوت (10:00 صباحاً - 12:00 منتصف الليل)
     // ⚡ نُقلت لهنا لأنها كانت فعليًا بعد 6 أنظمة كاملة (برا السالفة/
     // الذئاب/كود نيمز/بطولة المعرض/السفن/العوالم) رغم إن التعليق
     // الأصلي يقول "لازم تكون أول شي بعد تحديد userId عشان تطبّق على
     // كل الأوامر بدون استثناء" — فعليًا هالأنظمة الست كانت تشتغل حتى
-    // بعد 12:05 وقبل 10 صباحاً بدون أي قيد. هنا فعلاً توقف كل شي
+    // بعد 12:00 وقبل 10 صباحاً بدون أي قيد. هنا فعلاً توقف كل شي
     // بغض النظر عن نوعه، قبل أي نظام ثاني.
     // ⚠️ برا السالفة/الذئاب/كود نيمز استُثنيت من هذي البوابة (شوف أعلى) —
     // كل باقي الأنظمة (بطولة المعرض/السفن/العوالم) لسا خاضعة لها.
@@ -11158,8 +11168,8 @@ const commandExplanations = {
         '.فك_باند': 'أمر للمطور فقط - يفك الباند الأسبوعي (نفس صيغة .باند). مثال: .فك_باند 18778352001190@lid',
         '.تشغيل': 'أمر للمطور فقط - يفعّل البوت بقروب معيّن من القروبات المسموحة.',
         '.ايقاف': 'أمر للمطور فقط - يوقف البوت بقروب معيّن.',
-        '.فتح_البوت': 'أمر للمطور فقط - يفتح البوت للأعضاء خارج وقت العمل (بعد 12:05 ص) ويرسل رسالة "البوت عاد للعمل" مرة وحدة لكل القروبات.',
-        '.قفل_البوت': 'أمر للمطور فقط - يلغي الفتح اليدوي ويرجع البوت لجدوله العادي (10 ص - 12:05 ص).',
+        '.فتح_البوت': 'أمر للمطور فقط - يفتح البوت للأعضاء خارج وقت العمل (بعد 12:00 ص) ويرسل رسالة "البوت عاد للعمل" مرة وحدة لكل القروبات.',
+        '.قفل_البوت': 'أمر للمطور فقط - يلغي الفتح اليدوي ويرجع البوت لجدوله العادي (10 ص - 12:00 ص).',
         '.ريست_البرج_للجميع': 'أمر لصاحب البوت فقط - يصفّر تقدم البرج لكل اللاعبين دفعة وحدة.',
         '.الترتيب': 'أمر للمطور فقط - يعرض/يدير ترتيب اللاعبين بالقروب.',
         '.جوائز_الترتيب': 'أمر للمطور فقط - يوزّع جوائز الترتيب/المساهمات على اللاعبين يدوياً.',
@@ -14536,6 +14546,21 @@ if (
 
     if (text.startsWith('.تحدي')) {
 
+    // 🔒 منع تنفيذ أكثر من .تحدي بنفس الوقت لنفس اللاعب (نفس فكرة قفل .اسحب)
+    if (fightCmdLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي العملية السابقة.'
+        })
+    }
+
+    fightCmdLocks.add(userId)
+
+    const challengeLockTimeout = setTimeout(() => {
+        fightCmdLocks.delete(userId)
+    }, 20000)
+
+    try {
+
     const target =
         msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0]
 
@@ -14676,6 +14701,11 @@ await PvP.create({
 .رفض_تحدي`,
         mentions: [target]
     })
+
+    } finally {
+        clearTimeout(challengeLockTimeout)
+        fightCmdLocks.delete(userId)
+    }
     }
 
 // ─── .هجوم ───
@@ -16198,6 +16228,22 @@ return safeSend(msg.key.remoteJid, {
 
     if (text.startsWith('.مضاربة')) {
 
+    // 🔒 منع تنفيذ أكثر من أمر مضاربة بنفس الوقت لنفس اللاعب
+    if (brawlLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي عملية المضاربة السابقة.'
+        })
+    }
+
+    brawlLocks.add(userId)
+
+    // 🛡️ حماية: فك القفل تلقائياً بعد 20 ثانية حتى لو تعلّق أي await
+    const brawlLockTimeout = setTimeout(() => {
+        brawlLocks.delete(userId)
+    }, 20000)
+
+    try {
+
     const mentioned =
         msg.message?.extendedTextMessage
         ?.contextInfo?.mentionedJid?.[0]
@@ -16252,36 +16298,19 @@ return safeSend(msg.key.remoteJid, {
         )
     }
 
-    // تجديد المحاولات كل ساعة
-
-    const hour =
-        60 * 60 * 1000
-
-    const currentPeriod =
-        Math.floor(
-            Date.now() / hour
-        )
-
-    if (
-        player.lastBrawlReset !==
-        currentPeriod
-    ) {
-
-        player.brawlFights = 5
-        player.lastBrawlReset =
-            currentPeriod
-
+    // تجديد المحاولات يومياً 12:00 ص بتوقيت السعودية (15 مضاربة لكل لاعب)
+    if (refreshBrawlDaily(player)) {
         await player.save()
     }
 
-    if (
-        player.brawlFights <= 0
-    ) {
+    if ((player.brawlFights || 0) <= 0) {
         return safeSend(
             msg.key.remoteJid,
             {
                 text:
-                '❌ انتهت محاولات المضاربة لهذا الساعة'
+`❌ انتهت مضارباتك اليوم (0/${BRAWL_DAILY_LIMIT})
+
+🔄 تتجدد 12:00 ص بتوقيت السعودية`
             }
         )
     }
@@ -16342,11 +16371,33 @@ return safeSend(msg.key.remoteJid, {
             mentions: [mentioned]
         }
     )
+
+    } finally {
+        clearTimeout(brawlLockTimeout)
+        brawlLocks.delete(userId)
+    }
 }
 
 // ─── .قبول مضاربة ───
 
 if (text === '.قبول مضاربة') {
+
+    // 🔒 منع تنفيذ أكثر من قبول بنفس الوقت لنفس اللاعب
+    if (brawlLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي عملية المضاربة السابقة.'
+        })
+    }
+
+    brawlLocks.add(userId)
+
+    const brawlLockTimeout = setTimeout(() => {
+        brawlLocks.delete(userId)
+    }, 20000)
+
+    let brawlChallengerLockId = null
+
+    try {
 
     const player =
         await Player.findOne({
@@ -16405,6 +16456,16 @@ if (age > 5 * 60 * 1000) {
         )
     }
 
+    // 🔒 قفل صاحب الطلب كذلك (يمنع خصم عدّاده من عمليتين متزامنتين)
+    if (brawlLocks.has(challenger.userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ صاحب الطلب عنده عملية مضاربة جارية، حاول بعد لحظات.'
+        })
+    }
+
+    brawlLocks.add(challenger.userId)
+    brawlChallengerLockId = challenger.userId
+
     // التحقق من التشكيلة
 
     if (
@@ -16432,14 +16493,19 @@ if (age > 5 * 60 * 1000) {
             }
         )
     }
-    // المضاربات المتبقية
+    // المضاربات المتبقية (تجديد يومي 12:00 ص لكلا الطرفين — القابل ممكن ما استخدم الأمر اليوم فعدّاده قديم)
+
+    refreshBrawlDaily(player)
+    refreshBrawlDaily(challenger)
 
     if ((player.brawlFights || 0) <= 0) {
         return safeSend(
             msg.key.remoteJid,
             {
                 text:
-                '❌ انتهت مضارباتك لهذه الساعة'
+`❌ انتهت مضارباتك اليوم
+
+🔄 تتجدد 12:00 ص بتوقيت السعودية`
             }
         )
     }
@@ -16449,7 +16515,7 @@ if (age > 5 * 60 * 1000) {
             msg.key.remoteJid,
             {
                 text:
-                '❌ الخصم لا يملك مضاربات متبقية'
+                '❌ الخصم لا يملك مضاربات متبقية اليوم'
             }
         )
     }
@@ -16468,6 +16534,12 @@ if (age > 5 * 60 * 1000) {
         challenger,
         player
     )
+
+    } finally {
+        clearTimeout(brawlLockTimeout)
+        brawlLocks.delete(userId)
+        if (brawlChallengerLockId) brawlLocks.delete(brawlChallengerLockId)
+    }
 }
 
 // ─── .رفض مضاربة ───
@@ -32701,24 +32773,7 @@ if (text === '.مضارباتي') {
         )
     }
 
-    const hour =
-        60 * 60 * 1000
-
-    const currentPeriod =
-        Math.floor(
-            Date.now() / hour
-        )
-
-    if (
-        player.lastBrawlReset !==
-        currentPeriod
-    ) {
-
-        player.brawlFights = 5
-
-        player.lastBrawlReset =
-            currentPeriod
-
+    if (refreshBrawlDaily(player)) {
         await player.save()
     }
 
@@ -32729,8 +32784,10 @@ if (text === '.مضارباتي') {
 
 `🥊 ═══════〔 المضاربات 〕═══════ 🥊
 
-⚔️ المتبقي:
-${player.brawlFights}/5
+⚔️ المتبقي اليوم:
+${player.brawlFights}/${BRAWL_DAILY_LIMIT}
+
+🔄 تتجدد 12:00 ص بتوقيت السعودية
 
 🏆 الانتصارات:
 ${player.brawlWins || 0}
@@ -35587,6 +35644,21 @@ ${result.deletedCount}`
 
     if (text === '.قبول_تحدي') {
 
+    // 🔒 منع قبول التحدي مرتين من رسائل متزامنة (نفس فكرة قفل .اسحب)
+    if (fightCmdLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي العملية السابقة.'
+        })
+    }
+
+    fightCmdLocks.add(userId)
+
+    const acceptChallengeLockTimeout = setTimeout(() => {
+        fightCmdLocks.delete(userId)
+    }, 20000)
+
+    try {
+
     const fight = await PvP.findOne({
         player2: userId,
         active: false
@@ -35695,6 +35767,11 @@ ${team2Names}
         firstTurn
     ]
 })
+
+    } finally {
+        clearTimeout(acceptChallengeLockTimeout)
+        fightCmdLocks.delete(userId)
+    }
     }
 
 
@@ -37511,6 +37588,19 @@ catch (err) {
     
 if (text === '.قتال' || text.startsWith('.قتال ')) {
 
+    // 🔒 منع تنفيذ أكثر من .قتال بنفس الوقت لنفس اللاعب (نفس فكرة قفل .اسحب)
+    if (fightCmdLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى ينتهي القتال السابق.'
+        })
+    }
+
+    fightCmdLocks.add(userId)
+
+    const fightCmdLockTimeout = setTimeout(() => {
+        fightCmdLocks.delete(userId)
+    }, 20000)
+
     try {
 
         const args = text.trim().split(' ')
@@ -37914,6 +38004,9 @@ ${me.normalFights}/${NORMAL_FIGHTS_MAX}
         return safeSend(msg.key.remoteJid, {
             text: '❌ حدث خطأ أثناء القتال'
         })
+    } finally {
+        clearTimeout(fightCmdLockTimeout)
+        fightCmdLocks.delete(userId)
     }
 }
         
