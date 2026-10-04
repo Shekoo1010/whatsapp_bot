@@ -1155,9 +1155,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             securityHeaders(res)
             res.redirect(303, `/u/${code}`)
 
-            // 📩 إشعار المالك بكل تسجيل دخول (بعد الرد، لا يؤخر ولا يفشل الدخول)
-            notifyOwner(`🔐 تسجيل دخول لموقع الشخصيات\n👤 ${player.username} (${player.name || '-'})\n🌐 ${ip}\n🕒 ${new Date().toISOString()}`)
-                .catch(() => {})
+            // 🔕 تم إيقاف إشعار المالك بتسجيل الدخول (بطلب المالك)
         } catch (err) {
             console.error('login error:', err)
             return back('صار خطأ بالخادم، حاول مرة ثانية.', 500)
