@@ -2231,11 +2231,14 @@ function bossPageHTML({ viewer, code, data }) {
 
   // ───── متابعة أحداث الزعيم العامة (Polling) ─────
   function poll(){
-    if(document.hidden||busy) return;
+    if(document.hidden) return;
+    var wasBusy=busy;
     fetch('/boss/state?since='+lastId,{credentials:'same-origin'})
     .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
     .then(function(j){
       if(!j||!j.ok) return;
+      // أثناء أنيميشن هجومي: نحدّث لوحة الضرر فقط (بدون المساس بالزعيم/الدم المعروض)
+      if(wasBusy||busy){ if(j.state&&j.state.board) renderBoard(j.state.board); return; }
       var keepChars=S.characters, hpBefore=(S.me&&S.me.hp)||0;
       applyState(j.state); S.characters=keepChars;
       var drop=Math.max(0,hpBefore-((S.me&&S.me.hp)||0)), fresh=[];
@@ -2251,7 +2254,7 @@ function bossPageHTML({ viewer, code, data }) {
   (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
   (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results') addTo($('pub'),eventNode(e,true),12); });
   if(D.results) renderResults(D.results);
-  tick(); setInterval(tick,500); pollTimer=setInterval(poll,5000);
+  tick(); setInterval(tick,500); pollTimer=setInterval(poll,3000);
 })();
 </script></body></html>`
 }

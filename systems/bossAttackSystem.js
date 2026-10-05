@@ -71,56 +71,6 @@ function createBossAttackSystem(deps) {
         return lines
     }
 
-    // ───────────── 🏆 ترتيب الضرر المباشر + المهاجمون النشطون ─────────────
-    // الضرر مجمّع أصلاً على نفس الزعيم (bossDamage لكل لاعب، من الموقع والواتس معاً).
-    // هنا فقط نقرأ أعلى المهاجمين بكاش قصير حتى لا يضغط تحديث الصفحات على قاعدة البيانات.
-    const BOARD_TTL_MS = 2500
-    const BOARD_SIZE = 8
-    const ONLINE_WINDOW_MS = 2 * 60 * 1000 // «يهاجمون الآن» = هاجموا خلال آخر دقيقتين
-    let _board = null
-    let _boardAt = 0
-    let _boardPromise = null
-
-    function getBoard() {
-        if (_board && Date.now() - _boardAt < BOARD_TTL_MS) return Promise.resolve(_board)
-        if (_boardPromise) return _boardPromise
-        _boardPromise = (async () => {
-            try {
-                const rows = await Player.find({ bossDamage: { $gt: 0 } })
-                    .sort({ bossDamage: -1 })
-                    .limit(BOARD_SIZE)
-                    .select({ userId: 1, name: 1, username: 1, bossDamage: 1, bossHits: 1, lastBossAttack: 1, characters: { $slice: 1 } })
-                    .lean()
-                const t = Date.now()
-                const online = await Player.countDocuments({ lastBossAttack: { $gt: t - ONLINE_WINDOW_MS } })
-                _board = {
-                    online,
-                    rows: rows.map(p => {
-                        const c = (p.characters || [])[0]
-                        return {
-                            userId: p.userId,
-                            name: nameOf(p),
-                            damage: Number(p.bossDamage) || 0,
-                            hits: Number(p.bossHits) || 0,
-                            active: (Number(p.lastBossAttack) || 0) > t - ONLINE_WINDOW_MS,
-                            first: c ? {
-                                name: c.name, rarity: c.rarity, form: c.form, evolutionLevel: c.evolutionLevel || 0,
-                                image: c.image || null, customImage: c.customImage || null
-                            } : null
-                        }
-                    })
-                }
-            } catch (e) {
-                console.error('boss board error:', e)
-                if (!_board) _board = { online: 0, rows: [] }
-            }
-            _boardAt = Date.now()
-            return _board
-        })()
-        _boardPromise.finally(() => { _boardPromise = null })
-        return _boardPromise
-    }
-
     // ───────────── حالة الصفحة ─────────────
     // 🖼️ صورة التابع دائماً من bosses.js (آخر نسخة) — الزعيم الحالي مخزّن بقاعدة البيانات
     // بروابط وقت ظهوره، فلو غيّرت الروابط ما تتحدّث عليه إلا بعد زعيم جديد
@@ -141,6 +91,66 @@ function createBossAttackSystem(deps) {
         }))
     }
 
+    // ───────────── 🏆 ترتيب الضرر على الزعيم الحالي (أعلى 10) ─────────────
+    // يقرأ bossDamage من قاعدة البيانات مباشرة، فيشمل هجمات الواتس والموقع معاً.
+    // كاش قصير (1.5 ث) مشترك بين كل اللاعبين عشان استطلاع الصفحات كل ثواني ما يضغط القاعدة،
+    // ويُصفَّر فوراً عند أي هجوم من الموقع عشان ضرر المهاجم يظهر بدون تأخير.
+    const BOARD_LIMIT = 10
+    const BOARD_ACTIVE_MS = 90 * 1000
+    const BOARD_TTL_MS = 1500
+    let _boardCache = { at: 0, top: [], online: 0 }
+
+    function invalidateBoard() { _boardCache.at = 0 }
+
+    async function loadBoardBase() {
+        const now = Date.now()
+        if (_boardCache.at && now - _boardCache.at < BOARD_TTL_MS) return _boardCache
+        const [top, online] = await Promise.all([
+            Player.find(
+                { bossDamage: { $gt: 0 } },
+                {
+                    userId: 1, name: 1, username: 1, bossDamage: 1, bossHits: 1,
+                    lastBossAttack: 1, characters: { $slice: 1 }
+                }
+            ).sort({ bossDamage: -1 }).limit(BOARD_LIMIT).lean(),
+            Player.countDocuments({ lastBossAttack: { $gte: now - BOARD_ACTIVE_MS } })
+        ])
+        _boardCache = { at: now, top, online }
+        return _boardCache
+    }
+
+    async function getBoard(userId, me) {
+        try {
+            const base = await loadBoardBase()
+            const now = Date.now()
+
+            const rows = base.top.map(p => ({
+                userId: p.userId,
+                name: nameOf(p),
+                damage: Number(p.bossDamage) || 0,
+                hits: Number(p.bossHits) || 0,
+                active: !!p.lastBossAttack && now - Number(p.lastBossAttack) < BOARD_ACTIVE_MS,
+                isMe: p.userId === userId,
+                first: (p.characters && p.characters[0]) || null
+            }))
+
+            let myRank = null
+            const idx = rows.findIndex(r => r.isMe)
+            if (idx !== -1) {
+                myRank = idx + 1
+            } else if (me && (Number(me.bossDamage) || 0) > 0) {
+                // خارج أعلى 10: نحسب ترتيبه الحقيقي
+                const ahead = await Player.countDocuments({ bossDamage: { $gt: Number(me.bossDamage) } })
+                myRank = ahead + 1
+            }
+
+            return { online: base.online, myRank, rows }
+        } catch (err) {
+            console.error('boss board error:', err)
+            return { online: 0, myRank: null, rows: [] }
+        }
+    }
+
     async function getState(userId) {
         const boss = getBoss()
         const me = await Player.findOne({ userId })
@@ -157,12 +167,6 @@ function createBossAttackSystem(deps) {
             if (_hp >= _mx) boss._sawFull = true
             else if (boss._sawFull && !boss.firstHitAt) boss.firstHitAt = now
         }
-        // 🏆 ترتيب الضرر + ترتيبي (استعلام واحد خفيف فقط لمن ضرب الزعيم)
-        const boardRaw = await getBoard()
-        let myRank = null
-        if ((me.bossDamage || 0) > 0) {
-            try { myRank = (await Player.countDocuments({ bossDamage: { $gt: me.bossDamage } })) + 1 } catch (_) {}
-        }
         const last = Math.max(Number(me.lastBossAttack) || 0, fastCd.get(userId) || 0)
         const cdLeft = Math.max(0, COOLDOWN_MS - (now - last))
 
@@ -171,6 +175,8 @@ function createBossAttackSystem(deps) {
             const respawn = me.bossRespawn ? new Date(me.bossRespawn).getTime() : 0
             deadLeftMs = Math.max(0, respawn - now)
         }
+
+        const board = await getBoard(userId, me)
 
         return {
             open: !!isAttackOpen(),
@@ -198,11 +204,7 @@ function createBossAttackSystem(deps) {
                 hits: me.bossHits || 0
             },
             cooldownMs: cdLeft,
-            board: {
-                online: boardRaw.online,
-                myRank,
-                rows: boardRaw.rows.map(r => ({ ...r, isMe: r.userId === userId }))
-            },
+            board,
             characters: (me.characters || []).map((c, i) => ({
                 index: i + 1, name: c.name, rarity: c.rarity, power: c.power || 0,
                 evolutionLevel: c.evolutionLevel || 0, image: c.image || null,
@@ -830,6 +832,7 @@ function createBossAttackSystem(deps) {
             bumpWeekly(me, 'bossHits', 1)
 
             await me.save()
+            invalidateBoard()
 
             // الإشعارات الجانبية (إنجاز/نقاط عالم) تروح لخاص اللاعب — ولا شيء للقروب
             const notifyJid = await getNotifyJid(userId)
