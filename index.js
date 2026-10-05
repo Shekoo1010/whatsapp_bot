@@ -355,7 +355,7 @@ const Player = require('./models/Player')
 // ☁️ صور .استبدال تترفع مباشرة لـ Cloudinary (رابط دائم لا يتأثر
 // بريستارت/إعادة نشر البوت) — ما عاد نحتاج نسخة احتياطية base64 جوا
 // مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
-const { uploadCustomCharacterImage, deleteCustomCharacterImage } = require('./utils/cloudinary')
+const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage } = require('./utils/cloudinary')
 
 // 🏟️ نظام الأرينا (ملف خارجي كامل — راجع systems/arenaCommands.js و systems/arenaSystem.js)
 const { handleArenaCommand, ARENA_HELP } = require('./systems/arenaCommands')
@@ -1901,6 +1901,7 @@ const bosses = require('./bosses')
 const xo =
     require('./xo')
 const characters = require('./characters.json')
+const catalogImages = require('./systems/catalogImages')
 
 // ═══════════════════════════════════════════════
 // ⚡ فهارس مسبقة الحساب لكتالوج الشخصيات الثابت (characters.json)
@@ -6342,6 +6343,7 @@ ${topKillers.map(p => `@${p.userId.split('@')[0]}`).join('\n')}
 }
 
 async function startBot() {
+    await catalogImages.loadAndApply(characters)
 console.log('🚀 START BOT', Date.now())
     console.log("START BOT")
 
@@ -6415,6 +6417,22 @@ const sock = makeWASocket({
 
     syncFullHistory: false
 })
+
+// 🛡️ لو شخصية بدون صورة (image فارغ) انسحبت قبل ما يضع المطور صورتها بـ .ص،
+// نحوّل إرسال الصورة الفارغة لرسالة نصية بدل ما يفشل الإرسال/الأمر
+{
+    const _origSendMessage = sock.sendMessage.bind(sock)
+    sock.sendMessage = (jid, content, ...rest) => {
+        if (
+            content && content.image && typeof content.image === 'object' &&
+            !Buffer.isBuffer(content.image) && 'url' in content.image && !content.image.url
+        ) {
+            const { image, caption, ...others } = content
+            return _origSendMessage(jid, { ...others, text: caption || '🎴' }, ...rest)
+        }
+        return _origSendMessage(jid, content, ...rest)
+    }
+}
 
 // ⚡ ربط كاش القروبات بأحداث التغيير (يمسح القروب المتغيّر فقط)
 groupMetadataCache.attach(sock)
@@ -7572,6 +7590,11 @@ sock.ev.on('messages.upsert', async ({ messages }) => {
     // (حتى لو أجزاء ثانية لكل فحص) يتراكم ويُحتسب ظلماً كجزء من وقت إجابة
     // اللاعب على الكويز. هذا المتغير لا يُستخدم إلا بحساب وقت الكويز فقط.
     const messageReceivedAt = Date.now()
+
+    // 🖼️ .ص — (للمطور) صور الكتالوج العامة للشخصيات اللي بدون صورة (systems/catalogImages.js)
+    if (await catalogImages.handleCatalogImageCommand(msg, {
+        sock, safeSend, downloadMediaMessage, uploadCatalogImage, isOwner, characters
+    })) return
 
 
     // =========================
@@ -10899,6 +10922,7 @@ const commandExplanations = {
         '.استرجاع': 'يسترجع شخصية باعتها بالخطأ من سجل المبيعات الأخيرة. مثال: .استرجاع رقم',
         '.قائمة_sss': 'يعرض قائمة كل شخصياتك من رتبة SSS مع تصفح بالصفحات. مثال: .قائمة_sss 2',
         '.صوره_sss': 'يعرض صورة شخصية SSS معينة تملكها برقمها. مثال: .صوره_sss رقم',
+        '.ص': 'للمطور فقط: بدون صورة يرسل قائمة الشخصيات اللي بدون صورة مرقّمة. ككابشن على صورة مع رقم (.ص 1) يضع الصورة للشخصية لكل اللاعبين',
         '.استبدال': 'يستبدل صورة شخصية تملكها (برقمها من .شخصياتي) بصورة ترسلها ككابشن على الصورة — خاص بك أنت فقط. مثال: أرفق صورة واكتب بكابشنها .استبدال 1',
         '.استبدال حذف': 'بدون رقم: يحذف كل الصور المستبدلة عندك دفعة وحدة. برقم: يحذف صورة شخصية معينة فقط ويرجّع صورتها الأساسية. مثال: .استبدال حذف — أو .استبدال حذف 1',
         '.المفضلة': 'يدير قائمة شخصياتك المفضلة (لحمايتها من البيع أو التصفية بالخطأ مثلاً).',

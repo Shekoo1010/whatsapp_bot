@@ -14812,5 +14812,482 @@
     "rarity": "SSS",
     "ability": "سيف الانفصال",
     "image": "https://i.postimg.cc/Pr2gt1nZ/78a8decc89c9e6e47ded83588bcba172.jpg"
+  },
+  {
+    "name": "Ging Freecss",
+    "form": "الصياد الأسطوري",
+    "anime": "Hunter x Hunter",
+    "power": 6980,
+    "rarity": "SSS",
+    "ability": "حدس المغامر",
+    "image": ""
+  },
+  {
+    "name": "Pariston Hill",
+    "form": "المحتال الذكي",
+    "anime": "Hunter x Hunter",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "المكر الاستراتيجي",
+    "image": ""
+  },
+  {
+    "name": "Komugi",
+    "form": "ملكة اللعبة",
+    "anime": "Hunter x Hunter",
+    "power": 6610,
+    "rarity": "SSS",
+    "ability": "الحكمة الصامتة",
+    "image": ""
+  },
+  {
+    "name": "Cheadle Yorkshire",
+    "form": "حارسة الملك",
+    "anime": "Hunter x Hunter",
+    "power": 6640,
+    "rarity": "SSS",
+    "ability": "الدفاع الأخير",
+    "image": ""
+  },
+  {
+    "name": "Silva Zoldyck",
+    "form": "كبير القتلة",
+    "anime": "Hunter x Hunter",
+    "power": 6890,
+    "rarity": "SSS",
+    "ability": "ضربة الظل",
+    "image": ""
+  },
+  {
+    "name": "Zeno Zoldyck",
+    "form": "التنين العجوز",
+    "anime": "Hunter x Hunter",
+    "power": 6930,
+    "rarity": "SSS",
+    "ability": "قبضة التنين",
+    "image": ""
+  },
+  {
+    "name": "Kalluto Zoldyck",
+    "form": "القاتل الصغير",
+    "anime": "Hunter x Hunter",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "الخيوط الخفية",
+    "image": ""
+  },
+  {
+    "name": "Alluka/Nanika Zoldyck",
+    "form": "الأخت الغامضة",
+    "anime": "Hunter x Hunter",
+    "power": 6990,
+    "rarity": "SSS",
+    "ability": "تحقيق الأمنيات",
+    "image": ""
+  },
+  {
+    "name": "Milluki Zoldyck",
+    "form": "الأخ المدلل",
+    "anime": "Hunter x Hunter",
+    "power": 6600,
+    "rarity": "SSS",
+    "ability": "الدمى المتفجرة",
+    "image": ""
+  },
+  {
+    "name": "Kikyo Zoldyck",
+    "form": "سيدة العائلة",
+    "anime": "Hunter x Hunter",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "الإدارة الصارمة",
+    "image": ""
+  },
+  {
+    "name": "Maha Zoldyck",
+    "form": "الجد الأكبر",
+    "anime": "Hunter x Hunter",
+    "power": 6840,
+    "rarity": "SSS",
+    "ability": "الحنكة القديمة",
+    "image": ""
+  },
+  {
+    "name": "Phinks Magcub",
+    "form": "مقاتل العناكب",
+    "anime": "Hunter x Hunter",
+    "power": 6720,
+    "rarity": "SSS",
+    "ability": "اللكمة الهائلة",
+    "image": ""
+  },
+  {
+    "name": "Uvogin",
+    "form": "المقاتل الوحشي",
+    "anime": "Hunter x Hunter",
+    "power": 6870,
+    "rarity": "SSS",
+    "ability": "القنبلة الكبرى",
+    "image": ""
+  },
+  {
+    "name": "Franklin Bordeau",
+    "form": "الرامي الصامت",
+    "anime": "Hunter x Hunter",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "رصاص الأصابع",
+    "image": ""
+  },
+  {
+    "name": "Pakunoda",
+    "form": "قارئة الذكريات",
+    "anime": "Hunter x Hunter",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "استرجاع الماضي",
+    "image": ""
+  },
+  {
+    "name": "Shalnark",
+    "form": "العقل المدبر",
+    "anime": "Hunter x Hunter",
+    "power": 6680,
+    "rarity": "SSS",
+    "ability": "التحكم عن بعد",
+    "image": ""
+  },
+  {
+    "name": "Bonolenov Ndongo",
+    "form": "الراقص المحارب",
+    "anime": "Hunter x Hunter",
+    "power": 6630,
+    "rarity": "SSS",
+    "ability": "رقصة الأرواح",
+    "image": ""
+  },
+  {
+    "name": "Kortopi",
+    "form": "صانع النسخ",
+    "anime": "Hunter x Hunter",
+    "power": 6610,
+    "rarity": "SSS",
+    "ability": "النسخة المطابقة",
+    "image": ""
+  },
+  {
+    "name": "Biscuit Krueger",
+    "form": "المعلمة الأسطورية",
+    "anime": "Hunter x Hunter",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "القبضة الحجرية",
+    "image": ""
+  },
+  {
+    "name": "Gotoh",
+    "form": "كبير الخدم",
+    "anime": "Hunter x Hunter",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "رمية العملة",
+    "image": ""
+  },
+  {
+    "name": "Morel Mackernasey",
+    "form": "سيد الدخان",
+    "anime": "Hunter x Hunter",
+    "power": 6690,
+    "rarity": "SSS",
+    "ability": "الضباب الخانق",
+    "image": ""
+  },
+  {
+    "name": "Knuckle Bine",
+    "form": "المقاتل الصادق",
+    "anime": "Hunter x Hunter",
+    "power": 6740,
+    "rarity": "SSS",
+    "ability": "اللكمة الحازمة",
+    "image": ""
+  },
+  {
+    "name": "Shoot McMahon",
+    "form": "الحارس الأمين",
+    "anime": "Hunter x Hunter",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "الأذرع المتعددة",
+    "image": ""
+  },
+  {
+    "name": "Palm Siberia",
+    "form": "المحققة الجريئة",
+    "anime": "Hunter x Hunter",
+    "power": 6710,
+    "rarity": "SSS",
+    "ability": "الإحساس الخفي",
+    "image": ""
+  },
+  {
+    "name": "Razor",
+    "form": "لاعب الكرة القاتل",
+    "anime": "Hunter x Hunter",
+    "power": 6670,
+    "rarity": "SSS",
+    "ability": "الكرة المتفجرة",
+    "image": ""
+  },
+  {
+    "name": "Genthru",
+    "form": "قاتل البريد",
+    "anime": "Hunter x Hunter",
+    "power": 6730,
+    "rarity": "SSS",
+    "ability": "القنبلة الصامتة",
+    "image": ""
+  },
+  {
+    "name": "Ikalgo",
+    "form": "حارس الأعماق",
+    "anime": "Hunter x Hunter",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "الدرع الحي",
+    "image": ""
+  },
+  {
+    "name": "Meleoron",
+    "form": "سيد الاختفاء",
+    "anime": "Hunter x Hunter",
+    "power": 6640,
+    "rarity": "SSS",
+    "ability": "التخفي المطلق",
+    "image": ""
+  },
+  {
+    "name": "Sunny",
+    "form": "وريث الظلال",
+    "anime": "Shadow Slave",
+    "power": 6970,
+    "rarity": "SSS",
+    "ability": "الظل الخالد",
+    "image": ""
+  },
+  {
+    "name": "Nephis",
+    "form": "أميرة النار",
+    "anime": "Shadow Slave",
+    "power": 6960,
+    "rarity": "SSS",
+    "ability": "لهب الفجر",
+    "image": ""
+  },
+  {
+    "name": "Cassie",
+    "form": "العرافة العمياء",
+    "anime": "Shadow Slave",
+    "power": 6780,
+    "rarity": "SSS",
+    "ability": "رؤية القدر",
+    "image": ""
+  },
+  {
+    "name": "Cheong Myeong",
+    "form": "سيد الزهرة",
+    "anime": "Return of the Blossoming Blade",
+    "power": 6940,
+    "rarity": "SSS",
+    "ability": "سيف الزهرة الأخيرة",
+    "image": ""
+  },
+  {
+    "name": "Tsukuyo",
+    "form": "حارسة الليل",
+    "anime": "Gintama",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "خناجر الظل",
+    "image": ""
+  },
+  {
+    "name": "Aang",
+    "form": "آخر سيد للهواء",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "عاصفة الأفاتار",
+    "image": ""
+  },
+  {
+    "name": "Sokka",
+    "form": "محارب القبيلة",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6610,
+    "rarity": "SSS",
+    "ability": "الخطة المحكمة",
+    "image": ""
+  },
+  {
+    "name": "Toph Beifong",
+    "form": "سيدة الأرض",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6820,
+    "rarity": "SSS",
+    "ability": "استشعار الاهتزاز",
+    "image": ""
+  },
+  {
+    "name": "Katara",
+    "form": "سيدة الماء",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "موجة الشفاء",
+    "image": ""
+  },
+  {
+    "name": "Zuko",
+    "form": "أمير النار",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "لهب التوبة",
+    "image": ""
+  },
+  {
+    "name": "Azula",
+    "form": "أميرة الصاعقة",
+    "anime": "Avatar: The Last Airbender",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "الصاعقة الزرقاء",
+    "image": ""
+  },
+  {
+    "name": "Vasco",
+    "form": "المقاتل الجامح",
+    "anime": "Lookism",
+    "power": 6770,
+    "rarity": "SSS",
+    "ability": "قبضة الشارع",
+    "image": ""
+  },
+  {
+    "name": "Eli Jang",
+    "form": "المقاتل المتحول",
+    "anime": "Lookism",
+    "power": 6860,
+    "rarity": "SSS",
+    "ability": "الهيئة الحديدية",
+    "image": ""
+  },
+  {
+    "name": "Zack Lee",
+    "form": "وريث القتال",
+    "anime": "Lookism",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "اللكمة الذكية",
+    "image": ""
+  },
+  {
+    "name": "Kim Goo",
+    "form": "القائد الصامد",
+    "anime": "Lookism",
+    "power": 6680,
+    "rarity": "SSS",
+    "ability": "قبضة الزعيم",
+    "image": ""
+  },
+  {
+    "name": "Park Gun",
+    "form": "المقاتل الغاضب",
+    "anime": "Lookism",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "الضربة العنيفة",
+    "image": ""
+  },
+  {
+    "name": "Maelle",
+    "form": "المبارزة الشابة",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6790,
+    "rarity": "SSS",
+    "ability": "رقصة النصل",
+    "image": ""
+  },
+  {
+    "name": "Verso",
+    "form": "المسافر الحائر",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6920,
+    "rarity": "SSS",
+    "ability": "قوس الإيقاع",
+    "image": ""
+  },
+  {
+    "name": "Lune",
+    "form": "ساحرة العناصر",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6810,
+    "rarity": "SSS",
+    "ability": "عاصفة الجليد",
+    "image": ""
+  },
+  {
+    "name": "Gustave",
+    "form": "مهندس الرحلة",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "المدفع المعدّل",
+    "image": ""
+  },
+  {
+    "name": "Monoco",
+    "form": "الحكيم الغريب",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6740,
+    "rarity": "SSS",
+    "ability": "تقليد الأقنعة",
+    "image": ""
+  },
+  {
+    "name": "Renoir",
+    "form": "الرسّام العجوز",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6910,
+    "rarity": "SSS",
+    "ability": "لوحة المصير",
+    "image": ""
+  },
+  {
+    "name": "The Paintress",
+    "form": "الرسّامة الصامتة",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6990,
+    "rarity": "SSS",
+    "ability": "ريشة الفناء",
+    "image": ""
+  },
+  {
+    "name": "Esquie",
+    "form": "رفيق الرحلة",
+    "anime": "Clair Obscur: Expedition 33",
+    "power": 6630,
+    "rarity": "SSS",
+    "ability": "الحمل العظيم",
+    "image": ""
+  },
+  {
+    "name": "Maki Zenin",
+    "form": "المحاربة بلا طاقة",
+    "anime": "Jujutsu Kaisen",
+    "power": 6890,
+    "rarity": "SSS",
+    "ability": "سيف الأسلحة النادرة",
+    "image": ""
   }
 ]
