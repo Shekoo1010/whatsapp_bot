@@ -1,5 +1,6 @@
 // 🖼️ صور الكتالوج العامة (للمطور فقط)
-//  .ص            → يرسل ملف مرقّم بالشخصيات اللي بدون صورة
+//  .ص            → يرسل نص مرقّم (رسائل واتساب)؛ اللي انوضع لها صورة تبقى برقمها مع ✅
+//  .ص جديد       → قائمة جديدة بدون المنتهية
 //  .ص <رقم>      → ككابشن على صورة: يضع الصورة للشخصية لكل اللاعبين
 //
 // كيف تشتغل:
@@ -56,21 +57,50 @@ async function handleCatalogImageCommand(msg, ctx) {
     try {
         // ── .ص (بدون صورة) → ملف القائمة ──
         if (!m.imageMessage) {
-            const missing = characters.filter(isEmpty)
-            lastList = missing.map(keyOf)
-            if (!missing.length) {
+            const byKey = new Map(characters.map(c => [keyOf(c), c]))
+            const missingNow = characters.filter(isEmpty)
+
+            // ".ص جديد" → قائمة جديدة فقط بالشخصيات اللي بدون صورة (ترقيم من 1)
+            if (parts[1] === 'جديد') lastList = []
+
+            // القائمة السابقة تبقى بنفس أرقامها (اللي انوضع لها صورة تظهر ✅)،
+            // وأي شخصية بدون صورة وما كانت بالقائمة تنضاف بآخرها
+            const known = new Set(lastList)
+            for (const c of missingNow) {
+                if (!known.has(keyOf(c))) lastList.push(keyOf(c))
+            }
+            // نشيل الشخصيات اللي انحذفت من الكتالوج (نحافظ على الترتيب)
+            lastList = lastList.filter(k => byKey.has(k))
+
+            if (!missingNow.length && !lastList.length) {
                 await safeSend(jid, { text: '✅ كل الشخصيات عندها صور' })
                 return true
             }
-            const body = missing.map((c, i) =>
-                `${i + 1}. ${c.name} | ${c.form || '-'} | ${c.anime || '-'} | ${c.rarity} | ${c.power ?? '-'}`
-            ).join('\n')
-            await sock.sendMessage(jid, {
-                document: Buffer.from(body, 'utf8'),
-                mimetype: 'text/plain',
-                fileName: 'characters_no_image.txt',
-                caption: `📋 ${missing.length} شخصية بدون صورة\nأرسل صورة بكابشن: .ص رقم`
+
+            const doneCount = lastList.filter(k => !isEmpty(byKey.get(k))).length
+            const lines = lastList.map((k, i) => {
+                const c = byKey.get(k)
+                const done = !isEmpty(c)
+                return `${i + 1}. ${c.name} | ${c.form || '-'} | ${c.anime || '-'} | ${c.rarity} | ${c.power ?? '-'}${done ? ' ✅ تم وضع صورة' : ''}`
             })
+
+            // نص واتساب عادي (مرقّم) — نقسمه لرسائل عشان ما يتجاوز حد الطول
+            const MAX_CHARS = 3000
+            const chunks = []
+            let cur = ''
+            for (const line of lines) {
+                if (cur && (cur.length + line.length + 1) > MAX_CHARS) {
+                    chunks.push(cur)
+                    cur = ''
+                }
+                cur += (cur ? '\n' : '') + line
+            }
+            if (cur) chunks.push(cur)
+
+            await safeSend(jid, { text: `📋 ${missingNow.length} شخصية بدون صورة (تم وضع صورة لـ ${doneCount})\nأرسل صورة بكابشن: .ص رقم\n(.ص جديد لقائمة جديدة بدون المنتهية)` })
+            for (const chunk of chunks) {
+                await safeSend(jid, { text: chunk })
+            }
             return true
         }
 
@@ -101,7 +131,7 @@ async function handleCatalogImageCommand(msg, ctx) {
         c.image = url   // كائن الكتالوج المشترك → يظهر فوراً بالبوت والموقع
 
         await safeSend(jid, {
-            text: `✅ تم وضع صورة ${c.name} (${c.rarity}) للجميع\n\nالأرقام لم تتغير — كمّل بنفس القائمة، أو .ص لقائمة جديدة`
+            text: `✅ تم وضع صورة ${c.name} (${c.rarity}) للجميع\n\nالأرقام لم تتغير — كمّل بنفس القائمة، أو .ص لعرضها وبجانب كل منتهية ✅ (.ص جديد لقائمة جديدة)`
         })
         return true
     } catch (err) {
