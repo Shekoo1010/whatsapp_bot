@@ -1634,7 +1634,7 @@ function bossPageHTML({ viewer, code, data }) {
 <body><div style="padding:30px 16px 60px">
   <div class="topbar">
     <span class="tb-l">${NAV_BTN}<span class="gmode">هجوم الزعيم</span></span>
-    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+    <span><button type="button" class="pill" id="vmute" aria-label="كتم/تشغيل أصوات الزعماء" style="cursor:pointer;margin-inline-end:6px">🔊</button><a class="pill" href="/u/${code}">← رجوع للعرض</a></span>
   </div>
   ${navDrawerHTML(code, viewer.csrf, 'boss', viewer.name)}
   <div class="bs-wrap">
@@ -1714,6 +1714,36 @@ function bossPageHTML({ viewer, code, data }) {
     requestAnimationFrame(loop);
   })();
 
+  // ───── 🔊 أصوات الزعماء (كتم/تشغيل محفوظ بالمتصفح) ─────
+  var VOICES={}, vMuted=false, vAud=null, vLast=null;
+  try{ vMuted=localStorage.getItem('bossMute')==='1'; }catch(e){}
+  function vBtn(){ var b=$('vmute'); if(b) b.textContent=vMuted?'🔇':'🔊'; }
+  vBtn();
+  (function(){ var b=$('vmute'); if(!b) return;
+    b.addEventListener('click',function(){
+      vMuted=!vMuted; try{ localStorage.setItem('bossMute',vMuted?'1':'0'); }catch(e){}
+      if(vMuted && vAud){ try{ vAud.pause(); }catch(e){} }
+      vBtn();
+    });
+  })();
+  fetch('/boss-voice/manifest.json').then(function(r){ return r.json(); }).then(function(j){ VOICES=j||{}; }).catch(function(){});
+  function vPlay(name,slot){
+    if(vMuted) return;
+    var l=VOICES[name], u=l&&l[slot-1]; if(!u) return;
+    try{ if(vAud) vAud.pause(); vAud=new Audio(u); var p=vAud.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){}
+  }
+  // 1=ظهور · 2=دم 75% · 3=ظهور الأتباع · 4=دم 10% — بدون صوت عند فتح الصفحة، فقط عند التغيّر
+  function vCheck(b){
+    if(!b) return;
+    var dead=!!b.finished||b.hp<=0, p=b.maxHp>0?b.hp/b.maxHp:0, fol=(b.followers||[]).length>0, L=vLast;
+    vLast={name:b.name,p:p,fol:fol,dead:dead};
+    if(!L||dead) return;
+    if(L.dead||L.name!==b.name){ vPlay(b.name,1); return; }
+    if(L.p>0.10 && p<=0.10){ vPlay(b.name,4); return; }
+    if(!L.fol && fol){ vPlay(b.name,3); return; }
+    if(L.p>0.75 && p<=0.75){ vPlay(b.name,2); return; }
+  }
+
   // ───── عرض الحالة ─────
   function renderBoss(b){
     if(!b){ $('bn').textContent='لا يوجد زعيم'; $('bhpt').textContent=''; $('bhp').style.width='0%'; clearFol(); return; }
@@ -1723,6 +1753,7 @@ function bossPageHTML({ viewer, code, data }) {
     $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
     $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
     renderFollowers(b.followers||[]);
+    vCheck(b);
   }
   // ───── الأتباع: يظهرون بجوانب الزعيم (2.5D) — نزول من فوق / HP / موت مثل موت الزعيم ─────
   var fmap={}, folInit=false;
@@ -2143,6 +2174,13 @@ function registerCharacterSite(app, Player, opts = {}) {
     app.use('/custom_images', express.static(path.join(__dirname, '..', 'custom_images'), { maxAge: '1d' }))
     // صور الكتالوج المحلية (./characters/xxx.jpg) — تُعرض فقط بصفحة السحب للرتب تحت SSS
     app.use('/characters', express.static(path.join(__dirname, '..', 'characters'), { maxAge: '1d', index: false, dotfiles: 'ignore' }))
+    // 🔊 أصوات الزعماء (systems/bossVoice.js) — الملفات في ./boss_voices
+    try {
+        require('./bossVoice').mountBossVoice(app, express, {
+            dir: path.join(__dirname, '..', 'boss_voices'),
+            bosses: require('../bosses')
+        })
+    } catch (e) { console.error('boss voice mount error:', e) }
 
     // جلسة المالك لهذه الصفحة (تتحقق من نسخة الجلسة من قاعدة البيانات)
     function ownerSession(req, player) {
