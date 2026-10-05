@@ -15289,5 +15289,374 @@
     "rarity": "SSS",
     "ability": "سيف الأسلحة النادرة",
     "image": ""
+  },
+  {
+    "name": "Alice ML",
+    "form": "ملكة الدماء",
+    "anime": "Mobile Legends",
+    "power": 6821,
+    "rarity": "SSS",
+    "ability": "امتصاص الدماء",
+    "image": ""
+  },
+  {
+    "name": "Kagura ML",
+    "form": "سيدة الأونميوجي",
+    "anime": "Mobile Legends",
+    "power": 6679,
+    "rarity": "SSS",
+    "ability": "مظلة السيميي",
+    "image": ""
+  },
+  {
+    "name": "Lancelot",
+    "form": "سيف الورود",
+    "anime": "Mobile Legends",
+    "power": 6706,
+    "rarity": "SSS",
+    "ability": "التنفيذ الشبحي",
+    "image": ""
+  },
+  {
+    "name": "Hayabusa",
+    "form": "الظل القرمزي",
+    "anime": "Mobile Legends",
+    "power": 6958,
+    "rarity": "SSS",
+    "ability": "رباعية الظلال",
+    "image": ""
+  },
+  {
+    "name": "Nolan",
+    "form": "سيّاف الفراغ",
+    "anime": "Mobile Legends",
+    "power": 6659,
+    "rarity": "SSS",
+    "ability": "قطع الفراغ",
+    "image": ""
+  },
+  {
+    "name": "Suyou",
+    "form": "المبارز الجوال",
+    "anime": "Mobile Legends",
+    "power": 6706,
+    "rarity": "SSS",
+    "ability": "سيف الرياح",
+    "image": ""
+  },
+  {
+    "name": "Ling ML",
+    "form": "العصفور السماوي",
+    "anime": "Mobile Legends",
+    "power": 6957,
+    "rarity": "SSS",
+    "ability": "الجري على الجدران",
+    "image": ""
+  },
+  {
+    "name": "Fanny",
+    "form": "راقصة الشفرات",
+    "anime": "Mobile Legends",
+    "power": 6925,
+    "rarity": "SSS",
+    "ability": "الكابلات الفولاذية",
+    "image": ""
+  },
+  {
+    "name": "Karina",
+    "form": "شفرة الظل",
+    "anime": "Mobile Legends",
+    "power": 6985,
+    "rarity": "SSS",
+    "ability": "الحصاد الخاطف",
+    "image": ""
+  },
+  {
+    "name": "Clint",
+    "form": "رامي الغرب الجامح",
+    "anime": "Mobile Legends",
+    "power": 6683,
+    "rarity": "SSS",
+    "ability": "السحب السريع",
+    "image": ""
+  },
+  {
+    "name": "Chou ML",
+    "form": "فتى الكونغ فو",
+    "anime": "Mobile Legends",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "طريق التنين",
+    "image": ""
+  },
+  {
+    "name": "Gusion",
+    "form": "سيد الخناجر",
+    "anime": "Mobile Legends",
+    "power": 6635,
+    "rarity": "SSS",
+    "ability": "الخناجر المرتدة",
+    "image": ""
+  },
+  {
+    "name": "Julian ML",
+    "form": "المبارز المتقن",
+    "anime": "Mobile Legends",
+    "power": 6656,
+    "rarity": "SSS",
+    "ability": "هجوم الشفرات المتتالي",
+    "image": ""
+  },
+  {
+    "name": "Moskov",
+    "form": "رمح الصمت",
+    "anime": "Mobile Legends",
+    "power": 6622,
+    "rarity": "SSS",
+    "ability": "رمح الهلاك",
+    "image": ""
+  },
+  {
+    "name": "Luo Yi",
+    "form": "سيدة اليين واليانغ",
+    "anime": "Mobile Legends",
+    "power": 6748,
+    "rarity": "SSS",
+    "ability": "عكس اليين واليانغ",
+    "image": ""
+  },
+  {
+    "name": "Carmilla",
+    "form": "سيدة العهد الدموي",
+    "anime": "Mobile Legends",
+    "power": 6925,
+    "rarity": "SSS",
+    "ability": "رابطة الدم",
+    "image": ""
+  },
+  {
+    "name": "Yu Zhong",
+    "form": "محارب التنين الأسود",
+    "anime": "Mobile Legends",
+    "power": 6979,
+    "rarity": "SSS",
+    "ability": "تجسد التنين",
+    "image": ""
+  },
+  {
+    "name": "Lapu-Lapu",
+    "form": "حارس الجزيرة",
+    "anime": "Mobile Legends",
+    "power": 6964,
+    "rarity": "SSS",
+    "ability": "سيف الحرية",
+    "image": ""
+  },
+  {
+    "name": "Lesley",
+    "form": "القناصة القاتلة",
+    "anime": "Mobile Legends",
+    "power": 6612,
+    "rarity": "SSS",
+    "ability": "القنص الفتاك",
+    "image": ""
+  },
+  {
+    "name": "Argus",
+    "form": "الفارس المتمرد",
+    "anime": "Mobile Legends",
+    "power": 6713,
+    "rarity": "SSS",
+    "ability": "ضربة الجناحين",
+    "image": ""
+  },
+  {
+    "name": "Guinevere",
+    "form": "فارسة البنفسج",
+    "anime": "Mobile Legends",
+    "power": 6814,
+    "rarity": "SSS",
+    "ability": "نشيد البنفسج",
+    "image": ""
+  },
+  {
+    "name": "Pharsa",
+    "form": "راعية الطيور",
+    "anime": "Mobile Legends",
+    "power": 6926,
+    "rarity": "SSS",
+    "ability": "ضربة الريش الجوية",
+    "image": ""
+  },
+  {
+    "name": "Selena ML",
+    "form": "سيدة الظلال العميقة",
+    "anime": "Mobile Legends",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "الظلام البدائي",
+    "image": ""
+  },
+  {
+    "name": "Lunox",
+    "form": "توازن الضوء والظلام",
+    "anime": "Mobile Legends",
+    "power": 6766,
+    "rarity": "SSS",
+    "ability": "الفوضى والنظام",
+    "image": ""
+  },
+  {
+    "name": "Harith",
+    "form": "مسافر الزمن",
+    "anime": "Mobile Legends",
+    "power": 6826,
+    "rarity": "SSS",
+    "ability": "صدع الزمن",
+    "image": ""
+  },
+  {
+    "name": "Granger",
+    "form": "منشد الموت",
+    "anime": "Mobile Legends",
+    "power": 6946,
+    "rarity": "SSS",
+    "ability": "سوناتا الموت",
+    "image": ""
+  },
+  {
+    "name": "Benedetta",
+    "form": "راقصة الظلال",
+    "anime": "Mobile Legends",
+    "power": 6844,
+    "rarity": "SSS",
+    "ability": "سيف أليكتو",
+    "image": ""
+  },
+  {
+    "name": "Khaleed",
+    "form": "طاغية الصحراء",
+    "anime": "Mobile Legends",
+    "power": 6790,
+    "rarity": "SSS",
+    "ability": "عاصفة الرمال",
+    "image": ""
+  },
+  {
+    "name": "Valentina",
+    "form": "سيدة الأنا البديلة",
+    "anime": "Mobile Legends",
+    "power": 6911,
+    "rarity": "SSS",
+    "ability": "نسخ المهارات",
+    "image": ""
+  },
+  {
+    "name": "Fredrinn",
+    "form": "حارس البلّور",
+    "anime": "Mobile Legends",
+    "power": 6761,
+    "rarity": "SSS",
+    "ability": "الدرع البلوري",
+    "image": ""
+  },
+  {
+    "name": "Zhuxin",
+    "form": "سيدة الحبر",
+    "anime": "Mobile Legends",
+    "power": 6933,
+    "rarity": "SSS",
+    "ability": "الحبر المتدفق",
+    "image": ""
+  },
+  {
+    "name": "Hirara",
+    "form": "القرمزية الساقطة",
+    "anime": "Mobile Legends",
+    "power": 6858,
+    "rarity": "SSS",
+    "ability": "علامة القرمز والموت",
+    "image": ""
+  },
+  {
+    "name": "Aurora ML",
+    "form": "ملكة الجليد",
+    "anime": "Mobile Legends",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "عالم الصقيع",
+    "image": ""
+  },
+  {
+    "name": "Obsidia",
+    "form": "حارسة الزجاج البركاني",
+    "anime": "Mobile Legends",
+    "power": 6875,
+    "rarity": "SSS",
+    "ability": "حمم الظلام",
+    "image": ""
+  },
+  {
+    "name": "Helcurt",
+    "form": "قاتل الظلام",
+    "anime": "Mobile Legends",
+    "power": 6783,
+    "rarity": "SSS",
+    "ability": "عباءة الظلال",
+    "image": ""
+  },
+  {
+    "name": "Aamon ML",
+    "form": "الخنجر الشبحي",
+    "anime": "Mobile Legends",
+    "power": 6654,
+    "rarity": "SSS",
+    "ability": "ضربة الشبح",
+    "image": ""
+  },
+  {
+    "name": "Beatrix",
+    "form": "الرامية ذات الأسلحة الأربعة",
+    "anime": "Mobile Legends",
+    "power": 6688,
+    "rarity": "SSS",
+    "ability": "الأسلحة الأربعة",
+    "image": ""
+  },
+  {
+    "name": "Esmeralda",
+    "form": "ملكة النجوم",
+    "anime": "Mobile Legends",
+    "power": 6641,
+    "rarity": "SSS",
+    "ability": "سرقة الدرع",
+    "image": ""
+  },
+  {
+    "name": "Franco",
+    "form": "صياد الخطاف",
+    "anime": "Mobile Legends",
+    "power": 6923,
+    "rarity": "SSS",
+    "ability": "الخطاف الحديدي",
+    "image": ""
+  },
+  {
+    "name": "Tigreal",
+    "form": "قائد فرسان مونيان",
+    "anime": "Mobile Legends",
+    "power": 6681,
+    "rarity": "SSS",
+    "ability": "الانفجار الداخلي",
+    "image": ""
+  },
+  {
+    "name": "Kimmy",
+    "form": "العالمة المتحركة",
+    "anime": "Mobile Legends",
+    "power": 6852,
+    "rarity": "SSS",
+    "ability": "الإطلاق أثناء الحركة",
+    "image": ""
   }
 ]
