@@ -249,7 +249,7 @@ followers: [
     name: "Youpi",
     hp: 30000000,
     ability: "bonusDamage",
-    image: "https://i.postimg.cc/fbdLjdj8/6ee6b6c9c88b245e91a757e3af5664cf-(1).jpg"
+    image: "https://i.postimg.cc/CLvHWyyj/fccac1cad24ec38c1f6575f5c9d2528f.jpg"
 },
 {
     name: "Pouf",
