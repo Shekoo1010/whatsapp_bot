@@ -45,6 +45,8 @@ function esc(s) {
 // يسمح فقط بروابط https أو صور custom_images (يمنع أي حقن)
 function safeImageUrl(img) {
     if (!img || typeof img !== 'string') return null
+    // الأقواس/الفاصلة العليا بالرابط (مثل -(1).jpg) تكسر CSS url() — نشفّرها بدل رفض الرابط
+    if (/^https:\/\//i.test(img)) img = img.replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/'/g, '%27')
     if (/^https:\/\//i.test(img) && !/['"()\s\\]/.test(img)) return img
     if (/^\.?\/?custom_images\/[\w.\-]+$/i.test(img)) {
         return '/custom_images/' + img.split('/').pop()

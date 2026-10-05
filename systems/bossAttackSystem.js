@@ -72,9 +72,22 @@ function createBossAttackSystem(deps) {
     }
 
     // ───────────── حالة الصفحة ─────────────
+    // 🖼️ صورة التابع دائماً من bosses.js (آخر نسخة) — الزعيم الحالي مخزّن بقاعدة البيانات
+    // بروابط وقت ظهوره، فلو غيّرت الروابط ما تتحدّث عليه إلا بعد زعيم جديد
+    let _bossesList = null
+    function latestFollowerImage(boss, f) {
+        try {
+            if (!_bossesList) _bossesList = require('../bosses')
+            const b = _bossesList.find(x => x.name === boss.name)
+            const ff = b && (b.followers || []).find(x => x.name === f.name)
+            if (ff && ff.image) return ff.image
+        } catch (_) {}
+        return (f && f.image) || null
+    }
+
     function followersView(boss) {
         return (boss.activeFollowers || []).map(f => ({
-            name: f.name, hp: Math.max(0, Number(f.hp) || 0), image: f.image || null
+            name: f.name, hp: Math.max(0, Number(f.hp) || 0), image: latestFollowerImage(boss, f)
         }))
     }
 
@@ -636,7 +649,7 @@ function createBossAttackSystem(deps) {
                     if (allFollowersDead) boss.followersDefeated = true
 
                     emit({
-                        type: 'follower_dead', anim: 'kill', image: follower.image,
+                        type: 'follower_dead', anim: 'kill', image: latestFollowerImage(boss, follower),
                         title: '💀 تم القضاء على التابع',
                         lines: [`⚔️ ${follower.name}`, '🎉 أصبح الطريق إلى الزعيم أقرب!']
                     }, true)
@@ -680,7 +693,7 @@ function createBossAttackSystem(deps) {
                     ok: true,
                     kind: 'follower',
                     report: buildReport('follower', {
-                        follower: { name: follower.name, remaining: Math.max(0, follower.hp), image: follower.image || null },
+                        follower: { name: follower.name, remaining: Math.max(0, follower.hp), image: latestFollowerImage(boss, follower) },
                         notes: abilityText.trim() ? abilityText.trim().split('\n') : []
                     }),
                     events,
