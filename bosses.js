@@ -11,13 +11,13 @@ followers: [
     name: "Gin",
     hp: 30000000,
     ability: "poison",
-    image: "https://files.catbox.moe/g9e6ey.jpg"
+    image: "https://i.postimg.cc/PrHmLXHc/e7fcde08945493ce824c0e2a26465c86.jpg"
 },
 {
     name: "Tosen",
     hp: 30000000,
     ability: "blind",
-    image: "https://files.catbox.moe/6e9lvz.jpg"
+    image: "https://i.postimg.cc/wjTLVw7F/42f3accb5e639d3515f7e08c8f5b5841-(1).jpg"
 }
 ],
 
@@ -41,13 +41,13 @@ followers: [
     name: "Jugram",
     hp: 34500000,
     ability: "reflect",
-    image: "https://files.catbox.moe/1vuy9d.jpg"
+    image: "https://i.postimg.cc/5tXvcj5z/0075c3dc645323b4cee3e60be0b79920-(2).jpg"
 },
 {
     name: "Uryu",
     hp: 34500000,
     ability: "dodge",
-    image: "https://files.catbox.moe/q77oxp.jpg"
+    image: "https://i.postimg.cc/SKH9mqVD/33381cdf77d9c49d5b1ea80cf23bda8f.jpg"
 }
 ],
 
@@ -71,13 +71,13 @@ followers: [
     name: "Hikone",
     hp: 46500000,
     ability: "bonusDamage",
-    image: "https://files.catbox.moe/i1l10b.jpg"
+    image: "https://i.postimg.cc/pT8FT71w/cc1932e20e9a6cb5f04606800ed245eb-(1).jpg"
 },
 {
     name: "Aura",
     hp: 46500000,
     ability: "healBoss",
-    image: "https://files.catbox.moe/sve9lh.jpg"
+    image: "https://i.postimg.cc/J05H3X8q/c6231805e68261298f9813c0d32dcb76.jpg"
 }
 ],
 
@@ -100,13 +100,13 @@ followers: [
     name: "Saturn",
     hp: 30000000,
     ability: "healBoss",
-    image: "https://files.catbox.moe/iispeh.jpg"
+    image: "https://i.postimg.cc/WpGZcBZz/520dc23ffe96b0d72f827430c4002e36-(1).jpg"
 },
 {
     name: "Garling",
     hp: 30000000,
     ability: "bonusDamage",
-    image: "https://files.catbox.moe/42bjc5.jpg"
+    image: "https://i.postimg.cc/3J9Dd2nW/22d9e421a4d24659222126244119ccbf-(1).jpg"
 }
 ],
 
@@ -130,13 +130,13 @@ followers: [
     name: "Zoro",
     hp: 45000000,
     ability: "bonusDamage",
-    image: "https://files.catbox.moe/wvaecf.jpg"
+    image: "https://i.postimg.cc/QdtK5Vyg/2b7579b629c4edd81e5e6f995742727f.jpg"
 },
 {
     name: "Sanji",
     hp: 45000000,
     ability: "healBoss",
-    image: "https://files.catbox.moe/8hufgb.jpg"
+    image: "https://i.postimg.cc/52RYm1hg/0278746f6933b1c289bd7f2564ed1678.jpg"
 }
 ],
 
@@ -160,13 +160,13 @@ followers: [
     name: "Obito",
     hp: 45000000,
     ability: "dodge",
-    image: "https://files.catbox.moe/p7lq99.jpg"
+    image: "https://i.postimg.cc/26p1PG8q/a2ef69a608eb7eacf8f89b4df1098a4b.jpg"
 },
 {
     name: "Pain",
     hp: 45000000,
     ability: "reflect",
-    image: "https://files.catbox.moe/p3o4ww.jpg"
+    image: "https://i.postimg.cc/D0n8zzG1/c4aae53579d7026a8894a01fb22a8c4b-(4).jpg"
 }
 ],
 
@@ -190,13 +190,13 @@ followers: [
     name: "King",
     hp: 45000000,
     ability: "reduceDamage",
-    image: "https://files.catbox.moe/9c6tda.jpg"
+    image: "https://i.postimg.cc/3rFkcgMq/9c6e1efe477b8471177188caedd1fc2b-(1).jpg"
 },
 {
     name: "Queen",
     hp: 45000000,
     ability: "poison",
-    image: "https://files.catbox.moe/zat21v.jpg"
+    image: "https://i.postimg.cc/DyC82nwZ/9912f2a02a2076b8d9c168e712a0f6cf-(1).jpg"
 }
 ],
   
@@ -219,13 +219,13 @@ followers: [
     name: "Rayleigh",
     hp: 60000000,
     ability: "bonusDamage",
-    image: "https://files.catbox.moe/0qz0nl.jpg"
+    image: "https://i.postimg.cc/5tz0qzqf/91d59ef4bafacaf87004be232498c7c4-(1).jpg"
 },
 {
     name: "Gaban",
     hp: 60000000,
     ability: "reflect",
-    image: "https://files.catbox.moe/pqq9da.jpg"
+    image: "https://i.postimg.cc/mgthkJP0/78831eae80634cedc043efda76284c38.jpg"
 }
 ],
 
@@ -249,13 +249,13 @@ followers: [
     name: "Youpi",
     hp: 30000000,
     ability: "bonusDamage",
-    image: "https://files.catbox.moe/rht29c.jpg"
+    image: "https://i.postimg.cc/fbdLjdj8/6ee6b6c9c88b245e91a757e3af5664cf-(1).jpg"
 },
 {
     name: "Pouf",
     hp: 30000000,
     ability: "healBoss",
-    image: "https://files.catbox.moe/sxvyby.jpg"
+    image: "https://i.postimg.cc/d1mVgKf1/d7b51b93c9a1ff8ace6b303d5ed005e0.jpg"
 }
 ],
   
@@ -278,13 +278,13 @@ followers: [
     name: "Shiryu",
     hp: 45000000,
     ability: "dodge",
-    image: "https://files.catbox.moe/uhxd0l.jpg"
+    image: "https://i.postimg.cc/SRgNNfqf/4a4411a0c5fbd643b2849f92fbd591c6.jpg"
 },
 {
     name: "Burgess",
     hp: 45000000,
     ability: "critical",
-    image: "https://files.catbox.moe/ejt1ox.jpg"
+    image: "https://i.postimg.cc/7P9LVw7V/f804b10aefd3626a3112e22fd2e50e58.jpg"
 }
 ],
   
