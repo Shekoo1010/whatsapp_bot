@@ -25,7 +25,7 @@ const TIER_ORDER = [
     { key: 'UR II',   lang: 'en', stars: 8,  color: '#7c4dff' },
     { key: 'UR III',  lang: 'en', stars: 9,  color: '#4d7cff' },
     { key: 'EX',      lang: 'en', stars: 10, color: '#00e5ff' },
-    { key: 'Ω OMEGA', lang: 'en', stars: 11, color: '#c04aff' },
+    { key: 'Ω OMEGA', lang: 'en', stars: 11, color: '#ffc933' },
 ]
 const TIERS = Object.fromEntries(TIER_ORDER.map((t, i) => [t.key, { ...t, idx: i }]))
 const FIRST_IMAGE_TIER = TIERS['SSS'].idx // من SSS وفوق تظهر الصورة
@@ -337,10 +337,10 @@ function detailHTML(char) {
     const t = TIERS[tierKey] || TIERS['SSS']
     const isOmega = tierKey === 'Ω OMEGA'
     const evo = Number(char.evolutionLevel) || 0
-    const filled = Math.min(evo, 6)
+    const filled = Math.min(evo, 7)
     const evoHTML = isOmega
-        ? `<span class="sh-stars">${'🌌'.repeat(7)}</span> <b>Ω (أقصى رتبة)</b>`
-        : `<span class="sh-stars">${'★'.repeat(filled)}${'☆'.repeat(6 - filled)}</span> <b>(${filled}/6)</b>`
+        ? `<span class="sh-stars">${'★'.repeat(7)}</span> <b>(7/7) Ω</b>`
+        : `<span class="sh-stars">${'★'.repeat(filled)}${'☆'.repeat(7 - filled)}</span> <b>(${filled}/7)</b>`
     const badge = tierKey === 'Ω OMEGA' ? 'Ω' : tierKey
 
     return `<template id="d-${char.__num}"><div data-tier="${t.color}" data-omega="${isOmega ? 1 : 0}">
@@ -637,7 +637,7 @@ function shellHead(title) {
 <title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${BASE_CSS}${EXTRA_CSS}.card.omega,.sheet.omega{animation:rot 5s linear infinite}
+<style>${BASE_CSS}${EXTRA_CSS}.card.omega,.sheet.omega{animation:rot 5s linear infinite}.card.omega .stars,.sheet.omega .sh-stars{color:#ffc933;text-shadow:0 0 8px rgba(255,201,51,.6)}
 .card.top{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),var(--tier),#fff6d8,var(--tier),color-mix(in srgb,var(--tier) 35%,#000),var(--tier)) border-box;animation:rot 6s linear infinite}
 .card.top .art::after,.card.omega .art::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.24) 50%,transparent 60%);transform:translateX(-130%);animation:sw 4.5s ease-in-out infinite}
 .card{transition:transform .2s}.card:hover{transform:translateY(-4px)}
@@ -870,7 +870,7 @@ function inboxPopupHTML(viewer) {
     var art=el('div','g-art'); if(g.img){ art.style.backgroundImage="url('"+g.img+"')"; } else { art.textContent='👤'; } box.appendChild(art);
     box.appendChild(el('div','g-name',g.name)); if(g.anime) box.appendChild(el('div','g-chip',g.anime));
     var st=el('div','g-stats'); var a=el('div'); a.appendChild(el('i','','القوة')); a.appendChild(el('b','',Number(g.power).toLocaleString('en-US'))); var b=el('div'); b.appendChild(el('i','','الرتبة')); b.appendChild(el('b','',g.tier)); st.appendChild(a); st.appendChild(b); box.appendChild(st);
-    var evo=el('div','g-evo','التطوير '); var stars=g.omega? '🌌' : new Array(g.evo+1).join('★')+new Array(6-g.evo+1).join('☆'); evo.appendChild(el('span','',stars)); evo.appendChild(document.createTextNode(g.omega? ' (Ω)' : ' ('+g.evo+'/6)')); box.appendChild(evo);
+    var evo=el('div','g-evo','التطوير '); var stars=g.omega? '★★★★★★★' : new Array(g.evo+1).join('★')+new Array(7-g.evo+1).join('☆'); var sp=el('span','',stars); if(g.omega) sp.style.color='#ffc933'; evo.appendChild(sp); evo.appendChild(document.createTextNode(g.omega? ' (Ω)' : ' ('+g.evo+'/6)')); box.appendChild(evo);
     box.appendChild(el('div','g-ago',ago(g.at)));
     var btn=el('button','btn purple','استلام والتالية'); btn.type='button';
     btn.onclick=function(){ btn.disabled=true; ack(g.id); i++; render(); };
@@ -1494,10 +1494,23 @@ a.chip{text-decoration:none;display:inline-block}
 .cd .ev i{width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}
 .cd .ev i.on{background:var(--t);box-shadow:0 0 6px var(--t)}
 .cd .ev.om i{background:linear-gradient(90deg,#ff3860,#f0c04a,#3ea8ff,#c04aff)}
-.cd.om{box-shadow:0 0 24px rgba(192,74,255,.45)}
+.cd.om{box-shadow:0 0 24px rgba(255,201,51,.45)}
 .st small{display:block;font-size:10px;color:var(--gold-dim);margin-top:2px}
 .st.om b{background:linear-gradient(90deg,#ff3860,#f0c04a,#3ea8ff,#c04aff);-webkit-background-clip:text;background-clip:text;color:transparent}
 .emp{grid-column:1/-1;text-align:center;color:var(--dim);padding:34px 10px;font-size:14px;line-height:1.9;border:1px dashed rgba(255,255,255,.14);border-radius:16px}
+/* ───── بطاقة بصورة كاملة: الصورة تمتد لآخر الإطار والاسم فوقها (نفس ارتفاع الإطار القديم) ───── */
+.cd .ar,.cd.sss .ar{position:absolute;inset:0;height:auto;z-index:0;overflow:hidden}
+.cd .pl{position:relative;z-index:1;margin-top:150px;background:linear-gradient(180deg,rgba(8,10,18,.55),rgba(8,10,18,.94))}
+.cd .pl::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;background:linear-gradient(180deg,rgba(8,10,18,0),rgba(8,10,18,.55));pointer-events:none}
+.cd .rt,.cd .pw,.cd .no{z-index:2}
+.cd .n,.cd .a{text-shadow:0 1px 6px #000}
+/* ───── أوميقا: نجوم التطوير فقط صفراء (الإطار بألوان المعرض كما هو) ───── */
+.cd .ev.om i{background:#ffc933;box-shadow:0 0 6px #ffc933}
+.card.omega .stars,.sheet.omega .sh-stars{color:#ffc933;text-shadow:0 0 8px rgba(255,201,51,.6)}
+/* ───── إطارات البطاقات = نفس إطارات المعرض (myRosterCard): خط بلون الرتبة، وأوميقا بتدرّج الألوان الأربعة ───── */
+.cd{border:2.5px solid var(--t);box-shadow:0 8px 18px rgba(0,0,0,.45),0 0 18px color-mix(in srgb,var(--t) 35%,transparent)}
+.cd.sss{border-color:var(--t);background:#0f1422;animation:none}
+.cd.om{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,linear-gradient(135deg,#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box}
 .pager{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:16px}
 .pg{font-family:'Oswald',sans-serif;color:var(--text);text-decoration:none;border:1px solid rgba(240,192,74,.45);border-radius:10px;padding:7px 14px;background:rgba(15,20,34,.75)}
 .pg.cur{background:var(--gold);color:#0a0d16;font-weight:700;border-color:var(--gold)}
@@ -1615,14 +1628,15 @@ function homeCardHTML(char) {
     const top = t.idx >= FIRST_IMAGE_TIER
     const isOmega = tierKey === 'Ω OMEGA'
     const evo = Number(char.evolutionLevel) || 0
-    const src = top ? safeImageUrl(char.image) : null
+    const src = top ? safeImageUrl(char.image) : (safeImageUrl(char.image) || localCharImageUrl(char.image))
     const letter = esc((Array.from(String(char.name || '?'))[0] || '?').toUpperCase())
     const cls = top ? 'sss' : (tierKey === 'اسطوري' ? 'leg' : tierKey === 'ممتاز' ? 'epic' : 'com')
     // الألوان: SSS الأساسية والرتب الأدنى بنفس ألوان المثال، وما فوق SSS (التطوير/UR/EX/أوميقا) بلون رتبته
-    const inlineT = (top && tierKey !== 'SSS') ? ` style="--t:${t.color}"` : ''
+    // لون الإطار لكل رتبة = نفس لون إطار المعرض (t.color)
+    const inlineT = ` style="--t:${t.color}"`
     const artStyle = src ? ` style="background-image:url('${esc(src)}')"` : ''
     const pips = top
-        ? `<div class="ev${isOmega ? ' om' : ''}">${[1, 2, 3, 4, 5, 6].map(n => `<i${(isOmega || n <= evo) ? ' class="on"' : ''}></i>`).join('')}</div>`
+        ? `<div class="ev${isOmega ? ' om' : ''}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i${(isOmega || n <= evo) ? ' class="on"' : ''}></i>`).join('')}</div>`
         : ''
     const power = Number(char.power || 0).toLocaleString('en-US')
     return `<div class="cd ${cls}${isOmega ? ' om' : ''}"${inlineT}${top ? ` data-d="${char.__num}" tabindex="0" role="button" aria-label="تفاصيل ${esc(char.name)}"` : ''}>
