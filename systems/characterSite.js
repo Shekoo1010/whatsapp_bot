@@ -783,7 +783,7 @@ function logPageHTML({ log, code, csrf }) {
         const out = e.dir === 'out'
         const who = esc(String(e.otherName || 'لاعب')) + (e.otherUsername ? ` <small>(@${esc(String(e.otherUsername))})</small>` : '')
         const chars = (Array.isArray(e.chars) ? e.chars : []).map(c =>
-            `<span class="lg-ch">${esc(String(c.name || ''))} <small>${esc(String(c.rarity || ''))} · ⚡${Number(c.power) || 0}</small></span>`).join('')
+            `<span class="lg-ch">${esc(String(c.name || ''))} <small>${esc(String(resolveTierKey(c.rarity, c.evolutionLevel) || ''))} · ⚡${Number(c.power) || 0}</small></span>`).join('')
         const cost = out && Number(e.cost) > 0 ? `<div class="lg-cost">💰 ${Number(e.cost).toLocaleString('en-US')}</div>` : ''
         return `<div class="lg-row ${out ? 'lg-out' : 'lg-in'}">
       <div class="lg-h"><b>${out ? '📤 أهديت إلى' : '📥 وصلتك هدية من'} ${who}</b><span class="lg-t">${esc(fmt(e.at))}${e.source === 'site' ? ' · من الموقع' : e.source === 'command' ? ' · بالأمر' : ''}</span></div>
@@ -1566,7 +1566,7 @@ function bossPageHTML({ viewer, code, data }) {
 .bs-fc .fn{position:absolute;left:0;right:0;bottom:7px;padding:12px 3px 2px;font-size:11px;font-weight:800;text-align:center;direction:rtl;color:#fff;background:linear-gradient(transparent,rgba(5,7,14,.92));line-height:1.3;}
 .bs-fc .fb{position:absolute;left:0;right:0;bottom:0;height:7px;background:#1a0f16;}
 .bs-fc .fb i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff3860,#ff7a5c);transition:width .6s ease-out;}
-.bs-arena{position:relative;direction:ltr;display:flex;justify-content:space-between;align-items:flex-end;margin:16px 0 10px;padding:24px 12px 40px;background:#1a1440;border:1px solid #1f2740;border-radius:18px;overflow:hidden;}
+.bs-arena{position:relative;direction:ltr;display:flex;justify-content:space-between;align-items:flex-end;margin:16px 0 10px;padding:24px 12px 40px;background:#1a0505;border:1px solid #6b2a14;box-shadow:0 0 26px rgba(255,90,30,.2);border-radius:18px;overflow:hidden;}
 .bs-slot{position:relative;z-index:2;width:41%;max-width:190px;animation:bsidle 2.8s ease-in-out infinite;}
 .bs-slot.b{animation-duration:3.3s;}
 .bs-slot::after{content:'';position:absolute;left:10%;right:10%;bottom:-12px;height:12px;border-radius:50%;background:rgba(0,0,0,.5);filter:blur(3px);z-index:-1;}
@@ -1617,11 +1617,11 @@ function bossPageHTML({ viewer, code, data }) {
 .bs-arena.hasf .bs-slot.b{margin-right:15%;}
 .bs-arena.hasf .bs-vs{visibility:hidden;}
 .bs-fl{position:absolute;z-index:3;}
-.bs-fb{position:relative;transform-style:preserve-3d;animation:bsidle 2.6s ease-in-out infinite;}
+.bs-fb{position:relative;transform-style:preserve-3d;animation:bsfidle 3s ease-in-out var(--fd,0s) infinite;}
 .bs-fb::after{content:'';position:absolute;left:8%;right:8%;bottom:-6px;height:9px;border-radius:50%;background:rgba(0,0,0,.5);filter:blur(3px);z-index:-1;}
 .bs-fl .bs-tilt{transform:rotateY(calc(var(--px,0)*15deg + 14deg)) rotateX(calc(var(--py,0)*-9deg));}
 .bs-fl .bs-tilt::before{background:#5a1226;border-radius:10px;transform:translateZ(-10px);}
-.bs-ffig{position:relative;width:100%;aspect-ratio:3/4;border-radius:10px;border:2px solid #3a2330;background:#10162a center/cover no-repeat;overflow:hidden;will-change:transform;}
+.bs-ffig{position:relative;width:100%;aspect-ratio:3/4;border-radius:10px;border:2px solid #9a4be0;box-shadow:0 0 12px rgba(160,74,255,.5);background:#10162a center/cover no-repeat;overflow:hidden;will-change:transform;}
 .bs-fl.front .bs-ffig{border-color:#ff3860;box-shadow:0 0 14px rgba(255,56,96,.55);}
 .bs-ffig .gl{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.4;background:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.36) 48%,transparent 68%);transform:translateX(calc(var(--px,0)*45%));}
 .bs-ffig .ff{position:absolute;inset:0;background:#ff2a4a;opacity:0;pointer-events:none;mix-blend-mode:screen;}
@@ -1632,6 +1632,57 @@ function bossPageHTML({ viewer, code, data }) {
 @keyframes bsff{0%,100%{transform:translate(0,0);opacity:.2}50%{transform:translate(14px,-22px);opacity:1}}
 @keyframes bsin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 @keyframes bsrage{0%,100%{box-shadow:0 0 0 rgba(255,56,96,0)}50%{box-shadow:0 0 36px rgba(255,56,96,.8)}}
+/* ───── بركان: خلفية + حركة الزعيم والأتباع ───── */
+.bs-orb{animation:bsorb 5s ease-in-out infinite alternate;}
+@keyframes bsorb{to{opacity:.7}}
+.bs-cglow{transform-box:fill-box;transform-origin:center;animation:bscg 2.2s ease-in-out infinite alternate;}
+@keyframes bscg{from{opacity:.55;transform:scale(.9)}to{opacity:1;transform:scale(1.12)}}
+.bs-lv{animation:bsflow 1.4s linear infinite;}
+@keyframes bsflow{to{stroke-dashoffset:-23}}
+.bs-lv2{animation:bslava 2.6s ease-in-out infinite alternate;}
+.bs-lava{animation:bslava 2.4s ease-in-out infinite alternate;}
+@keyframes bslava{from{opacity:.62}to{opacity:1}}
+.bs-smk{transform-box:fill-box;transform-origin:center;opacity:0;animation:bssmk 7s ease-out infinite;}
+@keyframes bssmk{0%{transform:translate(0,0) scale(.5);opacity:0}15%{opacity:.55}100%{transform:translate(var(--sx,10px),-90px) scale(2.4);opacity:0}}
+.bs-spk{transform-box:fill-box;transform-origin:center;opacity:0;animation:bsspk 2.6s ease-out infinite;}
+@keyframes bsspk{0%{transform:translate(0,0);opacity:0}8%{opacity:1}45%{transform:translate(calc(var(--ex)*.55),-62px)}100%{transform:translate(var(--ex),30px);opacity:0}}
+.bs-heat{position:absolute;left:0;right:0;bottom:0;height:45%;z-index:1;pointer-events:none;background:linear-gradient(to top,rgba(255,106,31,.3),transparent);animation:bsheat 3s ease-in-out infinite alternate;}
+@keyframes bsheat{from{opacity:.55}to{opacity:1}}
+.bs-em{position:absolute;bottom:-6px;border-radius:50%;background:#ffb36b;box-shadow:0 0 8px 2px rgba(255,120,40,.8);opacity:0;z-index:1;pointer-events:none;animation:bsem var(--d,7s) linear var(--w,0s) infinite;}
+@keyframes bsem{0%{transform:translate(0,0);opacity:0}15%{opacity:.95}100%{transform:translate(var(--dx,0px),-320px);opacity:0}}
+.bs-slot.b{animation:bsboss 3.2s ease-in-out infinite;}
+@keyframes bsboss{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.bs-slot.b::after{animation:bsbsh 3.2s ease-in-out infinite;}
+@keyframes bsbsh{0%,100%{transform:translateY(0) scaleX(1);opacity:1}50%{transform:translateY(10px) scaleX(.78);opacity:.6}}
+.bs-slot.b::before{content:'';position:absolute;left:-22%;right:-22%;top:-16%;bottom:-16%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,70,40,.55),rgba(255,56,96,.18) 55%,transparent 75%);z-index:-1;pointer-events:none;animation:bsaura 2.4s ease-in-out infinite alternate;}
+@keyframes bsaura{from{opacity:.55;transform:scale(.92)}to{opacity:1;transform:scale(1.08)}}
+.bs-fig.boss{box-shadow:0 0 34px rgba(255,56,96,.5);transition:filter .6s ease;}
+.bs-fig.boss.shield{filter:saturate(.55) brightness(.78);}
+.bs-fl{transform-origin:50% 100%;}
+.bs-fl::before{content:'';position:absolute;left:-18%;right:-18%;top:-6%;bottom:-6%;border-radius:50%;background:radial-gradient(closest-side,rgba(192,74,255,.4),transparent 72%);z-index:-1;pointer-events:none;animation:bsaura 2.2s ease-in-out infinite alternate;}
+.bs-fl.front::before{background:radial-gradient(closest-side,rgba(255,56,96,.5),transparent 72%);}
+@keyframes bsfidle{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-7px) rotate(1.4deg)}}
+.bs-ring{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;border:3px solid rgba(255,150,60,.9);box-shadow:0 0 14px rgba(255,120,40,.8);pointer-events:none;z-index:2;}
+@media (prefers-reduced-motion:reduce){.bs-orb,.bs-cglow,.bs-lv,.bs-lv2,.bs-lava,.bs-smk,.bs-spk,.bs-heat,.bs-em,.bs-slot.b,.bs-slot.b::before,.bs-slot.b::after,.bs-fb,.bs-fl::before{animation:none!important}}
+.bs-lb{margin-top:14px;border-radius:16px;background:#0f1426;border:1px solid #232b45;padding:12px 10px;}
+.bs-lbh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:900;margin-bottom:8px;}
+.bs-lbh b{font-size:15px;white-space:nowrap;}
+.bs-lbh span{font-size:11.5px;font-weight:700;color:#7dffb0;text-align:left;}
+.bs-lbrows{position:relative;}
+.lb-empty{text-align:center;color:var(--text-dim);font-size:13px;padding:8px;}
+.lbr{position:absolute;left:0;right:0;height:40px;display:flex;align-items:center;gap:8px;transition:transform .5s cubic-bezier(.2,.9,.3,1);}
+.lbk{flex:0 0 24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:12px;background:#2a1b36;}
+.lbr.r1 .lbk{background:var(--gold);color:#0a0d16}.lbr.r2 .lbk{background:#c9ced8;color:#0a0d16}.lbr.r3 .lbk{background:#d08a4c;color:#0a0d16}
+.lbm{position:relative;flex:0 0 28px;height:28px;border-radius:50%;border:1.5px solid #5a6384;background:#10162a center top/cover no-repeat;}
+.lbr.act .lbm::after{content:'';position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;background:#4ade80;border:1.5px solid #0f1426;animation:bsaura 1.2s ease-in-out infinite alternate;}
+.lbw{flex:1;min-width:0}
+.lbt{display:flex;justify-content:space-between;gap:6px;font-size:12.5px;font-weight:800;}
+.lbnm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lbt b{font-family:'Oswald',sans-serif;color:var(--gold);direction:ltr;font-weight:500;}
+.lbr.me .lbnm{color:var(--gold)}
+.lbbar{height:5px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:2px;overflow:hidden;}
+.lbbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff3860,#ff8a5c);transition:width .5s;}
+@media (prefers-reduced-motion:reduce){.lbr{transition:none}}
 </style>
 <body><div style="padding:30px 16px 60px">
   <div class="topbar">
@@ -1648,27 +1699,36 @@ function bossPageHTML({ viewer, code, data }) {
       <div class="bs-arena" id="arena">
         <svg class="bs-bg far" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
-            <linearGradient id="bsk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#120d33"/><stop offset=".55" stop-color="#4a2a78"/><stop offset="1" stop-color="#e98a4b"/></linearGradient>
-            <linearGradient id="bgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3a2c"/><stop offset="1" stop-color="#0f1810"/></linearGradient>
-            <radialGradient id="bmn"><stop offset="0" stop-color="#fff6d8"/><stop offset="1" stop-color="#f1d98a"/></radialGradient>
+            <linearGradient id="vsk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0505"/><stop offset=".55" stop-color="#6b1a0a"/><stop offset="1" stop-color="#ff6a1f"/></linearGradient>
+            <radialGradient id="vor"><stop offset="0" stop-color="#ffb36b" stop-opacity=".95"/><stop offset=".35" stop-color="#ffb36b" stop-opacity=".25"/><stop offset="1" stop-color="#ffb36b" stop-opacity="0"/></radialGradient>
+            <radialGradient id="vgw"><stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/><stop offset=".45" stop-color="#ff6a1f" stop-opacity=".4"/><stop offset="1" stop-color="#ff3a0f" stop-opacity="0"/></radialGradient>
+            <linearGradient id="vlv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".4" stop-color="#ff8a3d"/><stop offset="1" stop-color="#d1360f"/></linearGradient>
           </defs>
-          <rect width="400" height="300" fill="url(#bsk)"/>
-          <circle cx="300" cy="62" r="62" fill="#fff3c4" opacity=".12"/><circle cx="300" cy="62" r="26" fill="url(#bmn)"/>
-          <g fill="#fff" opacity=".8"><circle cx="40" cy="30" r="1.2"/><circle cx="90" cy="58" r="1"/><circle cx="150" cy="22" r="1.4"/><circle cx="210" cy="48" r="1"/><circle cx="360" cy="30" r="1.2"/><circle cx="120" cy="90" r="1"/><circle cx="250" cy="20" r="1"/></g>
-          <path d="M0 200 L50 150 L95 185 L150 130 L210 190 L270 140 L330 185 L400 150 L400 300 L0 300Z" fill="#2a1d54"/>
-          <path d="M0 220 L60 180 L120 215 L190 170 L260 215 L330 175 L400 210 L400 300 L0 300Z" fill="#1d1540"/>
-</svg>
-<svg class="bs-bg near" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <linearGradient id="bsk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#120d33"/><stop offset=".55" stop-color="#4a2a78"/><stop offset="1" stop-color="#e98a4b"/></linearGradient>
-            <linearGradient id="bgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3a2c"/><stop offset="1" stop-color="#0f1810"/></linearGradient>
-            <radialGradient id="bmn"><stop offset="0" stop-color="#fff6d8"/><stop offset="1" stop-color="#f1d98a"/></radialGradient>
-          </defs>
-          <g fill="#0d1a12"><path d="M20 235 L35 170 L50 235Z"/><path d="M60 240 L82 160 L104 240Z"/><path d="M300 238 L325 158 L350 238Z"/><path d="M355 240 L372 180 L390 240Z"/><path d="M175 236 L190 190 L205 236Z"/></g>
-          <path d="M0 232 Q200 218 400 232 L400 300 L0 300Z" fill="url(#bgr)"/>
-          <path d="M0 262 Q200 250 400 262" stroke="#6e8a5a" stroke-width="2" fill="none" opacity=".4"/>
+          <rect width="400" height="300" fill="url(#vsk)"/>
+          <circle class="bs-orb" cx="90" cy="72" r="80" fill="url(#vor)"/><circle cx="90" cy="72" r="22" fill="#ffd9a0"/>
+          <g fill="#ffb36b" opacity=".55"><circle cx="40" cy="30" r="1.2"/><circle cx="150" cy="24" r="1.4"/><circle cx="210" cy="52" r="1"/><circle cx="360" cy="34" r="1.2"/><circle cx="125" cy="92" r="1"/><circle cx="250" cy="22" r="1"/><circle cx="20" cy="88" r="1"/></g>
+          <path d="M0 205 L50 160 L100 192 L150 140 L205 188 L260 150 L330 195 L400 160 L400 300 L0 300Z" fill="#3a0f0a"/>
+          <polygon points="196,300 282,108 322,108 410,300" fill="#2a0a07"/>
+          <polygon points="282,108 302,150 322,108" fill="#ff5a1f" opacity=".9"/>
+          <ellipse class="bs-cglow" cx="302" cy="104" rx="52" ry="26" fill="url(#vgw)"/>
+          <path class="bs-lv" d="M302 148 L291 196 L304 238 L295 300" stroke="url(#vlv)" stroke-width="4" stroke-linecap="round" fill="none" stroke-dasharray="16 7"/>
+          <path class="bs-lv" style="animation-delay:-.7s" d="M312 132 L332 184 L322 236 L340 300" stroke="url(#vlv)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="14 8"/>
+          <path d="M0 236 L60 206 L125 232 L190 214 L260 238 L330 220 L400 240 L400 300 L0 300Z" fill="#250907"/>
+          <g fill="#ffd27a"><circle class="bs-spk" cx="298" cy="108" r="1.9" style="--ex:-30px;animation-delay:-.2s"/><circle class="bs-spk" cx="304" cy="108" r="1.5" style="--ex:22px;animation-delay:-1.1s"/><circle class="bs-spk" cx="308" cy="108" r="2" style="--ex:36px;animation-delay:-1.9s"/><circle class="bs-spk" cx="300" cy="108" r="1.4" style="--ex:-14px;animation-delay:-2.3s"/></g>
+          <g fill="#3b1a12"><circle class="bs-smk" cx="302" cy="100" r="14" style="--sx:18px"/><circle class="bs-smk" cx="302" cy="100" r="12" style="--sx:-6px;animation-delay:-2.4s"/><circle class="bs-smk" cx="302" cy="100" r="16" style="--sx:30px;animation-delay:-4.6s"/></g>
         </svg>
-        <i class="bs-ff" style="left:12%;top:55%"></i><i class="bs-ff" style="left:42%;top:40%;animation-delay:1.2s"></i><i class="bs-ff" style="left:62%;top:62%;animation-delay:2.4s"></i><i class="bs-ff" style="left:88%;top:48%;animation-delay:.6s"></i>
+        <svg class="bs-bg near" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="vgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0a08"/><stop offset="1" stop-color="#05030a"/></linearGradient>
+            <linearGradient id="vlvn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset=".5" stop-color="#ff6a1f"/><stop offset="1" stop-color="#b3260a"/></linearGradient>
+          </defs>
+          <g fill="#0b0404"><path d="M-6 250 L18 168 L40 250Z"/><path d="M34 252 L58 150 L84 252Z"/><path d="M322 250 L350 160 L372 250Z"/><path d="M360 252 L384 176 L410 252Z"/><path d="M168 250 L184 200 L200 250Z"/></g>
+          <path d="M0 232 Q200 220 400 232 L400 300 L0 300Z" fill="url(#vgr)"/>
+          <path d="M0 232 Q200 220 400 232" stroke="#ff8a3d" stroke-width="2" fill="none" opacity=".3"/>
+          <g class="bs-lv2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 262 L58 254 L96 266 L150 257" stroke="#ff5a1f" stroke-width="6" opacity=".3"/><path d="M14 262 L58 254 L96 266 L150 257" stroke="#ffc36b" stroke-width="1.8"/><path d="M230 258 L282 268 L330 256 L386 264" stroke="#ff5a1f" stroke-width="6" opacity=".3"/><path d="M230 258 L282 268 L330 256 L386 264" stroke="#ffc36b" stroke-width="1.8"/></g>
+          <path class="bs-lava" d="M0 284 Q90 273 200 281 T400 277 L400 300 L0 300Z" fill="url(#vlvn)"/>
+        </svg>
+        <div class="bs-heat"></div>
         <div class="bs-slot"><div class="bs-tilt"><div class="bs-fig" id="fme"><div class="pl" id="fmen"></div><div class="gl"></div></div></div></div>
         <div class="bs-vs">VS</div>
         <div class="bs-slot b"><div class="bs-tilt"><div class="bs-fig boss" id="fboss"><div class="pl" id="fbn"></div><div class="bs-flash" id="flash"></div><div class="gl"></div></div></div></div>
@@ -1682,6 +1742,11 @@ function bossPageHTML({ viewer, code, data }) {
       <div class="bs-resp" id="resp" hidden></div>
       <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap;margin-top:10px"></div>
       <button class="btn danger bs-go" id="go" type="button"><span id="lbl">⚔️ هجوم</span><div class="bs-cd" id="cd"></div></button>
+    </section>
+
+    <section class="bs-lb">
+      <div class="bs-lbh"><b>🏆 الضرر على هذا الزعيم</b><span id="lbn"></span></div>
+      <div class="bs-lbrows" id="lbrows"></div>
     </section>
 
     <div id="log"></div>
@@ -1714,6 +1779,18 @@ function bossPageHTML({ viewer, code, data }) {
     A.addEventListener('pointermove',mv); A.addEventListener('pointerdown',mv);
     function loop(t){ if(t-last>1800){ tx=Math.sin(t/1700); ty=Math.cos(t/2300)*.6; } px+=(tx-px)*.08; py+=(ty-py)*.08; A.style.setProperty('--px',px.toFixed(3)); A.style.setProperty('--py',py.toFixed(3)); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
+  })();
+
+  // ───── جمر البركان المتصاعد ─────
+  (function(){
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var A=$('arena'); if(!A) return;
+    for(var k=0;k<24;k++){
+      var e=document.createElement('i'), sz=2+Math.random()*3.5;
+      e.className='bs-em';
+      e.style.cssText='left:'+(Math.random()*100).toFixed(1)+'%;width:'+sz.toFixed(1)+'px;height:'+sz.toFixed(1)+'px;--d:'+(5+Math.random()*6).toFixed(1)+'s;--w:'+(-Math.random()*9).toFixed(1)+'s;--dx:'+((Math.random()-.5)*70).toFixed(0)+'px';
+      A.appendChild(e);
+    }
   })();
 
   // ───── 🔊 أصوات الزعماء (كتم/تشغيل محفوظ بالمتصفح) ─────
@@ -1774,6 +1851,7 @@ function bossPageHTML({ viewer, code, data }) {
     $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
     $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
     renderFollowers(b.followers||[]);
+    $('fboss').classList.toggle('shield',Object.keys(fmap).length>0);
     vCheck(b);
   }
   // ───── الأتباع: يظهرون بجوانب الزعيم (2.5D) — نزول من فوق / HP / موت مثل موت الزعيم ─────
@@ -1794,6 +1872,34 @@ function bossPageHTML({ viewer, code, data }) {
   function placeFolFor(ms){ var t0=Date.now(); (function s(){ placeFol(); if(Date.now()-t0<ms) requestAnimationFrame(s); })(); }
   function clearFol(){ Object.keys(fmap).forEach(function(k){ fmap[k].el.remove(); delete fmap[k]; }); $('arena').classList.remove('hasf'); }
   window.addEventListener('resize',placeFol); window.addEventListener('load',placeFol);
+  // هبوط تابع: موجة صدمة + شرارات + اهتزاز خفيف للساحة
+  function landFx(w){
+    var A=$('arena'), a=A.getBoundingClientRect(), r=w.getBoundingClientRect();
+    var cx=r.left-a.left+r.width/2, cy=r.bottom-a.top-4;
+    var ring=el('i','bs-ring'); ring.style.left=cx+'px'; ring.style.top=cy+'px'; A.appendChild(ring);
+    ring.animate([{transform:'scale(1,.35)',opacity:.9},{transform:'scale(7,2.4)',opacity:0}],{duration:620,easing:'ease-out'}).onfinish=function(){ ring.remove(); };
+    for(var i=0;i<8;i++){
+      var p=el('i','bs-sp'), sz=3+Math.random()*3;
+      p.style.left=cx+'px'; p.style.top=cy+'px'; p.style.width=sz+'px'; p.style.height=sz+'px'; p.style.background='#ffb36b'; p.style.boxShadow='0 0 6px 1px #ff7a1f';
+      A.appendChild(p);
+      var dx=(i%2?1:-1)*(14+Math.random()*34), dy=-(10+Math.random()*28);
+      p.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:'translate('+(dx*.6)+'px,'+dy+'px) scale(.9)',opacity:1,offset:.45},{transform:'translate('+dx+'px,'+(dy+30)+'px) scale(.2)',opacity:0}],{duration:620+Math.random()*200,easing:'ease-out'}).onfinish=(function(q){ return function(){ q.remove(); }; })(p);
+    }
+    A.animate([{transform:'translateY(0)'},{transform:'translateY(3px)'},{transform:'translateY(-2px)'},{transform:'translateY(0)'}],{duration:260});
+  }
+  // موت تابع: وميض ثم يتبخر لجمر يتصاعد
+  function dieFx(n){
+    var A=$('arena'), a=A.getBoundingClientRect(), r=n.el.getBoundingClientRect();
+    var cx=r.left-a.left+r.width/2, cy=r.top-a.top+r.height/2;
+    var ff=n.fg.querySelector('.ff'); if(ff) ff.animate([{opacity:0},{opacity:.95,offset:.25},{opacity:.5}],{duration:900,fill:'forwards'});
+    for(var i=0;i<16;i++){
+      var p=el('i','bs-sp'), c=(i%3===0)?'#c04aff':'#ff9a3d', sz=3+Math.random()*4;
+      p.style.left=cx+'px'; p.style.top=cy+'px'; p.style.width=sz+'px'; p.style.height=sz+'px'; p.style.background=c; p.style.boxShadow='0 0 8px 2px '+c;
+      A.appendChild(p);
+      var dx=(Math.random()-.5)*r.width*1.6, dy=-(30+Math.random()*80);
+      p.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:'translate('+dx+'px,'+dy+'px) scale(.2)',opacity:0}],{duration:800+Math.random()*500,delay:Math.random()*150,easing:'ease-out',fill:'both'}).onfinish=(function(q){ return function(){ q.remove(); }; })(p);
+    }
+  }
   function renderFollowers(list){
     var A=$('arena'), keys=folKeys(list), alive={}, animate=folInit, dying=[];
     list.forEach(function(x,i){
@@ -1805,7 +1911,18 @@ function bossPageHTML({ viewer, code, data }) {
         w.innerHTML='<div class="bs-fb"><div class="bs-fh"><i></i></div><div class="bs-tilt"><div class="bs-ffig"><div class="gl"></div><div class="ff"></div></div></div><div class="bs-fn"></div></div>';
         n={el:w,fg:w.querySelector('.bs-ffig'),bar:w.querySelector('.bs-fh i'),nm:w.querySelector('.bs-fn'),max:Math.max(1,x.hp||1),slot:sl};
         fmap[k]=n; A.appendChild(w); A.classList.add('hasf'); placeFol();
-        if(animate){ w.animate([{transform:'translateY(-90px) scale(.7)',opacity:0},{transform:'translateY(8px) scale(1.06)',opacity:1,offset:.65},{transform:'translateY(-3px) scale(.98)',offset:.82},{transform:'translateY(0) scale(1)',opacity:1}],{duration:750,easing:'ease-out',delay:i*120,fill:'backwards'}); }
+        w.style.setProperty('--fd',(-Math.random()*3).toFixed(2)+'s');
+        if(animate){
+          w.animate([
+            {transform:'translateY(-240px) scale(.75) rotate(-10deg)',opacity:0,offset:0,easing:'ease-in'},
+            {transform:'translateY(-120px) scale(.9) rotate(-4deg)',opacity:1,offset:.3,easing:'ease-in'},
+            {transform:'translateY(0) scale(1.14,.82) rotate(0deg)',opacity:1,offset:.58,easing:'ease-out'},
+            {transform:'translateY(-16px) scale(.94,1.1)',opacity:1,offset:.76,easing:'ease-in'},
+            {transform:'translateY(0) scale(1.03,.97)',opacity:1,offset:.9,easing:'ease-out'},
+            {transform:'translateY(0) scale(1)',opacity:1,offset:1}
+          ],{duration:950,delay:i*120,fill:'backwards'});
+          setTimeout((function(ww){ return function(){ if(ww.isConnected) landFx(ww); }; })(w), i*120+560);
+        }
       }
       if((x.hp||0)>n.max) n.max=x.hp;
       if(x.img) img(n.fg,x.img);
@@ -1819,7 +1936,8 @@ function bossPageHTML({ viewer, code, data }) {
       var n=fmap[k]; delete fmap[k];
       if(!animate){ n.el.remove(); return; }
       n.el.classList.remove('front');
-      dying.push(n.el.animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished.then(function(){ n.el.remove(); }));
+      dieFx(n);
+      dying.push(n.el.animate([{transform:'scale(1)',opacity:1},{transform:'translateY(-6px) scale(1.14) rotate(-3deg)',opacity:1,offset:.22},{transform:'translateY(-46px) scale(.5) rotate(12deg)',opacity:0}],{duration:1000,easing:'ease-in',fill:'forwards'}).finished.then(function(){ n.el.remove(); }));
     });
     folInit=true;
     placeFolFor(700);
@@ -1830,7 +1948,9 @@ function bossPageHTML({ viewer, code, data }) {
   // ضربة على تابع: شرارات + وميض أحمر + اهتزاز + رقم الضرر (نفس ضربة الزعيم)
   function hitFollower(node,dmg,crit){
     if(!node) return;
-    shake(node,crit?10:7); hitFx(node);
+    var sh=crit?10:7;
+    node.animate([{transform:'translateX(0) scale(1)'},{transform:'translateX('+(-sh)+'px) scale(.92)',offset:.2},{transform:'translateX('+sh+'px) scale(1.04)',offset:.5},{transform:'translateX('+(-sh/2)+'px) scale(.99)',offset:.75},{transform:'translateX(0) scale(1)'}],{duration:420});
+    hitFx(node);
     var f=node.querySelector('.ff'); if(f) f.animate([{opacity:.65},{opacity:0}],{duration:380});
     floatNum(node,(crit?'🎯 ':'')+fmt(dmg),crit?'#f0c04a':'#ff5c7a',crit?30:22);
   }
@@ -1839,10 +1959,10 @@ function bossPageHTML({ viewer, code, data }) {
     $('mhpt').textContent=fmt(m.hp)+' / '+fmt(m.maxHp);
   }
   function curChar(){ var i=Number($('sel').value)||1; for(var k=0;k<S.characters.length;k++){ if(S.characters[k].index===i) return S.characters[k]; } return S.characters[0]||null; }
-  function renderChar(){ var c=curChar(); if(!c) return; img($('fme'),c.img); $('fmen').textContent=c.name; }
+  function renderChar(){ var c=curChar(); if(!c) return; img($('fme'),c.img); $('fmen').textContent=c.name; $('fme').style.borderColor=(c.color&&/^#[0-9a-fA-F]{6}$/.test(c.color))?c.color:''; }
   function renderSel(){
     var s=$('sel'); s.innerHTML='';
-    S.characters.forEach(function(c){ var o=el('option','','#'+c.index+' — '+c.name+' ('+fmt(c.power)+' PWR)'); o.value=String(c.index); s.appendChild(o); });
+    S.characters.forEach(function(c){ var o=el('option','','#'+c.index+' — '+c.name+(c.tier?' ['+c.tier+']':'')+' ('+fmt(c.power)+' PWR)'); o.value=String(c.index); s.appendChild(o); });
     renderChar();
   }
   function applyState(st){
@@ -1851,6 +1971,38 @@ function bossPageHTML({ viewer, code, data }) {
     cdEnd=Date.now()+(st.cooldownMs||0);
     setResp(st.boss);
     renderBoss(st.boss); renderMe(st.me);
+    if(st.board) renderBoard(st.board);
+  }
+
+  // ───── 🏆 ترتيب الضرر المباشر ─────
+  var LBH=46, lbMap={};
+  function renderBoard(b){
+    var box=$('lbrows'); if(!box||!b||!b.rows) return;
+    $('lbn').textContent=(b.online>0?'🟢 '+b.online+' يهاجمون الآن':'')+(b.myRank?(b.online>0?' · ':'')+'ترتيبك #'+b.myRank:'');
+    var emp=box.querySelector('.lb-empty');
+    if(!b.rows.length){
+      Object.keys(lbMap).forEach(function(k){ lbMap[k].el.remove(); delete lbMap[k]; });
+      box.style.height='auto'; if(!emp) box.appendChild(el('div','lb-empty','لا أحد هاجم هذا الزعيم بعد')); return;
+    }
+    if(emp) emp.remove();
+    box.style.height=(b.rows.length*LBH)+'px';
+    var top=Math.max(1,b.rows[0].damage), keep={}, occ={};
+    b.rows.forEach(function(r,i){
+      occ[r.name]=(occ[r.name]||0)+1; var k=r.name+'#'+occ[r.name], n=lbMap[k]; keep[k]=1;
+      if(!n){
+        var w=el('div','lbr'); w.innerHTML='<span class="lbk"></span><span class="lbm"></span><div class="lbw"><div class="lbt"><span class="lbnm"></span><b></b></div><div class="lbbar"><i></i></div></div>';
+        box.appendChild(w); w.style.transform='translateY('+(i*LBH)+'px)';
+        n={el:w,k:w.querySelector('.lbk'),m:w.querySelector('.lbm'),nm:w.querySelector('.lbnm'),d:w.querySelector('b'),bar:w.querySelector('.lbbar i'),dmg:r.damage}; lbMap[k]=n;
+      }
+      n.el.style.transform='translateY('+(i*LBH)+'px)';
+      n.el.className='lbr'+(r.me?' me':'')+(i<3?' r'+(i+1):'')+(r.active?' act':'');
+      n.k.textContent=i+1; n.nm.textContent=(r.me?'أنت · ':'')+r.name; n.d.textContent=fmt(r.damage); n.bar.style.width=(r.damage/top*100)+'%';
+      if(r.color) n.m.style.borderColor=r.color;
+      if(r.img) n.m.style.backgroundImage="url('"+r.img+"')";
+      if(r.damage>n.dmg){ n.d.animate([{transform:'scale(1.35)'},{transform:'scale(1)'}],{duration:500}); }
+      n.dmg=r.damage;
+    });
+    Object.keys(lbMap).forEach(function(k){ if(!keep[k]){ lbMap[k].el.remove(); delete lbMap[k]; } });
   }
 
   // ───── زر الهجوم والكولداون ─────
@@ -2052,7 +2204,7 @@ function bossPageHTML({ viewer, code, data }) {
         else if(j.code==='DEAD'){ S.me.dead=true; S.me.deadLeftMs=j.retryInMs||0; show('bad',j.message); }
         else { show('bad',j.message||'فشل الهجوم'); }
       }
-      busy=false; tick();
+      busy=false; tick(); setTimeout(poll,900);
     })
     .catch(function(){
       clearTimeout(tm); busy=false;
@@ -2095,7 +2247,7 @@ function bossPageHTML({ viewer, code, data }) {
 
   S.characters=S.characters||[];
   setResp(S.boss);
-  renderSel(); renderBoss(S.boss); renderMe(S.me); cdEnd=Date.now()+(S.cooldownMs||0);
+  renderSel(); renderBoss(S.boss); renderMe(S.me); renderBoard(S.board); cdEnd=Date.now()+(S.cooldownMs||0);
   (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
   (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results') addTo($('pub'),eventNode(e,true),12); });
   if(D.results) renderResults(D.results);
@@ -2644,9 +2796,24 @@ function registerCharacterSite(app, Player, opts = {}) {
                 followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
             } : null,
             me: st.me,
+            board: st.board ? {
+                online: Number(st.board.online) || 0,
+                myRank: st.board.myRank || null,
+                rows: (st.board.rows || []).map(r => {
+                    const d = r.first ? resolveDisplayChar(r.first, catIdx) : null
+                    const tk = d ? resolveTierKey(d.rarity, d.evolutionLevel) : null
+                    return {
+                        name: String(r.name || 'لاعب'), damage: Number(r.damage) || 0, hits: Number(r.hits) || 0,
+                        active: !!r.active, me: !!r.isMe,
+                        img: d ? safeImageUrl(d.image) : null,
+                        color: tk && TIERS[tk] ? TIERS[tk].color : null
+                    }
+                })
+            } : null,
             characters: (st.characters || []).map(c => {
                 const disp = resolveDisplayChar(c, catIdx)
-                return { index: c.index, name: c.name, power: c.power, img: safeImageUrl(disp.image) }
+                const tk = resolveTierKey(disp.rarity, disp.evolutionLevel)
+                return { index: c.index, name: c.name, power: c.power, img: safeImageUrl(disp.image), tier: tk, color: TIERS[tk] ? TIERS[tk].color : null }
             })
         }
     }

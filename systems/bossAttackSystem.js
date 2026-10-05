@@ -71,6 +71,56 @@ function createBossAttackSystem(deps) {
         return lines
     }
 
+    // ───────────── 🏆 ترتيب الضرر المباشر + المهاجمون النشطون ─────────────
+    // الضرر مجمّع أصلاً على نفس الزعيم (bossDamage لكل لاعب، من الموقع والواتس معاً).
+    // هنا فقط نقرأ أعلى المهاجمين بكاش قصير حتى لا يضغط تحديث الصفحات على قاعدة البيانات.
+    const BOARD_TTL_MS = 2500
+    const BOARD_SIZE = 8
+    const ONLINE_WINDOW_MS = 2 * 60 * 1000 // «يهاجمون الآن» = هاجموا خلال آخر دقيقتين
+    let _board = null
+    let _boardAt = 0
+    let _boardPromise = null
+
+    function getBoard() {
+        if (_board && Date.now() - _boardAt < BOARD_TTL_MS) return Promise.resolve(_board)
+        if (_boardPromise) return _boardPromise
+        _boardPromise = (async () => {
+            try {
+                const rows = await Player.find({ bossDamage: { $gt: 0 } })
+                    .sort({ bossDamage: -1 })
+                    .limit(BOARD_SIZE)
+                    .select({ userId: 1, name: 1, username: 1, bossDamage: 1, bossHits: 1, lastBossAttack: 1, characters: { $slice: 1 } })
+                    .lean()
+                const t = Date.now()
+                const online = await Player.countDocuments({ lastBossAttack: { $gt: t - ONLINE_WINDOW_MS } })
+                _board = {
+                    online,
+                    rows: rows.map(p => {
+                        const c = (p.characters || [])[0]
+                        return {
+                            userId: p.userId,
+                            name: nameOf(p),
+                            damage: Number(p.bossDamage) || 0,
+                            hits: Number(p.bossHits) || 0,
+                            active: (Number(p.lastBossAttack) || 0) > t - ONLINE_WINDOW_MS,
+                            first: c ? {
+                                name: c.name, rarity: c.rarity, form: c.form, evolutionLevel: c.evolutionLevel || 0,
+                                image: c.image || null, customImage: c.customImage || null
+                            } : null
+                        }
+                    })
+                }
+            } catch (e) {
+                console.error('boss board error:', e)
+                if (!_board) _board = { online: 0, rows: [] }
+            }
+            _boardAt = Date.now()
+            return _board
+        })()
+        _boardPromise.finally(() => { _boardPromise = null })
+        return _boardPromise
+    }
+
     // ───────────── حالة الصفحة ─────────────
     // 🖼️ صورة التابع دائماً من bosses.js (آخر نسخة) — الزعيم الحالي مخزّن بقاعدة البيانات
     // بروابط وقت ظهوره، فلو غيّرت الروابط ما تتحدّث عليه إلا بعد زعيم جديد
@@ -107,6 +157,12 @@ function createBossAttackSystem(deps) {
             if (_hp >= _mx) boss._sawFull = true
             else if (boss._sawFull && !boss.firstHitAt) boss.firstHitAt = now
         }
+        // 🏆 ترتيب الضرر + ترتيبي (استعلام واحد خفيف فقط لمن ضرب الزعيم)
+        const boardRaw = await getBoard()
+        let myRank = null
+        if ((me.bossDamage || 0) > 0) {
+            try { myRank = (await Player.countDocuments({ bossDamage: { $gt: me.bossDamage } })) + 1 } catch (_) {}
+        }
         const last = Math.max(Number(me.lastBossAttack) || 0, fastCd.get(userId) || 0)
         const cdLeft = Math.max(0, COOLDOWN_MS - (now - last))
 
@@ -142,6 +198,11 @@ function createBossAttackSystem(deps) {
                 hits: me.bossHits || 0
             },
             cooldownMs: cdLeft,
+            board: {
+                online: boardRaw.online,
+                myRank,
+                rows: boardRaw.rows.map(r => ({ ...r, isMe: r.userId === userId }))
+            },
             characters: (me.characters || []).map((c, i) => ({
                 index: i + 1, name: c.name, rarity: c.rarity, power: c.power || 0,
                 evolutionLevel: c.evolutionLevel || 0, image: c.image || null,
