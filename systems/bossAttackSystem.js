@@ -98,14 +98,14 @@ function createBossAttackSystem(deps) {
     const BOARD_LIMIT = 10
     const BOARD_ACTIVE_MS = 90 * 1000
     const BOARD_TTL_MS = 1500
-    let _boardCache = { at: 0, top: [], online: 0 }
+    let _boardCache = { at: 0, top: [], online: 0, crowd: [] }
 
     function invalidateBoard() { _boardCache.at = 0 }
 
     async function loadBoardBase() {
         const now = Date.now()
         if (_boardCache.at && now - _boardCache.at < BOARD_TTL_MS) return _boardCache
-        const [top, online] = await Promise.all([
+        const [top, online, crowd] = await Promise.all([
             Player.find(
                 { bossDamage: { $gt: 0 } },
                 {
@@ -113,9 +113,13 @@ function createBossAttackSystem(deps) {
                     lastBossAttack: 1, characters: { $slice: 1 }
                 }
             ).sort({ bossDamage: -1 }).limit(BOARD_LIMIT).lean(),
-            Player.countDocuments({ lastBossAttack: { $gte: now - BOARD_ACTIVE_MS } })
+            Player.countDocuments({ lastBossAttack: { $gte: now - BOARD_ACTIVE_MS } }),
+            Player.find(
+                { lastBossAttack: { $gte: now - BOARD_ACTIVE_MS } },
+                { userId: 1, name: 1, username: 1, bossDamage: 1, characters: { $slice: 1 } }
+            ).sort({ lastBossAttack: -1 }).limit(BOARD_LIMIT).lean()
         ])
-        _boardCache = { at: now, top, online }
+        _boardCache = { at: now, top, online, crowd }
         return _boardCache
     }
 
@@ -144,10 +148,16 @@ function createBossAttackSystem(deps) {
                 myRank = ahead + 1
             }
 
-            return { online: base.online, myRank, rows }
+            // 👥 المتصلون الآن (يهاجمون خلال آخر 90 ثانية) — يظهرون لكل اللاعبين بساحة الزعيم
+            const crowd = (base.crowd || []).map(p => ({
+                userId: p.userId, name: nameOf(p), damage: Number(p.bossDamage) || 0,
+                isMe: p.userId === userId, first: (p.characters && p.characters[0]) || null
+            }))
+
+            return { online: base.online, myRank, rows, crowd }
         } catch (err) {
             console.error('boss board error:', err)
-            return { online: 0, myRank: null, rows: [] }
+            return { online: 0, myRank: null, rows: [], crowd: [] }
         }
     }
 

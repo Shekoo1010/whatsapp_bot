@@ -377,7 +377,7 @@ function cardHTML(char) {
     const power = Number(char.power || 0).toLocaleString('en-US')
 
     return `
-    <div class="card ${isOmega ? 'omega' : ''}" style="--tier:${t.color}" data-d="${char.__num}" tabindex="0" role="button" aria-label="تفاصيل ${esc(char.name)}">
+    <div class="card ${isOmega ? 'omega' : (t.idx >= FIRST_IMAGE_TIER ? 'top' : '')}" style="--tier:${t.color}" data-d="${char.__num}" tabindex="0" role="button" aria-label="تفاصيل ${esc(char.name)}">
       <div class="tier-tag"><span class="tier-name ${t.lang}">${esc(tierKey)}</span><span class="pwr-badge">${power} PWR</span></div>
       <div class="stars">${'★'.repeat(t.stars)}</div>
       <div class="art" style="${artStyle}"><span class="num">${char.__num}</span><div class="fade"></div></div>
@@ -432,7 +432,7 @@ const BASE_CSS = `
   /* أوميقا: إطار متدرج بزوايا دائرية (بدل border-image المربع) + توهج بألوانها */
   .card.omega{
     border-color:transparent;
-    background:linear-gradient(#0f1422,#0f1422) padding-box, linear-gradient(135deg,#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;
+    background:linear-gradient(#0f1422,#0f1422) padding-box, conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;
     box-shadow:0 14px 34px rgba(0,0,0,.45), -6px -6px 28px rgba(255,56,96,.30), 6px -6px 28px rgba(62,168,255,.30), 6px 6px 28px rgba(192,74,255,.34), -6px 6px 28px rgba(240,192,74,.28);
   }
   .tier-tag{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap; padding:13px 18px 7px;}
@@ -472,7 +472,7 @@ const BASE_CSS = `
   }
   .sheet.omega{
     border-color:transparent;
-    background:linear-gradient(180deg,#121830,#0c101e) padding-box, linear-gradient(135deg,#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;
+    background:linear-gradient(180deg,#121830,#0c101e) padding-box, conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;
   }
   .sh-head{position:relative; padding:20px 20px 14px; text-align:center; border-bottom:1px solid color-mix(in srgb, var(--tier) 25%, transparent);}
   .close{position:absolute; top:12px; left:12px; width:34px; height:34px; border-radius:50%; border:1.5px solid color-mix(in srgb, var(--tier) 60%, transparent); background:rgba(0,0,0,.35); color:#fff; font-size:18px; cursor:pointer; line-height:1;}
@@ -637,7 +637,21 @@ function shellHead(title) {
 <title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${BASE_CSS}${EXTRA_CSS}</style>
+<style>${BASE_CSS}${EXTRA_CSS}.card.omega,.sheet.omega{animation:rot 5s linear infinite}
+.card.top{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),var(--tier),#fff6d8,var(--tier),color-mix(in srgb,var(--tier) 35%,#000),var(--tier)) border-box;animation:rot 6s linear infinite}
+.card.top .art::after,.card.omega .art::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.24) 50%,transparent 60%);transform:translateX(-130%);animation:sw 4.5s ease-in-out infinite}
+.card{transition:transform .2s}.card:hover{transform:translateY(-4px)}
+@property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes rot{to{--a:360deg}}
+@keyframes sw{55%,100%{transform:translateX(130%)}}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(520px 320px at 15% 8%,rgba(62,168,255,.15),transparent 70%),radial-gradient(520px 320px at 90% 25%,rgba(192,74,255,.13),transparent 70%)}
+body{padding-bottom:70px}
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:40;display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));background:rgba(10,13,22,.9);border-top:1px solid rgba(240,192,74,.3);backdrop-filter:blur(8px)}
+.bnav a{font:800 11px 'Cairo',sans-serif;color:var(--text-dim);text-align:center;text-decoration:none;padding:2px 8px}
+.bnav a.on{color:var(--gold)}.bnav i{display:block;font-style:normal;font-size:20px}
+@media (prefers-reduced-motion:reduce){.card,.sheet{animation:none!important}.card .art::after{animation:none!important}}
+</style>
+<script>(function(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;addEventListener('DOMContentLoaded',function(){var c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none';document.body.appendChild(c);var x=c.getContext('2d'),W,H,P=[];function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener('resize',rs);for(var i=0;i<50;i++)P.push({x:Math.random(),y:Math.random(),r:Math.random()*1.7+.4,s:Math.random()*.0004+.0001,t:Math.random()*6});(function tk(){x.clearRect(0,0,W,H);for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.s;p.t+=.03;if(p.y<0)p.y=1;x.globalAlpha=.3+.3*Math.sin(p.t);x.fillStyle=i%5?'#fff':'#f0c04a';x.beginPath();x.arc(p.x*W,p.y*H,p.r,0,6.3);x.fill()}requestAnimationFrame(tk)})()})})();</script>
 </head>`
 }
 
@@ -691,6 +705,8 @@ function navDrawerHTML(code, csrf, current, name) {
         `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`
     ).join('')
     const showCd = current !== 'boss'
+    const bn = [['home', '🏠', 'مجموعتي', `/u/${c}`], ['pull', '✨', 'سحب', `/u/${c}/pull`], ['boss', '⚔️', 'الزعيم', `/u/${c}/boss`], ['gift', '🎁', 'إهداء', `/u/${c}/gift`], ['sell', '💰', 'بيع', `/u/${c}/sell`]]
+        .map(([k, ic, l, h]) => `<a${k === current ? ' class="on"' : ''} href="${h}"><i>${ic}</i>${l}</a>`).join('')
     return `<div class="nvbd" id="nv-bd" hidden></div>
 <nav class="nvdr" id="nv-dr" aria-label="القائمة" aria-hidden="true">
   <div class="nvhd">
@@ -723,6 +739,7 @@ function navDrawerHTML(code, csrf, current, name) {
 .nvout{color:#ff6b86}
 .nvls form{margin:0}
 </style>
+<nav class="bnav" aria-label="التنقل">${bn}</nav>
 <script>
 (function(){
   var bt=document.getElementById('nv-open'), dr=document.getElementById('nv-dr'), bd=document.getElementById('nv-bd'), cl=document.getElementById('nv-close');
@@ -1664,6 +1681,11 @@ function bossPageHTML({ viewer, code, data }) {
 @keyframes bsfidle{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-7px) rotate(1.4deg)}}
 .bs-ring{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;border:3px solid rgba(255,150,60,.9);box-shadow:0 0 14px rgba(255,120,40,.8);pointer-events:none;z-index:2;}
 @media (prefers-reduced-motion:reduce){.bs-orb,.bs-cglow,.bs-lv,.bs-lv2,.bs-lava,.bs-smk,.bs-spk,.bs-heat,.bs-em,.bs-slot.b,.bs-slot.b::before,.bs-slot.b::after,.bs-fb,.bs-fl::before{animation:none!important}}
+.bs-crowd{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px 4px;margin:12px 0 0;background:rgba(8,5,16,.5);border-radius:14px;padding:8px 4px}
+.bs-crowd:empty{display:none}
+.cw{text-align:center}.cav{width:52px;height:52px;margin:0 auto;border-radius:50%;border:2px solid #5a6384;background:#10162a center top/cover no-repeat;box-shadow:0 0 10px rgba(255,120,40,.35)}
+.cw.me .cav{border-color:var(--gold);box-shadow:0 0 14px var(--gold)}
+.cnm{font-size:11px;font-weight:800;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bs-lb{margin-top:14px;border-radius:16px;background:#0f1426;border:1px solid #232b45;padding:12px 10px;}
 .bs-lbh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:900;margin-bottom:8px;}
 .bs-lbh b{font-size:15px;white-space:nowrap;}
@@ -1687,7 +1709,7 @@ function bossPageHTML({ viewer, code, data }) {
 <body><div style="padding:30px 16px 60px">
   <div class="topbar">
     <span class="tb-l">${NAV_BTN}<span class="gmode">هجوم الزعيم</span></span>
-    <span><button type="button" class="pill" id="vmute" aria-label="كتم/تشغيل أصوات الزعماء" style="cursor:pointer;margin-inline-end:6px">🔊</button><a class="pill" href="/u/${code}">← رجوع للعرض</a></span>
+    <span><span class="pill" id="live" style="margin-inline-end:6px">🟢 متصل</span><button type="button" class="pill" id="vmute" aria-label="كتم/تشغيل أصوات الزعماء" style="cursor:pointer;margin-inline-end:6px">🔊</button><a class="pill" href="/u/${code}">← رجوع للعرض</a></span>
   </div>
   ${navDrawerHTML(code, viewer.csrf, 'boss', viewer.name)}
   <div class="bs-wrap">
@@ -1735,6 +1757,7 @@ function bossPageHTML({ viewer, code, data }) {
         <div class="bs-flash" id="aflash" style="z-index:4"></div>
       </div>
 
+      <div class="bs-crowd" id="crowd"></div>
       <div class="bs-stat"><span>❤️ دمك</span><span class="bs-num" id="mhpt"></span></div>
       <div class="bs-bar"><div class="bs-fill me" id="mhp"></div></div>
 
@@ -1976,7 +1999,29 @@ function bossPageHTML({ viewer, code, data }) {
 
   // ───── 🏆 ترتيب الضرر المباشر ─────
   var LBH=46, lbMap={};
+  var crMap={}, crInit=false;
+  function crowdHit(av,dd){
+    var a=av.getBoundingClientRect(), b=$('fboss').getBoundingClientRect();
+    var dx=b.left+b.width/2-(a.left+a.width/2), dy=b.top+b.height*.6-(a.top+a.height/2);
+    av.animate([{transform:'translate(0,0) scale(1)'},{transform:'translate('+dx+'px,'+dy+'px) scale(1.15)',offset:.45},{transform:'translate(0,0) scale(1)'}],{duration:520,easing:'ease-in-out'});
+    setTimeout(function(){ shake($('fboss'),5); floatNum($('fboss'),fmt(dd),'#ffd24a',20); },230);
+  }
+  function renderCrowd(b){
+    var box=$('crowd'); if(!box||!b||!b.crowd) return;
+    var lv=$('live'); if(lv) lv.textContent='🟢 متصل '+(b.online||0);
+    var occ={}, keep={}, first=!crInit; crInit=true;
+    b.crowd.forEach(function(r){
+      occ[r.name]=(occ[r.name]||0)+1; var k=r.name+'#'+occ[r.name], n=crMap[k]; keep[k]=1;
+      if(!n){ var d=el('div','cw'); d.appendChild(el('div','cav')); d.appendChild(el('div','cnm')); box.appendChild(d); n={el:d,av:d.firstChild,nm:d.lastChild,dmg:r.damage}; crMap[k]=n; }
+      n.el.className='cw'+(r.me?' me':''); n.nm.textContent=r.me?'أنت':r.name;
+      if(r.img) n.av.style.backgroundImage="url('"+r.img+"')"; if(r.color) n.av.style.borderColor=r.color;
+      var dd=r.damage-n.dmg; n.dmg=r.damage;
+      if(!first && dd>0 && !r.me) crowdHit(n.av,dd);
+    });
+    Object.keys(crMap).forEach(function(k){ if(!keep[k]){ crMap[k].el.remove(); delete crMap[k]; } });
+  }
   function renderBoard(b){
+    renderCrowd(b);
     var box=$('lbrows'); if(!box||!b||!b.rows) return;
     $('lbn').textContent=(b.online>0?'🟢 '+b.online+' يهاجمون الآن':'')+(b.myRank?(b.online>0?' · ':'')+'ترتيبك #'+b.myRank:'');
     var emp=box.querySelector('.lb-empty');
@@ -2800,6 +2845,12 @@ function registerCharacterSite(app, Player, opts = {}) {
             } : null,
             me: st.me,
             board: st.board ? {
+                crowd: (st.board.crowd || []).map(r => {
+                    const d = r.first ? resolveDisplayChar(r.first, catIdx) : null
+                    const tk = d ? resolveTierKey(d.rarity, d.evolutionLevel) : null
+                    return { name: String(r.name || 'لاعب'), damage: Number(r.damage) || 0, me: !!r.isMe,
+                        img: d ? safeImageUrl(d.image) : null, color: tk && TIERS[tk] ? TIERS[tk].color : null }
+                }),
                 online: Number(st.board.online) || 0,
                 myRank: st.board.myRank || null,
                 rows: (st.board.rows || []).map(r => {
