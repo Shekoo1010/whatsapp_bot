@@ -8864,6 +8864,9 @@ if (
 // DAILY MISSIONS
 // =========================
 
+// ✅ تصفير مهام اليوم الجديد قبل أي حساب (حتى ما تضيع السحبات على بيانات أمس)
+await resetDailyMissions(player)
+
 if (player.dailyMissions) {
 
     player.dailyMissions.pulls += 1
@@ -10199,17 +10202,10 @@ me.dailyBossHits =
 
 // مهمة الزعيم اليومية
 
+// ✅ تصفير مهام اليوم الجديد دائماً (حتى لو ما عنده dailyMissions)
+await resetDailyMissions(me)
+
 if (me.dailyMissions) {
-
-    const today = getSaudiDate()
-
-    if (
-        me.dailyMissions.lastReset !== today
-    ) {
-
-        await resetDailyMissions(me)
-
-    }
 
     if (
         me.dailyMissions.bossKills < 2
@@ -28516,6 +28512,9 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         // 🎲 السحب
         const rolled = bannerMgr.rollPulls(bpCount, spentDoc, bannerState.character)
 
+        // ✅ تصفير مهام اليوم الجديد قبل حساب السحبات
+        await resetDailyMissions(player)
+
         for (const r of rolled.results) {
 
             const c = r.character
@@ -30828,6 +30827,9 @@ if (!player) {
         }
     )
 }
+
+// ✅ تصفير مهام اليوم الجديد قبل الاستلام (حتى ما يظهر "استلمت اليوم" ببيانات أمس)
+await resetDailyMissions(player)
 
 const m =
 player.dailyMissions
@@ -37458,6 +37460,9 @@ if (tierChance <= 50) {
 );
 
     // مهمة الفوز اليومية
+    // ✅ تصفير مهام اليوم الجديد قبل الحساب
+    await resetDailyMissions(me)
+
     if (me.dailyMissions) {
 
         me.dailyMissions.wins += 1;
