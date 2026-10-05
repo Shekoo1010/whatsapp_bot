@@ -47,7 +47,31 @@ async function deleteCustomCharacterImage(publicId) {
     }
 }
 
+
+// 🖼️ صور الكتالوج العامة (أمر المطور .ص) — public_id ثابت مشتق من مفتاح
+// الشخصية (مو من رقمها بالقائمة) عشان إعادة الرفع تستبدل نفس الصورة.
+function uploadCatalogImage(buffer, key) {
+    const id = require('crypto').createHash('sha1').update(String(key)).digest('hex').slice(0, 24)
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder: 'catalog_images',
+                public_id: id,
+                overwrite: true,
+                invalidate: true,
+                resource_type: 'image'
+            },
+            (err, result) => {
+                if (err) return reject(err)
+                resolve({ url: result.secure_url, publicId: result.public_id })
+            }
+        )
+        stream.end(buffer)
+    })
+}
+
 module.exports = {
     uploadCustomCharacterImage,
-    deleteCustomCharacterImage
+    deleteCustomCharacterImage,
+    uploadCatalogImage
 }
