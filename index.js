@@ -699,7 +699,8 @@ const minutes = now.getMinutes()
 // بتوقيت الرياض (آخر فتح هو رأس الساعة 11م). من 12ص وحتى 9ص (شامل)
 // ما يفتح القروب إطلاقاً حتى لو صار رأس ساعة بهذي الفترة.
 const riyadhHour = getRiyadhHour()
-const withinAttackHours = riyadhHour >= 10 && riyadhHour <= 23
+// 🟢 .فتح_البوت (فتح يدوي من المطور) يفتح نافذة الزعيم بالموقع حتى خارج 10ص–11م
+const withinAttackHours = (riyadhHour >= 10 && riyadhHour <= 23) || isBotForceOpen()
 
 // 🌐 وضع الموقع: النافذة تفتح رأس الساعة (10ص–11م) وتبقى مفتوحة بدون
 // وقت محدد، وتقفل فقط لما يسقط الزعيم (closeWindow من bossAttackSystem).
@@ -8010,6 +8011,8 @@ if (!text) return;
 
                 global.botForceOpenUntil = 0
                 saveBotForceOpen(0)
+                // 👑 قفل البوت خارج الدوام يقفل نافذة الزعيم بالموقع أيضاً
+                if (getRiyadhHour() < 10) global.bossAttackWindowOpen = false
 
                 return sock.sendMessage(msg.key.remoteJid, {
                     text: '🔴 تم قفل البوت عن الأعضاء — رجع للجدول العادي (10 ص - 12:00 ص)'
@@ -8032,6 +8035,8 @@ if (!text) return;
             // يبقى مفتوحاً لين أول 10:00 صباحاً (بعدها يرجع الجدول العادي)
             global.botForceOpenUntil = nextRegularOpenTimestamp()
             saveBotForceOpen(global.botForceOpenUntil)
+            // 👑 يفتح نافذة هجوم الزعيم بالموقع خلال دقيقة (لو الزعيم حي) بدل انتظار رأس الساعة
+            global.bossWindowHourKey = undefined
 
             await sock.sendMessage(msg.key.remoteJid, {
                 text: '🟢 تم فتح البوت للأعضاء — يبقى شغال لين 10 ص، أو لين تكتب .قفل_البوت\n\n📢 جاري إبلاغ القروبات...'
