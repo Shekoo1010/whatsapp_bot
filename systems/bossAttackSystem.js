@@ -43,8 +43,18 @@ function createBossAttackSystem(deps) {
         return ev
     }
 
+    // 🗡️ ضربات الأتباع: سجل منفصل حتى ما تزاحم أحداث الزعيم المهمة بسجل الـ40
+    const hitFeed = []
+    function pushHit(ev) {
+        ev.id = ++feedSeq
+        ev.t = Date.now()
+        hitFeed.push(ev)
+        if (hitFeed.length > 60) hitFeed.shift()
+        return ev
+    }
+
     function getFeed(sinceId = 0) {
-        return feed.filter(e => e.id > sinceId)
+        return feed.concat(hitFeed).filter(e => e.id > sinceId).sort((a, b) => a.id - b.id)
     }
     function latestFeedId() { return feedSeq }
     function getLastResults() { return lastResults }
@@ -707,6 +717,16 @@ function createBossAttackSystem(deps) {
                 }
 
                 follower.hp -= followerDamage
+
+                // 🗡️ حدث عام لكل ضربة على تابع (يشوفه باقي اللاعبين بالموقع كأنيميشن)
+                if (followerDamage > 0) {
+                    pushHit({
+                        type: 'follower_hit', anim: 'follower_hit', by: userId,
+                        attacker: nameOf(me), follower: follower.name,
+                        amount: followerDamage, crit: !!bossHitWasCrit,
+                        dead: follower.hp <= 0
+                    })
+                }
 
                 if (follower.hp <= 0) {
 

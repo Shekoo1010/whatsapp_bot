@@ -1855,12 +1855,12 @@ html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;
 .arena{position:relative;border-radius:20px;overflow:hidden;border:1.5px solid rgba(255,56,96,.45);background:linear-gradient(180deg,#1b0d26,#0b0710 85%);box-shadow:0 0 30px rgba(255,56,96,.2);padding:14px 8px 10px}
 .bossbox{position:relative;height:232px;display:flex;justify-content:center}
 .boss.shield{filter:saturate(.5) brightness(.75)}
-.fol{position:absolute;bottom:2px;width:56px;text-align:center;animation:drop .8s cubic-bezier(.3,1.5,.5,1) both}
+.fol{position:absolute;bottom:2px;width:74px;text-align:center;animation:drop .8s cubic-bezier(.3,1.5,.5,1) both}
 @keyframes drop{from{transform:translateY(-220px);opacity:0}}
-.fol .fi{width:56px;height:56px;border-radius:12px;border:2px solid #c04aff;background-size:cover;background-position:center top;filter:hue-rotate(250deg) saturate(1.3) brightness(.85);box-shadow:0 0 14px rgba(192,74,255,.6)}
+.fol .fi{width:74px;height:74px;border-radius:14px;border:2px solid #f0c04a;background-size:cover;background-position:center top;box-shadow:0 0 14px rgba(240,192,74,.55)}
 .fol .fh{height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:3px;overflow:hidden}
-.fol .fh i{display:block;height:100%;width:100%;background:#c04aff;transition:width .3s}
-.fol .fn{font-size:10px;color:#d9b3ff;margin-top:1px;white-space:nowrap}
+.fol .fh i{display:block;height:100%;width:100%;background:#ff3860;transition:width .3s}
+.fol .fn{font-size:11px;color:#fff;margin-top:1px;white-space:nowrap}
 .fol.hit .fi{animation:shake .3s}
 .fol.dead{animation:fdie .7s forwards}
 @keyframes fdie{to{transform:translateY(20px) scale(.4) rotate(14deg);opacity:0}}
@@ -2096,7 +2096,7 @@ function setTheme(i){
       vBtn();
     });
   })();
-  var vReady=false, vPend=null, vIntro={};
+  var vReady=false, vPend=null, vIntro={}, vFirstAt=0, vFirstName='', VFIRST_MS=30000;
   fetch('/boss-voice/manifest.json').then(function(r){ return r.json(); }).then(function(j){ VOICES=j||{}; }).catch(function(){}).then(function(){ vReady=true; if(S&&S.boss) vCheck(S.boss); });
   function vPlay(name,slot,retry){
     if(vMuted) return;
@@ -2116,21 +2116,31 @@ function setTheme(i){
     vIntro[name]=Date.now();
     try{ localStorage.setItem('bossV1:'+name,String(vIntro[name])); }catch(e){}
   }
-  // 1=أول هجوم على الزعيم (للجميع، ومن يدخل خلال 20 ثانية منه يسمعه مرة وحدة) · 2=دم 75% · 3=ظهور الأتباع · 4=دم 10%
+  // 1=أول هجوم على الزعيم (للجميع، ومن يدخل خلال 30 ثانية منه يسمعه مرة وحدة، وأيضاً عند ضغطه هجوم داخل النافذة) · 2=دم 75% · 3=ظهور الأتباع · 4=دم 10%
   function vCheck(b){
     if(!b) return;
     var dead=!!b.finished||b.hp<=0, p=b.maxHp>0?b.hp/b.maxHp:0, fol=(b.followers||[]).length>0, L=vLast;
     vLast={name:b.name,p:p,fol:fol,dead:dead};
+    // وقت أول هجوم بساعة المتصفح (نحدّثه مع كل حالة من السيرفر) لنعرف هل ما زلنا بنافذة الصوت الأول
+    if(b.firstHitAgoMs!=null){ vFirstAt=Date.now()-b.firstHitAgoMs; vFirstName=b.name; }
     if(dead||!vReady) return;
     var l1=VOICES[b.name]&&VOICES[b.name][0];
-    // صوت 1: لمن يكون داخل الصفحة وقت أول هجوم، أو يدخل خلال 20 ثانية منه (بعدها لا يُشغَّل لأحد)
+    // صوت 1: لمن يكون داخل الصفحة وقت أول هجوم، أو يدخل خلال 30 ثانية منه (بعدها لا يُشغَّل لأحد)
     var ago=(b.firstHitAgoMs==null)?null:b.firstHitAgoMs;
     var seen=!!(L&&!L.dead&&L.name===b.name&&L.p>=1&&p<1);
-    if(l1 && p<1 && !vIntroDone(b.name) && (ago==null?seen:ago<=20000)){ vIntroMark(b.name); vPlay(b.name,1,true); return; }
+    if(l1 && p<1 && !vIntroDone(b.name) && (ago==null?seen:ago<=VFIRST_MS)){ vIntroMark(b.name); vPlay(b.name,1,true); return; }
     if(!L||L.dead||L.name!==b.name) return;
     if(L.p>0.10 && p<=0.10){ vPlay(b.name,4); return; }
     if(!L.fol && fol){ vPlay(b.name,3); return; }
     if(L.p>0.75 && p<=0.75){ vPlay(b.name,2); return; }
+  }
+
+  // 🔊 ضغط «هجوم» = لمسة من المستخدم (المتصفح يسمح بالصوت): لو لسه داخل 30 ثانية من أول هجوم ولم يسمع الصوت الأول، يشغَّل له الآن
+  function vOnAttackClick(){
+    var b=S&&S.boss; if(!b||b.finished||!vReady||vMuted) return;
+    var l1=VOICES[b.name]&&VOICES[b.name][0];
+    if(!l1||vIntroDone(b.name)) return;
+    if(vFirstName===b.name && vFirstAt && Date.now()-vFirstAt<=VFIRST_MS){ vIntroMark(b.name); vPlay(b.name,1,false); }
   }
 
   // ───── عرض الحالة ─────
@@ -2138,6 +2148,10 @@ function setTheme(i){
     if(!b){ $('bn').textContent='لا يوجد زعيم'; $('bhpt').textContent=''; $('bhp').style.width='0%'; clearFol(); return; }
     $('bn').textContent=b.name; img($('fboss'),b.img);
     $('rage').hidden=!b.enraged;
+    var sameBoss=(lastBossName===b.name && !b.finished && b.hp>0);
+    bossDrop=(sameBoss && lastBossHp!=null)?Math.max(0,lastBossHp-b.hp):0;
+    lastBossName=b.name; lastBossHp=b.hp;
+    collectFol=(polling && sameBoss);
     if(bossDeadShown && !b.finished && b.hp>0){ bossDeadShown=false; $('fboss').getAnimations().forEach(function(a){ if(!(window.CSSAnimation && a instanceof CSSAnimation)) a.cancel(); }); }
     $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
     $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
@@ -2147,7 +2161,7 @@ function setTheme(i){
   }
 
   // ───── الأتباع: يظهرون بجوانب الزعيم (2.5D) — نزول من فوق / HP / موت مثل موت الزعيم ─────
-  var fmap={}, folInit=false;
+  var fmap={}, folInit=false, collectFol=false, polling=false, folHits=[], lastBossName=null, lastBossHp=null, bossDrop=0;
   function folKeys(list){ var occ={}; return list.map(function(x){ occ[x.name]=(occ[x.name]||0)+1; return x.name+'#'+occ[x.name]; }); }
   function folNode(key){ return fmap[key]?fmap[key].fg:null; }
   function clearFol(){ Object.keys(fmap).forEach(function(k){ fmap[k].el.remove(); delete fmap[k]; }); }
@@ -2173,7 +2187,7 @@ function setTheme(i){
     var cx=r.left-a.left+r.width/2, cy=r.top-a.top+r.height/2;
     var ff=n.fg.querySelector('.ff'); if(ff) ff.animate([{opacity:0},{opacity:.95,offset:.25},{opacity:.5}],{duration:900,fill:'forwards'});
     for(var i=0;i<16;i++){
-      var p=el('i','bs-sp'), c=(i%3===0)?'#c04aff':'#ff9a3d', sz=3+Math.random()*4;
+      var p=el('i','bs-sp'), c=(i%3===0)?'#ffd24a':'#ff9a3d', sz=3+Math.random()*4;
       p.style.left=cx+'px'; p.style.top=cy+'px'; p.style.width=sz+'px'; p.style.height=sz+'px'; p.style.background=c; p.style.boxShadow='0 0 8px 2px '+c;
       A.appendChild(p);
       var dx=(Math.random()-.5)*r.width*1.6, dy=-(30+Math.random()*80);
@@ -2189,13 +2203,15 @@ function setTheme(i){
         var used={}; Object.keys(fmap).forEach(function(q){ used[fmap[q].slot]=1; }); var sl=0; while(used[sl]) sl++;
         var w=el('div','fol');
         w.innerHTML='<div class="fi"><div class="ff"></div></div><div class="fh"><i></i></div><div class="fn"></div>';
-        w.style[(sl%2)?'right':'left']=(4+Math.floor(sl/2)*58)+'px';
+        w.style[(sl%2)?'right':'left']=(4+Math.floor(sl/2)*76)+'px';
         w.style.animationDelay=(spawned*.15)+'s';
-        n={el:w,fg:w.querySelector('.fi'),bar:w.querySelector('.fh i'),nm:w.querySelector('.fn'),max:Math.max(1,x.hp||1),slot:sl};
+        n={el:w,fg:w.querySelector('.fi'),bar:w.querySelector('.fh i'),nm:w.querySelector('.fn'),max:Math.max(1,x.hp||1),slot:sl,hp:(x.hp||0)};
         fmap[k]=n; $('fols').appendChild(w); spawned++;
         if(animate){ setTimeout((function(ww){ return function(){ if(ww.isConnected) landFx(ww); }; })(w), spawned*150+560); }
       }
       if((x.hp||0)>n.max) n.max=x.hp;
+      if(collectFol && animate && n.hp!=null && (x.hp||0)<n.hp){ folHits.push({node:n.fg,dmg:n.hp-(x.hp||0)}); }
+      n.hp=(x.hp||0);
       if(x.img) img(n.fg,x.img);
       n.nm.textContent=x.name;
       n.el.title=x.name+' — '+fmt(x.hp)+' HP';
@@ -2205,6 +2221,7 @@ function setTheme(i){
       if(alive[k]) return;
       var n=fmap[k]; delete fmap[k];
       if(!animate){ n.el.remove(); return; }
+      if(collectFol && n.hp>0){ folHits.push({node:n.fg,dmg:n.hp}); }
       dieFx(n);
       var an=n.el.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-6px) scale(1.14) rotate(-3deg)',opacity:1,offset:.22},{transform:'translateY(20px) scale(.4) rotate(14deg)',opacity:0}],{duration:700,easing:'ease-in',fill:'forwards'});
       dying.push(an.finished.then(function(){ n.el.remove(); }).catch(function(){ n.el.remove(); }));
@@ -2244,8 +2261,9 @@ function setTheme(i){
     if(st.characters && st.characters.length){ S.characters=st.characters; }
     cdEnd=Date.now()+(st.cooldownMs||0);
     setResp(st.boss);
-    renderBoss(st.boss); renderMe(st.me);
-    if(st.board) renderBoard(st.board);
+    polling=true;
+    try{ renderBoss(st.boss); renderMe(st.me); if(st.board) renderBoard(st.board); }
+    finally{ polling=false; collectFol=false; }
   }
 
   // ───── الحشد (أسفل الساحة) + 🏆 ترتيب الضرر المباشر ─────
@@ -2257,6 +2275,33 @@ function setTheme(i){
     var dx=b.left+b.width/2-(a.left+a.width/2), dy=b.top+b.height*.6-(a.top+a.height/2);
     av.animate([{transform:'translate(0,0) scale(1)'},{transform:'translate('+dx+'px,'+dy+'px) scale(1.15)',offset:.45},{transform:'translate(0,0) scale(1)'}],{duration:520,easing:'ease-in-out'});
     setTimeout(function(){ shake($('fboss'),5); floatNum($('fboss'),fmt(dd),'#ffd24a',20); },230);
+  }
+  // اختيار ضربة تابع تخص هذا المهاجم (حسب الضرر، أو أول ضربة لو الزعيم ما نقص دمه)
+  function pickFolHit(dd){
+    if(!folHits.length) return null;
+    var i=-1;
+    for(var k=0;k<folHits.length;k++){ if(folHits[k].dmg===dd){ i=k; break; } }
+    if(i<0 && bossDrop<=0) i=0;
+    if(i<0) return null;
+    return folHits.splice(i,1)[0];
+  }
+  // مهاجم آخر يضرب تابع: صورته تطير للتابع + شرارات + وميض + اهتزاز + رقم الضرر (مثل ضربة الزعيم)
+  function crowdHitFol(av,h){
+    var a=av.getBoundingClientRect(), b=h.node.getBoundingClientRect();
+    var dx=b.left+b.width/2-(a.left+a.width/2), dy=b.top+b.height*.6-(a.top+a.height/2);
+    av.animate([{transform:'translate(0,0) scale(1)'},{transform:'translate('+dx+'px,'+dy+'px) scale(1.15)',offset:.45},{transform:'translate(0,0) scale(1)'}],{duration:520,easing:'ease-in-out'});
+    setTimeout(function(){ if(h.node.isConnected){ shake($('arena'),h.crit?5:3); hitFollower(h.node,h.dmg,!!h.crit); } },230);
+  }
+  // ضربات أتباع ما انربطت بمهاجم معين: نحركها بأي مهاجم من الحشد (أو مباشرة لو ما في حشد)
+  function flushFolHits(){
+    var list=folHits.splice(0), ks=Object.keys(crMap);
+    list.forEach(function(h,i){
+      setTimeout(function(){
+        if(!h.node.isConnected) return;
+        if(ks.length){ var c=crMap[ks[Math.floor(Math.random()*ks.length)]]; if(c){ crowdHitFol(c.av,h); return; } }
+        shake($('arena'),3); hitFollower(h.node,h.dmg,false);
+      },i*350);
+    });
   }
   function renderCrowd(b){
     var box=$('crowd'); if(!box||!b||!b.crowd) return;
@@ -2273,7 +2318,7 @@ function setTheme(i){
       n.nm.textContent=r.name;
       if(r.img) n.av.style.backgroundImage="url('"+r.img+"')";
       var dd=r.damage-n.dmg; n.dmg=r.damage;
-      if(!first && dd>0) crowdHit(n.av,dd);
+      if(!first && dd>0){ var fh=pickFolHit(dd); if(fh) crowdHitFol(n.av,fh); else crowdHit(n.av,dd); }
     });
     Object.keys(crMap).forEach(function(k){ if(!keep[k]){ crMap[k].el.remove(); delete crMap[k]; } });
   }
@@ -2430,6 +2475,7 @@ function setTheme(i){
   }
   function addPub(ev){
     if(ev.id){ if(seen[ev.id]) return; seen[ev.id]=1; if(ev.id>lastId) lastId=ev.id; }
+    if(ev.type==='follower_hit') return;
     if(ev.type==='results'){ renderResults(ev.results); return; }
     addTo($('pub'),eventNode(ev,true),12);
   }
@@ -2517,6 +2563,7 @@ function setTheme(i){
   // ───── الإرسال ─────
   $('go').addEventListener('click',function(){
     if(busy) return;
+    vOnAttackClick();
     busy=true; $('go').disabled=true; $('lbl').textContent='جارٍ الهجوم…'; show(null);
     var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
     fetch('/boss/attack',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
@@ -2543,6 +2590,24 @@ function setTheme(i){
     });
   });
   $('sel').addEventListener('change',renderChar);
+  // ───── ضربة لاعب آخر على تابع (حدث من السيرفر): صورته تطير للتابع + نفس تأثيرات الضربة ─────
+  function findFolNode(name){
+    var all=document.querySelectorAll('#fols .fol'), first=null;
+    for(var i=0;i<all.length;i++){
+      var fi=all[i].querySelector('.fi'), nm=all[i].querySelector('.fn');
+      if(!fi) continue; if(!first) first=fi;
+      if(nm && nm.textContent===name) return fi;
+    }
+    return first;
+  }
+  function playFolHitEv(e){
+    var node=findFolNode(e.follower); if(!node) return;
+    var h={node:node,dmg:e.amount||0,crit:!!e.crit}, av=null, ks=Object.keys(crMap);
+    for(var i=0;i<ks.length;i++){ if(ks[i].indexOf(e.attacker+'#')===0){ av=crMap[ks[i]].av; break; } }
+    if(!av && ks.length) av=crMap[ks[Math.floor(Math.random()*ks.length)]].av;
+    if(av) crowdHitFol(av,h);
+    else { shake($('arena'),h.crit?5:3); hitFollower(node,h.dmg,h.crit); }
+  }
   // ───── أنيميشن الأحداث العامة لباقي اللاعبين (غير المهاجم) ─────
   async function animPublic(ev,drop){
     if(ev.anim==='raid'){
@@ -2571,7 +2636,10 @@ function setTheme(i){
       applyState(j.state); S.characters=keepChars;
       var drop=Math.max(0,hpBefore-((S.me&&S.me.hp)||0)), fresh=[];
       (j.feed||[]).forEach(function(e){ var isNew=!(e.id&&seen[e.id]); addPub(e); if(isNew && e.type!=='results') fresh.push(e); });
-      fresh.slice(-3).forEach(function(e){ if(e.anim==='raid'||e.anim==='enrage'||e.anim==='boss_dead'){ pubQ.push({ev:e,drop:(e.anim==='raid'?drop:0)}); if(e.anim==='raid') drop=0; } });
+      var hitEvs=fresh.filter(function(e){ return e.type==='follower_hit' && !e.mine; });
+      if(hitEvs.length){ folHits.length=0; hitEvs.slice(-8).forEach(function(e,i){ setTimeout(function(){ playFolHitEv(e); },i*380); }); }
+      else { flushFolHits(); }
+      fresh.filter(function(e){ return e.type!=='follower_hit'; }).slice(-3).forEach(function(e){ if(e.anim==='raid'||e.anim==='enrage'||e.anim==='boss_dead'){ pubQ.push({ev:e,drop:(e.anim==='raid'?drop:0)}); if(e.anim==='raid') drop=0; } });
       runPubQ();
     }).catch(function(){});
   }
@@ -2580,7 +2648,7 @@ function setTheme(i){
   setResp(S.boss);
   renderSel(); renderBoss(S.boss); renderMe(S.me); renderBoard(S.board); cdEnd=Date.now()+(S.cooldownMs||0);
   (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
-  (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results') addTo($('pub'),eventNode(e,true),12); });
+  (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results' && e.type!=='follower_hit') addTo($('pub'),eventNode(e,true),12); });
   if(D.results) renderResults(D.results);
   tick(); setInterval(tick,500); pollTimer=setInterval(poll,3000);
 })();
@@ -3186,12 +3254,19 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     }
 
-    function bossEventsOut(events) {
+    function bossEventsOut(events, viewerId) {
         return (events || []).map(e => {
             const out = {
                 id: e.id, type: e.type, anim: e.anim, title: e.title,
                 lines: (e.lines || []).map(String), amount: e.amount,
                 img: safeImageUrl(e.image)
+            }
+            if (e.type === 'follower_hit') {
+                out.attacker = String(e.attacker || '')
+                out.follower = String(e.follower || '')
+                out.crit = !!e.crit
+                out.dead = !!e.dead
+                out.mine = !!viewerId && e.by === viewerId
             }
             if (e.targets) out.targets = e.targets.map(t => ({ name: String(t.name || '') }))
             if (e.results) out.results = { ...e.results, bossImage: safeImageUrl(e.results.bossImage) }
@@ -3230,7 +3305,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 code,
                 data: {
                     state: bossStateOut(st),
-                    feed: bossEventsOut(bossAttack.getFeed(Math.max(0, bossAttack.latestFeedId() - 15))),
+                    feed: bossEventsOut(bossAttack.getFeed(Math.max(0, bossAttack.latestFeedId() - 15)), player.userId),
                     lastId: bossAttack.latestFeedId(),
                     results: (() => {
                         const r = bossAttack.getLastResults()
@@ -3253,7 +3328,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const since = Math.max(0, parseInt(req.query.since, 10) || 0)
             const st = await bossAttack.getState(sess.u)
             if (!st) return res.status(404).json({ ok: false })
-            res.json({ ok: true, state: bossStateOut(st), feed: bossEventsOut(bossAttack.getFeed(since)) })
+            res.json({ ok: true, state: bossStateOut(st), feed: bossEventsOut(bossAttack.getFeed(since), sess.u) })
         } catch (err) {
             console.error('boss state error:', err)
             res.status(500).json({ ok: false })
