@@ -86,6 +86,14 @@ function createBossAttackSystem(deps) {
         if (!me) return null
 
         const now = Date.now()
+
+        // 🔊 وقت أول هجوم على الزعيم (لصوت الزعيم رقم 1 بالموقع):
+        // لو شفنا الزعيم كامل الدم ثم نزل، نسجّل وقت أول نزول (يغطي هجوم الواتس أيضاً)
+        if (boss) {
+            const _hp = Number(boss.hp) || 0, _mx = Number(boss.maxHp) || 0
+            if (_hp >= _mx) boss._sawFull = true
+            else if (boss._sawFull && !boss.firstHitAt) boss.firstHitAt = now
+        }
         const last = Math.max(Number(me.lastBossAttack) || 0, fastCd.get(userId) || 0)
         const cdLeft = Math.max(0, COOLDOWN_MS - (now - last))
 
@@ -108,7 +116,9 @@ function createBossAttackSystem(deps) {
                 respawnInMs: (!!boss.finished || (Number(boss.hp) || 0) <= 0) && boss.respawnAt
                     ? Math.max(0, new Date(boss.respawnAt).getTime() - now)
                     : null,
-                followers: followersView(boss)
+                followers: followersView(boss),
+                // كم مضى على أول هجوم (null = غير معروف)
+                firstHitAgoMs: boss.firstHitAt ? Math.max(0, now - boss.firstHitAt) : null
             } : null,
             me: {
                 hp: me.bossHp || me.bossMaxHp || 0,
@@ -679,6 +689,8 @@ function createBossAttackSystem(deps) {
             }
 
             // ───────────── هجوم على الزعيم ─────────────
+            // 🔊 أول ضربة على الزعيم: نسجّل وقتها بدقة
+            if (!boss.firstHitAt && damage > 0 && (Number(boss.hp) || 0) >= (Number(boss.maxHp) || 0)) boss.firstHitAt = Date.now()
             boss.hp = Math.max(0, (boss.hp || 0) - damage)
 
             await Boss.updateOne({}, {

@@ -1726,19 +1726,38 @@ function bossPageHTML({ viewer, code, data }) {
       vBtn();
     });
   })();
-  fetch('/boss-voice/manifest.json').then(function(r){ return r.json(); }).then(function(j){ VOICES=j||{}; }).catch(function(){});
-  function vPlay(name,slot){
+  var vReady=false, vPend=null, vIntro={};
+  fetch('/boss-voice/manifest.json').then(function(r){ return r.json(); }).then(function(j){ VOICES=j||{}; }).catch(function(){}).then(function(){ vReady=true; if(S&&S.boss) vCheck(S.boss); });
+  function vPlay(name,slot,retry){
     if(vMuted) return;
     var l=VOICES[name], u=l&&l[slot-1]; if(!u) return;
-    try{ if(vAud) vAud.pause(); vAud=new Audio(u); var p=vAud.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){}
+    try{ if(vAud) vAud.pause(); vAud=new Audio(u); var p=vAud.play(); if(p&&p.catch) p.catch(function(){ if(retry) vPend={name:name,slot:slot}; }); }catch(e){}
   }
-  // 1=ظهور · 2=دم 75% · 3=ظهور الأتباع · 4=دم 10% — بدون صوت عند فتح الصفحة، فقط عند التغيّر
+  // المتصفح قد يمنع التشغيل قبل أول لمسة: نحتفظ بصوت الظهور ونشغّله عند أول لمسة للصفحة
+  function vUnlock(){ if(!vPend) return; var x=vPend; vPend=null; vPlay(x.name,x.slot,false); }
+  ['pointerdown','touchstart','keydown'].forEach(function(ev){ document.addEventListener(ev,vUnlock,{passive:true}); });
+  // هل سمع هذا المتصفح صوت ظهور هذا الزعيم؟ (اسم الزعيم يتكرر كل 10 زعماء، فنعتبره جديداً بعد 3 ساعات)
+  function vIntroDone(name){
+    var t=vIntro[name]||0;
+    try{ t=Math.max(t,Number(localStorage.getItem('bossV1:'+name))||0); }catch(e){}
+    return Date.now()-t<3*3600*1000;
+  }
+  function vIntroMark(name){
+    vIntro[name]=Date.now();
+    try{ localStorage.setItem('bossV1:'+name,String(vIntro[name])); }catch(e){}
+  }
+  // 1=أول هجوم على الزعيم (للجميع، ومن يدخل خلال 20 ثانية منه يسمعه مرة وحدة) · 2=دم 75% · 3=ظهور الأتباع · 4=دم 10%
   function vCheck(b){
     if(!b) return;
     var dead=!!b.finished||b.hp<=0, p=b.maxHp>0?b.hp/b.maxHp:0, fol=(b.followers||[]).length>0, L=vLast;
     vLast={name:b.name,p:p,fol:fol,dead:dead};
-    if(!L||dead) return;
-    if(L.dead||L.name!==b.name){ vPlay(b.name,1); return; }
+    if(dead||!vReady) return;
+    var l1=VOICES[b.name]&&VOICES[b.name][0];
+    // صوت 1: لمن يكون داخل الصفحة وقت أول هجوم، أو يدخل خلال 20 ثانية منه (بعدها لا يُشغَّل لأحد)
+    var ago=(b.firstHitAgoMs==null)?null:b.firstHitAgoMs;
+    var seen=!!(L&&!L.dead&&L.name===b.name&&L.p>=1&&p<1);
+    if(l1 && p<1 && !vIntroDone(b.name) && (ago==null?seen:ago<=20000)){ vIntroMark(b.name); vPlay(b.name,1,true); return; }
+    if(!L||L.dead||L.name!==b.name) return;
     if(L.p>0.10 && p<=0.10){ vPlay(b.name,4); return; }
     if(!L.fol && fol){ vPlay(b.name,3); return; }
     if(L.p>0.75 && p<=0.75){ vPlay(b.name,2); return; }
@@ -2619,6 +2638,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 name: st.boss.name, img: safeImageUrl(st.boss.image),
                 hp: st.boss.hp, maxHp: st.boss.maxHp, enraged: st.boss.enraged, finished: st.boss.finished,
                 respawnInMs: st.boss.respawnInMs,
+                firstHitAgoMs: st.boss.firstHitAgoMs == null ? null : st.boss.firstHitAgoMs,
                 followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
             } : null,
             me: st.me,
