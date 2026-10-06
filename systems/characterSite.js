@@ -12,6 +12,8 @@ const pathMod = require('path')
 const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
 
 const PAGE_SIZE = 40
+const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
+const TOP_CACHE_MS = 3 * 60 * 1000      // مدة تخزين الترتيب بالذاكرة (3 دقائق)
 
 // نفس جدول الرتب/الألوان/النجوم الموجود بـ myRosterCard.js
 const TIER_ORDER = [
@@ -690,13 +692,16 @@ function loginHTML({ code, csrf, error, disabled }) {
 // ☰ زر القائمة الجانبية (يوضع داخل .topbar) + القائمة نفسها (navDrawerHTML)
 const NAV_BTN = `<button class="nvbtn" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`
 
-// code: كود الصفحة · csrf: توكن الخروج · current: home|pull|boss|gift|sell|log · name: اسم اللاعب (اختياري)
+// code: كود الصفحة · csrf: توكن الخروج · current: home|pull|boss|chat|top|ship|gift|sell|log · name: اسم اللاعب (اختياري)
 function navDrawerHTML(code, csrf, current, name) {
     const c = esc(code)
     const items = [
         ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
+        ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
+        ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`]
@@ -705,7 +710,7 @@ function navDrawerHTML(code, csrf, current, name) {
         `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`
     ).join('')
     const showCd = current !== 'boss'
-    const bn = [['home', '🏠', 'مجموعتي', `/u/${c}`], ['pull', '✨', 'سحب', `/u/${c}/pull`], ['boss', '⚔️', 'الزعيم', `/u/${c}/boss`], ['gift', '🎁', 'إهداء', `/u/${c}/gift`], ['sell', '💰', 'بيع', `/u/${c}/sell`]]
+    const bn = [['home', '🏠', 'مجموعتي', `/u/${c}`], ['pull', '✨', 'سحب', `/u/${c}/pull`], ['boss', '⚔️', 'الزعيم', `/u/${c}/boss`], ['top', '🏆', 'الأقوى', `/u/${c}/top`], ['gift', '🎁', 'إهداء', `/u/${c}/gift`], ['sell', '💰', 'بيع', `/u/${c}/sell`]]
         .map(([k, ic, l, h]) => `<a${k === current ? ' class="on"' : ''} href="${h}"><i>${ic}</i>${l}</a>`).join('')
     return `<div class="nvbd" id="nv-bd" hidden></div>
 <nav class="nvdr" id="nv-dr" aria-label="القائمة" aria-hidden="true">
@@ -738,6 +743,7 @@ function navDrawerHTML(code, csrf, current, name) {
 .nvsep{height:1px;background:#1f2740;margin:8px 0}
 .nvout{color:#ff6b86}
 .nvls form{margin:0}
+@media(max-width:400px){.bnav{left:8px;right:8px;padding:6px 4px}.bnav a{padding:4px 3px;font-size:11px}}
 </style>
 <nav class="bnav" aria-label="التنقل">${bn}</nav>
 <script>
@@ -2655,6 +2661,706 @@ function setTheme(i){
 </script></body></html>`
 }
 
+// =====================================================================
+// 🏆 صفحة أقوى اللاعبين  /u/:code/top
+// الترتيب حسب مجموع power لكل شخصيات اللاعب (نفس حساب البوت)، أول 30 لاعب
+// =====================================================================
+function fmtInt(v) { return Math.round(Number(v) || 0).toLocaleString('en-US') }
+
+const TOP_CSS = `
+.tp{--tg:#f0c04a;--tgd:#8a6d24;--tt:#eef1f8;--td:#8891a3;--tl:#222a42;--silver:#c9d3e6;--bronze:#e0905a;max-width:760px;margin-inline:auto;padding:14px 16px 150px;position:relative;color:var(--tt);font-family:'Cairo',system-ui,sans-serif}
+.tp *{box-sizing:border-box}
+.tp-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#0a0d16}
+.tp-bg i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;will-change:transform}
+.tp-bg i:nth-child(1){width:60vmax;height:60vmax;left:-20vmax;top:-22vmax;background:radial-gradient(circle,rgba(240,192,74,.38),transparent 65%);animation:tpDrift1 18s ease-in-out infinite alternate}
+.tp-bg i:nth-child(2){width:56vmax;height:56vmax;right:-22vmax;top:8vh;background:radial-gradient(circle,rgba(124,77,255,.34),transparent 65%);animation:tpDrift2 22s ease-in-out infinite alternate}
+.tp-bg i:nth-child(3){width:52vmax;height:52vmax;left:-10vmax;bottom:-24vmax;background:radial-gradient(circle,rgba(62,168,255,.28),transparent 65%);animation:tpDrift3 26s ease-in-out infinite alternate}
+.tp-bg canvas{position:absolute;inset:0;width:100%;height:100%}
+@keyframes tpDrift1{to{transform:translate(18vmax,12vmax) scale(1.15)}}
+@keyframes tpDrift2{to{transform:translate(-16vmax,10vmax) scale(.9)}}
+@keyframes tpDrift3{to{transform:translate(14vmax,-12vmax) scale(1.2)}}
+.tp .topbar{margin-bottom:6px}
+.tp-eb{text-align:center;font-family:'Oswald',sans-serif;letter-spacing:.45em;font-size:11px;color:var(--tgd);text-transform:uppercase;margin-top:14px}
+.tp h1{text-align:center;margin:4px 0;font-size:clamp(34px,8vw,56px);font-weight:900;line-height:1.15;text-wrap:balance;background:linear-gradient(110deg,#fff6d8 20%,var(--tg) 40%,#fff 50%,var(--tg) 60%,#a9791f 80%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:tpShine 6s linear infinite}
+@keyframes tpShine{to{background-position:-250% 0}}
+.tp-sub{text-align:center;color:var(--td);font-size:14px;margin:0 0 14px}
+.tp-orn{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--tgd);margin:0 auto 10px;max-width:320px}
+.tp-orn::before,.tp-orn::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--tgd))}
+.tp-orn::after{transform:scaleX(-1)}
+.tp-podium{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;align-items:end;direction:ltr;padding:34px 8px 22px;margin-inline:-8px;overflow:hidden}
+.tp-slot{position:relative;direction:rtl;animation:tpRise .9s cubic-bezier(.2,.8,.2,1) both}
+.tp-slot.r1{order:2;animation-delay:.25s}.tp-slot.r2{order:1;animation-delay:.05s}.tp-slot.r3{order:3;animation-delay:.15s}
+@keyframes tpRise{from{opacity:0;transform:translateY(46px) scale(.92)}to{opacity:1;transform:none}}
+.tp-rays{position:absolute;left:50%;top:38%;width:230%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:repeating-conic-gradient(from 0deg,rgba(240,192,74,.20) 0 5deg,transparent 5deg 15deg);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 60%);mask-image:radial-gradient(circle,#000 0,transparent 60%);animation:tpSpin 40s linear infinite}
+@keyframes tpSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.tp-pc{--c:var(--tg);position:relative;z-index:1;border-radius:18px;border:2.5px solid transparent;overflow:hidden;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),var(--c),#fff,var(--c),color-mix(in srgb,var(--c) 30%,#000),var(--c)) border-box;animation:tpRot 5s linear infinite,tpFloat 5.5s ease-in-out infinite,tpGlow 3.2s ease-in-out infinite}
+.r2 .tp-pc{--c:var(--silver);animation-delay:0s,.6s,.4s}.r3 .tp-pc{--c:var(--bronze);animation-delay:0s,1.2s,.8s}
+.r1 .tp-pc{animation-duration:4s,5s,2.6s}
+@keyframes tpRot{to{--a:360deg}}
+@keyframes tpFloat{50%{transform:translateY(-8px)}}
+@keyframes tpGlow{0%,100%{box-shadow:0 8px 26px -10px var(--c)}50%{box-shadow:0 10px 44px -4px var(--c)}}
+.tp-art{position:relative;aspect-ratio:3/4.3;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 70% at 50% 100%,var(--t) 0%,transparent 65%),linear-gradient(170deg,#1a2140,#0b0f1d 70%)}
+.r1 .tp-art{aspect-ratio:3/4.9}
+.tp-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;animation:tpKen 10s ease-in-out infinite alternate}
+@keyframes tpKen{from{transform:scale(1)}to{transform:scale(1.09) translateY(1.5%)}}
+.tp-ph{font-family:'Oswald',sans-serif;font-weight:700;font-size:clamp(70px,22vw,150px);color:rgba(255,255,255,.1);line-height:1;animation:tpPulse 4s ease-in-out infinite}
+@keyframes tpPulse{50%{transform:scale(1.07);color:rgba(255,255,255,.16)}}
+.tp-art::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.3) 50%,transparent 60%);transform:translateX(-130%);animation:tpSweep 4.2s ease-in-out infinite}
+.r2 .tp-art::before{animation-delay:1.4s}.r3 .tp-art::before{animation-delay:2.6s}
+@keyframes tpSweep{55%,100%{transform:translateX(130%)}}
+.tp-art::after{content:"";position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,transparent 45%,rgba(8,11,20,.94) 100%);pointer-events:none}
+.tp-medal{position:absolute;z-index:4;top:8px;inset-inline-start:8px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:17px;color:#0a0d16;background:var(--c);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+.r1 .tp-medal{width:40px;height:40px;font-size:20px}
+.tp-crown{position:absolute;z-index:5;top:-26px;left:50%;font-size:30px;filter:drop-shadow(0 3px 8px rgba(240,192,74,.7));transform:translateX(-50%);animation:tpCrown 2.6s ease-in-out infinite}
+@keyframes tpCrown{50%{transform:translateX(-50%) translateY(-6px) rotate(-6deg)}}
+.tp-tier{position:absolute;z-index:4;top:10px;inset-inline-end:8px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--t);border:1px solid var(--t);border-radius:20px;padding:2px 8px;background:rgba(8,11,20,.72);direction:ltr}
+.tp-info{position:absolute;z-index:4;inset-inline:0;bottom:0;padding:10px 8px 12px;text-align:center}
+.tp-cn{font-size:12px;color:var(--c);font-weight:800;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-un{font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r1 .tp-un{font-size:18px}
+.tp-you{font-style:normal;font-size:10px;font-weight:800;color:#0a0d16;background:var(--tg);border-radius:20px;padding:1px 7px;margin-inline-start:4px;vertical-align:middle}
+.tp-pw{display:inline-flex;align-items:baseline;gap:5px;margin-top:4px;font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;color:var(--c);direction:ltr;font-variant-numeric:tabular-nums}
+.r1 .tp-pw{font-size:24px}
+.tp-pw small{font-family:'Cairo',sans-serif;font-size:10px;color:var(--td);font-weight:600}
+.tp-sec{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 10px;color:var(--tg);font-weight:800;font-size:15px}
+.tp-sec span{color:var(--td);font-weight:600;font-size:12px}
+.tp-list{display:flex;flex-direction:column;gap:8px}
+.tp-row{--t:#8891a3;display:grid;grid-template-columns:38px 46px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px 8px 14px;border-radius:14px;background:rgba(15,20,34,.82);border:1px solid var(--tl);backdrop-filter:blur(6px);animation:tpRow .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*45ms + .7s);transition:transform .2s,border-color .2s}
+.tp-row:hover{transform:translateX(-4px);border-color:var(--t)}
+@keyframes tpRow{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+.tp-rk{font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;color:var(--td);text-align:center;font-variant-numeric:tabular-nums}
+.tp-th{position:relative;width:46px;height:46px;border-radius:12px;border:1.5px solid var(--t);background:linear-gradient(160deg,#1c2448,#0d1120);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;color:var(--t);overflow:hidden}
+.tp-th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.tp-mid{min-width:0}
+.tp-mid b{display:block;font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-mid span{display:block;font-size:12px;color:var(--td);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-mid span i{font-style:normal;color:var(--t);font-weight:700}
+.tp-sc{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;color:var(--tt);direction:ltr;text-align:end;font-variant-numeric:tabular-nums}
+.tp-sc small{display:block;font-family:'Cairo',sans-serif;font-size:10px;color:var(--td);font-weight:600}
+.tp-row.me{border-color:var(--tg);background:linear-gradient(90deg,rgba(240,192,74,.14),rgba(15,20,34,.85))}
+.tp-empty{text-align:center;color:var(--td);padding:40px 0}
+.tp-me{position:fixed;inset-inline:0;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:35;padding-inline:16px;pointer-events:none}
+.tp-me.nb{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.tp-me div{pointer-events:auto;max-width:760px;margin-inline:auto;display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:14px;background:rgba(15,20,34,.96);border:1.5px solid var(--tg);box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.tp-me b{font-family:'Oswald',sans-serif;color:var(--tg);font-size:18px;direction:ltr}
+.tp-me .t{flex:1;min-width:0;font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-me .p{font-family:'Oswald',sans-serif;font-weight:600;direction:ltr}
+@media(max-width:420px){
+  .tp-podium{gap:6px}.tp-info{padding-inline:4px}.tp-un{font-size:13px}.r1 .tp-un{font-size:15px}.tp-cn{font-size:11px}
+  .tp-pw{font-size:15px}.r1 .tp-pw{font-size:19px}.tp-tier{font-size:9px;padding:1px 6px}
+  .tp-row{grid-template-columns:30px 42px minmax(0,1fr) auto;gap:8px;padding-inline:10px}.tp-th{width:42px;height:42px}
+}
+@media (prefers-reduced-motion:reduce){.tp *,.tp-bg i{animation:none!important}.tp-bg canvas{display:none}}
+`
+
+const TOP_JS = `(function(){
+  // صورة فشلت بالتحميل: نشيلها ويظهر الحرف الأول بداله
+  document.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&t.closest('.tp')){t.remove()}},true);
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  // عدّاد القوة يرتفع من 0 للرقم النهائي
+  document.querySelectorAll('[data-n]').forEach(function(el){
+    var to=+el.getAttribute('data-n')||0, t0=0, d=1400;
+    function f(n){return n.toLocaleString('en-US')}
+    function step(t){var k=Math.min(1,(t-t0)/d); k=1-Math.pow(1-k,3); el.textContent=f(Math.round(to*k)); if(k<1) requestAnimationFrame(step); else el.textContent=f(to)}
+    el.textContent='0'; setTimeout(function(){requestAnimationFrame(function(t){t0=t;step(t)})},500);
+  });
+  // شرارات ذهبية وزرقاء تصعد بالخلفية
+  var c=document.getElementById('tp-fx'); if(!c) return; var x=c.getContext('2d'); if(!x) return;
+  var W=0,H=0,P=[],dpr=Math.min(2,devicePixelRatio||1);
+  function size(){W=c.clientWidth;H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}
+  function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+10,r:Math.random()*2+.6,v:Math.random()*.6+.25,s:Math.random()*Math.PI*2,a:Math.random()*.6+.25,g:Math.random()<.78}}
+  size(); addEventListener('resize',size);
+  var N=Math.round(Math.min(70,Math.max(30,innerWidth/14)));
+  for(var i=0;i<N;i++)P.push(mk(true));
+  function loop(){
+    if(document.hidden){requestAnimationFrame(loop);return}
+    x.clearRect(0,0,W,H);
+    for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.v;p.s+=.02;p.x+=Math.sin(p.s)*.35;
+      if(p.y<-10){P[i]=mk(false);continue}
+      var al=p.a*Math.min(1,p.y/(H*.25),(H-p.y)/40+.2);
+      x.beginPath();x.fillStyle=p.g?'rgba(240,192,74,'+al+')':'rgba(160,190,255,'+al+')';
+      x.shadowColor=p.g?'#f0c04a':'#8fb0ff';x.shadowBlur=8;x.arc(p.x,p.y,p.r,0,6.283);x.fill()}
+    requestAnimationFrame(loop)}
+  loop();
+})();`
+
+// podium: أول 3 · rows: من 4 فصاعداً · me: ترتيب صاحب الصفحة
+// كل عنصر: { rank, who, charName, tier, color, img, total, isMe }
+function topPageHTML({ code, viewer, podium, rows, me, updatedText }) {
+    const youLabel = viewer.isOwner ? 'أنت' : 'صاحب الصفحة'
+    const initial = s => esc(Array.from(String(s || '?'))[0] || '?')
+    const you = d => d.isMe ? ` <em class="tp-you">${youLabel}</em>` : ''
+
+    const slot = (d, i) => `<div class="tp-slot r${i + 1}">${i === 0 ? '<div class="tp-rays"></div>' : ''}<article class="tp-pc" style="--t:${d.color}"><div class="tp-art">${i === 0 ? '<span class="tp-crown">👑</span>' : ''}<span class="tp-medal">${i + 1}</span><span class="tp-tier">${esc(d.tier)}</span><span class="tp-ph">${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}</div><div class="tp-info"><div class="tp-cn">${esc(d.charName)}</div><div class="tp-un">${esc(d.who)}${you(d)}</div><div class="tp-pw"><span data-n="${Math.round(d.total)}">${fmtInt(d.total)}</span> <small>قوة</small></div></div></article></div>`
+
+    const row = (d, i) => `<div class="tp-row${d.isMe ? ' me' : ''}" style="--t:${d.color};--i:${i}"><div class="tp-rk">${d.rank}</div><div class="tp-th"><span>${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div><div class="tp-mid"><b>${esc(d.who)}${you(d)}</b><span><i>${esc(d.tier)}</i> · ${esc(d.charName)}</span></div><div class="tp-sc">${fmtInt(d.total)}<small>مجموع القوة</small></div></div>`
+
+    const topbar = viewer.isOwner
+        ? `<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🏆 أقوى اللاعبين</span></span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+        : `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+
+    const body = podium.length
+        ? `<section class="tp-podium">${podium.map(slot).join('')}</section>
+  ${rows.length ? `<div class="tp-sec">الترتيب من 4 إلى ${3 + rows.length}<span>آخر تحديث: ${esc(updatedText)}</span></div>
+  <section class="tp-list">${rows.map(row).join('')}</section>` : `<div class="tp-sec"><span>آخر تحديث: ${esc(updatedText)}</span></div>`}`
+        : '<div class="tp-empty">لا يوجد لاعبون في الترتيب بعد.</div>'
+
+    return `${shellHead('أقوى اللاعبين')}
+<body>
+<style>${TOP_CSS}</style>
+<div class="tp-bg" aria-hidden="true"><i></i><i></i><i></i><canvas id="tp-fx"></canvas></div>
+<div class="tp">
+  ${topbar}
+  <div class="tp-eb">Top Players</div>
+  <h1>أقوى اللاعبين</h1>
+  <p class="tp-sub">الترتيب حسب مجموع قوة كل شخصيات اللاعب، أول ${TOP_LIMIT} لاعب</p>
+  <div class="tp-orn">◆</div>
+  ${body}
+</div>
+<div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span><span class="p">⚔️ ${fmtInt(me.total)}</span></div></div>
+${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'top', viewer.name) : ''}
+<script>${TOP_JS}</script>
+</body></html>`
+}
+
+// =====================================================================
+// 🚢 صفحة سفينتي  /u/:code/ship  (+ مشهد البحر المتحرك /u/:code/ship/scene)
+// قراءة فقط: بيانات السفينة والطاقم من نفس نماذج البوت (Ship / Player).
+// مظهر السفينة يتطور تلقائياً مع المستوى، وعند المستوى الأقصى (25) تصل لآخر شكل بتاج.
+// =====================================================================
+const SHIP_MAX_CREW = 4        // نفس MAX_CREW بـ shipCommands.js
+const SHIP_MAX_LEVEL = 25      // نفس MAX_LEVEL بـ shipLevel.js
+// [أول مستوى يظهر عنده الشكل، الاسم] — الترتيب = رقم الشكل بملف المشهد
+const SHIP_LOOKS = [
+    [1, 'ثاوزند ساني'], [4, 'ميري (بحرية)'], [8, 'سفينة الأفعى (كوجا)'], [11, 'سفينة الغراب الأسود'],
+    [14, 'سفينة الجمجمة البيضاء'], [17, 'سفينة الأفعى الذهبية'], [20, 'سفينة اللحية السوداء'], [25, 'أورو جاكسون']
+]
+function shipLookIndex(level) {
+    let idx = 0
+    for (let i = 0; i < SHIP_LOOKS.length; i++) if (level >= SHIP_LOOKS[i][0]) idx = i
+    return idx
+}
+
+// نفس getShipWeekKey بـ shipCommands.js بالضبط: بداية الأسبوع الأحد 00:00 بتوقيت السعودية
+function getShipWeekKey() {
+    const riyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
+    const sunday = new Date(riyadh)
+    sunday.setDate(riyadh.getDate() - riyadh.getDay())
+    sunday.setHours(0, 0, 0, 0)
+    return sunday.toISOString().slice(0, 10)
+}
+
+let _shipSceneTpl = null
+function shipSceneHTML(level) {
+    if (_shipSceneTpl === null) {
+        try { _shipSceneTpl = fs.readFileSync(pathMod.join(__dirname, 'shipScene.html'), 'utf8') } catch (e) { _shipSceneTpl = '' }
+    }
+    if (!_shipSceneTpl) return '<!doctype html><meta charset="utf-8"><body style="background:#0a0d16;color:#8891a3;font:14px sans-serif;text-align:center;padding:40px">ملف المشهد shipScene.html غير موجود</body>'
+    const lv = Math.max(1, Math.min(SHIP_MAX_LEVEL, Math.floor(Number(level)) || 1))
+    return _shipSceneTpl.replace('__LEVEL__', String(lv)).replace('__TIER__', String(shipLookIndex(lv)))
+}
+
+const SHIP_CSS = `
+.shp{--g:#f0c04a;--gd:#8a6d24;--t:#eef1f8;--d:#8891a3;--l:#222a42;--c:#0f1422;max-width:620px;margin-inline:auto;padding:14px 14px 150px;color:var(--t);font-family:'Cairo',system-ui,sans-serif}
+.shp *{box-sizing:border-box}
+.shp h1{margin:6px 0 2px;text-align:center;font-weight:900;font-size:28px;color:var(--g)}
+.shp .sh-sub{text-align:center;color:var(--d);font-size:12px;margin:0 0 10px}
+.sh-scene{position:relative;border-radius:20px;overflow:hidden;border:1.5px solid var(--gd);height:330px;box-shadow:0 10px 40px -12px #000;background:#0a0d16}
+.sh-scene iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.sh-hd{display:flex;align-items:center;gap:12px;margin:14px 0 6px}
+.sh-lv{font:700 22px 'Oswald',sans-serif;color:#0a0d16;background:var(--g);border-radius:12px;padding:4px 12px}
+.sh-hd b{font-size:18px;font-weight:900;display:block}.sh-hd small{display:block;color:var(--d);font-size:12px}
+.sh-bar{height:12px;background:#151b2e;border:1px solid var(--l);border-radius:20px;overflow:hidden}
+.sh-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gd),var(--g))}
+.sh-bar.hp i{background:linear-gradient(90deg,#a3202f,#ff4d5e)}
+.sh-xt{display:flex;justify-content:space-between;color:var(--d);font-size:12px;margin:4px 2px 12px;direction:ltr}
+.sh-st{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.sh-st div{background:var(--c);border:1px solid var(--l);border-radius:12px;padding:8px 4px;text-align:center}
+.sh-st b{display:block;font:700 16px 'Oswald',sans-serif;color:var(--g)}.sh-st span{font-size:11px;color:var(--d)}
+.sh-sec{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:15px;margin:16px 2px 8px}
+.sh-sec span{font-size:12px;color:var(--d);font-weight:600}
+.sh-row{display:flex;align-items:center;gap:10px;background:var(--c);border:1px solid var(--l);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.sh-row .e{font-size:24px;width:34px;text-align:center}.sh-row .m{flex:1;min-width:0}
+.sh-row .m b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sh-row .m span{font-size:12px;color:var(--d)}
+.sh-row.me{border-color:var(--g);box-shadow:0 0 16px -8px var(--g)}
+.sh-row.lock{opacity:.5;filter:grayscale(.7)}.sh-row.vac{border-style:dashed;opacity:.55}.sh-row.gone{opacity:.6}
+.sh-tag{font-size:11px;font-weight:800;border-radius:20px;padding:2px 9px;border:1px solid var(--g);color:var(--g);white-space:nowrap}
+.sh-tag.o{border-color:#7cc4e6;color:#7cc4e6}.sh-tag.s{border-color:var(--d);color:var(--d)}.sh-tag.x{border-color:#ff6b6b;color:#ff6b6b}
+.sh-pw{font:700 13px 'Oswald',sans-serif;color:var(--g);direction:ltr;white-space:nowrap}
+.sh-note{color:var(--d);font-size:12px;text-align:center;margin:10px 0 0;line-height:1.7}
+.sh-empty{text-align:center;color:var(--d);padding:50px 10px;line-height:2}.sh-empty b{display:block;color:var(--g);font-size:20px}
+.sh-empty code{background:#151b2e;border:1px solid var(--l);border-radius:8px;padding:2px 8px;color:var(--t);direction:ltr;display:inline-block}
+.sh-btn{display:block;width:100%;margin:8px 0 2px;padding:12px;border:0;border-radius:14px;font:900 15px 'Cairo',sans-serif;cursor:pointer;color:#0a0d16;background:linear-gradient(90deg,var(--gd),var(--g))}
+.sh-btn.atk{background:linear-gradient(90deg,#a3202f,#ff4d5e);color:#fff}
+.sh-btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.6)}
+.sh-buy{border:1px solid var(--g);background:transparent;color:var(--g);border-radius:20px;padding:4px 14px;font:800 12px 'Cairo',sans-serif;cursor:pointer;white-space:nowrap}
+.sh-buy:disabled{opacity:.4;cursor:not-allowed;border-color:var(--d);color:var(--d)}
+.sh-msg{white-space:pre-wrap;line-height:1.9;font-size:14px;background:var(--c);border:1px solid var(--gd);border-radius:14px;padding:12px 14px;margin:12px 0 0}
+.sh-msg.bad{border-color:#ff6b6b;color:#ff9aa6}.sh-msg.good{border-color:#4fe08a}
+.sh-me{margin:10px 2px 4px;font-size:13px;color:var(--d);display:flex;justify-content:space-between}
+.sh-bar.me i{background:linear-gradient(90deg,#1f8f55,#4fe08a)}
+.sh-dead{color:#ff8aa0;font-size:13px;text-align:center;margin:8px 0 0}
+#dyn.hit .sh-bar.hp{animation:shk .45s}
+@keyframes shk{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+`
+
+// الجزء "الحي" من صفحة السفينة (الزعيم + حروب اليوم + المتجر) — يُرسم من السيرفر
+// فقط (نفس الدالة للتحميل الأول وللتحديث كل ثواني) فما يصير فرق بين الحالتين.
+function shipDynHTML({ ship, shop, bought, coins, wars, combat, isOwner, lvl }) {
+    let boss
+    if (ship.bossActive) {
+        const mx = Number(ship.bossMaxHp) || 1, hp = Math.max(0, Number(ship.bossHp) || 0)
+        boss = `<div class="sh-row"><span class="e">👹</span><div class="m"><b>${esc(ship.bossName || 'زعيم')}</b><span>${esc(ship.bossSeries || '')} · زعيم نشط</span></div><span class="sh-tag">${Math.ceil(hp / mx * 100)}%</span></div>
+<div class="sh-bar hp"><i style="width:${Math.min(100, hp / mx * 100)}%"></i></div><div class="sh-xt"><span>${fmtInt(hp)} / ${fmtInt(mx)}</span><span>HP</span></div>`
+        if (isOwner && combat) {
+            const chp = Math.max(0, Number(combat.hp) || 0), cmx = Math.max(1, Number(combat.maxHp) || 1)
+            const dead = Number(combat.deathMs) > 0
+            boss += `<div class="sh-me"><span>❤️ دمك القتالي</span><span>${fmtInt(chp)} / ${fmtInt(cmx)}</span></div>
+<div class="sh-bar me"><i style="width:${Math.min(100, chp / cmx * 100)}%"></i></div>`
+            if (dead) boss += `<div class="sh-dead">💀 أنت ميت بمعركة الزعيم — تقدر تهاجم بعد <b class="cd" data-ms="${Math.floor(combat.deathMs)}">${Math.ceil(combat.deathMs / 1000)}</b> ثانية</div>`
+            boss += `<button class="sh-btn atk" data-act="atk"${dead ? ' disabled' : ''}>⚔️ هجوم على الزعيم</button>`
+        } else if (!isOwner) {
+            boss += `<div class="sh-note">الهجوم متاح لأعضاء الطاقم من صفحتهم أو من الواتس</div>`
+        }
+    } else {
+        boss = `<div class="sh-row${ship.bossAvailable ? '' : ' lock'}"><span class="e">👹</span><div class="m"><b>${ship.bossAvailable ? 'زعيمك جاهز للاستدعاء' : 'لا يوجد زعيم نشط'}</b><span>${ship.bossAvailable ? 'اضغط استدعاء أو اكتب .استدعاء_زعيم_السفينة' : 'يُشترى من متجر السفينة (مستوى 12+) أو يظهر تلقائياً 12 ظهراً'}</span></div></div>`
+        if (isOwner && ship.bossAvailable) boss += `<button class="sh-btn" data-act="summon">👹 استدعاء الزعيم</button>`
+    }
+
+    // ─── حروب السفينة: رصيد اليوم المشترك + الحرب الجارية ───
+    let warsHtml = ''
+    if (wars) {
+        const w = wars.war
+        const warRow = !w ? '' : `<div class="sh-row"><span class="e">${w.status === 'accepted' ? '🔥' : '⏳'}</span><div class="m"><b>${w.status === 'accepted' ? 'حرب جارية' : 'طلب حرب معلق'} — ${esc(w.enemy)}</b><span>${w.mode === 'full' ? 'طاقم كامل' : 'مبارزات 1 ضد 1'}${w.status === 'accepted' && w.rounds ? ' · الجولة ' + w.round + '/' + w.rounds : ''}${w.status === 'pending' ? (w.asAttacker ? ' · بانتظار القبول' : ' · بانتظار قبول قبطانك') : ''}</span></div></div>`
+        warsHtml = `<div class="sh-sec">⚔️ حروب السفينة<span>تتجدد 12:00 ص (السعودية)</span></div>
+<div class="sh-row${wars.left <= 0 ? ' lock' : ''}"><span class="e">⚔️</span><div class="m"><b>المحاولات المتبقية اليوم</b><span>رصيد واحد مشترك للطاقم كله (.حرب_سفينة و .حرب_طاقم_كامل)</span></div><span class="sh-tag${wars.left <= 0 ? ' x' : ''}">${wars.left}/${wars.max}</span></div>
+${warRow}<div class="sh-note">إعلان الحرب وقبولها من الواتس (يحتاج قبول قبطان السفينة الثانية)</div>`
+    }
+
+    // ─── المتجر (حالة الشراء الحقيقية من player.shipShop تظهر لصاحب الصفحة فقط) ───
+    const shopRows = shop.map(i => {
+        const lock = lvl < i.unlockLevel
+        const got = isOwner && bought ? (Number(bought[i.id]) || 0) : 0
+        const full = isOwner && !lock && got >= i.limit
+        const sub = lock ? '🔒 يفتح عند مستوى ' + i.unlockLevel
+            : full ? `✅ وصلت للحد الأسبوعي (${got}/${i.limit}) — يتجدد الأحد`
+            : isOwner ? `المتبقي هذا الأسبوع: ${i.limit - got} من ${i.limit}`
+            : 'الحد الأسبوعي لكل عضو: ' + i.limit
+        const afford = (Number(coins) || 0) >= i.price
+        const btn = isOwner && !lock && !full
+            ? `<button class="sh-buy" data-act="buy" data-id="${esc(i.id)}"${afford ? '' : ' disabled'}>${afford ? 'شراء' : 'عملات ناقصة'}</button>` : ''
+        return `<div class="sh-row${lock || full ? ' lock' : ''}"><span class="e">${esc(String(i.name).split(' ')[0])}</span><div class="m"><b>${esc(String(i.name).split(' ').slice(1).join(' '))}</b><span>${sub}</span></div><span class="sh-tag">${i.price} 🪙</span>${btn}</div>`
+    }).join('')
+
+    return `<div class="sh-sec">👹 زعيم السفينة</div>
+${boss}
+${warsHtml}
+<div class="sh-sec">🛒 متجر السفينة<span>${isOwner ? '🪙 رصيدك: ' + fmtInt(coins) : 'للشراء: .متجر_السفينة'}</span></div>
+${shopRows}`
+}
+
+// سكربت صفحة السفينة لصاحبها: أزرار الشراء/الهجوم/الاستدعاء + تحديث حي كل 5 ثواني
+function shipScript(code, csrf) {
+    return `<script>
+(function(){
+  var CSRF=${jsonForScript(csrf)}, dyn=document.getElementById('dyn'), box=document.getElementById('shmsg'), busy=false;
+  function show(t,k){ box.textContent=t; box.className='sh-msg '+(k||''); box.hidden=false; }
+  function lock(on){ var b=dyn.querySelectorAll('button'); for(var i=0;i<b.length;i++){ if(on){ b[i].setAttribute('data-was', b[i].disabled?'1':'0'); b[i].disabled=true; } else if(b[i].getAttribute('data-was')==='0'){ b[i].disabled=false; } } }
+  function tick(){ var els=dyn.querySelectorAll('.cd'); for(var i=0;i<els.length;i++){ if(!els[i]._end) els[i]._end=Date.now()+Number(els[i].getAttribute('data-ms')||0); } }
+  function put(h){ if(typeof h==='string'){ dyn.innerHTML=h; tick(); } }
+  function post(url,body){
+    busy=true; lock(true);
+    return fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({csrf:CSRF},body||{}))})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'خطأ بالخادم'}; }); })
+      .catch(function(){ return {ok:false,message:'تعذّر الاتصال بالخادم'}; })
+      .then(function(j){ busy=false; return j; });
+  }
+  function done(j,hit){
+    show(j.text||j.message||(j.ok?'تم':'فشل'), j.ok?'good':'bad');
+    if(j.html){ put(j.html); } else { lock(false); }
+    if(hit){ dyn.classList.remove('hit'); void dyn.offsetWidth; dyn.classList.add('hit'); }
+  }
+  dyn.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-act]'); if(!b||b.disabled||busy) return;
+    var a=b.getAttribute('data-act');
+    if(a==='buy') post('/ship/buy',{id:b.getAttribute('data-id')}).then(function(j){ done(j,false); });
+    else if(a==='atk') post('/ship/boss/attack').then(function(j){ done(j,j.ok); });
+    else if(a==='summon') post('/ship/boss/summon').then(function(j){ done(j,false); });
+  });
+  function refresh(){
+    if(busy||document.hidden) return;
+    fetch('/ship/dyn',{credentials:'same-origin',cache:'no-store'}).then(function(r){ return r.ok?r.json():null; })
+      .then(function(j){ if(j&&j.ok&&!busy) put(j.html); }).catch(function(){});
+  }
+  setInterval(function(){
+    var els=dyn.querySelectorAll('.cd'), over=false;
+    for(var i=0;i<els.length;i++){ var s=Math.max(0,Math.ceil((els[i]._end-Date.now())/1000)); els[i].textContent=s; if(s<=0) over=true; }
+    if(over) refresh();
+  },1000);
+  setInterval(refresh,5000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) refresh(); });
+  tick();
+})();
+</script>`
+}
+
+function shipPageHTML({ code, viewer, ship, crew, totalPower, shop, ownerName, bought, coins, status }) {
+    const topbar = viewer.isOwner
+        ? `<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🚢 سفينتي</span></span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+        : `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+    const drawer = viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'ship', viewer.name) : ''
+    const wrap = inner => `${shellHead('سفينتي')}
+<body>
+<style>${SHIP_CSS}</style>
+<div class="shp">
+  ${topbar}
+  ${inner}
+</div>
+${drawer}
+</body></html>`
+
+    if (!ship) {
+        return wrap(`<div class="sh-empty"><b>🚢 لا توجد سفينة</b>${esc(ownerName)} ليس على متن أي سفينة حالياً.<br>أنشئ سفينتك من البوت بالأمر:<br><code>.انشاء_سفينة 🚢 الاسم</code></div>`)
+    }
+
+    const lvl = Math.max(1, Math.min(SHIP_MAX_LEVEL, Number(ship.level) || 1))
+    const maxed = lvl >= SHIP_MAX_LEVEL
+    const need = Number(ship.nextLevelXp) || 0
+    const xpPct = maxed ? 100 : (need > 0 ? Math.max(0, Math.min(100, (Number(ship.xp) || 0) / need * 100)) : 0)
+    const lookIdx = shipLookIndex(lvl)
+    const nextLook = SHIP_LOOKS[lookIdx + 1]
+    const ranks = { captain: ['👑', 'قبطان', ''], officer: ['🎖️', 'ضابط', 'o'], sailor: ['⚓', 'بحّار', 's'] }
+
+    const crewRows = crew.map(m => {
+        const r = ranks[m.role]
+        return `<div class="sh-row${m.isMe ? ' me' : ''}${m.exists ? '' : ' gone'}"><span class="e">${r[0]}</span><div class="m"><b>${esc(m.name)}${m.isMe ? ' (أنت)' : ''}</b><span>${m.exists ? 'قوة ' + fmtInt(m.power) : 'الحساب غير موجود بقاعدة اللاعبين'}</span></div>${m.exists ? '' : '<span class="sh-tag x">غير موجود</span>'}<span class="sh-tag ${r[2]}">${r[1]}</span></div>`
+    }).join('')
+    const vacant = Math.max(0, SHIP_MAX_CREW - crew.length)
+    const vacRows = Array.from({ length: vacant }, () => `<div class="sh-row vac"><span class="e">➕</span><div class="m"><b>مقعد شاغر</b><span>.دعوة @لاعب</span></div></div>`).join('')
+
+    const dynHTML = shipDynHTML({ ship, shop, bought, coins, wars: status && status.wars, combat: status && status.combat, isOwner: viewer.isOwner, lvl })
+
+    return wrap(`
+  <h1>${esc(ship.emoji || '🚢')} ${esc(ship.name)}</h1>
+  <p class="sh-sub">${esc(ship.shipId)} · ${esc(SHIP_LOOKS[lookIdx][1])}${nextLook ? ' · الشكل التالي عند مستوى ' + nextLook[0] : ' · أقصى شكل 👑'}</p>
+  <div class="sh-scene"><iframe src="/u/${esc(code)}/ship/scene" title="مشهد السفينة" loading="lazy"></iframe></div>
+  <div class="sh-hd"><span class="sh-lv">Lv ${lvl}</span><div><b>${esc(ship.name)}</b><small>${crew.length}/${SHIP_MAX_CREW} من الطاقم</small></div></div>
+  <div class="sh-bar"><i style="width:${xpPct}%"></i></div>
+  <div class="sh-xt"><span>${maxed ? 'MAX' : fmtInt(ship.xp) + ' / ' + fmtInt(need) + ' XP'}</span><span>${maxed ? 'المستوى الأقصى 👑' : 'المستوى القادم: ' + (lvl + 1)}</span></div>
+  <div class="sh-st"><div><b>${fmtInt(totalPower)}</b><span>القوة</span></div><div><b>${fmtInt(ship.wins)}</b><span>انتصار</span></div><div><b>${fmtInt(ship.losses)}</b><span>هزيمة</span></div><div><b>${fmtInt(ship.rankPoints)}</b><span>نقاط الرتبة</span></div></div>
+  <div class="sh-sec">👥 الطاقم<span>${crew.length}/${SHIP_MAX_CREW}</span></div>
+  ${crewRows}${vacRows}
+  <div id="dyn">${dynHTML}</div>
+  <div id="shmsg" class="sh-msg" hidden></div>
+  <p class="sh-note">${viewer.isOwner ? 'الشراء وهجوم الزعيم من هنا أو من الواتس — نفس البيانات بالضبط وتتحدث تلقائياً. إعلان الحروب من الواتس.' : 'وضع المشاهدة — الشراء والهجوم لصاحب السفينة.'}</p>${viewer.isOwner ? shipScript(code, viewer.csrf) : ''}`)
+}
+
+// =====================================================================
+// 💬 الدردشة (عامة + أصدقاء) — صفحة /u/:code/chat
+// الواجهة داكنة بألوان الموقع + أنميشن. الخادم والتخزين داخل registerCharacterSite (آخر الملف)
+// =====================================================================
+const CHAT_REACT = ['❤️', '😂', '😮', '🔥', '😭', '👏', '✨', '💎']
+const CHAT_CD_MS = 15000          // انتظار بين رسالتك والتي بعدها
+const CHAT_ONLINE_MS = 20000      // يُعتبر متصل لو فتح الدردشة خلال آخر 20 ثانية
+const CHAT_MAX_FRIENDS = 30
+const CHAT_GRAD = ['linear-gradient(135deg,#ff3860,#ff9a3d)', 'linear-gradient(135deg,#7c4dff,#4dc3ff)', 'linear-gradient(135deg,#ff6fb5,#ffb86f)', 'linear-gradient(135deg,#1fbf75,#4dc3ff)']
+const CHAT_STICKERS = [['✨', 'SSS طلعت!'], ['💎', 'نفرة!!'], ['🎰', 'سحبة وحدة بس'], ['🎁', 'صندوق ليجندري'], ['😭', 'مكرر مرة ثانية'], ['🔥', 'هجوم قاتل!'], ['👑', 'أنا الملك'], ['⭐', '5 نجوم'], ['🍀', 'حظ اليوم'], ['💀', 'مت بالزعيم']]
+    .map(([em, tx], i) => ({ em, tx, bg: CHAT_GRAD[(i + 1) % 4] }))
+
+const CHAT_CSS = `:root{color-scheme:dark;--bg:#0a0d16;--panel:#0f1422;--panel2:#151b2e;--line:#1f2740;--tx:#eef1f8;--mut:#8891a3;--gold:#f0c04a;--pink:#ff3860;--you:#171d30}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:'Cairo',system-ui,sans-serif;color:var(--tx);background:radial-gradient(500px 300px at 20% 0,rgba(240,192,74,.07),transparent),radial-gradient(500px 300px at 90% 30%,rgba(123,108,255,.12),transparent),var(--bg)}
+button{font-family:inherit;cursor:pointer}
+#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:linear-gradient(180deg,#151b2e,#0f1422);color:var(--gold);border-bottom:1px solid var(--line);border-radius:0 0 22px 22px;box-shadow:0 8px 24px -10px #000}
+header b{font-size:18px;font-weight:900}.on-pill{color:var(--tx);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13px;font-weight:700}
+#view{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}#view.chat{overflow:hidden}
+#list{flex:1;overflow-y:auto;padding:6px 12px}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.bar>b{flex:1}.bar em{font-style:normal;color:var(--gold);font-size:13px}
+.who{flex:1;min-width:0}.who small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{text-align:center;font-size:12px;color:var(--mut);padding:6px;background:var(--panel2)}
+.av{position:relative;flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:23px;background:var(--panel2);border:2.5px solid var(--c);box-shadow:0 0 12px -2px var(--c)}
+.dot{position:absolute;left:-2px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#35e08a;border:2px solid var(--panel);animation:pls 1.8s infinite}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:10px 12px;flex:none}
+.sp{flex:none;width:54px;text-align:center}.sp .av{margin:auto}.sp small{display:block;font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg{display:flex;gap:8px;margin:10px 0;align-items:flex-end}.msg:not(.me){flex-direction:row-reverse}
+.mb{max-width:76%;display:flex;flex-direction:column}.me .mb{align-items:flex-start}.msg:not(.me) .mb{align-items:flex-end}
+.nm{font-size:12px;font-weight:800;margin-bottom:2px}.mb small{font-size:10px;color:var(--mut);margin-top:2px}
+.bub{padding:9px 14px;border-radius:18px;line-height:1.6;background:var(--you);word-break:break-word}
+.me .bub{background:linear-gradient(135deg,#5b4bd6,#a23bd6);color:#fff}
+.stk{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 20px;border-radius:22px;color:#fff;font-weight:900;font-size:15px;box-shadow:0 8px 20px -8px #000,inset 0 0 0 2px rgba(255,255,255,.35)}
+.stk i{font-style:normal;font-size:46px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));animation:bob 2s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px) scale(1.06)}}@keyframes pop{from{transform:scale(.8);opacity:0}}
+.rcs{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.rc{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:1px 9px;color:var(--tx);font-weight:700;font-size:12px}
+.rc.on{border-color:var(--gold);background:rgba(255,216,107,.2)}
+.rbar{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:4px 8px;margin-top:5px;box-shadow:0 8px 20px -8px #000;animation:pop .18s}
+.rbar button{font-size:22px;background:none;border:0;padding:2px 4px}
+.fr{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.bd{background:var(--pink);color:#fff;border-radius:12px;padding:1px 9px;font-size:12px;font-weight:800}
+.add{border:0;border-radius:20px;padding:6px 14px;font-weight:800;font-size:13px;color:#2a1c00;background:linear-gradient(90deg,#ffd86b,#ffae3d)}
+.bk{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-size:15px}
+.pk{background:var(--panel);border-top:1px solid var(--line);padding:8px}.pt{display:flex;gap:6px;margin-bottom:8px}
+.pt button{flex:1;padding:7px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-weight:800;font-size:13px}
+.pt .on{background:linear-gradient(90deg,#5b4bd6,#a23bd6);color:#fff;border-color:transparent}
+.pg{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-height:230px;overflow-y:auto}
+.pg button{font-size:24px;background:none;border:0;padding:4px}
+.pg.g{grid-template-columns:repeat(2,1fr);gap:8px}
+.pg .sk{display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:10px 6px;color:#fff;font-weight:800;font-size:14px}.sk i{font-style:normal;font-size:24px}
+.cmp{display:flex;gap:8px;padding:8px 10px;background:var(--panel);align-items:center;border-top:1px solid var(--line)}
+.cmp input,#q{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:22px;padding:11px 16px;color:var(--tx);font:inherit;font-size:15px;outline:0}
+.sm,.snd{flex:none;width:42px;height:42px;border-radius:50%;border:0;font-size:19px;color:#fff;background:linear-gradient(135deg,#5b4bd6,#a23bd6)}.sm{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+#nav{display:flex;background:var(--panel);border-top:1px solid var(--line)}
+#nav button{position:relative;flex:1;background:none;border:0;border-top:3px solid transparent;padding:8px 0 6px;color:var(--mut);font-size:20px;display:flex;flex-direction:column;align-items:center}
+#nav button span{font-size:11px;font-weight:800}#nav .on{color:var(--gold);border-top-color:var(--gold)}
+#nav b{position:absolute;top:4px;right:34%;background:var(--pink);color:#fff;border-radius:10px;font-size:10px;padding:0 6px}
+#sheet{position:fixed;inset:0;z-index:20;background:rgba(5,6,16,.7);display:flex;align-items:flex-end;justify-content:center}#sheet[hidden]{display:none}
+.box{width:100%;max-width:560px;max-height:75%;overflow-y:auto;background:var(--bg);border-radius:22px 22px 0 0;border:1px solid var(--line)}
+#q{display:block;margin:10px 14px;width:calc(100% - 28px);flex:none}
+#toast{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-90px);background:var(--panel);border:1px solid var(--gold);border-radius:20px;padding:8px 18px;font-weight:800;font-size:14px;transition:transform .25s;z-index:30}#toast.show{transform:translate(-50%,0)}
+
+/* animations */
+@keyframes pls{0%{box-shadow:0 0 0 0 rgba(53,224,138,.6)}100%{box-shadow:0 0 0 8px rgba(53,224,138,0)}}
+@keyframes msgIn{from{opacity:0;transform:translate(var(--x),12px) scale(.92)}}
+@keyframes bubIn{from{transform:scale(.6)}60%{transform:scale(1.05)}}
+@keyframes stkIn{from{transform:scale(.3) rotate(-14deg);opacity:0}60%{transform:scale(1.12) rotate(4deg)}}
+@keyframes up{from{transform:translateY(24px);opacity:0}}
+@keyframes fade{from{opacity:0}}
+@keyframes slide{from{opacity:0;transform:translateX(26px)}}
+@keyframes dots{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+@keyframes glow{50%{box-shadow:0 0 18px 0 var(--c)}}
+.msg{--x:-26px}.msg.me{--x:26px}
+.msg.in{animation:msgIn .42s cubic-bezier(.2,.9,.3,1) both}
+.msg.in .bub{animation:bubIn .5s cubic-bezier(.34,1.56,.64,1) both;transform-origin:bottom}
+.msg.in .stk{animation:stkIn .6s cubic-bezier(.34,1.56,.64,1) both}
+.msg .av{animation:glow 3.5s ease-in-out infinite}
+.typ .bub{display:flex;gap:5px;padding:13px 16px}
+.typ .bub i{width:7px;height:7px;border-radius:50%;background:var(--mut);animation:dots 1.1s infinite}
+.typ .bub i:nth-child(2){animation-delay:.15s}.typ .bub i:nth-child(3){animation-delay:.3s}
+.vin{animation:fade .3s}
+.vin .fr{animation:slide .35s both}.vin .fr:nth-child(2){animation-delay:.05s}.vin .fr:nth-child(3){animation-delay:.1s}.vin .fr:nth-child(4){animation-delay:.15s}.vin .fr:nth-child(5){animation-delay:.2s}.vin .fr:nth-child(n+6){animation-delay:.25s}
+.vin .sp{animation:up .4s both}
+.pk{animation:up .25s}.box{animation:up .3s cubic-bezier(.2,.9,.3,1)}#sheet:not([hidden]){animation:fade .2s}
+.rc{animation:pop .2s}
+#nav button{transition:color .2s,border-color .2s}#nav button:active,.snd:active,.sm:active{transform:scale(.88)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* تكامل مع الموقع */
+:root{--gold-dim:#8a6d24;--text:#eef1f8;--text-dim:#8891a3}
+header{gap:10px}header b{flex:1}
+.bnav{display:none!important}
+.strip:empty{display:none}
+`
+
+// كود المتصفح — يُكتب كدالة عادية ويُحقن بالصفحة عبر toString()
+function chatClient() {
+    var C = window.__CHAT
+    var $ = function (s) { return document.querySelector(s) }
+    var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+    var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return ESC[c] }) }
+    var EM = '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😎 🤓 🥳 🤗 🤭 🤫 🤔 😏 😒 🙄 😬 😴 🤤 😪 😢 😭 🥹 😤 😡 🤬 😱 😨 😰 🥶 🥵 🤯 😳 🥺 😈 👿 💀 ☠️ 👻 👽 🤖 💩 🙈 🙉 🙊 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💗 💘 💝 💔 ❣️ 💯 💢 💥 💫 💦 💨 🔥 ✨ ⭐ 🌟 ⚡ 🌈 ☀️ 🌙 ❄️ 🌸 🌺 🍀 🍁 👍 👎 👏 🙌 🙏 💪 🤝 ✌️ 🤞 🤟 🤘 👌 👊 ✊ 🫶 👀 🧠 👑 💎 🎰 🎁 🎴 🃏 🎲 🎮 🏆 🥇 🎯 🔮 🧿 🗡️ ⚔️ 🛡️ 🏹 💣 🚢 ⚓ 🏴‍☠️ 🐉 🐲 🦊 🐺 🐱 🐶 🐯 🦁 🐻 🐰 🐼 🦄 🦅 🦋 🍥 🍙 🍜 🍣 🍡 🍰 🍩 🍓 🍎 🍕 🍔 🥤 🍵 🎌 ⛩️ 🏯 🎋 🎐 🎆 🎉 🎊 🔔 🚀 💰 💸'.split(' ')
+    var S = { tab: 'pub', dm: null, open: null, pk: null, msgs: [], ppl: {}, on: [], onSet: {}, fr: [], pu: 0, sig: '', cd: 0, busy: false, first: true, sr: [] }
+    var seen = {}, polling = false, again = false
+    var tm = function (t) { return new Date(t).toLocaleTimeString('ar-u-nu-latn', { hour: '2-digit', minute: '2-digit' }) }
+    var P = function (id) { return id === C.me.id ? C.me : (S.ppl[id] || { id: id, n: 'لاعب', h: 200 }) }
+    var col = function (p) { return 'hsl(' + p.h + ' 75% 62%)' }
+    var isOn = function (id) { return id === C.me.id || !!S.onSet[id] }
+    var left = function () { return Math.max(0, S.cd - Date.now()) }
+    var friend = function (id) { for (var i = 0; i < S.fr.length; i++) if (S.fr[i].id === id) return S.fr[i]; return null }
+    function av(p) { return '<div class="av" style="--c:' + col(p) + '">' + esc(Array.from(p.n)[0] || '؟') + (isOn(p.id) ? '<i class="dot"></i>' : '') + '</div>' }
+    function toast(t) { var e = $('#toast'); e.textContent = t; e.className = 'show'; clearTimeout(toast.h); toast.h = setTimeout(function () { e.className = '' }, 2200) }
+    function api(url, body) {
+        body = body || {}; body.csrf = C.csrf
+        return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function (r) { if (r.status === 401) { location.href = '/login?code=' + C.code; return { ok: false } } return r.json() })
+            .catch(function () { return { ok: false, message: 'تعذّر الاتصال بالخادم' } })
+    }
+    function mh(m) {
+        var p = P(m.f), st = m.s >= 0 ? C.stk[m.s] : null
+        var body = st ? '<div class="stk" style="background:' + st.bg + '"><i>' + st.em + '</i><span>' + esc(st.tx) + '</span></div>' : '<div class="bub">' + esc(m.x) + '</div>'
+        var re = Object.keys(m.r).map(function (e) { var r = m.r[e]; return '<button class="rc' + (r.me ? ' on' : '') + '" data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + ' ' + r.n + '</button>' }).join('')
+        var bar = S.open === m.id ? '<div class="rbar">' + C.re.map(function (e) { return '<button data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + '</button>' }).join('') + '</div>' : ''
+        return '<div class="msg' + (m.me ? ' me' : '') + (seen[m.id] ? '' : ' in') + '">' + av(p) + '<div class="mb">' + (m.me ? '' : '<div class="nm" style="color:' + col(p) + '">' + esc(p.n) + '</div>') + '<div data-a="op" data-m="' + m.id + '">' + body + '</div>' + bar + (re ? '<div class="rcs">' + re + '</div>' : '') + '<small>' + tm(m.t) + '</small></div></div>'
+    }
+    function rList(f) {
+        var l = $('#list'); if (!l) return
+        var near = l.scrollHeight - l.scrollTop - l.clientHeight < 90
+        l.innerHTML = S.msgs.map(mh).join('') || '<div class="note">' + (S.dm ? 'ابدأ المحادثة 👋' : 'كن أول من يكتب 👋') + '</div>'
+        S.msgs.forEach(function (m) { seen[m.id] = 1 })
+        if (f || near) l.scrollTop = l.scrollHeight
+    }
+    function hd() {
+        $('#oc').textContent = S.on.length + 1
+        var pn = $('#pn'); if (pn) pn.textContent = '🌐 رسالة عامة — تصل لكل المتصلين (' + (S.on.length + 1) + ')'
+    }
+    function rNav() {
+        var du = 0; S.fr.forEach(function (f) { du += f.un || 0 })
+        $('#nav').innerHTML = '<button class="' + (S.tab === 'pub' ? 'on' : '') + '" data-a="tab" data-v="pub">🌐<span>العام</span>' + (S.pu ? '<b>' + S.pu + '</b>' : '') + '</button><button class="' + (S.tab === 'fr' ? 'on' : '') + '" data-a="tab" data-v="fr">👥<span>الأصدقاء</span>' + (du ? '<b>' + du + '</b>' : '') + '</button>'
+    }
+    function rStrip() {
+        var s = $('#strip'); if (!s) return
+        s.innerHTML = S.on.map(function (id) { var p = P(id); return '<div class="sp">' + av(p) + '<small>' + esc(p.n) + '</small></div>' }).join('')
+    }
+    function rSt() {
+        var s = $('#st'), f = friend(S.dm); if (!s || !f) return
+        s.textContent = isOn(S.dm) ? '🟢 متصل' : '⚫ غير متصل — توصله الرسالة عند دخوله'
+    }
+    function rFr() {
+        var b = $('#frl'); if (!b) return
+        b.innerHTML = S.fr.map(function (f) {
+            var p = P(f.id), l = f.last
+            var pv = l ? (l.me ? 'أنت: ' : '') + (l.s >= 0 ? C.stk[l.s].em + ' ستيكر' : esc(l.x)) : 'ابدأ المحادثة'
+            return '<div class="fr" data-a="dm" data-v="' + f.id + '">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small>' + pv + '</small></div>' + (f.un ? '<b class="bd">' + f.un + '</b>' : '') + '</div>'
+        }).join('') || '<div class="note">ما عندك أصدقاء بعد</div>'
+        var c = $('#fc'); if (c) c.textContent = S.fr.length + '/' + C.maxFr
+    }
+    function rView() {
+        var v = $('#view'), h = ''
+        v.className = S.dm != null || S.tab === 'pub' ? 'chat' : ''
+        if (S.dm != null) {
+            var p = P(S.dm)
+            h = '<div class="bar"><button class="bk" data-a="bk">➜</button>' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small id="st"></small></div><button class="bk" data-a="rmf" data-v="' + S.dm + '" title="حذف الصديق">💔</button></div><div class="note">🔒 رسالة خاصة — ما يشوفها غيركم</div><div id="list"></div>'
+        } else if (S.tab === 'pub') {
+            h = '<div class="strip" id="strip"></div><div class="note" id="pn"></div><div id="list"></div>'
+        } else {
+            h = '<div class="bar"><b>👥 أصدقائي <em id="fc"></em></b><button class="add" data-a="add">➕ إضافة صديق</button></div><div id="frl"></div>'
+        }
+        v.innerHTML = h
+        rStrip(); rFr(); rSt(); hd()
+    }
+    function rFoot() {
+        var f = $('#foot'), old = ($('#in') || {}).value || ''
+        if (S.tab === 'fr' && S.dm == null) { f.innerHTML = ''; return }
+        var pk = ''
+        if (S.pk) {
+            var g = S.pk === 'e' ? EM.map(function (e) { return '<button data-a="em" data-v="' + e + '">' + e + '</button>' }).join('') : C.stk.map(function (s, i) { return '<button class="sk" data-a="sk" data-v="' + i + '" style="background:' + s.bg + '"><i>' + s.em + '</i><span>' + esc(s.tx) + '</span></button>' }).join('')
+            pk = '<div class="pk"><div class="pt">' + [['e', '😊 إيموجي'], ['g', '🎴 ستيكرات غاتشا']].map(function (k) { return '<button class="' + (S.pk === k[0] ? 'on' : '') + '" data-a="pk" data-v="' + k[0] + '">' + k[1] + '</button>' }).join('') + '</div><div class="pg ' + S.pk + '">' + g + '</div></div>'
+        }
+        f.innerHTML = pk + '<div class="cmp"><button class="sm" data-a="pk" data-v="' + (S.pk ? '' : 'e') + '">' + (S.pk ? '⌨️' : '😊') + '</button><input id="in" maxlength="200" autocomplete="off" placeholder="' + (S.dm != null ? 'رسالة خاصة…' : 'اكتب للجميع…') + '"><button class="snd" data-a="snd">➤</button></div>'
+        $('#in').value = old
+    }
+    function go() {
+        S.open = null; S.sig = ''; S.first = true; S.msgs = []
+        rView(); rFoot(); rNav()
+        var v = $('#view'); v.classList.remove('vin'); void v.offsetWidth; v.classList.add('vin')
+        poll()
+    }
+    function apply(j) {
+        S.ppl = j.people || {}; S.on = j.online || []; S.fr = j.friends || []; S.pu = j.pubUnread || 0
+        S.onSet = {}; S.on.forEach(function (id) { S.onSet[id] = 1 }); S.fr.forEach(function (f) { if (f.on) S.onSet[f.id] = 1 })
+        if ((j.view || '') !== (S.dm || '')) return
+        if (S.dm != null && j.notFriend) { S.dm = null; S.tab = 'fr'; return go() }
+        var msgs = j.msgs || []
+        var sig = msgs.map(function (m) { return m.id + JSON.stringify(m.r) }).join('|')
+        var changed = sig !== S.sig || S.first
+        S.msgs = msgs; S.sig = sig
+        if (S.first) { msgs.forEach(function (m) { seen[m.id] = 1 }) }
+        hd(); rNav(); rStrip(); rSt()
+        if (changed) { rList(S.first); S.first = false }
+        if (S.tab === 'fr' && S.dm == null) rFr()
+    }
+    function poll() {
+        if (polling) { again = true; return }
+        polling = true
+        fetch('/chat/poll?to=' + encodeURIComponent(S.dm || ''), { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { if (r.status === 401) { location.href = '/login?code=' + C.code; throw 0 } return r.json() })
+            .then(function (j) { if (j && j.ok) apply(j) })
+            .catch(function () { })
+            .then(function () { polling = false; if (again) { again = false; poll() } })
+    }
+    function send(x, s) {
+        if (!x && s == null) return
+        if (S.tab === 'fr' && S.dm == null) return
+        var l = left(); if (l > 0) return toast('⏳ انتظر ' + Math.ceil(l / 1000) + ' ثانية قبل رسالتك التالية')
+        if (S.busy) return
+        S.busy = true
+        api('/chat/send', { to: S.dm || '', x: x || '', s: s == null ? -1 : s }).then(function (j) {
+            S.busy = false
+            if (!j.ok) { if (j.retryInMs) S.cd = Date.now() + j.retryInMs; return toast(j.message || 'تعذّر الإرسال') }
+            S.cd = Date.now() + C.cd
+            var i = $('#in'); if (x && i) i.value = ''
+            S.first = false; poll()
+        })
+    }
+    function fill() {
+        var l = $('#sl'); if (!l) return
+        l.innerHTML = S.sr.map(function (p) { return '<div class="fr">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small>@' + esc(p.u) + ' · ' + (isOn(p.id) ? '🟢 متصل' : '⚫ غير متصل') + '</small></div><button class="add" data-a="addf" data-v="' + p.id + '">إضافة</button></div>' }).join('') || '<div class="note">' + (($('#q') || {}).value && $('#q').value.trim().length > 1 ? 'لا يوجد لاعبين' : 'اكتب حرفين على الأقل من اليوزر') + '</div>'
+        var c = $('#sc'); if (c) c.textContent = S.fr.length + '/' + C.maxFr
+    }
+    var srT = 0
+    function search() {
+        clearTimeout(srT)
+        srT = setTimeout(function () {
+            var q = ($('#q') || {}).value || ''; q = q.trim()
+            if (q.length < 2) { S.sr = []; return fill() }
+            fetch('/chat/search?q=' + encodeURIComponent(q), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json() }).then(function (j) { S.sr = (j && j.ok) ? j.items : []; fill() }).catch(function () { })
+        }, 300)
+    }
+    function sheet() {
+        var s = $('#sheet'); s.hidden = false; S.sr = []
+        s.innerHTML = '<div class="box"><div class="bar"><b>➕ إضافة صديق <em id="sc"></em></b><button class="bk" data-a="x">✕</button></div><input id="q" placeholder="ابحث باليوزر…" autocomplete="off" maxlength="20"><div id="sl"></div></div>'
+        s.onclick = function (e) { if (e.target === s) s.hidden = true }
+        $('#q').oninput = search; fill()
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-a]'); if (!b) return
+        var a = b.dataset.a, v = b.dataset.v
+        if (a === 'tab') { S.tab = v; S.dm = null; S.pk = null; go() }
+        else if (a === 'dm') { S.dm = v; S.pk = null; go() }
+        else if (a === 'bk') { S.dm = null; S.pk = null; go() }
+        else if (a === 'op') { var m = b.dataset.m; S.open = S.open === m ? null : m; rList() }
+        else if (a === 're') { var mid = b.dataset.m; S.open = null; api('/chat/react', { id: mid, e: b.dataset.e }).then(function (j) { if (!j.ok) toast(j.message || 'تعذّر التفاعل'); S.sig = ''; poll() }); rList() }
+        else if (a === 'pk') { S.pk = v || null; rFoot() }
+        else if (a === 'em') { $('#in').value += v }
+        else if (a === 'sk') { send(null, +v); S.pk = null; rFoot() }
+        else if (a === 'snd') { b.animate([{ transform: 'scale(1)' }, { transform: 'scale(.78) rotate(-25deg)' }, { transform: 'scale(1)' }], { duration: 280 }); send($('#in').value.trim()) }
+        else if (a === 'add') sheet()
+        else if (a === 'addf') {
+            api('/chat/friend', { op: 'add', id: v }).then(function (j) {
+                if (!j.ok) return toast(j.message || 'تعذّرت الإضافة')
+                toast(j.message || 'تمت الإضافة 💖'); S.sr = S.sr.filter(function (p) { return p.id !== v })
+                S.fr.push({ id: v, on: 0, un: 0, last: null }); fill(); poll()
+            })
+        }
+        else if (a === 'rmf') {
+            if (!confirm('حذف هذا الصديق؟')) return
+            api('/chat/friend', { op: 'remove', id: v }).then(function (j) { if (!j.ok) return toast(j.message || 'تعذّر الحذف'); toast('تم حذف الصديق 💔'); S.dm = null; S.fr = S.fr.filter(function (f) { return f.id !== v }); go() })
+        }
+        else if (a === 'x') $('#sheet').hidden = true
+    })
+    document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'in') send(e.target.value.trim()) })
+    setInterval(function () { var b = document.querySelector('.snd'); if (!b) return; var l = left(); b.textContent = l > 0 ? Math.ceil(l / 1000) : '➤'; b.style.opacity = l > 0 ? .55 : 1 }, 300)
+    setInterval(function () { if (!document.hidden) poll() }, 3000)
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll() })
+    go()
+}
+
+function chatPageHTML({ viewer, code }) {
+    const cfg = { code, csrf: viewer.csrf, me: viewer.me, stk: CHAT_STICKERS, re: CHAT_REACT, cd: CHAT_CD_MS, maxFr: CHAT_MAX_FRIENDS }
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>دردشة الأكاديمية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>${CHAT_CSS}</style>
+</head>
+<body>
+<div id="app"><header>${NAV_BTN}<b>💬 دردشة الأكاديمية</b><span class="on-pill">🟢 <span id="oc">1</span> متصل</span></header><main id="view"></main><footer id="foot"></footer><nav id="nav"></nav></div>
+${navDrawerHTML(code, viewer.csrf, 'chat', viewer.name)}
+<div id="sheet" hidden></div><div id="toast"></div>
+<script>window.__CHAT=${jsonForScript(cfg)};</script>
+<script>(${chatClient.toString()})()</script>
+</body>
+</html>`
+}
+
 function securityHeaders(res) {
     res.set({
         'Cache-Control': 'no-store',
@@ -3413,6 +4119,346 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ─────────────── 🏆 أقوى اللاعبين ───────────────
+    // الترتيب يُحسب بتجميع واحد على قاعدة البيانات ويُخزَّن بالذاكرة (TOP_CACHE_MS)
+    // فلا يُحسب عند كل فتح للصفحة. ترتيب اللاعب خارج الأول 30 يُخزَّن هو الآخر.
+    let topCache = null      // { at, list }
+    let topPending = null
+    const rankCache = new Map() // userId -> { at, total, rank }
+
+    function getTopList() {
+        const now = Date.now()
+        if (topCache && now - topCache.at < TOP_CACHE_MS) return Promise.resolve(topCache)
+        if (topPending) return topPending
+        topPending = (async () => {
+            try {
+                const list = await Player.aggregate([
+                    { $match: { 'characters.0': { $exists: true } } },
+                    { $project: { userId: 1, name: 1, username: 1, characters: 1, total: { $sum: '$characters.power' } } },
+                    { $match: { total: { $gt: 0 } } },
+                    { $sort: { total: -1, _id: 1 } },
+                    { $limit: TOP_LIMIT },
+                    {
+                        $addFields: {
+                            top: {
+                                $reduce: {
+                                    input: '$characters',
+                                    initialValue: null,
+                                    in: {
+                                        $cond: [
+                                            { $gt: [{ $ifNull: ['$$this.power', 0] }, { $ifNull: ['$$value.power', -1] }] },
+                                            '$$this',
+                                            '$$value'
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0, userId: 1, name: 1, username: 1, total: 1,
+                            'top.name': 1, 'top.rarity': 1, 'top.form': 1, 'top.evolutionLevel': 1,
+                            'top.image': 1, 'top.customImage': 1, 'top.power': 1
+                        }
+                    }
+                ]).allowDiskUse(true)
+                topCache = { at: Date.now(), list }
+                return topCache
+            } catch (err) {
+                if (topCache) return topCache // لو فشل التحديث نعرض آخر نسخة بدل الخطأ
+                throw err
+            } finally {
+                topPending = null
+            }
+        })()
+        return topPending
+    }
+
+    // ترتيب لاعب خارج الأول 30 = عدد اللاعبين الأقوى منه + 1
+    async function getOutsideRank(userId, total) {
+        const now = Date.now()
+        const hit = rankCache.get(userId)
+        if (hit && hit.total === total && now - hit.at < TOP_CACHE_MS) return hit.rank
+        const r = await Player.aggregate([
+            { $match: { 'characters.0': { $exists: true } } },
+            { $project: { _id: 0, total: { $sum: '$characters.power' } } },
+            { $match: { total: { $gt: total } } },
+            { $count: 'n' }
+        ]).allowDiskUse(true)
+        const rank = ((r[0] && r[0].n) || 0) + 1
+        if (rankCache.size > 2000) rankCache.clear()
+        rankCache.set(userId, { at: now, total, rank })
+        return rank
+    }
+
+    function agoText(ms) {
+        const m = Math.floor(ms / 60000)
+        if (m < 1) return 'الآن'
+        if (m === 1) return 'قبل دقيقة'
+        if (m === 2) return 'قبل دقيقتين'
+        return `قبل ${m} ${m <= 10 ? 'دقائق' : 'دقيقة'}`
+    }
+
+    app.get('/u/:code/top', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            // نفس شرط الصفحة الرئيسية: مالك مسجّل أو مشاهدة فقط، وإلا الشاشة الأولى
+            const sess = ownerSession(req, player)
+            if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
+
+            const snap = await getTopList()
+            const catIdx = getCatalogIndex(getCatalog)
+
+            const toEntry = (d, i) => {
+                const disp = resolveDisplayChar(d.top || {}, catIdx)
+                const tier = TIERS[resolveTierKey(disp.rarity, disp.evolutionLevel)] || TIERS['عادي']
+                return {
+                    rank: i + 1,
+                    who: d.username ? '@' + d.username : (d.name || 'لاعب'),
+                    charName: String(disp.name || '—'),
+                    tier: tier.key,
+                    color: tier.color,
+                    // الصورة من SSS وفوق فقط (مثل بقية الموقع)
+                    img: tier.idx >= FIRST_IMAGE_TIER ? safeImageUrl(disp.image) : null,
+                    total: Number(d.total) || 0,
+                    isMe: d.userId === player.userId
+                }
+            }
+            const entries = snap.list.map(toEntry)
+
+            // ترتيب صاحب الصفحة (للشريط السفلي)
+            const myTotal = (player.characters || []).reduce((s, c) => s + (Number(c && c.power) || 0), 0)
+            const myIdx = snap.list.findIndex(d => d.userId === player.userId)
+            let myRank = null
+            if (myIdx >= 0) myRank = myIdx + 1
+            else if (myTotal > 0) myRank = await getOutsideRank(player.userId, myTotal)
+            const me = {
+                rank: myRank,
+                total: myIdx >= 0 ? Number(snap.list[myIdx].total) || 0 : myTotal,
+                who: player.username ? '@' + player.username : (player.name || 'لاعب')
+            }
+
+            const viewer = sess
+                ? { isOwner: true, name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) }
+                : { isOwner: false }
+
+            res.send(topPageHTML({
+                code, viewer,
+                podium: entries.slice(0, 3),
+                rows: entries.slice(3),
+                me,
+                updatedText: agoText(Date.now() - snap.at)
+            }))
+        } catch (err) {
+            console.error('top players page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── 🚢 أوامر السفينة من الموقع ───────────────
+    // نفس منطق الواتس بالضبط عبر shipActions.js (شراء، هجوم زعيم، استدعاء) — مصدر واحد للبيانات والقواعد
+    let shipActions = null
+    try { shipActions = require('../shipActions') } catch (e) { console.error('ship actions: shipActions.js غير موجود', e.message) }
+
+    // حد عدد الطلبات: 30 بالدقيقة لكل لاعب (حماية فقط — القيود الحقيقية بمنطق السفينة نفسه)
+    const shipHits = new Map()
+    function shipRate(userId) {
+        const now = Date.now()
+        const arr = (shipHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { shipHits.set(userId, arr); return false }
+        arr.push(now); shipHits.set(userId, arr); return true
+    }
+
+    function shipShopItems() {
+        try { return require('../shipShop').SHOP_ITEMS || [] } catch (e) { return [] }
+    }
+
+    // الجزء الحي من الصفحة لصاحبها (يرسله السيرفر جاهز بعد كل عملية وكل تحديث)
+    async function shipDynFor(userId) {
+        const st = await shipActions.getShipStatus(userId)
+        if (!st) return null
+        const lvl = Math.max(1, Math.min(SHIP_MAX_LEVEL, Number(st.ship.level) || 1))
+        return shipDynHTML({
+            ship: st.ship, shop: shipShopItems(), bought: st.bought, coins: st.player.coins,
+            wars: st.wars, combat: st.combat, isOwner: true, lvl
+        })
+    }
+
+    // حماية موحّدة للمسارات: نفس الموقع + جلسة + CSRF + حد طلبات + نسخة الجلسة
+    async function shipGuard(req, res) {
+        res.set('Cache-Control', 'no-store')
+        const bad = (status, code, message) => { res.status(status).json({ ok: false, code, message }); return null }
+        if (!shipActions || !auth.authEnabled()) return bad(503, 'DISABLED', 'أوامر السفينة من الموقع غير مفعّلة حالياً.')
+        if (!auth.sameOrigin(req)) return bad(403, 'ORIGIN', 'طلب غير مسموح.')
+        const sess = auth.readSession(req)
+        if (!sess) return bad(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+        const b = req.body || {}
+        if (!auth.verifyCsrf(sess, b.csrf)) return bad(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+        if (!shipRate(sess.u)) return bad(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        if (!me || (me.sessionVersion || 0) !== sess.v) return bad(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+        return { sess, body: b }
+    }
+
+    // تحديث حي للصفحة (دم الزعيم، دمك، المشتريات، الحروب) — قراءة فقط
+    app.get('/ship/dyn', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!shipActions || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = await bossSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            const html = await shipDynFor(sess.u)
+            if (!html) return res.status(404).json({ ok: false })
+            res.json({ ok: true, html })
+        } catch (err) {
+            console.error('ship dyn error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/ship/buy', jsonBody, async (req, res) => {
+        try {
+            const g = await shipGuard(req, res)
+            if (!g) return
+            const id = typeof g.body.id === 'string' ? g.body.id.slice(0, 40) : ''
+            const r = await shipActions.buyShipItem(g.sess.u, { itemId: id })
+            const html = await shipDynFor(g.sess.u)
+            if (!r.ok) return res.status(400).json({ ok: false, code: r.code, message: r.message, html })
+            res.json({ ok: true, text: shipActions.formatBuyText(r), html })
+        } catch (err) {
+            console.error('ship buy error:', err)
+            res.status(500).json({ ok: false, code: 'SERVER', message: 'خطأ بالخادم' })
+        }
+    })
+
+    app.post('/ship/boss/attack', jsonBody, async (req, res) => {
+        try {
+            const g = await shipGuard(req, res)
+            if (!g) return
+            const r = await shipActions.siteAttackBoss(g.sess.u)
+            const html = await shipDynFor(g.sess.u)
+            if (!r.ok) return res.status(400).json({ ok: false, code: r.code, message: r.message, html })
+            res.json({ ok: true, text: r.text, defeated: !!r.result.defeated, html })
+        } catch (err) {
+            console.error('ship boss attack error:', err)
+            res.status(500).json({ ok: false, code: 'SERVER', message: 'خطأ بالخادم' })
+        }
+    })
+
+    app.post('/ship/boss/summon', jsonBody, async (req, res) => {
+        try {
+            const g = await shipGuard(req, res)
+            if (!g) return
+            const r = await shipActions.siteSummonBoss(g.sess.u)
+            const html = await shipDynFor(g.sess.u)
+            if (!r.ok) return res.status(400).json({ ok: false, code: r.code, message: r.message, html })
+            res.json({ ok: true, text: r.text, html })
+        } catch (err) {
+            console.error('ship boss summon error:', err)
+            res.status(500).json({ ok: false, code: 'SERVER', message: 'خطأ بالخادم' })
+        }
+    })
+
+    // ─────────────── 🚢 صفحة سفينتي ───────────────
+    // يحمّل سفينة صاحب الصفحة + الطاقم (القبطان والضباط والأعضاء) من قاعدة البيانات.
+    async function loadShipView(player) {
+        let Ship = null
+        try { Ship = require('../models/Ship') } catch (e) { console.error('ship page: models/Ship غير موجود', e.message) }
+        if (!Ship || !player.shipId) return { ship: null, crew: [], totalPower: 0 }
+        const ship = await Ship.findOne({ shipId: player.shipId }).lean()
+        if (!ship) return { ship: null, crew: [], totalPower: 0 }
+
+        // الطاقم = القبطان + الضباط + الأعضاء (بدون تكرار) — القبطان يظهر دائماً حتى لو غاب من members
+        const officers = ship.officers || []
+        const ids = [...new Set([ship.captain, ...officers, ...(ship.members || [])].filter(Boolean))]
+        const docs = await Player.find({ userId: { $in: ids } }).select('userId name username characters').lean()
+        const byId = new Map(docs.map(d => [d.userId, d]))
+        const order = { captain: 0, officer: 1, sailor: 2 }
+        const crew = ids.map(id => {
+            const d = byId.get(id)
+            const role = id === ship.captain ? 'captain' : officers.includes(id) ? 'officer' : 'sailor'
+            return {
+                id, role, exists: !!d,
+                name: d ? (d.username ? '@' + d.username : (d.name || 'لاعب')) : '@' + String(id).split('@')[0],
+                power: d ? (d.characters || []).reduce((s, c) => s + (Number(c && c.power) || 0), 0) : 0,
+                isMe: id === player.userId
+            }
+        }).sort((a, b) => order[a.role] - order[b.role] || b.power - a.power)
+        return { ship, crew, totalPower: crew.reduce((s, m) => s + m.power, 0) }
+    }
+
+    app.get('/u/:code/ship', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username shipId shipCoins shipShop sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
+
+            const { ship, crew, totalPower } = await loadShipView(player)
+            // حروب اليوم + دمك القتالي (نفس بيانات الواتس) — فشلها ما يكسر الصفحة
+            let status = null
+            try { if (shipActions && ship) status = await shipActions.getShipStatus(player.userId) } catch (e) { console.error('ship status error:', e) }
+            let shop = []
+            try { shop = require('../shipShop').SHOP_ITEMS || [] } catch (e) { /* بدون متجر */ }
+            const viewer = sess
+                ? { isOwner: true, name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) }
+                : { isOwner: false }
+            res.send(shipPageHTML({
+                code, viewer, ship, crew, totalPower, shop,
+                bought: (player.shipShop && player.shipShop[getShipWeekKey()]) || {},
+                coins: Number(player.shipCoins) || 0,
+                status,
+                ownerName: player.username ? '@' + player.username : (player.name || 'اللاعب')
+            }))
+        } catch (err) {
+            console.error('ship page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // مشهد البحر (يُعرض داخل iframe بنفس الموقع) — المستوى يُقرأ من قاعدة البيانات لا من الرابط
+    app.get('/u/:code/ship/scene', async (req, res) => {
+        try {
+            securityHeaders(res)
+            res.set({
+                'X-Frame-Options': 'SAMEORIGIN',
+                'Content-Security-Policy':
+                    "default-src 'self'; img-src data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                    "font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'"
+            })
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code }).select('userId shipId sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess && !auth.hasViewOnly(req)) return res.status(403).send('')
+            let level = 1
+            try {
+                if (player.shipId) {
+                    const s = await require('../models/Ship').findOne({ shipId: player.shipId }).select('level').lean()
+                    if (s) level = s.level
+                }
+            } catch (e) { /* مستوى 1 */ }
+            res.type('html').send(shipSceneHTML(level))
+        } catch (err) {
+            console.error('ship scene error:', err)
+            res.status(500).send('')
+        }
+    })
+
     // تأكيد استلام هدية (تعليم "مقروءة")
     app.post('/gift/ack', jsonBody, async (req, res) => {
         res.set('Cache-Control', 'no-store')
@@ -3512,6 +4558,279 @@ function registerCharacterSite(app, Player, opts = {}) {
             return fail(500, 'SERVER', 'صار خطأ بالخادم — لم يتأكد تنفيذ الإهداء، تحقق من قائمتك قبل الإعادة (إعادة المحاولة آمنة).')
         }
     })
+
+    // ─────────────── 💬 الدردشة: التخزين + المسارات ───────────────
+    // لا نغيّر Player — نماذج مستقلة: رسائل (تنحذف تلقائياً بعد 14 يوم) + قائمة الأصدقاء
+    const chatMg = Player.base
+    const ChatMsg = Player.db.models.SiteChatMsg || Player.db.model('SiteChatMsg', (() => {
+        const s = new chatMg.Schema({
+            k: String,                                   // 'pub' أو مفتاح المحادثة الخاصة (معرّفان مرتبان)
+            f: String,                                   // userId المرسل (لا يُرسل للمتصفح أبداً)
+            x: { type: String, default: '' },
+            s: { type: Number, default: -1 },            // رقم الستيكر أو -1
+            t: { type: Date, default: Date.now },
+            r: { type: chatMg.Schema.Types.Mixed, default: {} }   // { إيموجي: [userId] }
+        }, { minimize: false })
+        s.index({ k: 1, t: -1 })
+        s.index({ t: 1 }, { expireAfterSeconds: 14 * 24 * 3600 })
+        return s
+    })())
+    const ChatFr = Player.db.models.SiteChatFr || Player.db.model('SiteChatFr', new chatMg.Schema({
+        u: { type: String, unique: true },
+        fr: [String],
+        seen: { type: chatMg.Schema.Types.Mixed, default: {} }  // { pub|معرّف-الصديق: وقت آخر قراءة }
+    }, { minimize: false }))
+
+    // معرّف عام مجهول لكل لاعب (HMAC) — حتى لا يظهر userId/الرقم للمتصفح
+    const chatSecret = String(process.env.SESSION_SECRET || 'chat-fallback-salt')
+    const pidMap = new Map()
+    function pidOf(u) {
+        const p = crypto.createHmac('sha256', chatSecret).update('chat:' + u).digest('hex').slice(0, 12)
+        if (!pidMap.has(p)) { if (pidMap.size > 20000) pidMap.clear(); pidMap.set(p, u) }
+        return p
+    }
+    const chatPresence = new Map(), chatLast = new Map(), chatNames = new Map(), chatHits = new Map()
+
+    function chatRate(u) {
+        const now = Date.now()
+        const arr = (chatHits.get(u) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 120) { chatHits.set(u, arr); return false }
+        arr.push(now); chatHits.set(u, arr); return true
+    }
+
+    async function chatNamesFor(ids) {
+        const now = Date.now(), out = new Map(), miss = []
+        for (const u of new Set(ids)) {
+            const c = chatNames.get(u)
+            if (c && c.exp > now) out.set(u, c.n); else miss.push(u)
+        }
+        if (miss.length) {
+            const rows = await Player.find({ userId: { $in: miss } }).select('userId name username').lean()
+            for (const r of rows) {
+                const n = String(r.name || r.username || 'لاعب').slice(0, 24)
+                chatNames.set(r.userId, { n, exp: now + 5 * 60 * 1000 }); out.set(r.userId, n)
+            }
+            for (const u of miss) if (!out.has(u)) out.set(u, 'لاعب')
+        }
+        if (chatNames.size > 5000) chatNames.clear()
+        return out
+    }
+    function chatPerson(u, names, extra) {
+        const id = pidOf(u)
+        return [id, { id, n: names.get(u) || 'لاعب', h: parseInt(id.slice(0, 3), 16) % 360, ...(extra || {}) }]
+    }
+    const chatPairKey = (a, b) => [a, b].sort().join('|')
+
+    // يتحقق من الجلسة (+ الأصل وCSRF للطلبات المعدِّلة) ويرد بنفسه عند الفشل
+    async function chatAuth(req, res, mutate) {
+        res.set('Cache-Control', 'no-store')
+        const fail = (st, code, message) => { res.status(st).json({ ok: false, code, message }); return null }
+        if (!auth.authEnabled()) return fail(503, 'DISABLED', 'الدردشة غير مفعّلة حالياً.')
+        if (mutate && !auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+        const sess = await bossSession(req)
+        if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+        if (mutate && !auth.verifyCsrf(sess, req.body && req.body.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+        if (!chatRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر قليلاً.')
+        return sess
+    }
+
+    app.get('/u/:code/chat', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!auth.authEnabled()) return res.status(503).send('الدردشة غير مفعّلة حالياً.')
+            const nm = String(player.name || player.username || 'لاعب').slice(0, 24)
+            const [, me] = chatPerson(player.userId, new Map([[player.userId, nm]]))
+            res.send(chatPageHTML({ viewer: { name: nm, csrf: auth.csrfForSession(sess), me }, code }))
+        } catch (err) {
+            console.error('chat page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // استطلاع الحالة كل ~3 ثوان: المتصلون + الأصدقاء + رسائل العرض الحالي
+    app.get('/chat/poll', async (req, res) => {
+        try {
+            const sess = await chatAuth(req, res, false)
+            if (!sess) return
+            const me = sess.u, now = Date.now()
+            chatPresence.set(me, now)
+            if (chatPresence.size > 3000) for (const [u, t] of chatPresence) if (now - t > CHAT_ONLINE_MS) chatPresence.delete(u)
+
+            const doc = await ChatFr.findOne({ u: me }).lean()
+            const frIds = (doc && doc.fr) || []
+            const seenMap = { ...((doc && doc.seen) || {}) }
+            const setSeen = {}
+            const isOn = u => now - (chatPresence.get(u) || 0) < CHAT_ONLINE_MS
+
+            const toPid = String(req.query.to || '').slice(0, 20)
+            let key = 'pub', notFriend = false
+            if (toPid) {
+                const pu = pidMap.get(toPid)
+                if (!pu || !frIds.includes(pu)) notFriend = true; else key = chatPairKey(me, pu)
+            }
+            let msgs = []
+            if (!notFriend) msgs = (await ChatMsg.find({ k: key }).sort({ t: -1 }).limit(60).lean()).reverse()
+
+            // أول مرة: لا نعتبر الرسائل القديمة غير مقروءة بالعام
+            if (seenMap.pub == null) { seenMap.pub = now; setSeen['seen.pub'] = now }
+            if (!notFriend) {
+                const sk = toPid || 'pub'
+                const newest = msgs.length ? +msgs[msgs.length - 1].t : 0
+                if (newest > (seenMap[sk] || 0) || (toPid && seenMap[sk] == null)) { seenMap[sk] = now; setSeen['seen.' + sk] = now }
+            }
+            if (Object.keys(setSeen).length) await ChatFr.updateOne({ u: me }, { $set: setSeen }, { upsert: true })
+
+            let pubUnread = 0
+            if (toPid) {
+                pubUnread = (await ChatMsg.find({ k: 'pub', f: { $ne: me }, t: { $gt: new Date(seenMap.pub || now) } }).select('_id').limit(99).lean()).length
+            }
+
+            // الأصدقاء: آخر رسالة + غير المقروء
+            const keys = frIds.map(u => chatPairKey(me, u))
+            const lastRows = frIds.length ? await ChatMsg.aggregate([{ $match: { k: { $in: keys } } }, { $sort: { t: -1 } }, { $group: { _id: '$k', m: { $first: '$$ROOT' } } }]) : []
+            const lastBy = new Map(lastRows.map(r => [r._id, r.m]))
+            let inc = []
+            if (frIds.length) {
+                const minSeen = Math.min(...frIds.map(u => seenMap[pidOf(u)] || 0))
+                inc = await ChatMsg.find({ k: { $in: keys }, f: { $ne: me }, t: { $gt: new Date(minSeen) } }).select('k t').limit(600).lean()
+            }
+            const friends = frIds.map(u => {
+                const id = pidOf(u), k = chatPairKey(me, u), l = lastBy.get(k), sn = seenMap[id] || 0
+                return {
+                    id, on: isOn(u) ? 1 : 0,
+                    un: inc.filter(m => m.k === k && +m.t > sn).length,
+                    last: l ? { x: String(l.x || '').slice(0, 60), s: l.s, me: l.f === me } : null
+                }
+            })
+
+            const onlineIds = [...chatPresence].filter(([u, t]) => u !== me && now - t < CHAT_ONLINE_MS).map(([u]) => u).slice(0, 60)
+            const names = await chatNamesFor([me, ...onlineIds, ...frIds, ...msgs.map(m => m.f)])
+            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgs.map(m => m.f)])].map(u => chatPerson(u, names)))
+
+            res.json({
+                ok: true, view: toPid, notFriend, pubUnread, friends, people,
+                online: onlineIds.map(pidOf),
+                msgs: msgs.map(m => ({
+                    id: String(m._id), f: pidOf(m.f), me: m.f === me, x: m.x || '', s: m.s, t: +m.t,
+                    r: Object.fromEntries(Object.entries(m.r || {}).filter(([, a]) => Array.isArray(a) && a.length).map(([e, a]) => [e, { n: a.length, me: a.includes(me) }]))
+                }))
+            })
+        } catch (err) {
+            console.error('chat poll error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/chat/send', jsonBody, async (req, res) => {
+        const fail = (st, code, message, extra = {}) => res.status(st).json({ ok: false, code, message, ...extra })
+        try {
+            const sess = await chatAuth(req, res, true)
+            if (!sess) return
+            const me = sess.u, b = req.body || {}
+            let x = typeof b.x === 'string'
+                ? b.x.replace(/[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+                : ''
+            const s = Number.isInteger(b.s) && b.s >= 0 && b.s < CHAT_STICKERS.length ? b.s : -1
+            if (s >= 0) x = ''
+            if (!x && s < 0) return fail(400, 'EMPTY', 'اكتب رسالة أولاً.')
+
+            let key = 'pub'
+            const toPid = String(b.to || '').slice(0, 20)
+            if (toPid) {
+                const pu = pidMap.get(toPid)
+                const doc = await ChatFr.findOne({ u: me }).select('fr').lean()
+                if (!pu || !doc || !doc.fr.includes(pu)) return fail(403, 'NOT_FRIEND', 'هذا اللاعب ليس في قائمة أصدقائك.')
+                key = chatPairKey(me, pu)
+            }
+            const now = Date.now(), wait = CHAT_CD_MS - (now - (chatLast.get(me) || 0))
+            if (wait > 0) return fail(429, 'COOLDOWN', `⏳ انتظر ${Math.ceil(wait / 1000)} ثانية قبل رسالتك التالية`, { retryInMs: wait })
+            chatLast.set(me, now)
+            if (chatLast.size > 5000) for (const [u, t] of chatLast) if (now - t > CHAT_CD_MS) chatLast.delete(u)
+            const m = await ChatMsg.create({ k: key, f: me, x, s, t: new Date(now), r: {} })
+            res.json({ ok: true, id: String(m._id) })
+        } catch (err) {
+            console.error('chat send error:', err)
+            fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
+
+    app.post('/chat/react', jsonBody, async (req, res) => {
+        const fail = (st, code, message) => res.status(st).json({ ok: false, code, message })
+        try {
+            const sess = await chatAuth(req, res, true)
+            if (!sess) return
+            const me = sess.u, b = req.body || {}
+            const id = String(b.id || ''), e = String(b.e || '')
+            if (!/^[a-f0-9]{24}$/.test(id) || !CHAT_REACT.includes(e)) return fail(400, 'BAD', 'طلب غير صحيح.')
+            const m = await ChatMsg.findById(id).select('k r').lean()
+            if (!m || (m.k !== 'pub' && !m.k.split('|').includes(me))) return fail(404, 'NONE', 'الرسالة غير موجودة.')
+            const has = Array.isArray(m.r && m.r[e]) && m.r[e].includes(me)
+            await ChatMsg.updateOne({ _id: id }, has ? { $pull: { ['r.' + e]: me } } : { $addToSet: { ['r.' + e]: me } })
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('chat react error:', err)
+            fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
+
+    app.get('/chat/search', async (req, res) => {
+        try {
+            const sess = await chatAuth(req, res, false)
+            if (!sess) return
+            const q = String(req.query.q || '').trim().slice(0, 20)
+            if (q.length < 2) return res.json({ ok: true, items: [] })
+            const doc = await ChatFr.findOne({ u: sess.u }).select('fr').lean()
+            const have = new Set((doc && doc.fr) || [])
+            const rows = await Player.find({ username: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+                .select('userId name username').limit(15).lean()
+            const items = rows.filter(r => r.userId !== sess.u && !have.has(r.userId)).slice(0, 12).map(r => {
+                const [, p] = chatPerson(r.userId, new Map([[r.userId, String(r.name || r.username || 'لاعب').slice(0, 24)]]), { u: String(r.username || '').slice(0, 20) })
+                return p
+            })
+            res.json({ ok: true, items })
+        } catch (err) {
+            console.error('chat search error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    // إضافة/حذف صديق (متبادلة: الطرفان يظهران عند بعض)
+    app.post('/chat/friend', jsonBody, async (req, res) => {
+        const fail = (st, code, message) => res.status(st).json({ ok: false, code, message })
+        try {
+            const sess = await chatAuth(req, res, true)
+            if (!sess) return
+            const me = sess.u, b = req.body || {}
+            const other = pidMap.get(String(b.id || '').slice(0, 20))
+            if (!other || other === me) return fail(400, 'BAD', 'لاعب غير صحيح — ابحث عنه من جديد.')
+
+            if (b.op === 'remove') {
+                await ChatFr.updateOne({ u: me }, { $pull: { fr: other } })
+                await ChatFr.updateOne({ u: other }, { $pull: { fr: me } })
+                return res.json({ ok: true })
+            }
+            if (b.op !== 'add') return fail(400, 'BAD', 'طلب غير صحيح.')
+
+            const target = await Player.findOne({ userId: other }).select('userId name username').lean()
+            if (!target) return fail(404, 'NONE', 'اللاعب غير موجود.')
+            const [mine, theirs] = await Promise.all([ChatFr.findOne({ u: me }).select('fr').lean(), ChatFr.findOne({ u: other }).select('fr').lean()])
+            if (mine && mine.fr.includes(other)) return fail(400, 'DUP', 'هو صديقك بالفعل.')
+            if (mine && mine.fr.length >= CHAT_MAX_FRIENDS) return fail(400, 'LIMIT', `وصلت للحد الأقصى: ${CHAT_MAX_FRIENDS} صديق 🚫`)
+            if (theirs && theirs.fr.length >= CHAT_MAX_FRIENDS) return fail(400, 'LIMIT_OTHER', 'قائمة أصدقاء هذا اللاعب ممتلئة.')
+            await ChatFr.updateOne({ u: me }, { $addToSet: { fr: other } }, { upsert: true })
+            await ChatFr.updateOne({ u: other }, { $addToSet: { fr: me } }, { upsert: true })
+            res.json({ ok: true, message: `تمت إضافة ${String(target.name || target.username || 'اللاعب').slice(0, 24)} 💖` })
+        } catch (err) {
+            console.error('chat friend error:', err)
+            fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
 }
 
-module.exports = { registerCharacterSite, generateSiteCode, bossPageHTML, pageHTML, sortCharacters, sortCharactersKeepFirst, getCatalogIndex, resolveDisplayChar }
+module.exports = { registerCharacterSite, shipPageHTML, shipSceneHTML, shipLookIndex, generateSiteCode, bossPageHTML, pageHTML, sortCharacters, sortCharactersKeepFirst, getCatalogIndex, resolveDisplayChar }
