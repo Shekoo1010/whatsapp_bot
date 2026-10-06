@@ -348,6 +348,7 @@ const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
 const { handleEditOmega } = require('./systems/devOmegaEdit')
 const getPlayerPower = require('./utils/getPlayerPower')
+const { cappedPower } = require('./utils/cappedPower') // قوة الترتيب بحدّ سعة المخزون
 const { handleShipCommand, startShipDailyReset } = require('./shipCommands')
 startShipDailyReset()
 const Player = require('./models/Player')
@@ -16746,7 +16747,8 @@ const ranking = players.map(player => {
 
         userId: player.userId,
 
-        power: getPlayerPower(player)
+        // أول N شخصية (بترتيب .شخصياتي) حسب سعة المخزون (نفس حساب الموقع)
+        power: cappedPower(player)
 
     }
 
@@ -16787,7 +16789,8 @@ textRank +=
 `━━━━━━━━━━━━━━
 
 👑 يعتمد الترتيب على
-مجموع قوة جميع الشخصيات`
+مجموع قوة الشخصيات
+(بحدّ سعة مخزون اللاعب)`
 
 await sock.sendMessage(
     msg.key.remoteJid,
