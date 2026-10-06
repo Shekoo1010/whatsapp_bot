@@ -161,4 +161,7 @@ module.exports = {
     getGalleryCharacters,
     addToGallery,
     removeFromGallery,
+    // يستخدمها الموقع (إدارة المعرض من صفحة المعارض)
+    ensureCharId,
+    resolveLiveCharacterData,
 }

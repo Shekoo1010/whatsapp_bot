@@ -10,6 +10,8 @@ const crypto = require('crypto')
 const fs = require('fs')
 const pathMod = require('path')
 const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
+const mongoose = require('mongoose')
+const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 
 const PAGE_SIZE = 40
 const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
@@ -692,7 +694,7 @@ function loginHTML({ code, csrf, error, disabled }) {
 // ☰ زر القائمة الجانبية (يوضع داخل .topbar) + القائمة نفسها (navDrawerHTML)
 const NAV_BTN = `<button class="nvbtn" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`
 
-// code: كود الصفحة · csrf: توكن الخروج · current: home|pull|boss|chat|top|ship|gift|sell|log · name: اسم اللاعب (اختياري)
+// code: كود الصفحة · csrf: توكن الخروج · current: home|pull|boss|chat|top|gallery|ship|gift|sell|log · name: اسم اللاعب (اختياري)
 function navDrawerHTML(code, csrf, current, name) {
     const c = esc(code)
     const items = [
@@ -701,6 +703,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
+        ['gallery', '🖼️', 'المعارض', `/u/${c}/gallery`],
         ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
@@ -1745,6 +1748,217 @@ tick();
 })();
 </script>
 ${inboxPopupHTML(viewer)}
+</body>
+</html>`
+}
+
+// =====================================================================
+// 🖼️ صفحة المعارض  /u/:code/gallery
+// تصميم مطابق لملف gallery-site-preview.html (منصة أول 3 + أعلى 10 + كل المعارض + صفحة المعرض
+// مع اللايك والتكبير). البيانات حقيقية: معرض اللاعب = نفس اختيار .المعرض (player.gallery)
+// =====================================================================
+const GAL_CSS = String.raw`
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+:root{--bg:#0a0d16;--panel:#0f1422;--panel2:#151b2e;--line:#1f2740;--tx:#eef1f8;--mut:#8891a3;--gold:#f0c04a;--gold-dim:#8a6d24;--pink:#ff3860;--text:#eef1f8;--text-dim:#8891a3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0d16;--panel:#0f1422;--tx:#eef1f8;--mut:#8891a3}}
+:root[data-theme="dark"]{--bg:#0a0d16;--panel:#0f1422;--tx:#eef1f8;--mut:#8891a3}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 400px at 50% -10%,#f0c04a14,transparent 60%),var(--bg);color:var(--tx);font-family:'Cairo',Tahoma,sans-serif;min-height:100vh;padding-bottom:40px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 14px}.narrow{max-width:560px;margin:0 auto}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#0a0d16ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 14px;display:flex;align-items:center;gap:10px}
+.top b{flex:1;font-weight:900;font-size:16px}
+.ic{width:40px;height:40px;border-radius:12px;border:1px solid var(--gold-dim);background:var(--panel);color:var(--gold);font-size:18px;display:grid;place-items:center;cursor:pointer;font-family:inherit;text-decoration:none}
+h2{font-size:15px;font-weight:900;color:var(--gold);margin:24px 0 10px;display:flex;align-items:center;gap:8px}h2 small{color:var(--mut);font-weight:700;font-size:12px}
+.g1{--rc:#f0c04a}.g2{--rc:#c9d3e6}.g3{--rc:#d98a4e}
+.pod{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;align-items:end;margin-top:18px}
+.pc{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--panel2),var(--panel));border:2px solid var(--rc);border-radius:18px;padding:14px 6px 12px;text-align:center;cursor:pointer;animation:rise .7s cubic-bezier(.2,.9,.3,1) both,glow 2.6s ease-in-out infinite}
+.pc.g1{padding-top:22px;animation-delay:.25s,.25s}.pc.g2{animation-delay:.1s,.1s}.pc.g3{animation-delay:.4s,.4s}
+.pc::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,#ffffff30,transparent);transform:skewX(-18deg);animation:sweep 3.2s ease-in-out infinite}
+.pc.g2::after{animation-delay:.8s}.pc.g3::after{animation-delay:1.6s}
+.md{font-size:28px;display:inline-block;animation:bob 2.2s ease-in-out infinite}.g1 .md{font-size:38px}
+.crown{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:0}
+.spk{position:absolute;font-size:12px;animation:tw 2s ease-in-out infinite;opacity:0}
+.nm{font-weight:900;font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+.lk{color:var(--pink);font-weight:900;font-size:13px;margin-top:2px}
+@keyframes rise{from{opacity:0;transform:translateY(28px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes glow{50%{box-shadow:0 0 26px -2px var(--rc)}0%,100%{box-shadow:0 0 6px -4px var(--rc)}}
+@keyframes sweep{0%{left:-60%}55%,100%{left:130%}}
+@keyframes bob{50%{transform:translateY(-5px) rotate(-6deg)}}
+@keyframes tw{50%{opacity:1;transform:scale(1.4) rotate(20deg)}}
+@keyframes spin{to{--a:360deg}}
+.av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:17px;background:var(--panel2);border:2px solid var(--c);flex:none}
+.row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .2s,transform .15s}
+.row:active{transform:scale(.985)}.row:hover{border-color:var(--gold-dim)}
+.row.top3{border:2px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,conic-gradient(from var(--a),var(--rc),transparent 30%,var(--rc) 55%,transparent 80%,var(--rc)) border-box;animation:spin 3.5s linear infinite}
+.rk{width:28px;text-align:center;font-weight:900;color:var(--mut)}.top3 .rk{font-size:20px}
+.who{flex:1;min-width:0}.who b{display:block;font-size:14px}.who small{color:var(--mut);font-size:12px}
+.lkc{font-weight:900;font-size:13px;color:var(--pink);white-space:nowrap}
+.search{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px;color:var(--tx);font-family:inherit;font-size:14px}
+.search:focus{outline:none;border-color:var(--gold)}
+.bar{display:flex;gap:10px;align-items:stretch;margin:16px 0 4px;flex-wrap:wrap}
+.like{flex:1;min-width:180px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--panel);border:1.5px solid var(--pink);color:var(--pink);border-radius:14px;padding:11px;font-family:inherit;font-weight:900;font-size:16px;cursor:pointer;transition:all .2s}
+.like.on{background:var(--pink);color:#fff;box-shadow:0 0 24px -4px var(--pink)}.like:active{transform:scale(.97)}
+.like .h{display:inline-block;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}.like.on .h{transform:scale(1.3)}
+.zm{border:1px solid var(--gold-dim);background:var(--panel);color:var(--gold);border-radius:14px;padding:0 16px;font-family:inherit;font-weight:900;font-size:14px;cursor:pointer;min-height:46px}
+.ribbon{margin:14px auto 0;width:max-content;max-width:100%;padding:6px 18px;border-radius:30px;font-weight:900;font-size:14px;color:#0a0d16;background:linear-gradient(100deg,var(--rc) 30%,#fff 50%,var(--rc) 70%);background-size:250% 100%;animation:shim 2.6s linear infinite}
+@keyframes shim{to{background-position:-250% 0}}
+#bx{margin-top:14px;border-radius:18px;overflow-x:hidden}
+.board{width:max-content;padding:36px 30px 40px;position:relative;background:radial-gradient(1200px 500px at 50% -10%,#f0c04a14,transparent 60%),linear-gradient(180deg,#070911,#0a0d16 40%,#070911);border:1px solid var(--line);border-radius:18px}
+.board.top3{border:2px solid var(--rc);animation:glow 2.6s ease-in-out infinite}
+.cn{position:absolute;width:46px;height:46px;border-color:var(--gold-dim);opacity:.7}
+.cn.tl{top:12px;right:12px;border-top:2px solid;border-right:2px solid}.cn.br{bottom:12px;left:12px;border-bottom:2px solid;border-left:2px solid}
+.eb{text-align:center;font-family:'Oswald',sans-serif;letter-spacing:.45em;font-size:11px;color:var(--gold-dim);text-transform:uppercase;margin-bottom:8px}
+.board h1{text-align:center;font-size:44px;font-weight:900;background:linear-gradient(180deg,#fff6d8,var(--gold) 55%,#a9791f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{text-align:center;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.35em;color:var(--mut);margin:4px 0 30px;text-transform:uppercase}
+.roster{display:flex;justify-content:center;gap:18px;margin-bottom:20px}
+.card{position:relative;width:260px;flex:0 0 260px;border-radius:15px;overflow:hidden;background:#0f1422;border:2.5px solid var(--t);display:flex;flex-direction:column;box-shadow:0 14px 34px #0007,0 0 26px color-mix(in srgb,var(--t) 35%,transparent);animation:rise .6s both}
+.card.om{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,linear-gradient(135deg,#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box}
+.tt{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 4px}
+.tn{font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:15px;color:var(--t);direction:ltr}.tn.ar{font-family:'Cairo';letter-spacing:0;font-weight:800;font-size:16px}
+.pw{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;color:#0a0d16;background:var(--t);padding:3px 10px;border-radius:20px;direction:ltr}
+.st{padding:0 14px 8px;font-size:15px;letter-spacing:1px;color:var(--t);direction:ltr;text-align:right;text-shadow:0 0 8px color-mix(in srgb,var(--t) 60%,transparent)}
+.card.om .st{color:#ffc933;text-shadow:0 0 8px rgba(255,201,51,.6)}
+.art{position:relative;height:300px;display:grid;place-items:center;font-size:84px;background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--t) 50%,transparent),transparent 72%),#151a28}
+.art.has{background-size:cover;background-position:center top;background-repeat:no-repeat;font-size:0}
+.art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,#0a0d16eb)}
+.pl{padding:12px 12px 16px;text-align:center;background:linear-gradient(180deg,transparent,#00000080)}
+.ne{font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;color:#fff;direction:ltr}
+.ac{margin-top:8px;display:inline-block;font-size:12px;color:var(--t);border:1px solid color-mix(in srgb,var(--t) 50%,transparent);border-radius:20px;padding:2px 12px}
+.note{margin:18px 0 0;padding:12px;border:1px dashed var(--gold-dim);border-radius:12px;color:var(--mut);font-size:12px;line-height:1.8}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:70;background:#151b2e;border:1px solid var(--gold-dim);color:var(--tx);padding:10px 18px;border-radius:30px;font-weight:800;font-size:13px;max-width:90vw;text-align:center}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.pc,.card{opacity:1!important}}
+.mg{width:100%;margin:16px 0 0;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:linear-gradient(135deg,#f0c04a22,var(--panel));border:1.5px solid var(--gold);color:var(--gold);border-radius:14px;padding:12px;font-family:inherit;font-weight:900;font-size:15px;cursor:pointer}.mg small{color:var(--mut);font-weight:700;font-size:11px}
+.mhead{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;font-weight:900;color:var(--gold);font-size:15px}.mhead b{color:var(--tx)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.mc{position:relative;display:flex;flex-direction:column;background:var(--panel);border:2px solid var(--t);border-radius:12px;overflow:hidden;box-shadow:0 0 14px -6px var(--t)}
+.mi{height:104px;display:grid;place-items:center;font-size:34px;font-weight:900;color:var(--t);background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--t) 45%,transparent),transparent 72%),#151a28}
+.mi.has{background-size:cover;background-position:center top;background-repeat:no-repeat;font-size:0}
+.mn{font-weight:900;font-size:12px;padding:6px 6px 0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt{font-size:10.5px;color:var(--mut);text-align:center;padding:2px 4px 6px;direction:ltr}
+.x{position:absolute;top:6px;left:6px;width:30px;height:30px;border-radius:50%;border:none;background:#000b;color:#fff;font-size:14px;cursor:pointer;display:grid;place-items:center}.x:disabled,.ad:disabled{opacity:.5}
+.ad,.ok{margin:0 6px 8px;padding:6px 4px;border-radius:9px;font-family:inherit;font-weight:900;font-size:12px;text-align:center}
+.ad{border:1px solid var(--gold);background:var(--panel2);color:var(--gold);cursor:pointer}
+.ok{color:var(--mut);border:1px dashed var(--line)}
+.mact{display:flex;gap:10px;margin-top:12px}.mact .zm{flex:1}
+[hidden]{display:none!important}
+`
+
+const GAL_JS = String.raw`
+var G=window.__GAL||{},owners=[],zoom=false,cur=null,$=function(s){return document.querySelector(s)};
+var MD=['🥇','🥈','🥉'];
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function J(u,o){return fetch(u,Object.assign({credentials:'same-origin'},o||{})).then(function(r){return r.json().catch(function(){return{ok:false}})}).catch(function(){return{ok:false,message:'تعذر الاتصال بالسيرفر'}})}
+function toast(m){var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2600)}
+function av(o){return '<div class="av" style="--c:hsl('+o.h+' 75% 62%)">'+esc(Array.from(o.u.replace(/^@/,''))[0]||'?')+'</div>'}
+function rowH(o,rk){return '<div class="row'+(rk&&rk<=3?' top3 g'+rk:'')+'" data-u="'+esc(o.id)+'"><div class="rk">'+(rk&&rk<=3?MD[rk-1]:(rk||''))+'</div>'+av(o)+'<div class="who"><b>'+esc(o.u)+'</b><small>'+o.n+' شخصيات</small></div><div class="lkc">❤️ '+o.l+'</div></div>'}
+function list(){
+ if(!owners.length){$('#app').innerHTML='<div class="narrow">'+mineBar()+'<div class="note" style="margin-top:24px">ما فيه معارض بعد'+(G.owner?' — ابدأ بمعرضك من زر إدارة معرضي':'')+'</div></div>';bindMg();return}
+ var top=owners.slice(0,10),pod=[[top[1],2],[top[0],1],[top[2],3]].filter(function(p){return p[0]});
+ var h='<div class="narrow">'+mineBar()+'<div class="pod">'+pod.map(function(p){var o=p[0],k=p[1];return '<div class="pc g'+k+'" data-u="'+esc(o.id)+'"><span class="spk" style="top:8px;right:10px">✨</span><span class="spk" style="top:30px;left:10px;animation-delay:.7s">✨</span><div class="md">'+MD[k-1]+'</div><div style="display:flex;justify-content:center;margin-top:6px">'+av(o)+'</div><div class="nm">'+esc(o.u)+'</div><div class="lk">❤️ '+o.l+'</div></div>'}).join('')+'</div>';
+ h+='<h2>🏆 أعلى 10 معارض <small>حسب اللايكات</small></h2>'+top.map(function(o,i){return rowH(o,i+1)}).join('');
+ h+='<h2>🖼️ كل المعارض <small>('+owners.length+')</small></h2><input class="search" id="q" placeholder="ابحث باسم اللاعب…"><div id="all" style="margin-top:12px"></div></div>';
+ $('#app').innerHTML=h;all();$('#q').oninput=all;bindMg();
+}
+function all(){var q=($('#q').value||'').trim().toLowerCase();$('#all').innerHTML=owners.filter(function(o){return !q||o.u.toLowerCase().indexOf(q)>-1}).map(function(o){return rowH(o,0)}).join('')||'<div class="note">لا يوجد معرض بهذا الاسم</div>'}
+function rows(a){var n=a.length,rc=Math.max(1,Math.ceil(n/6)),b=Math.floor(n/rc),x=n%rc,r=[],i=0;for(var k=0;k<rc;k++){var z=b+(x>0?1:0);if(x>0)x--;r.push(a.slice(i,i+z));i+=z}return r}
+function cardH(c,i){return '<div class="card'+(c.om?' om':'')+'" style="--t:'+esc(c.c)+';animation-delay:'+(i*.07)+'s"><div class="tt"><span class="tn'+(/[a-zA-Z]/.test(c.t)?'':' ar')+'">'+esc(c.t)+'</span><span class="pw">'+Number(c.p).toLocaleString('en-US')+' PWR</span></div><div class="st">'+'★'.repeat(c.s)+'</div><div class="art'+(c.i?' has':'')+'"'+(c.i?' style="background-image:url(\''+esc(c.i)+'\')"':'')+'>'+(c.i?'':esc(Array.from(c.n)[0]||'?'))+'</div><div class="pl"><div class="ne">'+esc(c.n)+'</div><div class="ac">'+esc(c.a)+'</div></div></div>'}
+function likeBtn(){var b=$('#lk');if(!b||!cur)return;b.className='like'+(cur.liked?' on':'');b.innerHTML='<span class="h">'+(cur.liked?'❤️':'🤍')+'</span> '+cur.l+' لايك'}
+function show(id){
+ J('/gallery/one?id='+encodeURIComponent(id)).then(function(d){
+  if(!d||!d.ok){toast((d&&d.message)||'تعذر فتح المعرض');return}
+  cur=d;var rank=d.rank,i=0;
+  $('#back').hidden=false;$('#menu').hidden=true;$('#ttl').textContent='🖼️ معرض '+cur.u;
+  var rb=rows(cur.cs).map(function(r){return '<div class="roster">'+r.map(function(c){return cardH(c,i++)}).join('')+'</div>'}).join('');
+  $('#app').innerHTML='<div class="narrow">'+(rank<=3?'<div class="ribbon g'+rank+'">'+MD[rank-1]+' المركز '+['الأول','الثاني','الثالث'][rank-1]+' بالمعارض</div>':(rank<=10?'<div class="ribbon" style="--rc:#8b93a1;animation:none">🏆 الترتيب #'+rank+'</div>':''))+
+  '<div class="bar"><button class="like" id="lk"></button><button class="zm" id="zm">'+(zoom?'🔎 ملء الشاشة':'🔍 تكبير')+'</button>'+(cur.mine?'<button class="zm" id="ed">✏️ تعديل</button>':'')+'</div></div>'+
+  '<div id="bx"><div class="board'+(rank<=3?' top3 g'+rank:'')+'" id="bd"><div class="cn tl"></div><div class="cn br"></div><div class="eb">Character Roster</div><h1>معرض '+esc(cur.u)+'</h1><div class="sub">'+cur.cs.length+' / 10 CHARACTERS</div>'+rb+'</div></div>';
+  likeBtn();
+  $('#lk').onclick=function(){
+   if(!G.owner){toast('سجّل دخول بحسابك عشان تعطي لايك');return}
+   if(cur.mine){toast('ما تقدر تعطي لايك لمعرضك');return}
+   J('/gallery/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:cur.id,csrf:G.csrf})}).then(function(r){
+    if(!r||!r.ok){toast((r&&r.message)||'تعذر تنفيذ اللايك');return}
+    cur.liked=r.liked;cur.l=r.likes;likeBtn();
+    for(var k=0;k<owners.length;k++){if(owners[k].id===cur.id){owners[k].l=r.likes;break}}
+   })};
+  $('#zm').onclick=function(){zoom=!zoom;fit()};var ed=$('#ed');if(ed)ed.onclick=manage;
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  fit();scrollTo(0,0)
+ })
+}
+function fit(){
+ var bx=$('#bx'),bd=$('#bd');if(!bd)return;
+ bd.style.zoom=1;var w=bd.offsetWidth,avw=bx.clientWidth,sc=zoom?Math.min(1,Math.max(.5,avw/w*2)):Math.min(1,avw/w);
+ bd.style.zoom=sc;bx.style.overflowX=zoom?'auto':'hidden';
+ var zb=$('#zm');if(zb)zb.textContent=zoom?'🔎 ملء الشاشة':'🔍 تكبير'
+}
+var M=null,busy=false;
+function mineBar(){return G.owner?'<button class="mg" id="mg">✏️ إدارة معرضي <small>إضافة وحذف الشخصيات</small></button>':''}
+function bindMg(){var b=$('#mg');if(b)b.onclick=manage}
+function inG(k){for(var i=0;i<M.g.length;i++){if(M.g[i].k===k)return true}return false}
+function chip(c,tail){return '<div class="mc" style="--t:'+esc(c.c)+'"><div class="mi'+(c.i?' has':'')+'"'+(c.i?' style="background-image:url(\''+esc(c.i)+'\')"':'')+'>'+(c.i?'':esc(Array.from(c.n)[0]||'?'))+'</div><div class="mn">'+esc(c.n)+'</div><div class="mt">'+esc(c.t)+' · '+Number(c.p).toLocaleString('en-US')+'</div>'+tail+'</div>'}
+function drawG(){
+ $('#mcnt').textContent=M.g.length+' / '+M.max;
+ $('#mgg').innerHTML=M.g.length?M.g.map(function(c){return chip(c,'<button class="x" data-rm="'+esc(c.k)+'" aria-label="حذف من المعرض">✕</button>')}).join(''):'<div class="note" style="grid-column:1/-1;margin:0">معرضك فاضي — اختر شخصيات من القائمة تحت</div>';
+ $('#mview').hidden=!M.g.length}
+function drawPool(){
+ var q=($('#mq').value||'').trim().toLowerCase(),full=M.g.length>=M.max;
+ var a=M.pool.filter(function(c){return !q||(c.n+' '+c.a+' '+c.t).toLowerCase().indexOf(q)>-1});
+ $('#pcnt').textContent='('+M.pool.length+')';
+ $('#mpool').innerHTML=a.map(function(c){return chip(c,inG(c.k)?'<div class="ok">✓ بالمعرض</div>':(full?'<div class="ok">المعرض ممتلئ</div>':'<button class="ad" data-ad="'+esc(c.k)+'">＋ إضافة</button>'))}).join('')||'<div class="note" style="grid-column:1/-1;margin:0">'+(M.pool.length?'ما فيه شخصية بهذا الاسم':'ما عندك شخصيات بعد')+'</div>'}
+function manage(){
+ cur=null;$('#back').hidden=false;$('#menu').hidden=true;$('#ttl').textContent='✏️ إدارة معرضي';
+ try{history.replaceState(null,'','#manage')}catch(e){}
+ $('#app').innerHTML='<div class="narrow"><div class="note" style="margin-top:24px">جاري التحميل…</div></div>';
+ J('/gallery/mine').then(function(d){
+  if(!d||!d.ok){toast((d&&d.message)||'تعذر تحميل معرضك');home();return}
+  M=d;
+  $('#app').innerHTML='<div class="narrow"><div class="mhead">🖼️ معرضك <b id="mcnt"></b></div><div class="mgrid" id="mgg"></div><div class="mact"><button class="zm" id="mview">👁 شوف معرضي</button></div><h2>🎴 شخصياتك <small id="pcnt"></small></h2><input class="search" id="mq" placeholder="ابحث باسم الشخصية أو الأنمي أو الرتبة…"><div class="mgrid" id="mpool" style="margin-top:12px"></div></div>';
+  $('#mq').oninput=drawPool;
+  $('#mview').onclick=function(){show(M.id)};
+  drawG();drawPool();scrollTo(0,0)})}
+function act(url,k,btn){
+ if(busy||!M)return;busy=true;btn.disabled=true;
+ J(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:k,csrf:G.csrf})}).then(function(r){
+  busy=false;
+  if(r&&r.g)M.g=r.g;
+  toast((r&&r.message)||'تعذر تنفيذ العملية');
+  drawG();drawPool()})}
+function home(){cur=null;$('#back').hidden=true;$('#menu').hidden=false;$('#ttl').textContent='🖼️ معارض الأكاديمية';
+ try{history.replaceState(null,'',location.pathname)}catch(e){}
+ J('/gallery/list').then(function(d){owners=(d&&d.ok&&d.owners)||[];list();scrollTo(0,0)})}
+$('#back').onclick=home;addEventListener('resize',fit);
+document.addEventListener('click',function(e){
+ var b=e.target.closest('[data-u]');if(b){show(b.dataset.u);return}
+ var r=e.target.closest('[data-rm]');if(r){act('/gallery/remove',r.dataset.rm,r);return}
+ var a=e.target.closest('[data-ad]');if(a){act('/gallery/add',a.dataset.ad,a)}
+});
+var h0=(location.hash||'').slice(1);
+if(/^[a-f0-9]{12}$/.test(h0)){J('/gallery/list').then(function(d){owners=(d&&d.ok&&d.owners)||[];show(h0)})}else if(h0==='manage'&&G.owner){manage()}else{home()}
+`
+
+function galleryPageHTML({ code, viewer }) {
+    const c = esc(code)
+    const menu = viewer.isOwner ? `<button class="ic" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr">☰</button>` : `<a class="ic" href="/u/${c}" aria-label="رجوع للموقع">🏠</a>`
+    const cfg = jsonForScript({ owner: !!viewer.isOwner, csrf: viewer.isOwner ? viewer.csrf : '' })
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>معارض الأكاديمية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+<style>${GAL_CSS}</style>
+</head>
+<body>
+<div class="top"><button class="ic" id="back" hidden aria-label="رجوع">➜</button><span id="menu">${menu}</span><b id="ttl">🖼️ معارض الأكاديمية</b></div>
+<div class="wrap" id="app"></div>
+${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'gallery', viewer.name) : ''}
+<script>window.__GAL=${cfg};</script>
+<script>${GAL_JS}</script>
 </body>
 </html>`
 }
@@ -3142,6 +3356,11 @@ header b{font-size:18px;font-weight:900}.on-pill{color:var(--tx);background:rgba
 .stk i{font-style:normal;font-size:46px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));animation:bob 2s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-4px) scale(1.06)}}@keyframes pop{from{transform:scale(.8);opacity:0}}
 .rcs{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.qt{display:flex;flex-direction:column;gap:1px;font-size:12px;background:#ffffff0f;border-inline-start:3px solid var(--gold);border-radius:8px;padding:4px 8px;margin-bottom:3px;max-width:240px;cursor:pointer}
+.qt b{font-size:11px}.qt span{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpv{display:flex;align-items:center;gap:8px;background:var(--panel2);border-top:1px solid var(--line);border-inline-start:3px solid var(--gold);padding:6px 12px}
+.rpv>div{flex:1;min-width:0;display:flex;flex-direction:column}.rpv b{font-size:12px;color:var(--gold)}
+.rpv small{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rpv button{background:none;border:0;color:var(--mut);font-size:16px}
 .rc{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:1px 9px;color:var(--tx);font-weight:700;font-size:12px}
 .rc.on{border-color:var(--gold);background:rgba(255,216,107,.2)}
 .rbar{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:4px 8px;margin-top:5px;box-shadow:0 8px 20px -8px #000;animation:pop .18s}
@@ -3208,7 +3427,7 @@ function chatClient() {
     var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
     var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return ESC[c] }) }
     var EM = '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😎 🤓 🥳 🤗 🤭 🤫 🤔 😏 😒 🙄 😬 😴 🤤 😪 😢 😭 🥹 😤 😡 🤬 😱 😨 😰 🥶 🥵 🤯 😳 🥺 😈 👿 💀 ☠️ 👻 👽 🤖 💩 🙈 🙉 🙊 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💗 💘 💝 💔 ❣️ 💯 💢 💥 💫 💦 💨 🔥 ✨ ⭐ 🌟 ⚡ 🌈 ☀️ 🌙 ❄️ 🌸 🌺 🍀 🍁 👍 👎 👏 🙌 🙏 💪 🤝 ✌️ 🤞 🤟 🤘 👌 👊 ✊ 🫶 👀 🧠 👑 💎 🎰 🎁 🎴 🃏 🎲 🎮 🏆 🥇 🎯 🔮 🧿 🗡️ ⚔️ 🛡️ 🏹 💣 🚢 ⚓ 🏴‍☠️ 🐉 🐲 🦊 🐺 🐱 🐶 🐯 🦁 🐻 🐰 🐼 🦄 🦅 🦋 🍥 🍙 🍜 🍣 🍡 🍰 🍩 🍓 🍎 🍕 🍔 🥤 🍵 🎌 ⛩️ 🏯 🎋 🎐 🎆 🎉 🎊 🔔 🚀 💰 💸'.split(' ')
-    var S = { tab: 'pub', dm: null, open: null, pk: null, msgs: [], ppl: {}, on: [], onSet: {}, fr: [], pu: 0, sig: '', cd: 0, busy: false, first: true, sr: [] }
+    var S = { tab: 'pub', dm: null, open: null, pk: null, msgs: [], ppl: {}, on: [], onSet: {}, fr: [], pu: 0, sig: '', cd: 0, busy: false, first: true, sr: [], rp: null }
     var seen = {}, polling = false, again = false
     var tm = function (t) { return new Date(t).toLocaleTimeString('ar-u-nu-latn', { hour: '2-digit', minute: '2-digit' }) }
     var P = function (id) { return id === C.me.id ? C.me : (S.ppl[id] || { id: id, n: 'لاعب', h: 200 }) }
@@ -3228,8 +3447,10 @@ function chatClient() {
         var p = P(m.f), st = m.s >= 0 ? C.stk[m.s] : null
         var body = st ? '<div class="stk" style="background:' + st.bg + '"><i>' + st.em + '</i><span>' + esc(st.tx) + '</span></div>' : '<div class="bub">' + esc(m.x) + '</div>'
         var re = Object.keys(m.r).map(function (e) { var r = m.r[e]; return '<button class="rc' + (r.me ? ' on' : '') + '" data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + ' ' + r.n + '</button>' }).join('')
-        var bar = S.open === m.id ? '<div class="rbar">' + C.re.map(function (e) { return '<button data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + '</button>' }).join('') + '</div>' : ''
-        return '<div class="msg' + (m.me ? ' me' : '') + (seen[m.id] ? '' : ' in') + '">' + av(p) + '<div class="mb">' + (m.me ? '' : '<div class="nm" style="color:' + col(p) + '">' + esc(p.n) + '</div>') + '<div data-a="op" data-m="' + m.id + '">' + body + '</div>' + bar + (re ? '<div class="rcs">' + re + '</div>' : '') + '<small>' + tm(m.t) + '</small></div></div>'
+        var qt = ''
+        if (m.q) { var qp = P(m.q.f); qt = '<div class="qt" data-a="jq" data-m="' + m.q.id + '"><b style="color:' + col(qp) + '">' + esc(qp.n) + '</b><span>' + (m.q.s >= 0 && C.stk[m.q.s] ? C.stk[m.q.s].em + ' ستيكر' : esc(m.q.x)) + '</span></div>' }
+        var bar = S.open === m.id ? '<div class="rbar"><button data-a="rp" data-m="' + m.id + '" title="رد">↩️</button>' + C.re.map(function (e) { return '<button data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + '</button>' }).join('') + '</div>' : ''
+        return '<div class="msg' + (m.me ? ' me' : '') + (seen[m.id] ? '' : ' in') + '" id="m-' + m.id + '">' + av(p) + '<div class="mb">' + (m.me ? '' : '<div class="nm" style="color:' + col(p) + '">' + esc(p.n) + '</div>') + '<div data-a="op" data-m="' + m.id + '">' + qt + body + '</div>' + bar + (re ? '<div class="rcs">' + re + '</div>' : '') + '<small>' + tm(m.t) + '</small></div></div>'
     }
     function rList(f) {
         var l = $('#list'); if (!l) return
@@ -3285,11 +3506,13 @@ function chatClient() {
             var g = S.pk === 'e' ? EM.map(function (e) { return '<button data-a="em" data-v="' + e + '">' + e + '</button>' }).join('') : C.stk.map(function (s, i) { return '<button class="sk" data-a="sk" data-v="' + i + '" style="background:' + s.bg + '"><i>' + s.em + '</i><span>' + esc(s.tx) + '</span></button>' }).join('')
             pk = '<div class="pk"><div class="pt">' + [['e', '😊 إيموجي'], ['g', '🎴 ستيكرات غاتشا']].map(function (k) { return '<button class="' + (S.pk === k[0] ? 'on' : '') + '" data-a="pk" data-v="' + k[0] + '">' + k[1] + '</button>' }).join('') + '</div><div class="pg ' + S.pk + '">' + g + '</div></div>'
         }
-        f.innerHTML = pk + '<div class="cmp"><button class="sm" data-a="pk" data-v="' + (S.pk ? '' : 'e') + '">' + (S.pk ? '⌨️' : '😊') + '</button><input id="in" maxlength="200" autocomplete="off" placeholder="' + (S.dm != null ? 'رسالة خاصة…' : 'اكتب للجميع…') + '"><button class="snd" data-a="snd">➤</button></div>'
+        var rv = ''
+        if (S.rp) { var rpp = P(S.rp.f); rv = '<div class="rpv"><div><b>↩️ رد على ' + esc(rpp.n) + '</b><small>' + (S.rp.s >= 0 && C.stk[S.rp.s] ? C.stk[S.rp.s].em + ' ستيكر' : esc(S.rp.x)) + '</small></div><button data-a="rpx">✕</button></div>' }
+        f.innerHTML = pk + rv + '<div class="cmp"><button class="sm" data-a="pk" data-v="' + (S.pk ? '' : 'e') + '">' + (S.pk ? '⌨️' : '😊') + '</button><input id="in" maxlength="200" autocomplete="off" placeholder="' + (S.dm != null ? 'رسالة خاصة…' : 'اكتب للجميع…') + '"><button class="snd" data-a="snd">➤</button></div>'
         $('#in').value = old
     }
     function go() {
-        S.open = null; S.sig = ''; S.first = true; S.msgs = []
+        S.open = null; S.sig = ''; S.first = true; S.msgs = []; S.rp = null
         rView(); rFoot(); rNav()
         var v = $('#view'); v.classList.remove('vin'); void v.offsetWidth; v.classList.add('vin')
         poll()
@@ -3323,11 +3546,12 @@ function chatClient() {
         var l = left(); if (l > 0) return toast('⏳ انتظر ' + Math.ceil(l / 1000) + ' ثانية قبل رسالتك التالية')
         if (S.busy) return
         S.busy = true
-        api('/chat/send', { to: S.dm || '', x: x || '', s: s == null ? -1 : s }).then(function (j) {
+        api('/chat/send', { to: S.dm || '', x: x || '', s: s == null ? -1 : s, q: S.rp ? S.rp.id : '' }).then(function (j) {
             S.busy = false
             if (!j.ok) { if (j.retryInMs) S.cd = Date.now() + j.retryInMs; return toast(j.message || 'تعذّر الإرسال') }
             S.cd = Date.now() + C.cd
             var i = $('#in'); if (x && i) i.value = ''
+            if (S.rp) { S.rp = null; rFoot() }
             S.first = false; poll()
         })
     }
@@ -3359,6 +3583,16 @@ function chatClient() {
         else if (a === 'bk') { S.dm = null; S.pk = null; go() }
         else if (a === 'op') { var m = b.dataset.m; S.open = S.open === m ? null : m; rList() }
         else if (a === 're') { var mid = b.dataset.m; S.open = null; api('/chat/react', { id: mid, e: b.dataset.e }).then(function (j) { if (!j.ok) toast(j.message || 'تعذّر التفاعل'); S.sig = ''; poll() }); rList() }
+        else if (a === 'rp') {
+            var rm = null; S.msgs.forEach(function (z) { if (z.id === b.dataset.m) rm = z })
+            if (rm) { S.rp = { id: rm.id, f: rm.f, x: rm.x, s: rm.s }; S.open = null; rList(); rFoot(); var ri = $('#in'); if (ri) ri.focus() }
+        }
+        else if (a === 'rpx') { S.rp = null; rFoot() }
+        else if (a === 'jq') {
+            var tg = document.getElementById('m-' + b.dataset.m)
+            if (tg) { tg.scrollIntoView({ block: 'center', behavior: 'smooth' }); tg.animate([{ background: '#ffffff22' }, { background: 'transparent' }], { duration: 1200 }) }
+            else toast('الرسالة الأصلية قديمة')
+        }
         else if (a === 'pk') { S.pk = v || null; rFoot() }
         else if (a === 'em') { $('#in').value += v }
         else if (a === 'sk') { send(null, +v); S.pk = null; rFoot() }
@@ -4315,6 +4549,323 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ─────────────── 🖼️ المعارض  /u/:code/gallery ───────────────
+    // الترتيب حسب اللايكات. اللايك لحسابات الموقع المسجّلة فقط (لايك واحد لكل لاعب، وما تقدر تلايك معرضك).
+    // اللايكات تُحفظ بحقل Player.galleryLikes (مصفوفة userId) — الأفضل إضافته بالموديل (شوف الملاحظة).
+    const galHits = new Map()
+    function galRate(userId) {
+        const now = Date.now()
+        const arr = (galHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { galHits.set(userId, arr); return false }
+        arr.push(now); galHits.set(userId, arr); return true
+    }
+    function galId(userId) {
+        // مُعرّف عام مشتق من userId — ما يكشف رقم اللاعب ولا كود صفحته الخاص
+        return crypto.createHash('sha256').update('gal:' + String(userId)).digest('hex').slice(0, 12)
+    }
+    const GAL_TTL = 30 * 1000
+    let galSnap = { at: 0, list: [] }
+    async function galleryOwners() {
+        if (Date.now() - galSnap.at < GAL_TTL) return galSnap
+        const docs = await Player.find({ 'gallery.0': { $exists: true } })
+            .select('userId name username gallery galleryLikes characters')
+            .lean()
+        const list = []
+        for (const d of docs) {
+            const n = getGalleryCharacters(d).length
+            if (!n) continue
+            const id = galId(d.userId)
+            list.push({
+                id, userId: d.userId,
+                u: d.username ? '@' + d.username : (d.name || 'لاعب'),
+                l: Array.isArray(d.galleryLikes) ? d.galleryLikes.length : 0,
+                n, h: parseInt(id.slice(0, 4), 16) % 360
+            })
+        }
+        list.sort((a, b) => (b.l - a.l) || (b.n - a.n) || a.u.localeCompare(b.u, 'ar'))
+        galSnap = { at: Date.now(), list }
+        return galSnap
+    }
+
+    // نفس شرط بقية الصفحات: مالك مسجّل (جلسة صالحة) أو مشاهدة فقط
+    async function galViewer(req) {
+        const s = auth.readSession(req)
+        if (s) {
+            const me = await Player.findOne({ userId: s.u }).select('sessionVersion').lean()
+            if (me && (me.sessionVersion || 0) === s.v) return { sess: s, ok: true }
+        }
+        return { sess: null, ok: !!auth.hasViewOnly(req) }
+    }
+
+    app.get('/u/:code/gallery', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
+            const viewer = sess
+                ? { isOwner: true, name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) }
+                : { isOwner: false }
+            res.send(galleryPageHTML({ code, viewer }))
+        } catch (err) {
+            console.error('gallery page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/gallery/list', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const v = await galViewer(req)
+            if (!v.ok) return res.status(401).json({ ok: false, message: 'سجّل الدخول أو افتح وضع المشاهدة.' })
+            const snap = await galleryOwners()
+            res.json({ ok: true, owners: snap.list.map(o => ({ id: o.id, u: o.u, l: o.l, n: o.n, h: o.h })) })
+        } catch (err) {
+            console.error('gallery list error:', err)
+            res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+        }
+    })
+
+    app.get('/gallery/one', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const v = await galViewer(req)
+            if (!v.ok) return res.status(401).json({ ok: false, message: 'سجّل الدخول أو افتح وضع المشاهدة.' })
+            const id = String(req.query.id || '')
+            if (!/^[a-f0-9]{12}$/.test(id)) return res.status(404).json({ ok: false, message: 'المعرض غير موجود' })
+            const snap = await galleryOwners()
+            const idx = snap.list.findIndex(o => o.id === id)
+            if (idx < 0) return res.status(404).json({ ok: false, message: 'المعرض غير موجود' })
+            const entry = snap.list[idx]
+            const p = await Player.findOne({ userId: entry.userId })
+                .select('userId name username gallery galleryLikes characters').lean()
+            if (!p) return res.status(404).json({ ok: false, message: 'المعرض غير موجود' })
+
+            const cs = getGalleryCharacters(p).map(ch => {
+                const tierKey = resolveTierKey(ch.rarity, ch.evolutionLevel)
+                const t = TIERS[tierKey] || TIERS['عادي']
+                const om = tierKey === 'Ω OMEGA'
+                return {
+                    n: String(ch.name || '?'),
+                    a: String(ch.anime || ''),
+                    i: safeImageUrl(ch.image) || localCharImageUrl(ch.image) || null,
+                    t: tierKey, c: t.color,
+                    s: om ? 7 : t.stars,          // أوميقا: 7 نجوم تطوير صفراء
+                    p: Number(ch.power) || 0,
+                    om
+                }
+            })
+            const likes = Array.isArray(p.galleryLikes) ? p.galleryLikes : []
+            res.json({
+                ok: true, id, u: entry.u, l: likes.length, rank: idx + 1, cs,
+                liked: !!(v.sess && likes.includes(v.sess.u)),
+                mine: !!(v.sess && v.sess.u === p.userId)
+            })
+        } catch (err) {
+            console.error('gallery one error:', err)
+            res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+        }
+    })
+
+    app.post('/gallery/like', jsonBody, async (req, res) => {
+        try {
+            securityHeaders(res)
+            const bad = (status, message) => res.status(status).json({ ok: false, message })
+            if (!auth.authEnabled()) return bad(503, 'تسجيل الدخول غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return bad(403, 'طلب غير مسموح.')
+            const sess = auth.readSession(req)
+            if (!sess) return bad(401, 'سجّل دخول بحسابك عشان تعطي لايك.')
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return bad(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!galRate(sess.u)) return bad(429, 'طلبات كثيرة، انتظر دقيقة.')
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return bad(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const id = String(b.id || '')
+            if (!/^[a-f0-9]{12}$/.test(id)) return bad(404, 'المعرض غير موجود')
+            const snap = await galleryOwners()
+            const entry = snap.list.find(o => o.id === id)
+            if (!entry) return bad(404, 'المعرض غير موجود')
+            if (entry.userId === sess.u) return bad(400, 'ما تقدر تعطي لايك لمعرضك.')
+
+            const cur = await Player.findOne({ userId: entry.userId }).select('galleryLikes').lean()
+            if (!cur) return bad(404, 'المعرض غير موجود')
+            const had = Array.isArray(cur.galleryLikes) && cur.galleryLikes.includes(sess.u)
+            // strict:false عشان يشتغل حتى لو الحقل ما انضاف للموديل بعد
+            await Player.updateOne(
+                { userId: entry.userId },
+                had ? { $pull: { galleryLikes: sess.u } } : { $addToSet: { galleryLikes: sess.u } },
+                { strict: false }
+            )
+            const after = await Player.findOne({ userId: entry.userId }).select('galleryLikes').lean()
+            const likes = Array.isArray(after && after.galleryLikes) ? after.galleryLikes.length : 0
+            galSnap.at = 0 // يحدّث الترتيب فوراً
+            res.json({ ok: true, liked: !had, likes })
+        } catch (err) {
+            console.error('gallery like error:', err)
+            res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+        }
+    })
+
+    // ─────────────── ✏️ إدارة المعرض من الموقع (إضافة / حذف) ───────────────
+    // نفس بيانات .المعرض بالبوت: player.gallery = مصفوفة _id للنسخ المختارة (الحد MAX_GALLERY)،
+    // فأي تعديل من الموقع يظهر بالبوت والعكس. للمالك المسجّل فقط (جلسة + CSRF).
+    // التعديل بعمليات ذرّية على حقل gallery فقط ($push / $pull) — ما نلمس characters
+    // إلا لتوليد _id للنسخ القديمة اللي ما عندها (نفس ensureCharId بالبوت، بس بتحديث موضعي آمن).
+    const galEditHits = new Map()
+    function galEditRate(userId) {
+        const now = Date.now()
+        const arr = (galEditHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 40) { galEditHits.set(userId, arr); return false }
+        arr.push(now); galEditHits.set(userId, arr); return true
+    }
+
+    async function galEditGuard(req, res, isPost) {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, message, extra = {}) => res.status(status).json({ ok: false, message, ...extra })
+        try {
+            if (!auth.authEnabled()) return fail(503, 'تسجيل الدخول غير مفعّل حالياً.')
+            if (isPost && !auth.sameOrigin(req)) return fail(403, 'طلب غير مسموح.')
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'سجّل دخول بحسابك عشان تعدّل معرضك.')
+            const body = isPost ? (req.body || {}) : {}
+            if (isPost && !auth.verifyCsrf(sess, body.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!galEditRate(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+            return { sess, body, fail }
+        } catch (err) {
+            console.error('gallery edit guard error:', err)
+            return fail(500, 'خطأ بالخادم')
+        }
+    }
+
+    // يولّد _id للنسخ القديمة اللي ما عندها (تحديث موضعي مشروط بالاسم، ما يكتب فوق تعديل متزامن)
+    async function galEnsureIds(userId) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const p = await Player.findOne({ userId }).select('characters gallery').lean()
+            if (!p) return null
+            const set = {}
+            const filter = { userId }
+            ;(p.characters || []).forEach((c, i) => {
+                if (c && !c._id) {
+                    set[`characters.${i}._id`] = new mongoose.Types.ObjectId()
+                    filter[`characters.${i}._id`] = { $exists: false }
+                    filter[`characters.${i}.name`] = c.name == null ? null : c.name
+                }
+            })
+            if (!Object.keys(set).length) return p
+            await Player.updateOne(filter, { $set: set }, { strict: false })
+        }
+        return Player.findOne({ userId }).select('characters gallery').lean()
+    }
+
+    // يرجع حالة المعرض بعد تنظيف المعرّفات اللي ما عاد لها شخصية (انباعت/انهدت) — نفس تجاهل getGalleryCharacters
+    async function galLoadMine(userId) {
+        const p = await galEnsureIds(userId)
+        if (!p) return null
+        const ids = new Set((p.characters || []).filter(c => c && c._id).map(c => String(c._id)))
+        const raw = Array.isArray(p.gallery) ? p.gallery.map(String) : []
+        const dead = raw.filter(id => !ids.has(id))
+        if (dead.length) {
+            await Player.updateOne({ userId }, { $pull: { gallery: { $in: dead } } }, { strict: false })
+            galSnap.at = 0
+        }
+        const gallery = raw.filter(id => ids.has(id))
+        return { p: { ...p, gallery }, gallery }
+    }
+
+    function galCardData(ch) {
+        const tierKey = resolveTierKey(ch.rarity, ch.evolutionLevel)
+        const t = TIERS[tierKey] || TIERS['عادي']
+        const om = tierKey === 'Ω OMEGA'
+        return {
+            k: String(ch._id),
+            n: String(ch.name || '?'),
+            a: String(ch.anime || ''),
+            i: safeImageUrl(ch.image) || localCharImageUrl(ch.image) || null,
+            t: tierKey, c: t.color,
+            s: om ? 7 : t.stars,
+            p: Number(ch.power) || 0,
+            om
+        }
+    }
+    const galMineCards = p => getGalleryCharacters(p).map(galCardData)
+
+    app.get('/gallery/mine', async (req, res) => {
+        const g = await galEditGuard(req, res, false)
+        if (!g || !g.sess) return
+        try {
+            const m = await galLoadMine(g.sess.u)
+            if (!m) return g.fail(404, 'حسابك غير موجود')
+            const pool = sortCharactersKeepFirst(m.p.characters || [])
+                .filter(c => c && c._id)
+                .map(c => galCardData(resolveLiveCharacterData(c)))
+            res.json({ ok: true, id: galId(g.sess.u), max: MAX_GALLERY, g: galMineCards(m.p), pool })
+        } catch (err) {
+            console.error('gallery mine error:', err)
+            g.fail(500, 'خطأ بالخادم')
+        }
+    })
+
+    app.post('/gallery/add', jsonBody, async (req, res) => {
+        const g = await galEditGuard(req, res, true)
+        if (!g || !g.sess) return
+        try {
+            const k = String(g.body.k || '')
+            if (!/^[a-f0-9]{24}$/.test(k)) return g.fail(400, 'اختيار غير صحيح، حدّث الصفحة.')
+            const m = await galLoadMine(g.sess.u)
+            if (!m) return g.fail(404, 'حسابك غير موجود')
+            const cards = () => galMineCards(m.p)
+            const ch = (m.p.characters || []).find(c => c && c._id && String(c._id) === k)
+            if (!ch) return g.fail(409, 'هذي الشخصية ما عاد عندك (انباعت أو انهدت) — حدّث الصفحة.', { g: cards() })
+            if (m.gallery.includes(k)) return g.fail(400, `هذي النسخة بالضبط من ${ch.name} موجودة بالمعرض أصلاً`, { g: cards() })
+            if (m.gallery.length >= MAX_GALLERY) return g.fail(400, `المعرض ممتلئ (${MAX_GALLERY}/${MAX_GALLERY}) — احذف وحدة أول`, { g: cards() })
+
+            // شرط الحد وعدم التكرار داخل نفس العملية الذرّية (حماية من طلبين متزامنين)
+            const r = await Player.updateOne(
+                { userId: g.sess.u, gallery: { $ne: k }, [`gallery.${MAX_GALLERY - 1}`]: { $exists: false } },
+                { $push: { gallery: k } },
+                { strict: false }
+            )
+            const matched = r.matchedCount ?? r.n ?? r.nMatched
+            galSnap.at = 0
+            if (matched === 0) {
+                const again = await galLoadMine(g.sess.u)
+                return g.fail(409, 'تغيّر معرضك للتو — أعد المحاولة.', again ? { g: galMineCards(again.p) } : {})
+            }
+            m.p.gallery = m.gallery.concat(k)
+            res.json({ ok: true, g: cards(), message: `✅ انضافت ${ch.name} للمعرض (${m.p.gallery.length}/${MAX_GALLERY})` })
+        } catch (err) {
+            console.error('gallery add error:', err)
+            g.fail(500, 'خطأ بالخادم')
+        }
+    })
+
+    app.post('/gallery/remove', jsonBody, async (req, res) => {
+        const g = await galEditGuard(req, res, true)
+        if (!g || !g.sess) return
+        try {
+            const k = String(g.body.k || '')
+            if (!/^[a-f0-9]{24}$/.test(k)) return g.fail(400, 'اختيار غير صحيح، حدّث الصفحة.')
+            const m = await galLoadMine(g.sess.u)
+            if (!m) return g.fail(404, 'حسابك غير موجود')
+            if (!m.gallery.includes(k)) return g.fail(400, 'هذي الشخصية مو بمعرضك (يمكن انحذفت).', { g: galMineCards(m.p) })
+            const ch = (m.p.characters || []).find(c => c && c._id && String(c._id) === k)
+            await Player.updateOne({ userId: g.sess.u }, { $pull: { gallery: k } }, { strict: false })
+            galSnap.at = 0
+            m.p.gallery = m.gallery.filter(x => x !== k)
+            res.json({ ok: true, g: galMineCards(m.p), message: `🗑️ انحذفت ${ch ? ch.name : 'الشخصية'} من المعرض (${m.p.gallery.length}/${MAX_GALLERY})` })
+        } catch (err) {
+            console.error('gallery remove error:', err)
+            g.fail(500, 'خطأ بالخادم')
+        }
+    })
+
     // ─────────────── 🚢 أوامر السفينة من الموقع ───────────────
     // نفس منطق الواتس بالضبط عبر shipActions.js (شراء، هجوم زعيم، استدعاء) — مصدر واحد للبيانات والقواعد
     let shipActions = null
@@ -4620,7 +5171,8 @@ function registerCharacterSite(app, Player, opts = {}) {
             x: { type: String, default: '' },
             s: { type: Number, default: -1 },            // رقم الستيكر أو -1
             t: { type: Date, default: Date.now },
-            r: { type: chatMg.Schema.Types.Mixed, default: {} }   // { إيموجي: [userId] }
+            r: { type: chatMg.Schema.Types.Mixed, default: {} },  // { إيموجي: [userId] }
+            q: { type: chatMg.Schema.Types.Mixed, default: null } // رد على رسالة: { id, f, x, s } (لقطة من الأصلية)
         }, { minimize: false })
         s.index({ k: 1, t: -1 })
         s.index({ t: 1 }, { expireAfterSeconds: 14 * 24 * 3600 })
@@ -4704,6 +5256,29 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ⚡ تخزين رسائل الدردشة العامة بالذاكرة لثواني قليلة: استعلام واحد يخدم كل اللاعبين
+    // بدل استعلام لكل لاعب كل 3 ثوان. يُبطَل فوراً عند إرسال رسالة عامة أو التفاعل معها.
+    const PUB_CACHE_MS = 2500
+    const pubCache = { at: 0, msgs: null, pending: null, ver: 0 }
+    function pubCacheBust() { pubCache.ver++; pubCache.at = 0; pubCache.pending = null }
+    // يرجع { msgs, at }: at = لحظة بدء الاستعلام الذي حمّل هذه الرسائل (تُستخدم لعلامة "آخر قراءة")
+    function getRecentMsgs(key) {
+        if (key !== 'pub') {
+            const at = Date.now()
+            return ChatMsg.find({ k: key }).sort({ t: -1 }).limit(60).lean().then(r => ({ msgs: r.reverse(), at }))
+        }
+        if (pubCache.msgs && Date.now() - pubCache.at < PUB_CACHE_MS) return Promise.resolve({ msgs: pubCache.msgs, at: pubCache.at })
+        if (pubCache.pending) return pubCache.pending
+        const ver = pubCache.ver, at = Date.now()
+        const p = ChatMsg.find({ k: 'pub' }).sort({ t: -1 }).limit(60).lean().then(r => {
+            const list = r.reverse()
+            if (ver === pubCache.ver) { pubCache.msgs = list; pubCache.at = at }
+            return { msgs: list, at }
+        }).finally(() => { if (pubCache.pending === p) pubCache.pending = null })
+        pubCache.pending = p
+        return p
+    }
+
     // استطلاع الحالة كل ~3 ثوان: المتصلون + الأصدقاء + رسائل العرض الحالي
     app.get('/chat/poll', async (req, res) => {
         try {
@@ -4725,15 +5300,15 @@ function registerCharacterSite(app, Player, opts = {}) {
                 const pu = pidMap.get(toPid)
                 if (!pu || !frIds.includes(pu)) notFriend = true; else key = chatPairKey(me, pu)
             }
-            let msgs = []
-            if (!notFriend) msgs = (await ChatMsg.find({ k: key }).sort({ t: -1 }).limit(60).lean()).reverse()
+            let msgs = [], loadedAt = now
+            if (!notFriend) { const got = await getRecentMsgs(key); msgs = got.msgs; loadedAt = got.at }
 
             // أول مرة: لا نعتبر الرسائل القديمة غير مقروءة بالعام
             if (seenMap.pub == null) { seenMap.pub = now; setSeen['seen.pub'] = now }
             if (!notFriend) {
                 const sk = toPid || 'pub'
                 const newest = msgs.length ? +msgs[msgs.length - 1].t : 0
-                if (newest > (seenMap[sk] || 0) || (toPid && seenMap[sk] == null)) { seenMap[sk] = now; setSeen['seen.' + sk] = now }
+                if (newest > (seenMap[sk] || 0) || (toPid && seenMap[sk] == null)) { const rd = Math.max(loadedAt, newest); seenMap[sk] = rd; setSeen['seen.' + sk] = rd }
             }
             if (Object.keys(setSeen).length) await ChatFr.updateOne({ u: me }, { $set: setSeen }, { upsert: true })
 
@@ -4761,14 +5336,16 @@ function registerCharacterSite(app, Player, opts = {}) {
             })
 
             const onlineIds = [...chatPresence].filter(([u, t]) => u !== me && now - t < CHAT_ONLINE_MS).map(([u]) => u).slice(0, 60)
-            const names = await chatNamesFor([me, ...onlineIds, ...frIds, ...msgs.map(m => m.f)])
-            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgs.map(m => m.f)])].map(u => chatPerson(u, names)))
+            const msgUsers = [...msgs.map(m => m.f), ...msgs.filter(m => m.q && m.q.f).map(m => m.q.f)]
+            const names = await chatNamesFor([me, ...onlineIds, ...frIds, ...msgUsers])
+            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgUsers])].map(u => chatPerson(u, names)))
 
             res.json({
                 ok: true, view: toPid, notFriend, pubUnread, friends, people,
                 online: onlineIds.map(pidOf),
                 msgs: msgs.map(m => ({
                     id: String(m._id), f: pidOf(m.f), me: m.f === me, x: m.x || '', s: m.s, t: +m.t,
+                    q: m.q && m.q.id ? { id: String(m.q.id), f: pidOf(m.q.f), x: String(m.q.x || '').slice(0, 80), s: Number.isInteger(m.q.s) ? m.q.s : -1 } : null,
                     r: Object.fromEntries(Object.entries(m.r || {}).filter(([, a]) => Array.isArray(a) && a.length).map(([e, a]) => [e, { n: a.length, me: a.includes(me) }]))
                 }))
             })
@@ -4803,7 +5380,14 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (wait > 0) return fail(429, 'COOLDOWN', `⏳ انتظر ${Math.ceil(wait / 1000)} ثانية قبل رسالتك التالية`, { retryInMs: wait })
             chatLast.set(me, now)
             if (chatLast.size > 5000) for (const [u, t] of chatLast) if (now - t > CHAT_CD_MS) chatLast.delete(u)
-            const m = await ChatMsg.create({ k: key, f: me, x, s, t: new Date(now), r: {} })
+            let q = null
+            const qid = String(b.q || '')
+            if (/^[a-f0-9]{24}$/.test(qid)) {
+                const qm = await ChatMsg.findById(qid).select('k f x s').lean()
+                if (qm && qm.k === key) q = { id: qid, f: qm.f, x: String(qm.x || '').slice(0, 80), s: Number.isInteger(qm.s) ? qm.s : -1 }
+            }
+            const m = await ChatMsg.create({ k: key, f: me, x, s, t: new Date(now), r: {}, q })
+            if (key === 'pub') pubCacheBust()
             res.json({ ok: true, id: String(m._id) })
         } catch (err) {
             console.error('chat send error:', err)
@@ -4823,6 +5407,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!m || (m.k !== 'pub' && !m.k.split('|').includes(me))) return fail(404, 'NONE', 'الرسالة غير موجودة.')
             const has = Array.isArray(m.r && m.r[e]) && m.r[e].includes(me)
             await ChatMsg.updateOne({ _id: id }, has ? { $pull: { ['r.' + e]: me } } : { $addToSet: { ['r.' + e]: me } })
+            if (m.k === 'pub') pubCacheBust()
             res.json({ ok: true })
         } catch (err) {
             console.error('chat react error:', err)
