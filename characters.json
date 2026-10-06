@@ -15658,5 +15658,14 @@
     "rarity": "SSS",
     "ability": "الإطلاق أثناء الحركة",
     "image": ""
-  }
+  },
+    {
+    "name": "Juvia Lockser",
+    "form": "ساحرة المطر",
+    "anime": "Fairy Tail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "جسد الماء",
+    "image": ""
+    }
 ]
