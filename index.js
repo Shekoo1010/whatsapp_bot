@@ -5808,38 +5808,29 @@ currentBoss = {
 
     console.log("Created Boss:", currentBoss.finished)
 
-    const players = await Player.find({})
-
-for (const player of players) {
-
-const totalPower =  
-    (player.characters || []).reduce(  
-        (sum, c) => sum + (c.power || 0),  
-        0  
-    )  
-
-let hp =  
-    30000 + Math.floor(totalPower / 3)  
-
-if (hp > 100000)  
-    hp = 100000  
-
-player.bossMaxHp = hp  
-player.bossHp = hp  
-
-player.bossDead = false  
-player.bossRespawn = null  
-
-await player.save()
-
-}
-
-
-    // 🔔 إشعار الهاتف (Web Push) للمشتركين فقط — لا يُرسل شيء للقروبات
+    // 🔔 إشعار الهاتف (Web Push) للمشتركين فقط — يُرسل فوراً قبل تحديث اللاعبين
     // (fire-and-forget: ما نعطّل السباون لو فشل الإرسال)
     bossPush.notifyBossSpawn(currentBoss).catch(err => {
         console.log('⚠️ فشل إشعار الهاتف للزعيم:', err)
     })
+
+    // تحديث دم الزعيم لكل اللاعبين دفعة واحدة (أسرع بكثير من save لكل لاعب)
+    const players = await Player.find({}, { 'characters.power': 1 }).lean()
+
+    const ops = players.map(p => {
+        const totalPower = (p.characters || []).reduce((sum, c) => sum + (c.power || 0), 0)
+        let hp = 30000 + Math.floor(totalPower / 3)
+        if (hp > 100000) hp = 100000
+        return {
+            updateOne: {
+                filter: { _id: p._id },
+                update: { $set: { bossMaxHp: hp, bossHp: hp, bossDead: false, bossRespawn: null } }
+            }
+        }
+    })
+
+    if (ops.length) await Player.bulkWrite(ops, { ordered: false })
+
 
 } // إغلاق spawnBoss
 
