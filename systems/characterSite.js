@@ -1940,6 +1940,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;
 .top .nvbtn{width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,56,96,.5);background:rgba(20,10,24,.75);color:var(--red)}
 .topr{display:flex;gap:6px;align-items:center}
 button.live{font-family:inherit;cursor:pointer;line-height:1.4}
+#pbell[hidden]{display:none}
 .boss{overflow:hidden}
 .bs-flash{position:absolute;inset:0;background:#ff3860;opacity:0;pointer-events:none}
 .bs-rage{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#ff3860;border-radius:20px;padding:1px 9px;margin-inline-start:6px}
@@ -2002,6 +2003,8 @@ function bossPageHTML({ viewer, code, data }) {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>هجوم الزعيم</title>
+<link rel="manifest" href="/manifest.webmanifest?c=${esc(code)}">
+<meta name="theme-color" content="#0b0710">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${BOSS_CSS}</style>
@@ -2010,7 +2013,7 @@ function bossPageHTML({ viewer, code, data }) {
 <canvas id="bg"></canvas><div class="mist"></div>
 <div class="toast" id="toast"></div>
 <div class="wrap">
-  <div class="top">${NAV_BTN}<span class="ttl">هجوم الزعيم</span><span class="topr"><button type="button" class="live" id="vmute" aria-label="كتم/تشغيل أصوات الزعماء">🔊</button><span class="live" id="live">متصل <b id="cnt">0</b></span></span></div>
+  <div class="top">${NAV_BTN}<span class="ttl">هجوم الزعيم</span><span class="topr"><button type="button" class="live" id="vmute" aria-label="كتم/تشغيل أصوات الزعماء">🔊</button><button type="button" class="live" id="pbell" aria-label="تفعيل/تعطيل إشعار ظهور الزعيم" aria-pressed="false" hidden>🔕</button><span class="live" id="live">متصل <b id="cnt">0</b></span></span></div>
   ${navDrawerHTML(code, viewer.csrf, 'boss', viewer.name)}
   <div class="themes" id="themes"><button type="button" class="th on">قلعة الظلام</button><button type="button" class="th">بركان</button><button type="button" class="th">ساكورا الليل</button></div>
   <div class="arena" id="arena"><div class="scene" id="scene"></div><div class="aflash" id="aflash"></div>
@@ -2100,6 +2103,50 @@ function setTheme(i){
       if(vMuted && vAud){ try{ vAud.pause(); }catch(e){} }
       vBtn();
     });
+  })();
+
+  // ───── 🔔 إشعار ظهور الزعيم للهاتف (Web Push) — الجرس بجانب الصوت للتفعيل/التعطيل ─────
+  (function(){
+    var b=$('pbell'); if(!b) return;
+    var KEY=null, busy=false, on=false;
+    var okSupport=('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
+    function paint(){ b.textContent=on?'🔔':'🔕'; b.title=on?'إشعار ظهور الزعيم: مفعّل':'إشعار ظهور الزعيم: معطّل'; b.setAttribute('aria-pressed',on?'true':'false'); }
+    function b64(s){ var p='='.repeat((4-s.length%4)%4), r=(s+p).replace(/-/g,'+').replace(/_/g,'/'), raw=atob(r), a=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) a[i]=raw.charCodeAt(i); return a; }
+    function post(url,body){ body.csrf=CSRF; return fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){ return r.json().catch(function(){ return {ok:false}; }); }); }
+    function sync(){
+      navigator.serviceWorker.getRegistration('/').then(function(reg){ return reg?reg.pushManager.getSubscription():null; }).then(function(sub){
+        if(!sub||Notification.permission!=='granted') return;
+        return post('/push/state',{endpoint:sub.endpoint}).then(function(j){ on=!!(j&&j.ok&&j.on); paint(); });
+      }).catch(function(){});
+    }
+    function enable(){
+      if(Notification.permission==='denied'){ toast('الإشعارات محظورة من إعدادات المتصفح'); return Promise.resolve(); }
+      return Notification.requestPermission().then(function(p){
+        if(p!=='granted'){ toast('لم تسمح بالإشعارات'); return; }
+        return navigator.serviceWorker.register('/sw.js',{scope:'/'}).then(function(){ return navigator.serviceWorker.ready; }).then(function(reg){
+          return reg.pushManager.getSubscription().then(function(s){ return s||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(KEY)}); });
+        }).then(function(sub){ return post('/push/subscribe',{sub:sub.toJSON()}); }).then(function(j){
+          if(j&&j.ok){ on=true; toast('تم تفعيل إشعار ظهور الزعيم'); } else { toast((j&&j.message)||'تعذّر التفعيل'); }
+        });
+      });
+    }
+    function disable(){
+      return navigator.serviceWorker.getRegistration('/').then(function(reg){ return reg?reg.pushManager.getSubscription():null; }).then(function(sub){
+        if(!sub){ on=false; return; }
+        return post('/push/unsubscribe',{endpoint:sub.endpoint}).then(function(){ return sub.unsubscribe(); }).then(function(){ on=false; toast('تم إيقاف إشعار الزعيم'); });
+      });
+    }
+    b.addEventListener('click',function(){
+      if(busy) return;
+      if(!okSupport){ toast(/iPhone|iPad|iPod/i.test(navigator.userAgent)?'على الآيفون: أضف الموقع للشاشة الرئيسية ثم افتحه منها':'متصفحك لا يدعم الإشعارات'); return; }
+      busy=true;
+      (on?disable():enable()).catch(function(){ toast('تعذّر تغيير الإشعارات'); }).then(function(){ busy=false; paint(); });
+    });
+    fetch('/push/key',{credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(j){
+      if(!j||!j.ok||!j.key) return;
+      KEY=j.key; b.hidden=false; paint();
+      if(okSupport) sync();
+    }).catch(function(){});
   })();
   var vReady=false, vPend=null, vIntro={}, vFirstAt=0, vFirstName='', VFIRST_MS=30000;
   fetch('/boss-voice/manifest.json').then(function(r){ return r.json(); }).then(function(j){ VOICES=j||{}; }).catch(function(){}).then(function(){ vReady=true; if(S&&S.boss) vCheck(S.boss); });
@@ -3394,6 +3441,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const sellCharacters = opts.sellCharacters // من systems/characterTradeSystem.js (نفس منطق .بيع)
     const mergeAll = opts.mergeAll     // من systems/characterTradeSystem.js (نفس منطق .دمج_الكل)
     const bossAttack = opts.bossAttack // من systems/bossAttackSystem.js (نفس منطق .هجوم)
+    const bossPush = opts.bossPush     // من systems/bossPush.js (إشعارات الهاتف عند ظهور الزعيم)
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -3458,6 +3506,10 @@ function registerCharacterSite(app, Player, opts = {}) {
             bosses: require('../bosses')
         })
     } catch (e) { console.error('boss voice mount error:', e) }
+    // 🔔 إشعارات الهاتف: /sw.js و /manifest.webmanifest و /push/*
+    if (bossPush) {
+        try { bossPush.mount(app, { express, auth }) } catch (e) { console.error('boss push mount error:', e) }
+    }
 
     // جلسة المالك لهذه الصفحة (تتحقق من نسخة الجلسة من قاعدة البيانات)
     function ownerSession(req, player) {
