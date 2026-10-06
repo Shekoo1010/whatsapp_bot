@@ -1823,6 +1823,13 @@ h2{font-size:15px;font-weight:900;color:var(--gold);margin:24px 0 10px;display:f
 .art.has{background-size:cover;background-position:center top;background-repeat:no-repeat;font-size:0}
 .art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,#0a0d16eb)}
 .pl{padding:12px 12px 16px;text-align:center;background:linear-gradient(180deg,transparent,#00000080)}
+.card{height:420px}
+.art,.art.has{position:absolute;inset:0;height:auto;z-index:0}
+.art::after{background:linear-gradient(180deg,#0a0d16d9 0,#0a0d1600 30%,#0a0d1600 52%,#0a0d16f0 100%)}
+.tt{position:absolute;top:0;left:0;right:0;z-index:2}
+.st{position:absolute;top:38px;left:0;right:0;z-index:2;padding-bottom:0}
+.pl{position:absolute;bottom:0;left:0;right:0;z-index:2;background:none;text-shadow:0 2px 8px #000}
+.ac{background:#080a12a6}
 .ne{font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;color:#fff;direction:ltr}
 .ac{margin-top:8px;display:inline-block;font-size:12px;color:var(--t);border:1px solid color-mix(in srgb,var(--t) 50%,transparent);border-radius:20px;padding:2px 12px}
 .note{margin:18px 0 0;padding:12px;border:1px dashed var(--gold-dim);border-radius:12px;color:var(--mut);font-size:12px;line-height:1.8}
