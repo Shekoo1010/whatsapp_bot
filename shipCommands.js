@@ -44,6 +44,7 @@ const shipBattle = require('./shipBattleEngine')
 const { calculatePower } = require('./shipBattleEngine')
 const updateShipPower = require('./utils/updateShipPower')
 const { summonShipBoss, attackShipBoss, autoSpawnAllShipBosses } = require('./shipBoss')
+const { buyShipItem, formatBuyText, attackBossLocked, summonBossLocked, bossAttackErrorText, formatBossAttackText, MAX_DAILY_WARS } = require('./shipActions')
 const { generateId } = require('./utils/id')
 
 const MAX_CREW = 4
@@ -53,7 +54,7 @@ const SHIP_CREATION_COST = 1500000
 // .حرب_طاقم_كامل (مجموع الطاقم) معًا بنفس الرصيد؛ كل قتال من أي نوع
 // يستهلك محاولة وحدة من نفس الـ10. يتجدد يوميًا الساعة 12:00 صباحًا
 // بتوقيت السعودية (راجع resetShipWars بالأسفل).
-const MAX_DAILY_WARS = 10
+// (MAX_DAILY_WARS صار يجي من shipActions.js عشان الموقع يقرأ نفس القيمة)
 
 // نفس قيمة ownerId الموجودة بأعلى index.js (السطر تقريباً 424) —
 // إذا غيّرتها هناك يوماً، حدّثها هنا أيضاً.
@@ -861,131 +862,11 @@ ${ship.emoji} ${ship.name}
             return true
         }
 
-        const player = await Player.findOne({ userId })
+        // نفس دالة الموقع بالضبط (shipActions.buyShipItem) — الحد الأسبوعي والعملات
+        // والفتح بالمستوى كلها بمكان واحد، فالواتس والموقع ما يختلفون أبداً.
+        const r = await buyShipItem(userId, { index: itemIndex })
 
-        if (!player || !player.shipId) {
-            await safeSend(msg.key.remoteJid, { text: '❌ أنت لست على متن أي سفينة.' })
-            return true
-        }
-
-        const ship = await Ship.findOne({ shipId: player.shipId })
-
-        if (!ship) {
-            await safeSend(msg.key.remoteJid, { text: '❌ لم يتم العثور على السفينة.' })
-            return true
-        }
-
-        const shop = getShipShop(ship.level)
-        const item = shop[itemIndex]
-
-        if (!item) {
-            await safeSend(msg.key.remoteJid, { text: '❌ العنصر غير موجود.' })
-            return true
-        }
-
-        if (item.locked) {
-            await safeSend(msg.key.remoteJid, { text: `❌ هذا العنصر يفتح عند مستوى ${item.unlockLevel}.` })
-            return true
-        }
-
-        // تتبّع المشتريات مخزّن بجانب اللاعب نفسه فقط (player.shipShop)،
-        // يعني كل عضو بالطاقم له حده الأسبوعي الخاص فيه بشكل مستقل
-        // تماماً عن بقية أعضاء نفس السفينة. الأسبوع يبدأ يوم الأحد
-        // 00:00 بتوقيت السعودية (getShipWeekKey).
-        const week = getShipWeekKey()
-
-        if (!player.shipShop) player.shipShop = {}
-        if (!player.shipShop[week]) player.shipShop[week] = {}
-
-        const bought = player.shipShop[week][item.id] || 0
-
-        if (bought >= item.limit) {
-            await safeSend(msg.key.remoteJid, { text: '❌ وصلت للحد الأسبوعي لهذا العنصر.' })
-            return true
-        }
-
-        if (player.shipCoins < item.price) {
-            await safeSend(msg.key.remoteJid, { text: '❌ لا تملك عملات سفينة كافية.' })
-            return true
-        }
-
-        player.shipCoins -= item.price
-        player.shipShop[week][item.id] = bought + 1
-        player.markModified('shipShop')
-
-        switch (item.id) {
-
-            case 'pull_ticket':
-                player.pulls += 1
-                break
-
-            case 'legendary_box':
-                player.boxes.legendary += 1
-                break
-
-            case 'sss_chance':
-                player.boxes.sss_chance += 1
-                break
-
-            case 'sss_high':
-                player.boxes.sss_high += 1
-                break
-
-            case 'storage': {
-
-                const now = Date.now()
-
-                if (player.shipStorageExpire > now) {
-                    await safeSend(msg.key.remoteJid, {
-                        text: '❌ لديك زيادة سعة فعالة بالفعل.\nيمكنك شراء زيادة جديدة بعد انتهاء 14 يوم.'
-                    })
-                    return true
-                }
-
-                player.shipStorageBonus += 5
-                player.maxCharacters += 5
-                player.shipStorageExpire = now + (14 * 24 * 60 * 60 * 1000)
-
-                break
-            }
-
-            case 'sss_shard':
-                if (!player.shards) player.shards = {}
-                break
-
-            case 'summon_boss':
-                ship.bossAvailable = true
-                break
-
-            case 'rename':
-
-                if (userId !== ship.captain) {
-                    await safeSend(msg.key.remoteJid, {
-                        text: '❌ القبطان فقط يستطيع شراء تغيير الاسم.'
-                    })
-                    return true
-                }
-
-                player.renameShipTicket = (player.renameShipTicket || 0) + 1
-                break
-        }
-
-        await player.save()
-        await ship.save()
-
-        const remaining = item.limit - (bought + 1)
-
-        await safeSend(msg.key.remoteJid, {
-            text:
-`✅ تم شراء:
-
-${item.name}
-
-💰 -${item.price} 🪙
-
-📦 المتبقي:
-${remaining}/${item.limit}`
-        })
+        await safeSend(msg.key.remoteJid, { text: r.ok ? formatBuyText(r) : r.message })
 
         return true
     }
@@ -1005,7 +886,7 @@ ${remaining}/${item.limit}`
             return true
         }
 
-        const result = await summonShipBoss(player.shipId, { auto: false })
+        const result = await summonBossLocked(player.shipId, { auto: false })
 
         if (result.error === 'boss_not_purchased') {
             await safeSend(msg.key.remoteJid, {
@@ -1078,86 +959,24 @@ ${abilitiesText}
             return true
         }
 
-        const result = await attackShipBoss(player.shipId, userId)
-
-        if (result.error === 'no_active_boss') {
-            await safeSend(msg.key.remoteJid, { text: '❌ لا يوجد زعيم مستدعى حالياً على سفينتك.' })
-            return true
-        }
-
-        if (result.error === 'not_crew_member') {
-            // هذا هو القيد المطلوب: فقط أعضاء نفس السفينة المسجلين
-            await safeSend(msg.key.remoteJid, { text: '❌ يجب أن تكون عضواً مسجلاً بنفس السفينة لمهاجمة زعيمها.' })
-            return true
-        }
-
-        if (result.error === 'player_dead') {
-            const secs = Math.ceil(result.remainingMs / 1000)
-            await safeSend(msg.key.remoteJid, {
-                text: `💀 أنت ميت بمعركة الزعيم!\n⏳ تقدر تهاجم بعد ${secs} ثانية.`
-            })
-            return true
-        }
+        const result = await attackBossLocked(player.shipId, userId)
 
         if (result.error) {
-            await safeSend(msg.key.remoteJid, { text: '❌ حدث خطأ أثناء الهجوم.' })
+            await safeSend(msg.key.remoteJid, { text: bossAttackErrorText(result) })
             return true
         }
 
         if (result.defeated) {
 
-            const medals = ['🥇', '🥈', '🥉', '🏅']
-
-            const leaderboardText = result.leaderboard
-                .map((r, i) =>
-                    `${medals[i] || '▪️'} ${i + 1}. @${r.userId.split('@')[0]}\n` +
-                    `   💥 ${r.damage.toLocaleString()} ضرر — 💰 ${r.money.toLocaleString()} — 🪙 ${r.shipCoins}`
-                )
-                .join('\n\n')
-
             await safeSend(msg.key.remoteJid, {
-                text:
-`💥 ضربة أخيرة!
-
-👹 تم القضاء على ${result.bossName}!
-
-⚔️ ضررك الأخير: ${result.damage.toLocaleString()}
-${result.playerAbility ? `✨ قدرتك: ${result.playerAbility}\n` : ''}
-🏆 ترتيب الدمج (حسب الضرر):
-
-${leaderboardText}
-
-✨ +${result.shipXpReward.toLocaleString()} خبرة للسفينة`,
+                text: formatBossAttackText(result),
                 mentions: result.leaderboard.map(r => r.userId)
             })
 
             return true
         }
 
-        let extra = ''
-
-        if (result.playerAbility) {
-            extra += `\n✨ قدرتك: ${result.playerAbility}`
-        }
-
-        if (result.bossAbilityUsed) {
-            extra += `\n\n😈 رد الزعيم بـ: ${result.bossAbilityUsed}\n💥 ضررك: -${result.counterDamage.toLocaleString()}`
-        }
-
-        if (result.died) {
-            extra += `\n\n💀 مت! دمك القتالي وصل صفر.\n⏳ ما تقدر تهاجم لمدة دقيقتين.`
-        } else {
-            extra += `\n\n❤️ دمك القتالي: ${result.playerHp.toLocaleString()}/${result.playerMaxHp.toLocaleString()}`
-        }
-
-        await safeSend(msg.key.remoteJid, {
-            text:
-`⚔️ ضربت الزعيم!
-
-💥 الضرر: ${result.damage.toLocaleString()}
-
-❤️ HP المتبقي للزعيم: ${result.remainingHp.toLocaleString()}/${result.maxHp.toLocaleString()}${extra}`
-        })
+        await safeSend(msg.key.remoteJid, { text: formatBossAttackText(result) })
 
         return true
     }

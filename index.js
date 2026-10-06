@@ -6353,16 +6353,7 @@ console.log('🚀 START BOT', Date.now())
 
     const { state, saveCreds } =
         await useMultiFileAuthState('auth')
-    // =========================
-// Event System
-// =========================
-
-let eventActive = false
-
-let eventParticipants = []
-
-let eventStartedBy = null
-
+    
 console.log(
     'REGISTERED:',
     state.creds.registered
@@ -6478,11 +6469,6 @@ sock.ev.on('creds.update', async () => {
     console.log('✅ Session Saved')
 })
 console.log("REGISTERED =", state.creds.registered)
-const BEAST_GROUPS = [
-    '120363400448225715@g.us',
-    '120363020823525909@g.us',
-    '120363362807326585@g.us'
-]
 
 let lastKuramaRespawn = 0
 let lastJuubiRespawn = 0
@@ -8942,7 +8928,22 @@ if (
 }
 
 
-player.pulls -= 1
+// 🔒 خصم ذري بقاعدة البيانات: ما يعتمد على Set بالذاكرة (يعمل مع إعادة التشغيل ومع أكثر من نسخة)
+const pullClaim = await Player.findOneAndUpdate(
+    { userId, pulls: { $gt: 0 } },
+    { $inc: { pulls: -1 } },
+    { new: true, strict: false }
+)
+
+if (!pullClaim) {
+    return sock.sendMessage(
+        msg.key.remoteJid,
+        { text: '⏳ انتهت السحبات، انتظر التجديد.' }
+    )
+}
+
+player.pulls = pullClaim.pulls
+player.unmarkModified('pulls') // لا نكتب pulls مرة ثانية عند save حتى لا نطغى على خصم متزامن
 player.totalPulls = (player.totalPulls || 0) + 1
 addCommandXp(player, COMMAND_XP.pull)
 
@@ -28677,7 +28678,30 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
             })
         }
 
-        player.weaponPulls -= 1
+        // 🔒 خصم ذري بقاعدة البيانات (بدل الاعتماد على Set بالذاكرة فقط)
+        if (player.isNew) await player.save()
+        await Player.updateOne(
+            { userId, $or: [{ weaponPulls: { $exists: false } }, { weaponPulls: null }] },
+            { $set: { weaponPulls: WEAPON_DAILY_PULLS } },
+            { strict: false }
+        )
+        const weaponClaim = await Player.findOneAndUpdate(
+            { userId, weaponPulls: { $gt: 0 } },
+            { $inc: { weaponPulls: -1 } },
+            { new: true, strict: false }
+        )
+
+        if (!weaponClaim) {
+            return safeSend(msg.key.remoteJid, {
+                text:
+`❌ انتهت سحبات الأسلحة اليوم
+
+⏳ تتجدد الساعة 12:00 صباحاً بتوقيت السعودية`
+            })
+        }
+
+        player.weaponPulls = weaponClaim.weaponPulls
+        player.unmarkModified('weaponPulls')
 
         const guaranteed = player.weaponPity >= WEAPON_PITY_CAP
 
@@ -38232,13 +38256,6 @@ try {
 `
     })
 
-    console.log("BEFORE SEND MESSAGE")
-console.log("groupId =", groupId)
-console.log("mentions =", mentions)
-
-await sock.sendMessage(groupId, {
-    text: `🏆 اختبار رسالة الزعيم`
-})
 
 // 🔁 رسالة نتائج الزعيم مهمة جدًا (تحتوي الجوائز والترتيب) —
 // نعيد المحاولة 3 مرات لو صار انقطاع مؤقت بالاتصال بدل ما تضيع
