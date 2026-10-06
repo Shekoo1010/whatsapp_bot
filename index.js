@@ -4535,7 +4535,12 @@ const { sellCharacters, mergeAll } = createCharacterTradeSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🔔 إشعارات الهاتف عند ظهور الزعيم (systems/bossPush.js) — يحتاج: npm i web-push
+const { createBossPush } = require('./systems/bossPush')
+const bossPush = createBossPush({ Player })
+
 registerCharacterSite(app, Player, {
+    bossPush,
     giftCharacters,
     pullCharacter,
     sellCharacters,
@@ -5830,83 +5835,11 @@ await player.save()
 }
 
 
-    if (sock.user) {
-
-    // ⚠️ نستخدم allSettled بدل Promise.all حتى لو فشل الإرسال
-    // بقروب واحد (مثلاً طُرد البوت أو الاتصال مقطوع مؤقتاً)
-    // تكمل بقية القروبات ترسل عادي ولا يتوقف شيء
-    const bossAnnounceResults = await Promise.allSettled(
-
-        GROUP_IDS.map(groupId =>
-            sock.sendMessage(groupId, {
-        text:`╔═════ ✦ 👑 ✦ ═════╗
-
-🌍 ⚠️  ظهر زعيم عالمي جديد  ⚠️ 🌍
-
-╚═════ ✦ 👑 ✦ ═════╝
-
-👹 الزعيم:
-『 ${currentBoss.name} 』
-
-❤️ الصحة:
-${currentBoss.hp}/${currentBoss.maxHp}
-
-⚔️ قوة الهجوم:
-${currentBoss.attack || 0}
-
-👥 عدد الأتباع:
-${currentBoss.followers?.length || 0}
-
-✨ القدرات:
-
-${
-    currentBoss.abilities?.length
-        ? currentBoss.abilities
-            .map(a => `• ${a.name}`)
-            .join('\n')
-        : '• لا توجد قدرات'
-}
-
-
-━━━━━━━━━━━━━━━
-
-⚔️ استعدوا للمعركة!
-🔥 اجمعوا أقوى شخصياتكم
-🏆 الجوائز بانتظار الأبطال
-
-━━━━━━━━━━━━━━━
-
-📜 الأوامر:
-
-👑 .زعيم
-↳ عرض معلومات الزعيم
-
-🗡️ .هجوم
-↳ مهاجمة الزعيم
-
-━━━━━━━━━━━━━━━
-
-💀 من سيوجه الضربة القاضية؟
-🌟 ومن سيتصدر قائمة الضرر؟
-
-🚨 المعركة بدأت الآن!`
-
-            })
-
-        ) // إغلاق map
-
-    ) // إغلاق Promise.allSettled
-
-    bossAnnounceResults.forEach((r, i) => {
-        if (r.status === 'rejected') {
-            console.log(
-                `⚠️ فشل إرسال إعلان الزعيم للقروب ${GROUP_IDS[i]}:`,
-                r.reason
-            )
-        }
+    // 🔔 إشعار الهاتف (Web Push) للمشتركين فقط — لا يُرسل شيء للقروبات
+    // (fire-and-forget: ما نعطّل السباون لو فشل الإرسال)
+    bossPush.notifyBossSpawn(currentBoss).catch(err => {
+        console.log('⚠️ فشل إشعار الهاتف للزعيم:', err)
     })
-
-} // إغلاق if
 
 } // إغلاق spawnBoss
 
