@@ -133,6 +133,12 @@ weaponPity: {
         default: []
     },
 
+    // ❤️ لايكات المعرض من موقع الشخصيات — مصفوفة userId لمن أعطى لايك (لايك واحد لكل لاعب)
+    galleryLikes: {
+        type: [String],
+        default: []
+    },
+
     shards: {
     type: Map,
     of: Number,
