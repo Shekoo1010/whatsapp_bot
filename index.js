@@ -4539,6 +4539,28 @@ const { sellCharacters, mergeAll } = createCharacterTradeSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🌌 بنر الأسبوع من الموقع — نفس منطق .بنر و .سحب_بنر بالضبط (systems/bannerPullSystem.js)
+// يشارك قفل pullLocks مع .اسحب و .سحب_بنر فما يصير سحبتين متزامنتين (موقع + واتساب)
+const { createBannerPullSystem } = require('./systems/bannerPullSystem')
+
+const bannerPullSystem = createBannerPullSystem({
+    Player,
+    pullLocks,
+    orbs,
+    bannerMgr,
+    resetDailyMissions,
+    trackWeeklyPull,
+    addCommandXp,
+    COMMAND_XP,
+    checkAndGrantAchievement,
+    worlds,
+    isBanned,
+    botAvailable,
+    isOwnerId: uid => String(uid || '').split('@')[0] === ownerId,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 // 🔔 إشعارات الهاتف عند ظهور الزعيم (systems/bossPush.js) — يحتاج: npm i web-push
 const { createBossPush } = require('./systems/bossPush')
 const bossPush = createBossPush({ Player })
@@ -4547,6 +4569,8 @@ registerCharacterSite(app, Player, {
     bossPush,
     giftCharacters,
     pullCharacter,
+    bannerInfo: bannerPullSystem.getBannerInfo,
+    bannerPull: bannerPullSystem.pullBanner,
     sellCharacters,
     mergeAll,
     bossAttack: bossAttackSystem,
@@ -28337,9 +28361,27 @@ if (text === '.مرشح' || text.startsWith('.مرشح ') || text === '.تص' ||
 // 🌌 .سحب_بنر — سحبة (160 أورب) أو 10 سحبات (1600 أورب)
 // =========================
 
+// 🔧 تعطيل مؤقت: السحب من البنر بالموقع فقط (غيّرها إلى true لإرجاع الأمر بالواتس)
+const BANNER_PULL_WHATSAPP_ENABLED = false
+
 if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
     const bpJid = msg.key.remoteJid
+
+    if (!BANNER_PULL_WHATSAPP_ENABLED) {
+        return sock.sendMessage(
+            bpJid,
+            {
+                text:
+`🌌 سحب البنر متاح حالياً من الموقع فقط
+
+🔗 اكتب .رابط لتحصل على رابط موقعك
+ثم افتح صفحة «بنر الأسبوع» من القائمة
+
+🎮 .بنر  •  .اورب  •  .تص  تعمل كالمعتاد بالواتس`
+            }
+        )
+    }
 
     // عدد السحبات: 1 أو 10 فقط
     let bpCount = 1
