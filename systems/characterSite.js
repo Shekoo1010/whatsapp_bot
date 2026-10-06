@@ -700,6 +700,7 @@ function navDrawerHTML(code, csrf, current, name) {
     const items = [
         ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
+        ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
@@ -2019,6 +2020,279 @@ function pullErrorMessage(r) {
     }
     if (r.code === 'NO_POOL') return `❌ لا توجد شخصيات بهذا التصنيف: ${r.rarity || ''}`
     return PULL_ERRORS[r.code] || PULL_ERRORS.SERVER
+}
+
+// ---------------------------------------------------------------
+// 🌌 صفحة بنر الأسبوع (نفس منطق .بنر و .سحب_بنر بالواتس — الحساب كله بالسيرفر
+// عبر systems/bannerPullSystem.js، والصفحة تعرض النتيجة بأنيميشن)
+// عنوان البنر = ability الشخصية الحالية (يتغير تلقائياً مع شخصية البنر)
+// الصور: تُضبط تلقائياً حسب نسبة الصورة (طويلة / عادية / عريضة) بالمتصفح
+// ---------------------------------------------------------------
+const BANNER_ERRORS = {
+    BUSY: '⏳ انتظر حتى تنتهي عملية السحب السابقة.',
+    NO_PLAYER: 'حسابك غير موجود.',
+    NO_BANNER: '❌ لا يوجد بنر حالياً.',
+    BANNED: '🚫 حسابك محظور من استخدام البوت.',
+    CLOSED: '⏰ البوت خارج وقت العمل (من 10:00 صباحاً حتى 12:05 منتصف الليل بتوقيت الرياض).',
+    OFFLINE: '📡 البوت غير متصل حالياً، حاول بعد قليل.',
+    BAD_COUNT: '❌ عدد السحبات غير صحيح.',
+    SERVER: '❌ صار خطأ بالخادم أثناء السحب — حدّث الصفحة وتأكد من شخصياتك ورصيدك قبل إعادة المحاولة.'
+}
+
+function bannerErrorMessage(r) {
+    if (r.code === 'FULL') return `❌ المخزون لا يكفي\n\n📦 السعة: ${Number(r.capacity) || 30}\n🆓 المتاح: ${Number(r.free) || 0}\n🎟️ المطلوب: ${Number(r.need) || 1}`
+    if (r.code === 'NO_ORBS') return `❌ الأورب غير كافية\n\n🔮 رصيدك: ${(Number(r.have) || 0).toLocaleString('en-US')}\n🎟️ المطلوب: ${(Number(r.need) || 0).toLocaleString('en-US')}\n\n📜 اربح الأورب من المهام اليومية بالواتس: .اورب`
+    if (r.code === 'SERVER' && r.refunded) return BANNER_ERRORS.SERVER + '\n🔮 تم استرجاع الأورب'
+    return BANNER_ERRORS[r.code] || BANNER_ERRORS.SERVER
+}
+
+function bannerPageHTML({ viewer, code, data }) {
+    return `${shellHead('بنر الأسبوع')}
+<style>
+.bp-wrap{max-width:560px;margin:0 auto}
+.bp-bn{position:relative;height:230px;border-radius:18px;overflow:hidden;border:2px solid var(--gold);background:#f6efe0;direction:ltr;color:#2a2418}
+.bp-bn::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#f6efe0f5 0,#f6efe0f5 36%,#f6efe000 62%)}
+.bp-bgb{position:absolute;inset:-24px;background-size:cover;background-position:center;background-repeat:no-repeat;filter:blur(22px) saturate(1.25)}
+.bp-art{position:absolute;top:0;bottom:0;right:0;width:min(70%,330px);background-repeat:no-repeat;background-size:cover;background-position:50% 30%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 24%);mask-image:linear-gradient(90deg,transparent 0,#000 24%)}
+.bp-bt{position:absolute;z-index:3;top:0;left:0;background:#d9a55c;color:#fff;font-weight:800;font-size:11px;padding:3px 12px;border-radius:0 0 12px 0}
+.bp-bl{position:absolute;z-index:2;left:12px;top:28px;width:46%;direction:rtl;text-align:right}
+.bp-bl h1{font-size:22px;font-weight:900;line-height:1.15;color:#b8772e;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bp-bl b{display:block;font-size:12px;margin-top:8px;font-weight:900}
+.bp-bl p{font-size:10.5px;background:#d9a55c;color:#fff;padding:5px 7px;border-radius:4px;margin-top:5px;line-height:1.5}
+.bp-bl small{display:block;font-size:10.5px;margin-top:6px;font-weight:800;color:#4a4033}
+.bp-nb{position:absolute;z-index:3;right:10px;bottom:10px;background:#0b0f1ccc;padding:5px 12px 7px;color:#fff;max-width:62%}
+.bp-nb h3{font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;line-height:1.1;overflow-wrap:anywhere}
+.bp-nb h3 em{font-style:normal;color:#ffd966;font-size:11px;margin-left:4px;vertical-align:top}
+.bp-nb s{text-decoration:none;display:block;color:#ff3860;letter-spacing:2px;font-size:14px;text-shadow:0 0 8px #ff386088}
+.bp-nb span{display:inline-block;background:#26346c;border-radius:3px;font-size:11px;padding:1px 8px;margin-top:3px}
+.bp-row{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;gap:10px;flex-wrap:wrap}
+.bp-bal{font-size:20px;font-weight:900;background:#0f1422;border:1px solid #1f2740;padding:6px 16px;border-radius:30px;color:var(--gold)}
+.bp-inv{font-size:13px;font-weight:800;color:var(--text-dim)}
+.bp-pt{font-size:13px;color:var(--text-dim);font-weight:700}.bp-pt b{color:var(--gold)}
+.bp-bar{height:6px;border-radius:6px;background:#1f2740;margin-top:5px;overflow:hidden}.bp-bar i{display:block;height:100%;background:linear-gradient(90deg,#4aa8ff,#ffb83d);transition:width .4s}
+.bp-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.bp-pb{font:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px;border-radius:16px;border:2px solid #1f2740;background:#0f1422;color:var(--text);cursor:pointer}
+.bp-pb b{font-size:18px;font-weight:900}.bp-pb small{color:var(--text-dim);font-weight:800}
+.bp-pb.g{border-color:var(--gold);background:linear-gradient(135deg,#f0c04a33,#0f1422)}.bp-pb:disabled{opacity:.4;cursor:not-allowed}.bp-pb:active{transform:scale(.97)}
+.bp-rt{font-size:11px;color:var(--text-dim);text-align:center;line-height:1.8}
+.bp-nx{text-align:center;font-size:13px;font-weight:800;color:var(--gold);margin-top:8px}
+.bp-h{font-size:14px;font-weight:900;color:var(--gold);margin:18px 0 8px}
+#bp-hist{display:flex;flex-wrap:wrap;gap:5px}#bp-hist i{width:44px;height:60px;border-radius:7px;border:2px solid var(--t);background-color:#151a28;background-repeat:no-repeat}
+#bp-ov{position:fixed;inset:0;z-index:70;overflow:hidden;display:none;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 12px env(safe-area-inset-bottom,0px);background:radial-gradient(ellipse at 50% 105%,#2d2058,transparent 60%),radial-gradient(circle at 50% 40%,#16204a,#05060c 75%)}
+.bp-ry{position:absolute;left:50%;top:50%;width:250vmax;height:250vmax;margin:-125vmax;background:repeating-conic-gradient(color-mix(in srgb,var(--b) 18%,transparent) 0 5deg,transparent 5deg 20deg);animation:bpsp 30s linear infinite;opacity:0;transition:opacity .8s}.bp-rs .bp-ry{opacity:1}
+@keyframes bpsp{to{transform:rotate(360deg)}}
+.bp-mt{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px;border-radius:50%;background:#fff;box-shadow:0 0 24px 10px var(--b),0 0 70px 26px var(--b);animation:bpmt 1.5s cubic-bezier(.55,0,.95,.65) forwards}
+.bp-mt::before{content:"";position:absolute;top:50%;right:50%;width:min(60vw,320px);height:6px;border-radius:6px;background:linear-gradient(to left,#fff,var(--b),transparent);transform-origin:right center;transform:translateY(-50%) rotate(50deg)}
+@keyframes bpmt{from{transform:translate(-48vw,-58vh) scale(.6)}to{transform:translate(0,0) scale(1.6)}}
+.bp-fl{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}.bp-fl.on{animation:bpfl .8s ease-out}
+@keyframes bpfl{0%{opacity:0}20%{opacity:1}100%{opacity:0}}
+.bp-rg{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px;border-radius:50%;border:3px solid var(--b);opacity:0}.bp-rg.on{animation:bprg .9s ease-out}
+@keyframes bprg{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(30)}}
+#bp-ov.bp-shk{animation:bpshk .5s}@keyframes bpshk{20%{transform:translate(-6px,4px)}40%{transform:translate(5px,-5px)}60%{transform:translate(-4px,-2px)}80%{transform:translate(3px,3px)}}
+.bp-cs{position:relative;z-index:2}
+.bp-cs.n1 .bpc{width:min(62vw,250px);font-size:16px}
+.bp-cs.n10{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-width:520px}.bp-cs.n10 .bpc{font-size:8.5px}
+.bpc{position:relative;aspect-ratio:3/4.3;perspective:700px;cursor:pointer;animation:bpdr .5s cubic-bezier(.2,1.3,.4,1) both}.bpc.f{z-index:2}
+@keyframes bpdr{from{opacity:0;transform:translateY(-70px) scale(.5) rotate(-12deg)}to{opacity:1;transform:none}}
+.bpi{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,1.2,.5,1)}.bpc.f .bpi{transform:rotateY(180deg)}
+.bpk,.bpf{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:.9em;border:2.5px solid var(--t);overflow:hidden}
+.bpk{background:linear-gradient(160deg,#1b2140,#0a0d1a);box-shadow:0 0 1.4em color-mix(in srgb,var(--t) 70%,transparent);display:grid;place-items:center;font-size:3.5em;color:var(--t);text-shadow:0 0 12px var(--t);animation:bpbk 1.6s ease-in-out infinite}
+@keyframes bpbk{50%{box-shadow:0 0 2.4em color-mix(in srgb,var(--t) 95%,transparent)}}
+.bpf{transform:rotateY(180deg);background-color:#151a28;color:#fff;direction:ltr;box-shadow:inset 0 0 0 .3em #0a0d16aa,inset 0 0 0 .36em color-mix(in srgb,var(--t) 60%,transparent)}
+.bpa{position:absolute;inset:0;background-repeat:no-repeat;background-size:cover;background-position:50% 25%}
+.bpf::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(#0a0d16d9,#0a0d1600 30%,#0a0d1600 55%,#0a0d16f0)}
+.bpf::after{content:"";position:absolute;inset:0;z-index:3;background:linear-gradient(115deg,transparent 35%,#ffffff55 50%,transparent 65%);transform:translateX(-120%);pointer-events:none}
+.bpc.f .bpf::after{animation:bpsh 1.2s .5s ease-out forwards}@keyframes bpsh{to{transform:translateX(120%)}}
+.bph,.bps,.bpt{position:absolute;left:0;right:0;z-index:2}
+.bph{top:0;padding:.6em .7em;display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',Impact,sans-serif}
+.bpw{font-size:.95em;font-weight:600;color:#0a0d16;background:var(--t);padding:.2em .6em;border-radius:2em}
+.bptn{font-weight:600;color:var(--t);letter-spacing:.08em}.bptn.ar{font-family:'Cairo',sans-serif;letter-spacing:0;font-weight:800}
+.bps{top:2.5em;padding:0 .7em;color:var(--t);font-size:.95em;text-shadow:0 0 8px var(--t)}
+.bps i{font-style:normal;display:inline-block;opacity:0;transform:scale(2.4) rotate(-40deg)}
+.bpc.f .bps i{animation:bppp .35s calc(.45s + var(--n)*.12s) cubic-bezier(.3,1.6,.5,1) forwards}@keyframes bppp{to{opacity:1;transform:none}}
+.bpt{bottom:0;padding:.6em .5em .8em;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.4em}
+.bpn{font-family:'Oswald',Impact,sans-serif;font-weight:600;font-size:1.3em;line-height:1.1;text-shadow:0 2px 8px #000;overflow-wrap:anywhere}
+.bpan{font-size:.8em;color:var(--t);border:1px solid var(--t);border-radius:2em;padding:.1em .8em;background:#080a12a6;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bpfe{position:absolute;z-index:3;top:3.6em;right:.6em;font-size:.85em;font-weight:800;background:#0a0d16cc;color:#ffd966;border:1px solid #ffd966;border-radius:2em;padding:.05em .6em;font-family:'Cairo',sans-serif}
+.bp-cs.n10 .bps,.bp-cs.n10 .bpan,.bp-cs.n10 .bpw,.bp-cs.n10 .bpfe{display:none}.bp-cs.n10 .bpn{font-size:1.15em}
+.bpc.bst::after{content:"";position:absolute;inset:-3px;border-radius:1em;border:3px solid var(--t);animation:bpbs .9s ease-out forwards;pointer-events:none}
+@keyframes bpbs{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.6)}}
+.bp-ctl{position:absolute;z-index:4;bottom:calc(22px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;gap:10px;justify-content:center}
+.bp-ctl button{font:inherit;font-weight:800;padding:10px 24px;border-radius:30px;border:1.5px solid #ffffff55;background:#0009;color:#fff;cursor:pointer}
+.bp-sp{position:absolute;bottom:-10px;border-radius:50%;background:var(--b);box-shadow:0 0 8px 2px var(--b);animation:bpup linear infinite;opacity:0;pointer-events:none}
+@keyframes bpup{0%{transform:translateY(0) scale(.5);opacity:0}15%{opacity:1}100%{transform:translateY(-105vh) scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.bp-mt,.bp-ry,.bp-sp,.bpk{animation:none}}
+</style>
+<body><div style="padding:30px 16px 60px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">بنر الأسبوع</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'banner', viewer.name)}
+  <div class="bp-wrap">
+    <div class="bp-bn" id="bp-bn"><div class="bp-bgb" id="bp-bgb"></div><div class="bp-art" id="bp-art"></div>
+      <div class="bp-bt">بنر الشخصية</div>
+      <div class="bp-bl"><h1 id="bp-ab"></h1><b>احتمال أعلى!</b><p id="bp-note"></p><small id="bp-left"></small></div>
+      <div class="bp-nb"><h3><span id="bp-nm"></span><em>UP!</em></h3><s>★★★★</s><span id="bp-an"></span></div>
+    </div>
+    <div class="bp-nx" id="bp-nx" hidden></div>
+    <div class="bp-row"><div class="bp-bal">🔮 <span id="bp-orbs">0</span></div><div class="bp-inv">📦 المخزون <span id="bp-inv">-</span></div></div>
+    <div class="bp-pt">🎯 ضمان SSS: <b id="bp-pt">0</b>/<span id="bp-hp"></span><div class="bp-bar"><i id="bp-pb"></i></div><div id="bp-gt" style="margin-top:4px"></div></div>
+    <div class="gp-msg" id="bp-msg" hidden style="white-space:pre-wrap;margin-top:12px"></div>
+    <div class="bp-btns">
+      <button id="bp-b1" class="bp-pb" type="button"><b>سحبة x1</b><small id="bp-c1"></small></button>
+      <button id="bp-b10" class="bp-pb g" type="button"><b id="bp-t10"></b><small id="bp-c10"></small></button>
+    </div>
+    <div class="bp-rt" id="bp-rt"></div>
+    <div class="bp-rt" style="margin-top:6px">📜 اربح الأورب من المهام اليومية بالواتس: .اورب</div>
+    <div id="bp-hw" hidden><div class="bp-h">آخر سحباتك في هذه الجلسة</div><div id="bp-hist"></div></div>
+  </div>
+</div>
+<div id="bp-ov" aria-hidden="true"></div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, D=${jsonForScript(data)};
+  var busy=false, hist=[], ending=false;
+  function $(id){ return document.getElementById(id); }
+  function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  function fmt(n){ return Number(n||0).toLocaleString('en-US'); }
+  function show(kind,text){ var m=$('bp-msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+
+  // 🖼️ ضبط الصورة حسب نسبتها: طويلة / عادية / عريضة (يُحدَّد من الأبعاد الفعلية)
+  function fitOf(w,h){
+    var r=w/h;
+    if(r<.75) return {bp:'50% 40%',cp:'50% 24%'};   // طويلة: الوجه بالأعلى
+    if(r>1.4) return {bp:'50% 38%',cp:'50% 30%'};   // عريضة
+    return {bp:'50% 28%',cp:'50% 22%'};              // عادية
+  }
+  function fitInto(url,cb){
+    if(!url) return;
+    var im=new Image();
+    im.onload=function(){ try{ cb(fitOf(im.naturalWidth||1,im.naturalHeight||1)); }catch(e){} };
+    im.src=url;
+  }
+  function setBg(node,url){ node.style.backgroundImage="url('"+url+"')"; }
+
+  // ───── البنر (العنوان = ability الشخصية) ─────
+  function renderBanner(){
+    var b=D.banner, c=D.cfg;
+    $('bp-ab').textContent=b.ability||'بنر الشخصية';
+    $('bp-nm').textContent=b.name; $('bp-an').textContent=b.anime||'';
+    $('bp-note').textContent='ضمان SSS عند '+c.hardPity+' سحبة — '+c.featured+'% من الـ SSS تكون شخصية البنر.';
+    $('bp-hp').textContent=c.hardPity;
+    $('bp-c1').textContent='🔮 '+fmt(c.pullCost);
+    $('bp-t10').textContent='سحبة x'+c.multiCount;
+    $('bp-c10').textContent='🔮 '+fmt(c.multiCost);
+    $('bp-rt').textContent='SSS '+c.sssRate+'% (ترتفع من السحبة '+c.softPity+') · اسطوري '+c.legendary+'% · ممتاز '+c.excellent+'% · عادي الباقي';
+    if(b.img){ setBg($('bp-bgb'),b.img); setBg($('bp-art'),b.img); fitInto(b.img,function(f){ $('bp-art').style.backgroundPosition=f.bp; }); }
+    var nx=$('bp-nx');
+    if(D.next&&D.next.kind==='next'){ nx.textContent='📅 البنر القادم: '+D.next.name; nx.hidden=false; }
+    else if(D.next&&D.next.kind==='vote'){ nx.textContent='🗳️ التصويت على البنر القادم مفتوح — اكتب .تص بالواتس'; nx.hidden=false; }
+  }
+  function stats(){
+    var c=D.cfg;
+    $('bp-orbs').textContent=fmt(D.orbs);
+    $('bp-pt').textContent=D.pity;
+    $('bp-pb').style.width=Math.min(100,D.pity/c.hardPity*100)+'%';
+    $('bp-gt').textContent=D.guaranteed?'⭐ الـ SSS القادمة مضمونة من البنر':'⭐ الـ SSS القادمة '+c.featured+'% للبنر';
+    $('bp-inv').textContent=(D.count!=null?D.count:'-')+'/'+(D.cap!=null?D.cap:'-');
+    $('bp-b1').disabled=busy||D.orbs<c.pullCost;
+    $('bp-b10').disabled=busy||D.orbs<c.multiCost;
+  }
+  function tick(){
+    var ms=D.endsAt-Date.now();
+    if(ms<=0){ $('bp-left').textContent='⏳ جارٍ تجديد البنر…'; if(!ending&&!busy){ ending=true; setTimeout(function(){ location.reload(); },4000); } return; }
+    var s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60);
+    $('bp-left').textContent='الوقت المتبقي: '+(d>0?d+' يوم ':'')+h+' ساعة '+(d>0?'':m+' دقيقة');
+  }
+
+  // ───── الأنميشن ─────
+  function mkCard(c,k){
+    var w=el('div','bpc'); w.style.setProperty('--t',c.color); w.style.animationDelay=(k*.07)+'s';
+    var inn=el('div','bpi'), bk=el('div','bpk'); bk.appendChild(el('span','','✦'));
+    var fr=el('div','bpf'), art=el('div','bpa');
+    if(c.img){ setBg(art,c.img); fitInto(c.img,function(f){ art.style.backgroundPosition=f.cp; }); }
+    fr.appendChild(art);
+    var hd=el('div','bph'); hd.appendChild(el('span','bpw',fmt(c.power)+' PWR')); hd.appendChild(el('span','bptn '+(c.lang||''),c.tier)); fr.appendChild(hd);
+    var st=el('div','bps'); for(var j=0;j<c.stars;j++){ var si=el('i','','★'); si.style.setProperty('--n',j); st.appendChild(si); } fr.appendChild(st);
+    if(c.featured) fr.appendChild(el('div','bpfe','👑 البنر'));
+    var ft=el('div','bpt'); ft.appendChild(el('div','bpn',c.name)); if(c.anime) ft.appendChild(el('span','bpan',c.anime)); fr.appendChild(ft);
+    inn.appendChild(bk); inn.appendChild(fr); w.appendChild(inn);
+    return w;
+  }
+  function play(cards,done){
+    var o=$('bp-ov'), n=cards.length, left=n, bursted=false, best=cards[0];
+    cards.forEach(function(c){ if(c.stars>best.stars) best=c; });
+    o.className=''; o.style.display='flex'; o.setAttribute('aria-hidden','false'); o.style.setProperty('--b',best.color);
+    o.innerHTML='';
+    ['bp-ry','bp-fl','bp-rg'].forEach(function(cl){ o.appendChild(el('div',cl)); });
+    var mw=el('div','bp-mw'); mw.style.cssText='position:absolute;inset:0'; mw.appendChild(el('div','bp-mt')); o.appendChild(mw);
+    var cs=el('div','bp-cs n'+n); o.appendChild(cs);
+    var ctl=el('div','bp-ctl'), sk=el('button','','تخطي ⏭'); sk.type='button'; ctl.appendChild(sk); o.appendChild(ctl);
+    var t1=setTimeout(burst,1500); sk.onclick=function(){ clearTimeout(t1); burst(); };
+    function burst(){
+      if(bursted) return; bursted=true; mw.remove();
+      o.querySelector('.bp-fl').classList.add('on'); o.querySelector('.bp-rg').classList.add('on'); o.classList.add('bp-shk');
+      setTimeout(deal,450);
+    }
+    function deal(){
+      o.classList.add('bp-rs');
+      for(var k=0;k<22;k++){ var d=el('div','bp-sp'), z=3+Math.random()*5; d.style.cssText='left:'+Math.random()*100+'%;width:'+z+'px;height:'+z+'px;animation-duration:'+(4+Math.random()*5)+'s;animation-delay:'+Math.random()*4+'s'; o.appendChild(d); }
+      var els=cards.map(function(c,k){ var e=mkCard(c,k); cs.appendChild(e); return e; });
+      ctl.innerHTML='';
+      var al=el('button','',n>1?'كشف الكل':'اضغط البطاقة للكشف'); al.type='button'; ctl.appendChild(al);
+      function flip(k){
+        var e=els[k]; if(e.classList.contains('f')) return; e.classList.add('f');
+        if(cards[k].stars>=3){ var q=o.querySelector('.bp-fl'); q.style.background=cards[k].color; q.classList.remove('on'); void q.offsetWidth; q.classList.add('on'); setTimeout(function(){ e.classList.add('bst'); },350); }
+        if(--left===0){ ctl.innerHTML=''; var dn=el('button','','تم ✓'); dn.type='button'; dn.onclick=close; ctl.appendChild(dn); }
+      }
+      els.forEach(function(e,k){ e.onclick=function(){ flip(k); }; });
+      al.onclick=function(){ els.forEach(function(e,k){ setTimeout(function(){ flip(k); },k*140); }); };
+    }
+    function close(){ o.style.display='none'; o.setAttribute('aria-hidden','true'); o.innerHTML=''; done(); }
+  }
+  function addHist(cards){
+    cards.slice().reverse().forEach(function(c){ hist.unshift(c); });
+    hist=hist.slice(0,30);
+    var h=$('bp-hist'); h.innerHTML='';
+    hist.forEach(function(c){ var i=el('i'); i.style.setProperty('--t',c.color); if(c.img){ setBg(i,c.img); i.style.backgroundSize='cover'; i.style.backgroundPosition='50% 24%'; fitInto(c.img,function(f){ i.style.backgroundPosition=f.cp; }); } h.appendChild(i); });
+    $('bp-hw').hidden=!hist.length;
+  }
+
+  // ───── السحب ─────
+  function pull(n){
+    if(busy) return;
+    busy=true; stats(); show(null);
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/banner/pull',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,body:JSON.stringify({csrf:CSRF,code:CODE,count:n})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm);
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      var j=x.j;
+      if(j.state){
+        if(j.state.orbs!=null) D.orbs=j.state.orbs;
+        if(j.state.pity!=null) D.pity=j.state.pity;
+        if(j.state.guaranteed!=null) D.guaranteed=j.state.guaranteed;
+        if(j.state.count!=null) D.count=j.state.count;
+        if(j.state.cap!=null) D.cap=j.state.cap;
+      }
+      if(j.ok){
+        var fin=function(){ busy=false; addHist(j.cards); stats(); var notes=(j.notes||[]).join(String.fromCharCode(10)); if(notes) show('good',notes); };
+        try{ play(j.cards,fin); }catch(e){ $('bp-ov').style.display='none'; fin(); }
+      } else { busy=false; show('bad',j.message||'فشل السحب'); stats(); }
+    })
+    .catch(function(){
+      clearTimeout(tm); busy=false;
+      show('warn','لم يصلنا رد من السيرفر — قد تكون السحبة تمت. حدّث الصفحة للتأكد من رصيدك ومخزونك قبل المحاولة من جديد.');
+      stats();
+    });
+  }
+  $('bp-b1').addEventListener('click',function(){ pull(1); });
+  $('bp-b10').addEventListener('click',function(){ pull(D.cfg.multiCount); });
+  renderBanner(); stats(); tick(); setInterval(tick,1000);
+})();
+</script></body></html>`
 }
 
 const TRADE_ERRORS = {
@@ -3683,6 +3957,8 @@ function registerCharacterSite(app, Player, opts = {}) {
     const mergeAll = opts.mergeAll     // من systems/characterTradeSystem.js (نفس منطق .دمج_الكل)
     const bossAttack = opts.bossAttack // من systems/bossAttackSystem.js (نفس منطق .هجوم)
     const bossPush = opts.bossPush     // من systems/bossPush.js (إشعارات الهاتف عند ظهور الزعيم)
+    const bannerInfo = opts.bannerInfo // من systems/bannerPullSystem.js (معلومات البنر + رصيد الأورب)
+    const bannerPull = opts.bannerPull // من systems/bannerPullSystem.js (نفس منطق .سحب_بنر)
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -4100,6 +4376,105 @@ function registerCharacterSite(app, Player, opts = {}) {
             return fail(500, 'SERVER', TRADE_ERRORS.SERVER)
         }
     }
+
+    // ─────────────── 🌌 بنر الأسبوع (نفس .بنر و .سحب_بنر بالواتس) ───────────────
+    // شكل آمن للمتصفح: حقول محددة فقط + روابط صور مفلترة. العنوان = ability شخصية البنر الحالية.
+    function bannerDataOut(info, player) {
+        const catIdx = getCatalogIndex(getCatalog)
+        const b = info.banner || {}
+        const disp = resolveDisplayChar(b, catIdx)
+        return {
+            banner: {
+                name: String(disp.name || b.name || ''),
+                anime: String(disp.anime || b.anime || ''),
+                power: Number(disp.power) || 0,
+                ability: String(b.ability || disp.ability || ''),
+                img: safeImageUrl(disp.image) || localCharImageUrl(disp.image) || null
+            },
+            endsAt: Number(info.endsAt) || 0,
+            orbs: Number(info.orbs) || 0,
+            pity: Number(info.pity) || 0,
+            guaranteed: !!info.guaranteed,
+            next: info.next && info.next.kind
+                ? { kind: info.next.kind === 'next' ? 'next' : 'vote', name: String(info.next.name || '') }
+                : null,
+            cfg: {
+                pullCost: Number(info.cfg.pullCost) || 0, multiCount: Number(info.cfg.multiCount) || 10, multiCost: Number(info.cfg.multiCost) || 0,
+                sssRate: Number(info.cfg.sssRate) || 0, softPity: Number(info.cfg.softPity) || 0, hardPity: Number(info.cfg.hardPity) || 0,
+                featured: Number(info.cfg.featured) || 0, legendary: Number(info.cfg.legendary) || 0, excellent: Number(info.cfg.excellent) || 0
+            },
+            count: (player.characters || []).length,
+            cap: Number(player.maxCharacters) || 30
+        }
+    }
+
+    app.get('/u/:code/banner', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters sessionVersion maxCharacters')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            if (typeof bannerInfo !== 'function') return res.status(503).send('البنر من الموقع غير مفعّل حالياً.')
+
+            const info = await bannerInfo({ userId: player.userId })
+            if (!info || !info.ok) return res.status(503).send(info && info.code === 'NO_BANNER' ? 'لا يوجد بنر حالياً.' : 'تعذر تحميل البنر، حاول بعد قليل.')
+
+            res.send(bannerPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                data: bannerDataOut(info, player)
+            }))
+        } catch (err) {
+            console.error('banner page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/banner/pull', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, bannerPull)
+        if (!g || !g.sess) return
+        try {
+            const count = parseInt(g.body.count, 10)
+            const r = await bannerPull({ userId: g.sess.u, count })
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : r.code === 'OFFLINE' ? 503 : 400
+                const extra = {}
+                if (r.code === 'NO_ORBS') extra.state = { orbs: Number(r.have) || 0 }
+                return g.fail(status, r.code, bannerErrorMessage(r), extra)
+            }
+
+            const catIdx = getCatalogIndex(getCatalog)
+            const cards = (r.results || []).map(x => ({
+                ...pullCardData(resolveDisplayChar(x.character, catIdx)),
+                featured: !!x.featured,
+                pityAt: Number(x.pityAt) || 0
+            }))
+
+            res.json({
+                ok: true,
+                cards,
+                notes: (r.worldTexts || []).map(String),
+                state: {
+                    orbs: Number(r.orbs) || 0,
+                    pity: Number(r.pity) || 0,
+                    guaranteed: !!r.guaranteed,
+                    count: Number(r.charCount) || 0,
+                    cap: Number(r.capacity) || 30
+                }
+            })
+        } catch (err) {
+            console.error('banner pull route error:', err)
+            return g.fail(500, 'SERVER', BANNER_ERRORS.SERVER)
+        }
+    })
 
     // ─────────────── 💰 صفحة بيع الشخصيات (قائمة + اختيار + كتابة تأكيد) ───────────────
     app.get('/u/:code/sell', async (req, res) => {
