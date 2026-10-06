@@ -12,6 +12,7 @@ const pathMod = require('path')
 const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
 const mongoose = require('mongoose')
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
+const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 
 const PAGE_SIZE = 40
 const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
@@ -1835,6 +1836,15 @@ h2{font-size:15px;font-weight:900;color:var(--gold);margin:24px 0 10px;display:f
 .ac{margin-top:8px;display:inline-block;font-size:12px;color:var(--t);border:1px solid color-mix(in srgb,var(--t) 50%,transparent);border-radius:20px;padding:2px 12px}
 .note{margin:18px 0 0;padding:12px;border:1px dashed var(--gold-dim);border-radius:12px;color:var(--mut);font-size:12px;line-height:1.8}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:70;background:#151b2e;border:1px solid var(--gold-dim);color:var(--tx);padding:10px 18px;border-radius:30px;font-weight:800;font-size:13px;max-width:90vw;text-align:center}
+.av.has{background-size:cover;background-position:center top;background-repeat:no-repeat;font-size:0}
+.row .av.has{width:46px;height:46px;border-radius:12px}
+.pc.pi{display:flex;flex-direction:column;justify-content:flex-end;aspect-ratio:3/4.3;padding:0 4px 12px}
+.pc.pi.g1{aspect-ratio:3/4.9;padding-top:0}
+.pim{position:absolute;inset:0;background-size:cover;background-position:center top;background-repeat:no-repeat;background-color:#151a28}
+.pc.pi::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,#0a0d1666 0,transparent 28%,transparent 48%,#080b14f0 100%)}
+.pc.pi .md{position:absolute;top:8px;inset-inline-start:8px;z-index:3;font-size:26px}.pc.pi.g1 .md{font-size:32px}
+.pc.pi .spk{z-index:3}.pc.pi .nm,.pc.pi .lk{position:relative;z-index:3;text-shadow:0 2px 8px #000}
+.pc.pi .nm{font-size:14px}.pc.pi.g1 .nm{font-size:16px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}.pc,.card{opacity:1!important}}
 .mg{width:100%;margin:16px 0 0;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:linear-gradient(135deg,#f0c04a22,var(--panel));border:1.5px solid var(--gold);color:var(--gold);border-radius:14px;padding:12px;font-family:inherit;font-weight:900;font-size:15px;cursor:pointer}.mg small{color:var(--mut);font-weight:700;font-size:11px}
 .mhead{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;font-weight:900;color:var(--gold);font-size:15px}.mhead b{color:var(--tx)}
@@ -1858,12 +1868,12 @@ var MD=['🥇','🥈','🥉'];
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function J(u,o){return fetch(u,Object.assign({credentials:'same-origin'},o||{})).then(function(r){return r.json().catch(function(){return{ok:false}})}).catch(function(){return{ok:false,message:'تعذر الاتصال بالسيرفر'}})}
 function toast(m){var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2600)}
-function av(o){return '<div class="av" style="--c:hsl('+o.h+' 75% 62%)">'+esc(Array.from(o.u.replace(/^@/,''))[0]||'?')+'</div>'}
+function av(o){if(o.i)return '<div class="av has" style="--c:hsl('+o.h+' 75% 62%);background-image:url(\''+esc(o.i)+'\')"></div>';return '<div class="av" style="--c:hsl('+o.h+' 75% 62%)">'+esc(Array.from(o.u.replace(/^@/,''))[0]||'?')+'</div>'}
 function rowH(o,rk){return '<div class="row'+(rk&&rk<=3?' top3 g'+rk:'')+'" data-u="'+esc(o.id)+'"><div class="rk">'+(rk&&rk<=3?MD[rk-1]:(rk||''))+'</div>'+av(o)+'<div class="who"><b>'+esc(o.u)+'</b><small>'+o.n+' شخصيات</small></div><div class="lkc">❤️ '+o.l+'</div></div>'}
 function list(){
  if(!owners.length){$('#app').innerHTML='<div class="narrow">'+mineBar()+'<div class="note" style="margin-top:24px">ما فيه معارض بعد'+(G.owner?' — ابدأ بمعرضك من زر إدارة معرضي':'')+'</div></div>';bindMg();return}
  var top=owners.slice(0,10),pod=[[top[1],2],[top[0],1],[top[2],3]].filter(function(p){return p[0]});
- var h='<div class="narrow">'+mineBar()+'<div class="pod">'+pod.map(function(p){var o=p[0],k=p[1];return '<div class="pc g'+k+'" data-u="'+esc(o.id)+'"><span class="spk" style="top:8px;right:10px">✨</span><span class="spk" style="top:30px;left:10px;animation-delay:.7s">✨</span><div class="md">'+MD[k-1]+'</div><div style="display:flex;justify-content:center;margin-top:6px">'+av(o)+'</div><div class="nm">'+esc(o.u)+'</div><div class="lk">❤️ '+o.l+'</div></div>'}).join('')+'</div>';
+ var h='<div class="narrow">'+mineBar()+'<div class="pod">'+pod.map(function(p){var o=p[0],k=p[1];return '<div class="pc g'+k+(o.i?' pi':'')+'" data-u="'+esc(o.id)+'">'+(o.i?'<div class="pim" style="background-image:url(\''+esc(o.i)+'\')"></div>':'')+'<span class="spk" style="top:8px;right:10px">✨</span><span class="spk" style="top:30px;left:10px;animation-delay:.7s">✨</span><div class="md">'+MD[k-1]+'</div>'+(o.i?'':'<div style="display:flex;justify-content:center;margin-top:6px">'+av(o)+'</div>')+'<div class="nm">'+esc(o.u)+'</div><div class="lk">❤️ '+o.l+'</div></div>'}).join('')+'</div>';
  h+='<h2>🏆 أعلى 10 معارض <small>حسب اللايكات</small></h2>'+top.map(function(o,i){return rowH(o,i+1)}).join('');
  h+='<h2>🖼️ كل المعارض <small>('+owners.length+')</small></h2><input class="search" id="q" placeholder="ابحث باسم اللاعب…"><div id="all" style="margin-top:12px"></div></div>';
  $('#app').innerHTML=h;all();$('#q').oninput=all;bindMg();
@@ -3354,7 +3364,7 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText }) {
   ${topbar}
   <div class="tp-eb">Top Players</div>
   <h1>أقوى اللاعبين</h1>
-  <p class="tp-sub">الترتيب حسب مجموع قوة كل شخصيات اللاعب، أول ${TOP_LIMIT} لاعب</p>
+  <p class="tp-sub">الترتيب حسب مجموع قوة شخصيات اللاعب (بحدّ سعة مخزونه)، أول ${TOP_LIMIT} لاعب</p>
   <div class="tp-orn">◆</div>
   ${body}
 </div>
@@ -4787,24 +4797,55 @@ function registerCharacterSite(app, Player, opts = {}) {
     })
 
     // ─────────────── 🏆 أقوى اللاعبين ───────────────
-    // الترتيب يُحسب بتجميع واحد على قاعدة البيانات ويُخزَّن بالذاكرة (TOP_CACHE_MS)
-    // فلا يُحسب عند كل فتح للصفحة. ترتيب اللاعب خارج الأول 30 يُخزَّن هو الآخر.
+    // قوة الترتيب = مجموع قوة أول N شخصية بنفس ترتيب .شخصياتي (المخزّن بالمصفوفة)،
+    // حيث N = سعة مخزون اللاعب (maxCharacters). الزائد عن المخزون لا يُحسب.
+    // مثال: 180 شخصية والمخزون 170 → تُحسب أول 170 فقط.
+    // الحساب بتجميع واحد على قاعدة البيانات ويُخزَّن بالذاكرة (TOP_CACHE_MS).
+    const CAP_EXPR = { $cond: [{ $gt: [{ $ifNull: ['$maxCharacters', 0] }, 0] }, '$maxCharacters', DEFAULT_CAP] }
+    let totalsCache = null   // { at, rows }  rows مرتبة تنازلياً: { _id, userId, name, username, total }
+    let totalsPending = null
     let topCache = null      // { at, list }
     let topPending = null
-    const rankCache = new Map() // userId -> { at, total, rank }
+
+    function getTotals() {
+        const now = Date.now()
+        if (totalsCache && now - totalsCache.at < TOP_CACHE_MS) return Promise.resolve(totalsCache)
+        if (totalsPending) return totalsPending
+        totalsPending = (async () => {
+            try {
+                const rows = await Player.aggregate([
+                    { $match: { 'characters.0': { $exists: true } } },
+                    {
+                        $project: {
+                            userId: 1, name: 1, username: 1,
+                            total: { $sum: { $slice: [{ $ifNull: ['$characters.power', []] }, CAP_EXPR] } }
+                        }
+                    },
+                    { $match: { total: { $gt: 0 } } },
+                    { $sort: { total: -1, _id: 1 } }
+                ]).allowDiskUse(true)
+                totalsCache = { at: Date.now(), rows }
+                return totalsCache
+            } catch (err) {
+                if (totalsCache) return totalsCache // لو فشل التحديث نعرض آخر نسخة بدل الخطأ
+                throw err
+            } finally {
+                totalsPending = null
+            }
+        })()
+        return totalsPending
+    }
 
     function getTopList() {
-        const now = Date.now()
-        if (topCache && now - topCache.at < TOP_CACHE_MS) return Promise.resolve(topCache)
         if (topPending) return topPending
         topPending = (async () => {
             try {
-                const list = await Player.aggregate([
-                    { $match: { 'characters.0': { $exists: true } } },
-                    { $project: { userId: 1, name: 1, username: 1, characters: 1, total: { $sum: '$characters.power' } } },
-                    { $match: { total: { $gt: 0 } } },
-                    { $sort: { total: -1, _id: 1 } },
-                    { $limit: TOP_LIMIT },
+                const snap = await getTotals()
+                if (topCache && topCache.at === snap.at) return topCache
+
+                const head = snap.rows.slice(0, TOP_LIMIT)
+                const tops = head.length ? await Player.aggregate([
+                    { $match: { _id: { $in: head.map(r => r._id) } } },
                     {
                         $addFields: {
                             top: {
@@ -4824,16 +4865,22 @@ function registerCharacterSite(app, Player, opts = {}) {
                     },
                     {
                         $project: {
-                            _id: 0, userId: 1, name: 1, username: 1, total: 1,
+                            _id: 1,
                             'top.name': 1, 'top.rarity': 1, 'top.form': 1, 'top.evolutionLevel': 1,
                             'top.image': 1, 'top.customImage': 1, 'top.power': 1
                         }
                     }
-                ]).allowDiskUse(true)
-                topCache = { at: Date.now(), list }
+                ]).allowDiskUse(true) : []
+                const topMap = new Map(tops.map(t => [String(t._id), t.top]))
+
+                const list = head.map(r => ({
+                    userId: r.userId, name: r.name, username: r.username, total: r.total,
+                    top: topMap.get(String(r._id)) || null
+                }))
+                topCache = { at: snap.at, list }
                 return topCache
             } catch (err) {
-                if (topCache) return topCache // لو فشل التحديث نعرض آخر نسخة بدل الخطأ
+                if (topCache) return topCache
                 throw err
             } finally {
                 topPending = null
@@ -4842,21 +4889,15 @@ function registerCharacterSite(app, Player, opts = {}) {
         return topPending
     }
 
-    // ترتيب لاعب خارج الأول 30 = عدد اللاعبين الأقوى منه + 1
+    // ترتيب لاعب خارج الأول 30 = عدد اللاعبين الأقوى منه + 1 (من نفس القائمة المحسوبة بحدّ المخزون)
     async function getOutsideRank(userId, total) {
-        const now = Date.now()
-        const hit = rankCache.get(userId)
-        if (hit && hit.total === total && now - hit.at < TOP_CACHE_MS) return hit.rank
-        const r = await Player.aggregate([
-            { $match: { 'characters.0': { $exists: true } } },
-            { $project: { _id: 0, total: { $sum: '$characters.power' } } },
-            { $match: { total: { $gt: total } } },
-            { $count: 'n' }
-        ]).allowDiskUse(true)
-        const rank = ((r[0] && r[0].n) || 0) + 1
-        if (rankCache.size > 2000) rankCache.clear()
-        rankCache.set(userId, { at: now, total, rank })
-        return rank
+        const snap = await getTotals()
+        let n = 0
+        for (const r of snap.rows) {
+            if (r.total > total) n++
+            else break // القائمة مرتبة تنازلياً
+        }
+        return n + 1
     }
 
     function agoText(ms) {
@@ -4874,7 +4915,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!CODE_RE.test(code)) return html404(res)
 
             const player = await Player.findOne({ siteCode: code })
-                .select('userId name username characters sessionVersion')
+                .select('userId name username characters maxCharacters sessionVersion')
                 .lean()
             if (!player) return html404(res)
 
@@ -4903,7 +4944,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const entries = snap.list.map(toEntry)
 
             // ترتيب صاحب الصفحة (للشريط السفلي)
-            const myTotal = (player.characters || []).reduce((s, c) => s + (Number(c && c.power) || 0), 0)
+            const myTotal = cappedPower(player) // أول N شخصية (بترتيب .شخصياتي) حسب سعة المخزون
             const myIdx = snap.list.findIndex(d => d.userId === player.userId)
             let myRank = null
             if (myIdx >= 0) myRank = myIdx + 1
@@ -4953,12 +4994,16 @@ function registerCharacterSite(app, Player, opts = {}) {
             .select('userId name username gallery galleryLikes characters')
             .lean()
         const list = []
+        const catIdx = getCatalogIndex(getCatalog)
         for (const d of docs) {
             const n = getGalleryCharacters(d).length
             if (!n) continue
             const id = galId(d.userId)
+            // 🖼️ صورة اللاعب بالمعارض = شخصية البروفايل (أول شخصية بـ .شخصياتي — ثابتة رقم 1)
+            const first = Array.isArray(d.characters) && d.characters[0] ? resolveDisplayChar(d.characters[0], catIdx) : null
             list.push({
                 id, userId: d.userId,
+                i: first ? safeImageUrl(first.image) : null,
                 u: d.username ? '@' + d.username : (d.name || 'لاعب'),
                 l: Array.isArray(d.galleryLikes) ? d.galleryLikes.length : 0,
                 n, h: parseInt(id.slice(0, 4), 16) % 360
@@ -5005,7 +5050,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const v = await galViewer(req)
             if (!v.ok) return res.status(401).json({ ok: false, message: 'سجّل الدخول أو افتح وضع المشاهدة.' })
             const snap = await galleryOwners()
-            res.json({ ok: true, owners: snap.list.map(o => ({ id: o.id, u: o.u, l: o.l, n: o.n, h: o.h })) })
+            res.json({ ok: true, owners: snap.list.map(o => ({ id: o.id, u: o.u, l: o.l, n: o.n, h: o.h, i: o.i })) })
         } catch (err) {
             console.error('gallery list error:', err)
             res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
