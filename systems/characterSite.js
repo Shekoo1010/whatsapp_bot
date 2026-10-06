@@ -745,7 +745,6 @@ function navDrawerHTML(code, csrf, current, name) {
 .nvls form{margin:0}
 @media(max-width:400px){.bnav{left:8px;right:8px;padding:6px 4px}.bnav a{padding:4px 3px;font-size:11px}}
 </style>
-<nav class="bnav" aria-label="التنقل">${bn}</nav>
 <script>
 (function(){
   var bt=document.getElementById('nv-open'), dr=document.getElementById('nv-dr'), bd=document.getElementById('nv-bd'), cl=document.getElementById('nv-close');
@@ -2739,7 +2738,7 @@ const TOP_CSS = `
 .tp-sc small{display:block;font-family:'Cairo',sans-serif;font-size:10px;color:var(--td);font-weight:600}
 .tp-row.me{border-color:var(--tg);background:linear-gradient(90deg,rgba(240,192,74,.14),rgba(15,20,34,.85))}
 .tp-empty{text-align:center;color:var(--td);padding:40px 0}
-.tp-me{position:fixed;inset-inline:0;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:35;padding-inline:16px;pointer-events:none}
+.tp-me{position:fixed;inset-inline:0;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:35;padding-inline:16px;pointer-events:none}
 .tp-me.nb{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 .tp-me div{pointer-events:auto;max-width:760px;margin-inline:auto;display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:14px;background:rgba(15,20,34,.96);border:1.5px solid var(--tg);box-shadow:0 8px 24px rgba(0,0,0,.55)}
 .tp-me b{font-family:'Oswald',sans-serif;color:var(--tg);font-size:18px;direction:ltr}
