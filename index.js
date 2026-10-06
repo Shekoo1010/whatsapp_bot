@@ -595,6 +595,10 @@ const BOSS_ATTACK_GROUP_ALWAYS = '120363426139697960@g.us'
 // لو رجّعتها true يرجع السلوك القديم (فتح/إغلاق القروب برسائله).
 const BOSS_GROUP_CONTROL = false
 
+// 🔕 أمر .هجوم بالواتس معطّل تماماً وبدون أي رد (الهجوم من الموقع فقط).
+// لإعادة التشغيل: غيّر القيمة إلى false
+const WHATSAPP_BOSS_ATTACK_DISABLED = true
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -8993,6 +8997,8 @@ if (
             !text.startsWith('.هجوم الخصم')
         ) {
 
+if (WHATSAPP_BOSS_ATTACK_DISABLED) return
+
 if (
     msg.key.remoteJid !== BOSS_ATTACK_GROUP &&
     msg.key.remoteJid !== BOSS_ATTACK_GROUP_ALWAYS
@@ -12287,7 +12293,13 @@ ${base}/u/${player.siteCode}
 // .المعرض حذف <رقم>       → يحذف شخصية من المعرض (الرقم = مكانها *بالمعرض* نفسه)
 // .المعرض قائمة           → يعرض أسماء وأرقام المعرض الحالي (نصي، بدون صورة)
 
+// ⏸️ تعطيل مؤقت لأمر .المعرض (كل أوامره الفرعية: اضف/حذف/قائمة/الصورة)
+// لإعادة التشغيل: غيّر القيمة إلى false
+const GALLERY_COMMAND_DISABLED = true
+
 if (text.startsWith('.المعرض')) {
+
+    if (GALLERY_COMMAND_DISABLED) return
 
     const player = await Player.findOne({ userId })
 
