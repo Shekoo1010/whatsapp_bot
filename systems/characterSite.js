@@ -11,6 +11,7 @@ const fs = require('fs')
 const pathMod = require('path')
 const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
 const mongoose = require('mongoose')
+const { nextPayoutAt } = require('./galleryRewards') // موعد تصفير لايكات المعارض (العدّاد التنازلي)
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
@@ -1864,6 +1865,7 @@ h2{font-size:15px;font-weight:900;color:var(--gold);margin:24px 0 10px;display:f
 .ac{background:#080a12a6}
 .ne{font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;color:#fff;direction:ltr}
 .ac{margin-top:8px;display:inline-block;font-size:12px;color:var(--t);border:1px solid color-mix(in srgb,var(--t) 50%,transparent);border-radius:20px;padding:2px 12px}
+.cd{margin:14px 0 0;padding:10px 12px;text-align:center;border:1px solid var(--gold-dim);border-radius:12px;background:linear-gradient(135deg,#f0c04a14,var(--panel));color:var(--mut);font-size:13px;font-weight:700}.cd b{color:var(--gold);font-weight:900;direction:ltr;display:inline-block}
 .note{margin:18px 0 0;padding:12px;border:1px dashed var(--gold-dim);border-radius:12px;color:var(--mut);font-size:12px;line-height:1.8}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:70;background:#151b2e;border:1px solid var(--gold-dim);color:var(--tx);padding:10px 18px;border-radius:30px;font-weight:800;font-size:13px;max-width:90vw;text-align:center}
 .av.has{background-size:cover;background-position:center top;background-repeat:no-repeat;font-size:0}
@@ -1894,6 +1896,11 @@ h2{font-size:15px;font-weight:900;color:var(--gold);margin:24px 0 10px;display:f
 
 const GAL_JS = String.raw`
 var G=window.__GAL||{},owners=[],zoom=false,cur=null,$=function(s){return document.querySelector(s)};
+G.off=(G.now||Date.now())-Date.now();
+function cdTxt(){var s=Math.floor((G.next-(Date.now()+G.off))/1000);if(s<=0)return 'جارٍ التوزيع…';var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60;return (d?d+' يوم ':'')+h+' س '+m+' د '+x+' ث'}
+function cdBox(){return G.next?'<div class="cd">⏳ تصفير اللايكات وتوزيع الجوائز بعد <b id="cdv">'+cdTxt()+'</b></div>':''}
+function cdTick(){var e=$('#cdv');if(e&&G.next)e.textContent=cdTxt()}
+setInterval(cdTick,1000);
 var MD=['🥇','🥈','🥉'];
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function J(u,o){return fetch(u,Object.assign({credentials:'same-origin'},o||{})).then(function(r){return r.json().catch(function(){return{ok:false}})}).catch(function(){return{ok:false,message:'تعذر الاتصال بالسيرفر'}})}
@@ -1942,7 +1949,7 @@ function fit(){
  var zb=$('#zm');if(zb)zb.textContent=zoom?'🔎 ملء الشاشة':'🔍 تكبير'
 }
 var M=null,busy=false;
-function mineBar(){return G.owner?'<button class="mg" id="mg">✏️ إدارة معرضي <small>إضافة وحذف الشخصيات</small></button>':''}
+function mineBar(){return cdBox()+(G.owner?'<button class="mg" id="mg">✏️ إدارة معرضي <small>إضافة وحذف الشخصيات</small></button>':'')}
 function bindMg(){var b=$('#mg');if(b)b.onclick=manage}
 function inG(k){for(var i=0;i<M.g.length;i++){if(M.g[i].k===k)return true}return false}
 function chip(c,tail){return '<div class="mc" style="--t:'+esc(c.c)+'"><div class="mi'+(c.i?' has':'')+'"'+(c.i?' style="background-image:url(\''+esc(c.i)+'\')"':'')+'>'+(c.i?'':esc(Array.from(c.n)[0]||'?'))+'</div><div class="mn">'+esc(c.n)+'</div><div class="mt">'+esc(c.t)+' · '+Number(c.p).toLocaleString('en-US')+'</div>'+tail+'</div>'}
@@ -1989,7 +1996,7 @@ if(/^[a-f0-9]{12}$/.test(h0)){J('/gallery/list').then(function(d){owners=(d&&d.o
 function galleryPageHTML({ code, viewer }) {
     const c = esc(code)
     const menu = viewer.isOwner ? `<button class="ic" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr">☰</button>` : `<a class="ic" href="/u/${c}" aria-label="رجوع للموقع">🏠</a>`
-    const cfg = jsonForScript({ owner: !!viewer.isOwner, csrf: viewer.isOwner ? viewer.csrf : '' })
+    const cfg = jsonForScript({ owner: !!viewer.isOwner, csrf: viewer.isOwner ? viewer.csrf : '', next: nextPayoutAt(), now: Date.now() })
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>

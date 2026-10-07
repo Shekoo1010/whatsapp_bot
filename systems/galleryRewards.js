@@ -82,6 +82,13 @@ function currentPeriod(nowMs = Date.now()) {
     return new Date(slot).toISOString().slice(0, 10)
 }
 
+// موعد التوزيع/التصفير القادم (الخميس 1:00 ص بتوقيت السعودية) بالمللي ثانية
+function nextPayoutAt(nowMs = Date.now()) {
+    const current = Date.parse(currentPeriod(nowMs) + 'T00:00:00Z') // تاريخ الخميس (بتوقيت السعودية)
+    const slotUtc = current + PAYOUT_HOUR * 60 * 60 * 1000 - KSA_OFFSET_MS
+    return slotUtc > nowMs ? slotUtc : slotUtc + 7 * 24 * 60 * 60 * 1000
+}
+
 function readState() {
     try {
         return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
@@ -296,6 +303,7 @@ module.exports = {
     startScheduler,
     runPeriod,       // للاختبار اليدوي
     currentPeriod,
+    nextPayoutAt,    // للعدّاد التنازلي بصفحة المعارض
     getRanking,
     resetAllLikes
 }
