@@ -837,7 +837,7 @@ ${navDrawerHTML(code, csrf, 'log')}
 // تجهيز الهدايا غير المستلمة للعرض (الصورة الأحدث من الكتالوج، ونمرر فقط روابط آمنة)
 function prepareGifts(inbox, catIdx) {
     return (inbox || [])
-        .filter(g => g && !g.seen)
+        .filter(g => g && !g.seen && g.kind !== 'reward')
         .sort((a, b) => (a.at || 0) - (b.at || 0))
         .slice(0, 50)
         .map(g => {
@@ -4160,6 +4160,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                     csrf: auth.csrfForSession(sess),
                     gifts: prepareGifts(player.giftInbox, catIdx)
                         .concat(await kingdom.getUnseenRewards(player.userId).then(prepareRewardGifts).catch(() => []))
+                        .concat(prepareRewardGifts((player.giftInbox || []).filter(g => g && g.kind === 'reward' && !g.seen)))
                         .sort((a, b) => (a.at || 0) - (b.at || 0))
                 }
                 : { isOwner: false }
