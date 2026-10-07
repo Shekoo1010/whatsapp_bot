@@ -1010,69 +1010,8 @@ if (!global.quickEventsWatchdogStarted) {
     }, 60 * 1000)
 }
 
-const kingdomStages = [
-
-{
-    name: "🏰 بوابة المملكة",
-    power: 4500,
-    reward: 100000
-},
-
-{
-    name: "⚔️ حرس العاصمة",
-    power: 5000,
-    reward: 120000
-},
-
-{
-    name: "🛡️ الفرسان الملكيون",
-    power: 5500,
-    reward: 140000
-},
-
-{
-    name: "👑 قاعة العرش",
-    power: 6000,
-    reward: 160000
-},
-
-{
-    name: "🏹 أبراج المراقبة",
-    power: 6500,
-    reward: 180000
-},
-
-{
-    name: "🔥 ساحة الحرب الكبرى",
-    power: 7000,
-    reward: 200000
-},
-
-{
-    name: "🌑 الحصن المظلم",
-    power: 7500,
-    reward: 240000
-},
-
-{
-    name: "⚜️ مقر النبلاء",
-    power: 8000,
-    reward: 260000
-},
-
-{
-    name: "🐉 التنين الحارس",
-    power: 8500,
-    reward: 280000
-},
-
-{
-    name: "👑 العرش الإمبراطوري",
-    power: 9000,
-    reward: 320000
-}
-
-]
+// مراحل غزو المملكة — مصدر واحد مشترك مع الموقع (systems/kingdomRaidSystem.js)
+const { createKingdomRaidSystem, KINGDOM_STAGES: kingdomStages } = require('./systems/kingdomRaidSystem')
 const battleState =
     require('./battleSystem')
 
@@ -4573,7 +4512,20 @@ const bannerPullSystem = createBannerPullSystem({
 const { createBossPush } = require('./systems/bossPush')
 const bossPush = createBossPush({ Player })
 
+// 🏰 غزو المملكة من الموقع — نفس منطق .غزو (يشارك raidLocks + بونص شادو)
+const kingdomRaidSystem = createKingdomRaidSystem({
+    Player,
+    companionsData,
+    raidLocks,
+    addCommandXp,
+    xpPerStage: COMMAND_XP.kingdomStage,
+    checkAndGrantAchievement,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => await resolveDmJid(uid)
+})
+
 registerCharacterSite(app, Player, {
+    kingdomRaid: kingdomRaidSystem,
     bossPush,
     giftCharacters,
     pullCharacter,
