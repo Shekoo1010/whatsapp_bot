@@ -705,6 +705,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
         ['gallery', '🖼️', 'المعارض', `/u/${c}/gallery`],
@@ -4011,6 +4012,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const bossPush = opts.bossPush     // من systems/bossPush.js (إشعارات الهاتف عند ظهور الزعيم)
     const bannerInfo = opts.bannerInfo // من systems/bannerPullSystem.js (معلومات البنر + رصيد الأورب)
     const bannerPull = opts.bannerPull // من systems/bannerPullSystem.js (نفس منطق .سحب_بنر)
+    const kingdomRaid = opts.kingdomRaid // من systems/kingdomRaidSystem.js (نفس منطق .غزو)
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -4813,6 +4815,84 @@ function registerCharacterSite(app, Player, opts = {}) {
             })
         } catch (err) {
             console.error('boss attack route error:', err)
+            return fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
+
+
+    // ─────────────── غزو المملكة (نفس منطق .غزو بالبوت) ───────────────
+    const { kingdomPageHTML } = require('./kingdomPage')
+    const kingdomHits = new Map()
+    function kingdomRate(userId) {
+        const now = Date.now()
+        const arr = (kingdomHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { kingdomHits.set(userId, arr); return false }
+        arr.push(now); kingdomHits.set(userId, arr); return true
+    }
+
+    app.get('/u/:code/kingdom', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!kingdomRaid) return res.status(503).send('غزو المملكة من الموقع غير مفعّل حالياً.')
+
+            const st = await kingdomRaid.getState(player.userId)
+            if (!st) return html404(res)
+
+            const catIdx = getCatalogIndex(getCatalog)
+            const chars = st.characters.map(({ i, ch }) => {
+                const d = resolveDisplayChar(ch, catIdx)
+                return { i, name: String(ch.name || ''), power: Number(ch.power) || 0, img: safeImageUrl(d.image) || '', emoji: '⚔️' }
+            }).sort((a, b) => b.power - a.power || a.i - b.i)
+
+            res.send(kingdomPageHTML({
+                code,
+                data: {
+                    stages: kingdomRaid.STAGES.map(s => [s.name, s.power, s.reward]),
+                    chars,
+                    state: st.state,
+                    csrf: auth.csrfForSession(sess),
+                    companion: st.companion
+                }
+            }))
+        } catch (err) {
+            console.error('kingdom page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/kingdom/attack', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message, extra = {}) => res.status(status).json({ ok: false, code, message, ...extra })
+        try {
+            if (!kingdomRaid || !auth.authEnabled()) return fail(503, 'DISABLED', 'غزو المملكة من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!kingdomRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const r = await kingdomRaid.attack({ userId: sess.u, charIndex: b.index })
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return fail(status, r.code, r.message || 'فشل الغزو', { power: r.power, need: r.need, state: r.state })
+            }
+            res.json(r)
+        } catch (err) {
+            console.error('kingdom attack route error:', err)
             return fail(500, 'SERVER', 'خطأ بالخادم')
         }
     })
