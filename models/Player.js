@@ -824,6 +824,12 @@ kingdomTotalStages: {
     default: 0
 },
 
+// 🏦 إجمالي أرباح غزو المملكة مدى الحياة (لا يتصفّر يومياً)
+kingdomTotalEarned: {
+    type: Number,
+    default: 0
+},
+
     // =========================
 // EVENTS SYSTEM
 // =========================
