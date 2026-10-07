@@ -4312,6 +4312,13 @@ const { registerCharacterSite, generateSiteCode } = require('./systems/character
 const { createGiftSystem } = require('./systems/giftSystem')
 const siteAuth = require('./systems/siteAuth')
 const siteSockRef = { current: null } // يُضبط داخل startBot (الـ sock مو متاح خارجها)
+// 🏰 قروبات المملكة (Tsuki / Yama / Nakama): توب لكل قروب + جوائز الترتيب الآمنة — systems/kingdomGroups.js
+const kingdom = require('./systems/kingdomGroups')
+kingdom.init({
+    Player,
+    getSssChars: () => characters.filter(c => c.rarity === 'SSS'),
+    notifyOwner: (text) => siteNotifyOwner(text)
+})
 
 async function siteNotifyDm(userId, text) {
     try {
@@ -6735,6 +6742,7 @@ ${juubi.maxHp.toLocaleString()}
    
 
 siteSockRef.current = sock
+kingdom.startScheduler(() => siteSockRef.current) // يبدأ مرة واحدة فقط (محمي داخلياً من التكرار عند إعادة الاتصال)
 
 console.log("BEFORE CONNECTION UPDATE")
 
@@ -17238,10 +17246,27 @@ if (text === '.جوائز_الترتيب') {
         )
     }
 
-    await distributeRankingRewards(
-        sock,
-        msg.key.remoteJid
-    )
+    // الجوائز صارت تلقائية وأسبوعية (المراكز 1–15 بكل قروب، كل سبت 1:00 ص بتوقيت السعودية)
+    // وتصل للاعبين كإشعار في صندوق الهدايا بالموقع (لا رسائل واتس). هذا الأمر يشغّل الفترة الحالية يدوياً،
+    // ولا يمكن أن يكرر جائزة سبق منحها (مفاتيح عدم التكرار).
+    try {
+        const r = await kingdom.runNow(sock)
+        const fmt = (title, x) => x.skipped
+            ? `${title}: ✅ سبق توزيعها`
+            : `${title}: ✅ ${x.granted} تم | ⏳ ${x.pending} بانتظار إعادة المحاولة`
+        await sock.sendMessage(
+            msg.key.remoteJid,
+            {
+                text: `🏆 جوائز الترتيب\n\n${fmt('الجوائز الأسبوعية (1–15)', r.weekly)}\n\n📬 الإشعارات وصلت لصندوق الهدايا بالموقع`
+            }
+        )
+    } catch (err) {
+        console.log('جوائز_الترتيب error:', err)
+        await sock.sendMessage(
+            msg.key.remoteJid,
+            { text: '❌ تعذر تنفيذ جوائز الترتيب، راجع السجل' }
+        )
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
