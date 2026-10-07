@@ -704,6 +704,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
+        ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
@@ -1123,6 +1124,148 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
     });
   });
   refresh();
+})();
+</script></body></html>`
+}
+
+// 🏪 متجر الشخصيات (نفس عروض .متجر بالواتس — تتجدد كل ساعة بتوقيت السعودية)
+function shopItemOut(d) {
+    const c = (d && d.character) || {}
+    const t = TIERS[c.rarity] || TIERS['عادي']
+    return {
+        id: String(d._id),
+        name: String(c.name || '؟'),
+        rarity: String(c.rarity || ''),
+        power: Math.round(Number(c.power) || 0),
+        form: String(c.form || 'عادي'),
+        ability: String(c.ability || ''),
+        price: Math.round(Number(d.price) || 0),
+        img: t.idx >= FIRST_IMAGE_TIER ? (safeImageUrl(c.image) || '') : '',
+        color: t.color,
+        stars: t.stars,
+        en: t.lang === 'en'
+    }
+}
+
+function shopPageHTML({ viewer, code, items, money, msLeft }) {
+    return `${shellHead('متجر الشخصيات')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">🏪 متجر الشخصيات</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'shop', viewer.name)}
+<style>
+.sp{max-width:640px;margin:0 auto}
+.sp-sub{text-align:center;color:var(--text-dim);font-size:12px;margin:6px 0 14px;line-height:1.8}
+.sp-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.sp-bar div{background:#0f1422;border:1px solid #222a42;border-radius:14px;padding:8px 10px;text-align:center}
+.sp-bar small{display:block;color:var(--text-dim);font-size:11px}
+.sp-bar b{display:block;font:700 20px 'Oswald',sans-serif;color:var(--gold);direction:ltr}
+.sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.sp-c{--t:#8b93a1;position:relative;display:flex;flex-direction:column;border-radius:16px;border:2px solid var(--t);background:#0f1422;overflow:hidden;box-shadow:0 0 14px color-mix(in srgb,var(--t) 30%,transparent);transition:opacity .3s,filter .3s}
+.sp-c.sss{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;animation:rot 5s linear infinite}
+.sp-tt{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 0}
+.sp-tn{font-weight:900;font-size:13px;color:var(--t)}.sp-tn.en{font-family:'Oswald',sans-serif;letter-spacing:.1em}
+.sp-pw{font:700 12px 'Oswald',sans-serif;color:var(--text-dim);direction:ltr}
+.sp-st{padding:0 10px;color:var(--t);font-size:11px;letter-spacing:2px}
+.sp-art{position:relative;margin:8px 10px;height:96px;border-radius:12px;overflow:hidden;display:grid;place-items:center;font:900 44px 'Cairo',sans-serif;color:var(--t);background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--t) 28%,#0f1422),#0a0d16)}
+.sp-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sp-nm{padding:0 10px;font-weight:900;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-ab{padding:0 10px;color:var(--text-dim);font-size:11.5px;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-pr{margin-top:auto;padding:8px 10px 6px;font:700 15px 'Oswald',sans-serif;color:var(--gold);direction:ltr;text-align:right}
+.sp-buy{width:calc(100% - 20px);margin:0 10px 10px;padding:9px;border:0;border-radius:12px;font:900 14px 'Cairo',sans-serif;cursor:pointer;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.sp-buy:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.sp-buy:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+.sp-c.gone,.sp-c.mine{opacity:.5;filter:grayscale(.7)}
+.sp-c.mine{opacity:.75;filter:none}
+.sp-c.gone .sp-buy{background:#3a1d24;color:#ff9aa6}
+.sp-c.mine .sp-buy{background:#173a28;color:#4fe08a}
+.sp-empty{text-align:center;color:var(--text-dim);padding:50px 10px;line-height:2}
+.sp-toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid var(--gold-dim);border-radius:14px;padding:12px 16px;font-weight:700;font-size:14px;transition:.3s;max-width:92%;text-align:center;z-index:70}
+.sp-toast.on{transform:translate(-50%,0);opacity:1}.sp-toast.good{border-color:#4fe08a}.sp-toast.bad{border-color:#ff6b6b;color:#ff9aa6}
+@media (prefers-reduced-motion:reduce){.sp-c.sss{animation:none}.sp-toast{transition:none}}
+</style>
+  <div class="sp">
+    <p class="sp-sub">10 شخصيات جديدة عند رأس كل ساعة بتوقيت السعودية<br>كل شخصية تُباع لمشترٍ واحد فقط — الأسرع يحصل عليها</p>
+    <div class="sp-bar"><div><small>💳 رصيدك</small><b id="sp-money">0</b></div><div><small>⏳ التجديد بعد</small><b id="sp-cd">--:--</b></div></div>
+    <div class="sp-grid" id="sp-grid"></div>
+    <div class="sp-empty" id="sp-empty" hidden>🏪 المتجر فارغ حالياً<br>تظهر عروض جديدة عند رأس الساعة القادمة</div>
+  </div>
+</div>
+<div class="sp-toast" id="sp-toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)};
+  var items=${jsonForScript(items)}, money=${Number(money) || 0}, end=Date.now()+${Math.max(0, Math.round(Number(msLeft) || 0))};
+  var gone={}, mine={}, busy={}, polling=false, lastPoll=Date.now(), th=0;
+  function $(i){ return document.getElementById(i); }
+  function fm(n){ return Number(n).toLocaleString('en-US'); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(m,k){ var t=$('sp-toast'); t.textContent=m; t.className='sp-toast on '+(k||''); clearTimeout(th); th=setTimeout(function(){ t.className='sp-toast'; },3200); }
+  function card(it){
+    var st=mine[it.id]?'mine':(gone[it.id]?'gone':'');
+    var label=st==='mine'?'تم الشراء ✅':st==='gone'?'نفذت الكمية':(money<it.price?'رصيدك لا يكفي':'اشترِ الشخصية');
+    var dis=(st||busy[it.id]||money<it.price)?' disabled':'';
+    return '<article class="sp-c'+(it.rarity==='SSS'?' sss':'')+(st?' '+st:'')+'" style="--t:'+esc(it.color)+'">'
+      +'<div class="sp-tt"><span class="sp-tn'+(it.en?' en':'')+'">'+esc(it.rarity)+'</span><span class="sp-pw">'+fm(it.power)+' PWR</span></div>'
+      +'<div class="sp-st">'+new Array(it.stars+1).join('★')+'</div>'
+      +'<div class="sp-art">'+esc(Array.from(it.name)[0]||'?')+(it.img?'<img src="'+esc(it.img)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'')+'</div>'
+      +'<div class="sp-nm">'+esc(it.name)+'</div>'
+      +'<div class="sp-ab">✨ '+esc(it.ability||'لا يوجد')+'</div>'
+      +'<div class="sp-pr">💰 '+fm(it.price)+'</div>'
+      +'<button class="sp-buy" type="button" data-id="'+esc(it.id)+'"'+dis+'>'+label+'</button></article>';
+  }
+  function draw(){
+    $('sp-money').textContent=fm(money);
+    $('sp-grid').innerHTML=items.map(card).join('');
+    $('sp-empty').hidden=items.length>0;
+  }
+  function buy(id,btn){
+    if(busy[id]||gone[id]||mine[id]) return;
+    busy[id]=1; btn.disabled=true; btn.textContent='جارٍ الشراء…';
+    fetch('/shop/buy',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:CSRF,code:CODE,id:id})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      delete busy[id];
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.ok){ mine[id]=1; if(x.j.money!=null) money=x.j.money; toast(x.j.message,'good'); }
+      else if(x.j.code==='SOLD_OUT'){ gone[id]=1; toast(x.j.message,'bad'); }
+      else { toast(x.j.message||'فشل الشراء','bad'); }
+      draw(); poll(true);
+    })
+    .catch(function(){ delete busy[id]; toast('لم يصلنا رد من السيرفر — حدّث الصفحة وتأكد من رصيدك قبل إعادة المحاولة.','bad'); draw(); });
+  }
+  $('sp-grid').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.sp-buy'); if(b&&!b.disabled) buy(b.getAttribute('data-id'),b);
+  });
+  // مزامنة حيّة: لو اشترى غيرك عرضاً يتحول عندك فوراً إلى «نفذت الكمية»، وعند رأس الساعة يتجدد المتجر
+  function poll(force){
+    if(polling||(document.hidden&&!force)) return; polling=true; lastPoll=Date.now();
+    fetch('/shop/state',{credentials:'same-origin',cache:'no-store'})
+    .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.ok?r.json():null; })
+    .then(function(j){
+      polling=false; if(!j||!j.ok) return;
+      money=j.money; end=Date.now()+j.msLeft;
+      var known={}; items.forEach(function(it){ known[it.id]=1; });
+      var fresh=j.items.some(function(it){ return !known[it.id]; });
+      if(fresh){ items=j.items; gone={}; mine={}; toast('🔄 تم تجديد المتجر — عروض جديدة','good'); }
+      else {
+        var live={}; j.items.forEach(function(it){ live[it.id]=1; });
+        items.forEach(function(it){ if(!live[it.id]&&!mine[it.id]) gone[it.id]=1; });
+      }
+      draw();
+    })
+    .catch(function(){ polling=false; });
+  }
+  function tick(){
+    var l=end-Date.now();
+    if(l<=0){ $('sp-cd').textContent='00:00'; if(Date.now()-lastPoll>2500) poll(true); return; }
+    var s=Math.ceil(l/1000), m=Math.floor(s/60), r=s%60;
+    $('sp-cd').textContent=(m<10?'0':'')+m+':'+(r<10?'0':'')+r;
+  }
+  draw(); tick(); setInterval(tick,1000); setInterval(poll,5000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(true); });
 })();
 </script></body></html>`
 }
@@ -4605,6 +4748,100 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('sell route error:', err)
             return g.fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    })
+
+    // ─────────────── 🏪 متجر الشخصيات (نفس .متجر / .شراءمتجر بالواتس) ───────────────
+    // الشراء عبر systems/characterShopSystem.js: حجز ذري للعرض (لاعب واحد فقط يشتريه) + دفع ذري
+    const shopSystem = opts.shopSystem
+    const shopPollHits = new Map()
+    function shopPollRate(userId) {
+        const now = Date.now()
+        const arr = (shopPollHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { shopPollHits.set(userId, arr); return false }
+        arr.push(now); shopPollHits.set(userId, arr); return true
+    }
+
+    function shopErrorMessage(r) {
+        const E = (shopSystem && shopSystem.ERRORS) || {}
+        if (r.code === 'NO_MONEY' && r.need != null && r.have != null) {
+            return `${E.NO_MONEY || '❌ لا تملك مالاً كافياً'}\n💰 المطلوب: ${Number(r.need).toLocaleString('en-US')}\n💳 رصيدك: ${Number(r.have).toLocaleString('en-US')}`
+        }
+        return E[r.code] || E.SERVER || '❌ حدث خطأ أثناء الشراء'
+    }
+
+    app.get('/u/:code/shop', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username money sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!shopSystem) return res.status(503).send('المتجر غير مفعّل حالياً')
+
+            const list = await shopSystem.listShop()
+            res.send(shopPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                items: list.map(shopItemOut),
+                money: Number(player.money) || 0,
+                msLeft: shopSystem.msUntilNextHour()
+            }))
+        } catch (err) {
+            console.error('shop page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // حالة المتجر الحيّة (تُستدعى كل ثواني من الصفحة: عروض متبقية + رصيدك + الوقت لرأس الساعة)
+    app.get('/shop/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!shopSystem || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!shopPollRate(sess.u)) return res.status(429).json({ ok: false })
+            const me = await Player.findOne({ userId: sess.u }).select('money sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            const list = await shopSystem.listShop()
+            res.json({
+                ok: true,
+                money: Number(me.money) || 0,
+                msLeft: shopSystem.msUntilNextHour(),
+                items: list.map(shopItemOut)
+            })
+        } catch (err) {
+            console.error('shop state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/shop/buy', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, shopSystem && shopSystem.buyShopItem)
+        if (!g || !g.sess) return
+        try {
+            const id = String(g.body.id || '')
+            if (!/^[a-f0-9]{24}$/.test(id)) return g.fail(400, 'BAD_ID', shopErrorMessage({ code: 'BAD_ID' }))
+
+            const r = await shopSystem.buyShopItem({ userId: g.sess.u, shopId: id })
+            if (!r.ok) {
+                const status = r.code === 'SOLD_OUT' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return g.fail(status, r.code, shopErrorMessage(r))
+            }
+            res.json({
+                ok: true,
+                id: r.id,
+                money: r.money,
+                message: `✅ تم شراء ${r.name} (${r.rarity}) بسعر ${Number(r.price).toLocaleString('en-US')} — رصيدك ${Number(r.money).toLocaleString('en-US')}`
+            })
+        } catch (err) {
+            console.error('shop buy route error:', err)
+            return g.fail(500, 'SERVER', shopErrorMessage({ code: 'SERVER' }))
         }
     })
 
