@@ -18016,6 +18016,10 @@ ${stage.power}
 
     await player.addMoney(stage.reward + shadowExtraMoney)
 
+    // 🏦 إجمالي أرباح الغزو مدى الحياة (مشترك مع الموقع)
+    player.kingdomTotalEarned =
+        Math.max(player.kingdomTotalEarned || 0, player.kingdomRaid.totalEarned || 0) + stage.reward + shadowExtraMoney
+
     player.kingdomRaid.totalEarned =
         (player.kingdomRaid.totalEarned || 0) + stage.reward + shadowExtraMoney
 
