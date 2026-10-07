@@ -4524,7 +4524,16 @@ const kingdomRaidSystem = createKingdomRaidSystem({
     getNotifyJid: async uid => await resolveDmJid(uid)
 })
 
+// 🏪 متجر الشخصيات المشترك (الموقع + .شراءمتجر) — شراء ذري يمنع بيع نفس الشخصية لاثنين
+const { createCharacterShopSystem } = require('./systems/characterShopSystem')
+const characterShopSystem = createCharacterShopSystem({
+    Player,
+    resortPlayerCharacters,
+    refreshShop: generateCharacterShop
+})
+
 registerCharacterSite(app, Player, {
+    shopSystem: characterShopSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
     giftCharacters,
@@ -4833,7 +4842,15 @@ function createPlayer() {
 // متجر الشخصيات
 // =========================
 
-async function generateCharacterShop() {
+// 🔒 قفل: لو استدعاها الموقع والبوت بنفس اللحظة تعمل مرة واحدة فقط (بدون توليد مزدوج 20 عنصر)
+let _shopGenLock = null
+function generateCharacterShop() {
+    if (_shopGenLock) return _shopGenLock
+    _shopGenLock = _generateCharacterShopInner().finally(() => { _shopGenLock = null })
+    return _shopGenLock
+}
+
+async function _generateCharacterShopInner() {
 
     // 💾 "الوقت المحفوظ" هو createdAt بقاعدة البيانات نفسها (Shop
     // collection) — يبقى محفوظ حتى لو انطفى البوت تمامًا. عند أي
@@ -21228,11 +21245,23 @@ ${character.anime}
 
 // ─── .متجر ───
 
+// ⏸️ معطّل مؤقتاً من الواتس: المتجر من الموقع فقط (غيّرها إلى true لإعادة تفعيله)
+const SHOP_WA_VIEW_ENABLED = false
+
 if (text === '.متجر') {
+
+    if (!SHOP_WA_VIEW_ENABLED) {
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🏪 متجر الشخصيات متاح حالياً من الموقع فقط
+
+🌐 افتح موقعك ← القائمة ← 🏪 متجر الشخصيات`
+        })
+    }
 
     try {
 
-        const shop = (await Shop.find()).slice(0, 10)
+        const shop = (await Shop.find().sort({ _id: 1 })).slice(0, 10)
 
         if (!shop.length) {
             return safeSend(msg.key.remoteJid, {
@@ -21273,12 +21302,8 @@ if (text === '.متجر') {
         txt +=
 `━━━━━━━━━━━━━━━━━━
 
-🛒 للشراء:
-
-.شراءمتجر رقم_العرض
-
-مثال:
-.شراءمتجر 1`
+🛒 الشراء متاح حالياً من الموقع فقط:
+🌐 القائمة ← 🏪 متجر الشخصيات`
 
         return safeSend(msg.key.remoteJid, {
             text: txt
@@ -21895,67 +21920,67 @@ ${player.boxes[item]}`
 }
 
 // ─── .شراءمتجر ───
+// ⏸️ معطّل مؤقتاً من الواتس: الشراء من الموقع فقط (غيّرها إلى true لإعادة تفعيله)
+const SHOP_WA_BUY_ENABLED = false
+
+// 🔒 نفس منطق شراء الموقع (systems/characterShopSystem.js): حجز ذري للعرض
+// فلو ضغط لاعبان بنفس اللحظة يأخذها الأول والثاني يظهر له "نفذت الكمية"
 
 if (text.startsWith('.شراءمتجر')) {
+
+    if (!SHOP_WA_BUY_ENABLED) {
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🏪 شراء الشخصيات من المتجر متاح حالياً من الموقع فقط
+
+🌐 افتح موقعك ← القائمة ← 🏪 متجر الشخصيات`
+        })
+    }
 
     try {
 
         const args = text.split(' ')
         const itemNumber = Number(args[1]) - 1
 
-        const shop = await Shop.find()
+        // نفس ترتيب .متجر (حسب _id) حتى يتطابق رقم العرض
+        const shop = (await Shop.find().sort({ _id: 1 }).select('_id').lean()).slice(0, 10)
 
-        const item = shop[itemNumber]
+        const target = Number.isInteger(itemNumber) ? shop[itemNumber] : null
 
-        if (!item) {
+        if (!target) {
 
             return safeSend(msg.key.remoteJid, {
                 text: '❌ العرض غير موجود'
             })
         }
 
-        let player = await Player.findOne({ userId })
+        const r = await characterShopSystem.buyShopItem({
+            userId,
+            shopId: String(target._id)
+        })
 
-        if (!player) {
+        if (!r.ok) {
 
-            return safeSend(msg.key.remoteJid, {
-                text: '❌ لا تملك حساباً'
-            })
-        }
-
-        player.money = player.money || 0
-        player.characters = player.characters || []
-
-        if (player.money < item.price) {
-
-            return safeSend(msg.key.remoteJid, {
-                text:
+            if (r.code === 'NO_MONEY' && r.have != null) {
+                return safeSend(msg.key.remoteJid, {
+                    text:
 `❌ لا تملك مالاً كافياً
 
-💰 المطلوب: ${item.price}
-💳 رصيدك: ${player.money}`
-            })
-        }
+💰 المطلوب: ${r.need}
+💳 رصيدك: ${r.have}`
+                })
+            }
 
-      if (
-    player.characters.length >=
-    (player.maxCharacters || 30)
-) {
+            if (r.code === 'FULL') {
+                return safeSend(msg.key.remoteJid, {
+                    text: '❌ وصلت للحد الأقصى (30 شخصية)'
+                })
+            }
 
             return safeSend(msg.key.remoteJid, {
-                text: '❌ وصلت للحد الأقصى (30 شخصية)'
+                text: characterShopSystem.ERRORS[r.code] || characterShopSystem.ERRORS.SERVER
             })
         }
-
-        player.money -= item.price
-
-        player.characters.push(item.character)
-
-        resortPlayerCharacters(player)
-
-        await player.save()
-
-        await Shop.findByIdAndDelete(item._id)
 
         return safeSend(msg.key.remoteJid, {
             text:
@@ -21967,19 +21992,19 @@ if (text.startsWith('.شراءمتجر')) {
 ✅ تم شراء الشخصية بنجاح
 
 🧿 الاسم:
-${item.character.name}
+${r.name}
 
 🌟 الندرة:
-${item.character.rarity}
+${r.rarity}
 
 ⚔️ القوة:
-${item.character.power}
+${r.power}
 
 💰 السعر:
-${item.price}
+${r.price}
 
 💳 رصيدك الحالي:
-${player.money}
+${r.money}
 
 ━━━━━━━━━━━━━━━━━━
 
