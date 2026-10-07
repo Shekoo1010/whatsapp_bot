@@ -34,20 +34,22 @@ function createKingdomRaidSystem(deps) {
         return 0
     }
 
-    const stateOut = raid => ({
+    // total = إجمالي أرباح الغزو مدى الحياة (kingdomTotalEarned) — لا يقل عن أرباح اليوم
+    const stateOut = (raid, life) => ({
         stage: raid.stage || 0,
         used: (raid.usedCharacters || []).map(String),
-        earned: raid.totalEarned || 0
+        earned: raid.totalEarned || 0,
+        total: Math.max(Number(life) || 0, raid.totalEarned || 0)
     })
 
     // قراءة فقط (لا تحفظ شيئاً): لو اليوم تغيّر يُعرض غزو جديد
     async function getState(userId) {
-        const p = await Player.findOne({ userId }).select('characters kingdomRaid companion').lean()
+        const p = await Player.findOne({ userId }).select('characters kingdomRaid companion kingdomTotalEarned').lean()
         if (!p) return null
         const raid = (p.kingdomRaid && p.kingdomRaid.lastReset === today()) ? p.kingdomRaid : freshRaid()
         const c = p.companion || {}
         return {
-            state: stateOut(raid),
+            state: stateOut(raid, p.kingdomTotalEarned),
             // i = رقم الشخصية بالضبط كما بأمر .غزو رقم_الشخصية
             characters: (p.characters || []).map((ch, i) => ({ i: i + 1, ch })),
             companion: { key: c.key || null, level: c.level || 0, pct: shadowPercent(p) }
@@ -74,19 +76,19 @@ function createKingdomRaidSystem(deps) {
             if (isNaN(index)) return fail('BAD_INDEX', '❌ اختيار غير صحيح')
 
             const char = player.characters[index]
-            if (!char) return fail('NO_CHAR', '❌ الشخصية غير موجودة', { state: stateOut(raid) })
+            if (!char) return fail('NO_CHAR', '❌ الشخصية غير موجودة', { state: stateOut(raid, player.kingdomTotalEarned) })
 
             if (raid.usedCharacters.includes(char.name)) {
-                return fail('USED', `🔒 ${char.name}\nتم استنزاف هذه الشخصية اليوم`, { state: stateOut(raid) })
+                return fail('USED', `🔒 ${char.name}\nتم استنزاف هذه الشخصية اليوم`, { state: stateOut(raid, player.kingdomTotalEarned) })
             }
 
-            if (raid.stage >= 10) return fail('DONE', '🏆 أكملت الغزو اليومي', { state: stateOut(raid) })
+            if (raid.stage >= 10) return fail('DONE', '🏆 أكملت الغزو اليومي', { state: stateOut(raid, player.kingdomTotalEarned) })
 
             const stage = KINGDOM_STAGES[raid.stage]
 
             if (char.power < stage.power) {
                 return fail('WEAK', '❌ فشل الاقتحام — القوة لا تكفي', {
-                    power: char.power, need: stage.power, state: stateOut(raid)
+                    power: char.power, need: stage.power, state: stateOut(raid, player.kingdomTotalEarned)
                 })
             }
 
@@ -97,6 +99,8 @@ function createKingdomRaidSystem(deps) {
 
             await player.addMoney(total)
 
+            // 🏦 إجمالي مدى الحياة (يبدأ من أرباح اليوم الحالية للاعبين القدامى)
+            player.kingdomTotalEarned = Math.max(player.kingdomTotalEarned || 0, raid.totalEarned || 0) + total
             raid.totalEarned = (raid.totalEarned || 0) + total
             raid.usedCharacters.push(char.name)
             raid.stage++
@@ -120,7 +124,7 @@ function createKingdomRaidSystem(deps) {
                 reward: stage.reward,
                 extra,
                 total,
-                state: stateOut(player.kingdomRaid)
+                state: stateOut(player.kingdomRaid, player.kingdomTotalEarned)
             }
         } catch (err) {
             console.error('kingdom attack error:', err)

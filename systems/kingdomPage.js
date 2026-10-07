@@ -29,7 +29,7 @@ function kingdomPageHTML({ code, data }) {
 <div class="wrap">
  <div class="cd">⏳ يتجدد الغزو عند 12:00 ليلاً — بعد <b id="cdv"></b></div>
  <div class="dots" id="dots"></div>
- <div class="info"><span>💰 أرباح اليوم <b id="earn">0</b></span><span id="prog"></span></div>
+ <div class="info"><span class="tt">💰 أرباح اليوم <b id="earn">0</b><i>|</i>🏦 إجمالي الأرباح <b id="tot">0</b></span><span id="prog"></span></div>
  ${cmp}
  <div id="scene" style="margin-top:10px">
   <div id="cam">
@@ -42,6 +42,7 @@ function kingdomPageHTML({ code, data }) {
  </div>
  <div id="pick"></div>
 </div>
+<div class="dock" id="dock"><button class="go" id="go" type="button">⚔️ اقتحام</button></div>
 <script type="application/json" id="kd">${json}</script>
 <script>${JS}</script>
 </body></html>`

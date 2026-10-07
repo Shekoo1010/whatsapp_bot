@@ -63,7 +63,8 @@ function scene(i,enter){var t=T[i];$('#sky').style.background='linear-gradient('
  var b=$('#boss');b.className='unit'+(t.big?' big':'');b.textContent=t.def;
  $('#sname').innerHTML=S[i][0]+'<small>القوة المطلوبة '+fmt(S[i][1])+' · المكافأة '+fmt(S[i][2])+'</small>';amb(t);
  if(enter){var sc=$('#scene');sc.classList.remove('enter');void sc.offsetWidth;sc.classList.add('enter')}}
-function head(){var h='';for(var i=0;i<10;i++)h+='<i class="'+(i<st.stage?'d':i===st.stage?'c':'')+'"></i>';$('#dots').innerHTML=h;$('#earn').textContent=fmt(st.earned);$('#prog').textContent='المرحلة '+Math.min(st.stage+1,10)+'/10'}
+function dock(){var d=$('#dock'),c=sel&&byI(sel),on=!!c&&!busy&&st.stage<10;d.classList.toggle('on',on);if(c)$('#go').textContent='⚔️ اقتحام بـ '+c.name}
+function head(){var h='';for(var i=0;i<10;i++)h+='<i class="'+(i<st.stage?'d':i===st.stage?'c':'')+'"></i>';$('#dots').innerHTML=h;$('#earn').textContent=fmt(st.earned);$('#tot').textContent=fmt(st.total);$('#prog').textContent='المرحلة '+Math.min(st.stage+1,10)+'/10'}
 function byI(i){return CH.filter(function(x){return x.i===i})[0]}
 function av(c){return c.img?'<img src="'+esc(c.img)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':c.emoji}
 function picker(){
@@ -71,16 +72,15 @@ function picker(){
  var cur=S[st.stage],h='<h2>⚔️ اختر شخصية للاقتحام <small>المطلوب '+fmt(cur[1])+'</small></h2><div class="grid">';
  if(!CH.length)h+='<div class="fin" style="grid-column:1/-1">لا توجد شخصيات بحسابك</div>';
  CH.forEach(function(c){var u=st.used.indexOf(c.name)>-1,w=c.power<cur[1];h+='<button class="c '+(u?'used':w?'weak':'ok')+(sel===c.i?' sel':'')+'" data-n="'+c.i+'"><div class="im">'+av(c)+'<span class="nm">#'+c.i+'</span></div><b>'+esc(c.name)+'</b><small>'+(u?'🔒 مستنزفة':'⚔️ '+fmt(c.power))+'</small></button>'});
- var sc=sel&&byI(sel);
- h+='</div><button class="go" id="go"'+(sc&&!busy?'':' disabled')+'>'+(sc?'⚔️ اقتحام بـ '+esc(sc.name):'اختر شخصية أولاً')+'</button>';
- $('#pick').innerHTML=h}
+ h+='</div>';
+ $('#pick').innerHTML=h;dock()}
 function heroShow(){var h=$('#hero'),c=sel&&byI(sel);if(c){h.innerHTML='<div class="hc">'+av(c)+'<b>'+esc(c.name)+'</b></div>';h.className='unit';void h.offsetWidth;h.className='unit in'}else h.className='unit'}
-function setState(n){st={stage:n.stage,used:n.used,earned:n.earned}}
+function setState(n){st={stage:n.stage,used:n.used,earned:n.earned,total:n.total||n.earned}}
 function init(){setState(D.state);sel=null;busy=false;$('#hero').className='unit';scene(Math.min(st.stage,9),true);head();picker()}
 async function card(i){$('#cn').textContent='المرحلة '+(i+1)+' / 10';$('#ct').textContent=S[i][0];var c=$('#card');c.classList.remove('show');void c.offsetWidth;c.classList.add('show');await sleep(900);scene(i,true);await sleep(1200)}
 function confetti(){var e=['🎉','✨','👑','💰','⭐'],h='';for(var i=0;i<34;i++)h+='<span class="conf" style="left:'+Math.random()*100+'%;font-size:'+(14+Math.random()*16)+'px;animation-delay:'+Math.random()*1.2+'s">'+e[i%5]+'</span>';var d=document.createElement('div');d.innerHTML=h;while(d.firstChild)$('#scene').appendChild(d.firstChild);setTimeout(function(){document.querySelectorAll('.conf').forEach(function(x){x.remove()})},4200)}
 async function attack(){
- var c=byI(sel),s=S[st.stage],hero=$('#hero'),boss=$('#boss');busy=true;picker();var bc='unit'+(T[st.stage].big?' big':'');
+ var c=byI(sel),s=S[st.stage],hero=$('#hero'),boss=$('#boss');busy=true;picker();var y=$('#scene').getBoundingClientRect().top+window.scrollY-64;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});var bc='unit'+(T[st.stage].big?' big':'');
  hero.className='unit in';await sleep(500);hero.className='unit lunge';await sleep(520);
  var r;try{var rs=await fetch('/kingdom/attack',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:D.csrf,index:c.i})});r=await rs.json()}catch(e){r={ok:false,message:'تعذّر الاتصال بالخادم'}}
  if(!r.ok){
