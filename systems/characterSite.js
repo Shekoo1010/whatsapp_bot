@@ -13,6 +13,7 @@ const { charHash, MAX_GIFT_CHARACTERS } = require('./giftSystem')
 const mongoose = require('mongoose')
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
+const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
 
 const PAGE_SIZE = 40
 const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
@@ -861,6 +862,24 @@ function prepareGifts(inbox, catIdx) {
         .filter(g => /^[a-f0-9]{16}$/.test(g.id))
 }
 
+// إشعارات جوائز الترتيب (قروبات المملكة) داخل نفس صندوق الهدايا
+function prepareRewardGifts(list) {
+    return (list || []).map(r => ({
+        kind: 'reward',
+        id: String(r.id || ''),
+        group: String(r.group || ''),
+        color: /^#[0-9a-fA-F]{6}$/.test(r.color) ? r.color : '#f0c04a',
+        pos: Number(r.pos) || 0,
+        period: String(r.period || ''),
+        items: (r.items || []).map(x => String(x)),
+        charName: String(r.charName || ''),
+        charRarity: String(r.charRarity || ''),
+        charPower: Number(r.charPower) || 0,
+        img: safeImageUrl(r.charImage),
+        at: Number(r.at) || Date.now()
+    })).filter(r => /^[a-f0-9]{16}$/.test(r.id))
+}
+
 // نافذة صندوق الهدايا عند الدخول
 function inboxPopupHTML(viewer) {
     if (!viewer || !viewer.isOwner || !viewer.gifts || !viewer.gifts.length) return ''
@@ -875,6 +894,17 @@ function inboxPopupHTML(viewer) {
   function render(){
     var g=G[i]; if(!g){ ov.hidden=true; document.body.style.overflow=''; return; }
     box.style.setProperty('--tier', g.color); box.innerHTML='';
+    if(g.kind==='reward'){
+      var rt=el('div','g-top'); rt.appendChild(el('span','',(i+1)+' / '+G.length)); rt.appendChild(el('span','','🏆 جائزة ترتيب '+g.period)); box.appendChild(rt);
+      var rl=el('div','g-line','المركز '); rl.appendChild(el('b','',String(g.pos))); rl.appendChild(document.createTextNode(' بقروب ')); var gb=el('b','',g.group); gb.style.direction='ltr'; gb.style.display='inline-block'; rl.appendChild(gb); box.appendChild(rl);
+      var ra=el('div','g-art'); if(g.img){ ra.style.backgroundImage=\"url('\"+g.img+\"')\"; } else { ra.textContent='🏆'; } box.appendChild(ra);
+      if(g.charName){ box.appendChild(el('div','g-name',g.charName)); if(g.charRarity) box.appendChild(el('div','g-chip',g.charRarity)); }
+      g.items.forEach(function(t){ box.appendChild(el('div','g-line',t)); });
+      box.appendChild(el('div','g-ago',ago(g.at)));
+      var rb=el('button','btn purple','استلام والتالية'); rb.type='button';
+      rb.onclick=function(){ rb.disabled=true; ack(g.id); i++; render(); };
+      box.appendChild(rb); return;
+    }
     var top=el('div','g-top'); top.appendChild(el('span','',(i+1)+' / '+G.length)); top.appendChild(el('span','','هدية جديدة')); box.appendChild(top);
     var line=el('div','g-line','أهداك '); line.appendChild(el('b','',g.from)); line.appendChild(document.createTextNode(' شخصية')); box.appendChild(line);
     var art=el('div','g-art'); if(g.img){ art.style.backgroundImage="url('"+g.img+"')"; } else { art.textContent='👤'; } box.appendChild(art);
@@ -3301,6 +3331,10 @@ const TOP_CSS = `
   .tp-pw{font-size:15px}.r1 .tp-pw{font-size:19px}.tp-tier{font-size:9px;padding:1px 6px}
   .tp-row{grid-template-columns:30px 42px minmax(0,1fr) auto;gap:8px;padding-inline:10px}.tp-th{width:42px;height:42px}
 }
+.gt-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
+.gt-tab{--g:#f0c04a;font:800 14px 'Cairo',sans-serif;color:var(--td);background:rgba(15,20,34,.85);border:1.5px solid var(--tl);border-radius:22px;padding:7px 16px;text-decoration:none;transition:.2s;direction:ltr;unicode-bidi:isolate}
+.gt-tab.on{color:#0a0d16;background:var(--g);border-color:var(--g);box-shadow:0 0 18px -2px var(--g)}
+.gt-tab:not(.on):hover{border-color:var(--g);color:var(--g)}
 @media (prefers-reduced-motion:reduce){.tp *,.tp-bg i{animation:none!important}.tp-bg canvas{display:none}}
 `
 
@@ -3337,7 +3371,7 @@ const TOP_JS = `(function(){
 
 // podium: أول 3 · rows: من 4 فصاعداً · me: ترتيب صاحب الصفحة
 // كل عنصر: { rank, who, charName, tier, color, img, total, isMe }
-function topPageHTML({ code, viewer, podium, rows, me, updatedText }) {
+function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], subText = null, emptyText = null }) {
     const youLabel = viewer.isOwner ? 'أنت' : 'صاحب الصفحة'
     const initial = s => esc(Array.from(String(s || '?'))[0] || '?')
     const you = d => d.isMe ? ` <em class="tp-you">${youLabel}</em>` : ''
@@ -3354,7 +3388,7 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText }) {
         ? `<section class="tp-podium">${podium.map(slot).join('')}</section>
   ${rows.length ? `<div class="tp-sec">الترتيب من 4 إلى ${3 + rows.length}<span>آخر تحديث: ${esc(updatedText)}</span></div>
   <section class="tp-list">${rows.map(row).join('')}</section>` : `<div class="tp-sec"><span>آخر تحديث: ${esc(updatedText)}</span></div>`}`
-        : '<div class="tp-empty">لا يوجد لاعبون في الترتيب بعد.</div>'
+        : `<div class="tp-empty">${esc(emptyText || 'لا يوجد لاعبون في الترتيب بعد.')}</div>`
 
     return `${shellHead('أقوى اللاعبين')}
 <body>
@@ -3364,8 +3398,9 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText }) {
   ${topbar}
   <div class="tp-eb">Top Players</div>
   <h1>أقوى اللاعبين</h1>
-  <p class="tp-sub">الترتيب حسب مجموع قوة شخصيات اللاعب (بحدّ سعة مخزونه)، أول ${TOP_LIMIT} لاعب</p>
+  <p class="tp-sub">${esc(subText || `الترتيب حسب مجموع قوة شخصيات اللاعب (بحدّ سعة مخزونه)، أول ${TOP_LIMIT} لاعب`)}</p>
   <div class="tp-orn">◆</div>
+  ${tabs.length ? `<nav class="gt-tabs">${tabs.map(t => `<a class="gt-tab${t.on ? ' on' : ''}" style="--g:${esc(t.color)}" href="${esc(t.href)}">${esc(t.label)}</a>`).join('')}</nav>` : ''}
   ${body}
 </div>
 <div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span><span class="p">⚔️ ${fmtInt(me.total)}</span></div></div>
@@ -4124,6 +4159,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                     name: player.name || player.username || 'لاعب',
                     csrf: auth.csrfForSession(sess),
                     gifts: prepareGifts(player.giftInbox, catIdx)
+                        .concat(await kingdom.getUnseenRewards(player.userId).then(prepareRewardGifts).catch(() => []))
+                        .sort((a, b) => (a.at || 0) - (b.at || 0))
                 }
                 : { isOwner: false }
 
@@ -4923,7 +4960,14 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = ownerSession(req, player)
             if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
 
-            const snap = await getTopList()
+            // تبويبات القروبات: ?g=tsuki|yama|nakama (بدونها = الترتيب العام)
+            const gTabs = kingdom.getTabs()
+            const grp = gTabs.find(t => t.k === String(req.query.g || '')) || null
+            const tabs = gTabs.length
+                ? [{ label: '🏆 العام', color: '#f0c04a', on: !grp, href: `/u/${code}/top` }]
+                    .concat(gTabs.map(t => ({ label: t.label, color: t.color, on: !!grp && grp.k === t.k, href: `/u/${code}/top?g=${t.k}` })))
+                : []
+            const snap = grp ? await kingdom.getBoard(grp.k) : await getTopList()
             const catIdx = getCatalogIndex(getCatalog)
 
             const toEntry = (d, i) => {
@@ -4948,7 +4992,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const myIdx = snap.list.findIndex(d => d.userId === player.userId)
             let myRank = null
             if (myIdx >= 0) myRank = myIdx + 1
-            else if (myTotal > 0) myRank = await getOutsideRank(player.userId, myTotal)
+            else if (!grp && myTotal > 0) myRank = await getOutsideRank(player.userId, myTotal)
             const me = {
                 rank: myRank,
                 total: myIdx >= 0 ? Number(snap.list[myIdx].total) || 0 : myTotal,
@@ -4964,7 +5008,10 @@ function registerCharacterSite(app, Player, opts = {}) {
                 podium: entries.slice(0, 3),
                 rows: entries.slice(3),
                 me,
-                updatedText: agoText(Date.now() - snap.at)
+                updatedText: grp ? 'يتجدد يومياً 1:00 ص' : agoText(Date.now() - snap.at),
+                tabs,
+                subText: grp ? `ترتيب أعضاء قروب ${grp.label} فقط، أول ${kingdom.TOP_GROUP_LIMIT} لاعب` : null,
+                emptyText: grp ? `لا يوجد لاعبون في قروب ${grp.label} بعد.` : null
             }))
         } catch (err) {
             console.error('top players page error:', err)
@@ -5498,6 +5545,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const id = String(b.id || '')
             if (!/^[a-f0-9]{16}$/.test(id)) return res.status(400).json({ ok: false })
             await Player.updateOne({ userId: sess.u, 'giftInbox.id': id }, { $set: { 'giftInbox.$.seen': true } })
+            await kingdom.markRewardSeen(sess.u, id) // إشعارات جوائز الترتيب
             res.json({ ok: true })
         } catch (err) {
             console.error('gift ack error:', err)
