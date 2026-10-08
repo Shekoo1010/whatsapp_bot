@@ -200,12 +200,49 @@ function getBossPhase(raid){
 // ترتيب أعلى الضرر
 // =========================
 
+// damageMap قد يكون Map (في الموديل القديم) أو كائن عادي (Mixed)
+// هذه الدوال تتعامل مع الحالتين حتى لا يضيع ضرر اللاعبين
+function damageEntriesOf(raid){
+
+    const m = raid && raid.damageMap
+
+    if(!m) return []
+
+    if(m instanceof Map){
+        return [...m.entries()]
+    }
+
+    return Object.entries(m)
+
+}
+
+function addDamageTo(raid, userId, damage){
+
+    if(
+        raid.damageMap instanceof Map
+    ){
+
+        raid.damageMap.set(
+            userId,
+            (raid.damageMap.get(userId) || 0) + damage
+        )
+
+    }else{
+
+        if(!raid.damageMap) raid.damageMap = {}
+
+        raid.damageMap[userId] =
+        (raid.damageMap[userId] || 0) + damage
+
+    }
+
+    raid.markModified('damageMap')
+
+}
+
 function getRanking(raid){
 
-    return Object
-    .entries(
-        raid.damageMap || {}
-    )
+    return damageEntriesOf(raid)
     .sort(
         (a,b)=>
         b[1]-a[1]
@@ -436,11 +473,32 @@ ${raid.bossName}
             skill.chance
         ){
 
-            damage =
-            Math.floor(
-                damage *
-                skill.damageMultiplier
-            )
+            // ليس لكل قدرة damageMultiplier (مثل ريسيون)،
+            // وضربه بـ undefined كان يجعل الضرر NaN
+            if(skill.damageMultiplier > 0){
+
+                damage =
+                Math.floor(
+                    damage *
+                    skill.damageMultiplier
+                )
+
+            }
+
+            // قدرة الشفاء: البوس يستعيد جزءاً من صحته
+            if(skill.healBoss > 0){
+
+                raid.hp =
+                Math.min(
+                    raid.maxHp,
+                    raid.hp +
+                    Math.floor(
+                        raid.maxHp *
+                        skill.healBoss
+                    )
+                )
+
+            }
 
             battleText +=
 
@@ -1147,12 +1205,7 @@ ${healAmount.toLocaleString()}
 //  للرايد من قِبل لاعب آخر — وهذا هو سبب ظهور "آخر ضرر فقط")
 // =====================
 
-raid.damageMap[userId] =
-(
-    raid.damageMap[userId] || 0
-) + damage
-
-raid.markModified('damageMap')
+addDamageTo(raid, userId, damage)
 
 raid.totalDamage =
 (

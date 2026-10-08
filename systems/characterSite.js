@@ -344,7 +344,7 @@ function detailHTML(char) {
     const t = TIERS[tierKey] || TIERS['SSS']
     const isOmega = tierKey === 'Ω OMEGA'
     const evo = Number(char.evolutionLevel) || 0
-    const filled = Math.min(evo, 7)
+    const filled = Math.max(0, Math.min(evo, 7))
     const evoHTML = isOmega
         ? `<span class="sh-stars">${'★'.repeat(7)}</span> <b>(7/7) Ω</b>`
         : `<span class="sh-stars">${'★'.repeat(filled)}${'☆'.repeat(7 - filled)}</span> <b>(${filled}/7)</b>`
@@ -708,6 +708,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
+        ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
         ['gallery', '🖼️', 'المعارض', `/u/${c}/gallery`],
@@ -4157,6 +4158,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const bannerInfo = opts.bannerInfo // من systems/bannerPullSystem.js (معلومات البنر + رصيد الأورب)
     const bannerPull = opts.bannerPull // من systems/bannerPullSystem.js (نفس منطق .سحب_بنر)
     const kingdomRaid = opts.kingdomRaid // من systems/kingdomRaidSystem.js (نفس منطق .غزو)
+    const raidSock = opts.raidSock // اختياري: () => sock — لإرسال جوائز/تحرير الرايد لقروبات الواتساب لما يُقتل الزعيم من الموقع
     const costText = 'عشرون ألف مال'
 
     const express = require('express')
@@ -5158,6 +5160,107 @@ function registerCharacterSite(app, Player, opts = {}) {
             res.json(r)
         } catch (err) {
             console.error('kingdom attack route error:', err)
+            return fail(500, 'SERVER', 'خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── الغزو العالمي (الرايد) — نفس منطق raidBattle.js حرفياً ───────────────
+    // الصفحة: systems/raidPage.html (نفس تصميم raid-battle-2d5.html) · الوسيط: systems/raidSite.js
+    // الهجوم من الموقع يستدعي attackRaid() الأصلي نفسه بدون أي تعديل (كولداون 30ث، ضرر، باسف، قدرات، مراحل، جوائز).
+    let raidSite = null
+    let raidPageHTML = null
+    try {
+        raidPageHTML = require('./raidPage').raidPageHTML
+        raidSite = require('./raidSite').createRaidSite({
+            Player,
+            getSock: raidSock,
+            charImage: (ch, req) => {
+                const disp = resolveDisplayChar(ch || {}, getCatalogIndex(getCatalog))
+                let img = safeImageUrl(disp.image)
+                if (img && img.startsWith('/') && req) {
+                    const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
+                    img = `${proto}://${req.get('host')}${img}`
+                }
+                return img || ''
+            }
+        })
+    } catch (e) { console.error('raid site init error:', e) }
+
+    const raidStateHits = new Map()
+    const raidAttackHits = new Map()
+    function raidRate(map, userId, max) {
+        const now = Date.now()
+        const arr = (map.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= max) { map.set(userId, arr); return false }
+        arr.push(now); map.set(userId, arr); return true
+    }
+
+    app.get('/u/:code/raid', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!raidSite || !raidPageHTML) return res.status(503).send('الغزو العالمي من الموقع غير مفعّل حالياً.')
+
+            const st = await raidSite.getState(player.userId, req)
+            if (!st) return html404(res)
+
+            res.send(raidPageHTML({
+                data: { ...st, csrf: auth.csrfForSession(sess), code, loadedAt: Date.now(), board: st.board || [] }
+            }))
+        } catch (err) {
+            console.error('raid page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/raid/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!raidSite || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = await bossSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!raidRate(raidStateHits, sess.u, 60)) return res.status(429).json({ ok: false })
+            const st = await raidSite.getState(sess.u, req)
+            if (!st) return res.status(404).json({ ok: false })
+            res.json({ ok: true, ...st, board: st.board || [] })
+        } catch (err) {
+            console.error('raid state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/raid/attack', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message, extra = {}) => res.status(status).json({ ok: false, code, message, ...extra })
+        try {
+            if (!raidSite || !auth.authEnabled()) return fail(503, 'DISABLED', 'الغزو العالمي من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!raidRate(raidAttackHits, sess.u, 30)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const r = await raidSite.attack(sess.u)
+            if (!r.ok) {
+                const status = r.code === 'SERVER' ? 500 : r.code === 'COOLDOWN' ? 429 : 400
+                return fail(status, r.code, r.message || 'فشل الهجوم', r.retryInMs != null ? { retryInMs: r.retryInMs } : {})
+            }
+            res.json(r)
+        } catch (err) {
+            console.error('raid attack route error:', err)
             return fail(500, 'SERVER', 'خطأ بالخادم')
         }
     })

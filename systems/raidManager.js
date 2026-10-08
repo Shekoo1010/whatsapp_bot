@@ -401,6 +401,7 @@ module.exports = {
     startRaidScheduler,
     announceRaid,
     getNextRaidTime,
-    getRemainingTime
+    getRemainingTime,
+    RAID_GROUPS
 
 }
