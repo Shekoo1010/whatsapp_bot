@@ -6313,8 +6313,13 @@ console.log(
     'ME:',
     state.creds.me
 )
-    const { version } =
-    await fetchLatestBaileysVersion()
+    // 🛡️ لو فشل جلب النسخة (شبكة) لا نوقف تشغيل البوت
+    let version
+    try {
+        version = (await fetchLatestBaileysVersion()).version
+    } catch (err) {
+        console.log('fetchLatestBaileysVersion failed, using default:', err?.message)
+    }
 
 // ⚡ تحسين أداء (Baileys):
 // - logger بمستوى warn بدل info الافتراضي (يبقي الأخطاء الحقيقية فقط)
@@ -7230,7 +7235,7 @@ try {
     }
 
     setTimeout(() => {
-        startBot()
+        restartBotSafely()
     }, 5000)
 
     return
@@ -7512,9 +7517,11 @@ function textMatchesAnyPrefix(text, prefixes) {
     return false
 }
 
-sock.ev.on('messages.upsert', async ({ messages }) => {
+// 🛡️ المعالج الفعلي لرسالة واحدة (نفس الكود القديم بالضبط)
+const handleSingleMessage = async (msg) => {
+    const messages = [msg]
 
-    const msg = messages[0]
+    // (msg يوصل من الحلقة الخارجية)
     if (!msg?.message) return
 
     // ⛔ تجاهل رسائل البوت نفسه فورًا، قبل أي منطق ثاني (وقبل فحص الكويز تحديدًا)
@@ -38514,9 +38521,45 @@ await sock.sendMessage(
 
 }
     
-}) // <-- هذا الإغلاق الصحيح والوحيد لـ messages.upsert (بعد نهاية كل الأوامر)
+} // نهاية handleSingleMessage
+
+// 🛡️ حلقة الاستقبال: كل رسالة تُعالج بشكل مستقل ومعزول.
+// - أي خطأ أو تعليق بأمر واحد ما يوقف باقي الأوامر ولا باقي الرسائل
+// - نحافظ على السلوك القديم: أول رسالة بالدفعة فقط (messages[0])
+// - لا ننتظر (await) المعالجة، فأمر بطيء ما يحجب غيره
+sock.ev.on('messages.upsert', (upsert) => {
+    // نفس السلوك القديم بالضبط: نعالج أول رسالة بالدفعة فقط (messages[0])
+    const first = upsert && upsert.messages && upsert.messages[0]
+    const list = first ? [first] : []
+    for (const m of list) {
+        const startedAt = Date.now()
+        const watchdog = setTimeout(() => {
+            console.log('⚠️ SLOW/HUNG HANDLER (>60s):', m?.key?.remoteJid, JSON.stringify(m?.message || {}).slice(0, 120))
+        }, 60000)
+        Promise.resolve()
+            .then(() => handleSingleMessage(m))
+            .catch(err => {
+                console.error('❌ COMMAND ERROR (isolated, bot continues):', err)
+            })
+            .finally(() => clearTimeout(watchdog))
+    }
+})
 
 } // <-- هذا الإغلاق الصحيح لدالة startBot بالكامل
 
 // 3. السطر الأخير والوحيد في نهاية الملف لتشغيل البوت
-startBot().catch(console.error)
+// 🛡️ إعادة تشغيل آمنة: لو فشل startBot لأي سبب (شبكة/قاعدة بيانات...)
+// نعيد المحاولة بدل ما يموت البوت للأبد ويبقى الموقع فقط شغال
+let _restartAttempts = 0
+async function restartBotSafely() {
+    try {
+        await startBot()
+        _restartAttempts = 0
+    } catch (err) {
+        _restartAttempts++
+        const wait = Math.min(60000, 5000 * _restartAttempts)
+        console.error(`❌ startBot failed (attempt ${_restartAttempts}), retry in ${wait / 1000}s:`, err)
+        setTimeout(restartBotSafely, wait)
+    }
+}
+restartBotSafely()
