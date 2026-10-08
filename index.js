@@ -4532,7 +4532,28 @@ const characterShopSystem = createCharacterShopSystem({
     refreshShop: generateCharacterShop
 })
 
+// ⚔️ التحدي المباشر من الموقع (نفس نظام .تحدي / .قبول_تحدي / .هجوم الخصم / .مهارة / .ألتميت)
+const siteChallenge = require('./systems/siteChallenge')({
+    Player,
+    PvP,
+    mongoose,
+    equipmentSystem,
+    getTotalStats,
+    calculateDamageAdvanced,
+    getRank,
+    getRankTier,
+    applyRankTierPromotion,
+    applyDogBonus,
+    addCommandXp,
+    COMMAND_XP,
+    checkAndGrantAchievement,
+    orbs,
+    getPeriod: getCurrentSaudi2HourPeriod,
+    getSock: () => siteSockRef.current
+})
+
 registerCharacterSite(app, Player, {
+    challenge: siteChallenge,
     shopSystem: characterShopSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
