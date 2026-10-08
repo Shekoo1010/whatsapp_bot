@@ -706,6 +706,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
@@ -4208,6 +4209,33 @@ function registerCharacterSite(app, Player, opts = {}) {
     }
 
     const CODE_RE = /^[a-f0-9]{10}$/
+
+    // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
+    // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code
+    if (opts.challenge) {
+        try {
+            opts.challenge.mount(app, {
+                auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, cappedPower,
+                charView: (c, req) => {
+                    const disp = resolveDisplayChar(c || {}, getCatalogIndex(getCatalog))
+                    const tier = TIERS[resolveTierKey(disp.rarity, disp.evolutionLevel)] || TIERS['عادي']
+                    const showImg = tier.idx >= FIRST_IMAGE_TIER
+                    let img = showImg ? safeImageUrl(disp.image) : null
+                    if (img && img.startsWith('/') && req) {
+                        const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
+                        img = `${proto}://${req.get('host')}${img}`
+                    }
+                    return {
+                        n: String(disp.name || (c && c.name) || '—'),
+                        r: tier.key, c: tier.color, s: tier.stars,
+                        k: showImg ? 1 : 0, en: tier.lang === 'en',
+                        p: Number(c && c.power) || 0, i: img
+                    }
+                }
+            })
+        } catch (e) { console.error('site challenge mount error:', e) }
+    }
 
     // صور .استبدال المحلية
     app.use('/custom_images', express.static(path.join(__dirname, '..', 'custom_images'), { maxAge: '1d' }))
