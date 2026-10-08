@@ -335,6 +335,40 @@ await player.save()
 return '📦 SSS High Box ×1'
 }
 
+
+// 📣 إرسال رسالة الفعالية لكل القروبات بشكل معزول:
+// فشل الإرسال لقروب واحد (البوت مو موجود فيه / معرّف خطأ / ضغط واتساب)
+// ما يوقف الإرسال لباقي القروبات، ولا يمنع جدولة نهاية الفعالية.
+// كان الكود القديم يرسل بحلقة await بدون try/catch: أول قروب يفشل = الباقي ما يوصلهم
+// شي، والفعالية تبقى معلّقة (quickEvents.X != null) فما تشتغل الفعالية التالية أبداً.
+async function broadcastToGroups(sock, text, label) {
+
+const results = await Promise.allSettled(
+EVENT_GROUPS.map(group =>
+Promise.resolve().then(() => sock.sendMessage(group, { text }))
+)
+)
+
+const failed = []
+
+results.forEach((r, i) => {
+if (r.status === 'rejected') {
+failed.push(EVENT_GROUPS[i])
+console.log(
+`❌ quick event [${label}] send failed:`,
+EVENT_GROUPS[i],
+r.reason?.message || r.reason
+)
+}
+})
+
+console.log(
+`📣 quick event [${label}] sent to ${EVENT_GROUPS.length - failed.length}/${EVENT_GROUPS.length} groups`
+)
+
+return failed
+}
+
 // ينهي الفعالية: يرسل "انتهى الوقت" فقط للقروبات اللي ما فاز فيها أحد
 async function endQuickEvent(sock, key, ev, title, extra) {
 
@@ -375,15 +409,8 @@ code,
 winners: {}
 }
 
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
+await broadcastToGroups(
+sock,
 buildStartMessage(
 '🎯',
 'القناص السريع',
@@ -391,10 +418,9 @@ buildStartMessage(
 
 *${code}*`,
 '⚡ أول شخص بكل قروب يرسله يفوز'
-).replace('{TIME}', '4:30')
-}
+).replace('{TIME}', '4:30'),
+'sniper'
 )
-}
 
 setTimeout(
 () => endQuickEvent(sock, 'sniper', ev, 'القناص السريع'),
@@ -438,15 +464,8 @@ answer,
 winners: {}
 }
 
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
+await broadcastToGroups(
+sock,
 buildStartMessage(
 '🎲',
 'رقم الحظ',
@@ -455,10 +474,9 @@ buildStartMessage(
 🍀 واحد منها فقط هو الصحيح!`,
 `✍️ اكتب الرقم بنقطة قبله
 مثال: .99`
-).replace('{TIME}', '4:30')
-}
+).replace('{TIME}', '4:30'),
+'lucky'
 )
-}
 
 setTimeout(
 () => endQuickEvent(
@@ -572,15 +590,8 @@ quickEvents.typer = ev
 const example =
 '.' + words.join(' ')
 
-for (
-const group of
-EVENT_GROUPS
-) {
-
-await sock.sendMessage(
-group,
-{
-text:
+await broadcastToGroups(
+sock,
 buildStartMessage(
 '⌨️',
 'اكتب التالي',
@@ -591,10 +602,9 @@ buildStartMessage(
 
 ✍️ مثال للجواب:
 ${example}`
-).replace('{TIME}', '4:35')
-}
+).replace('{TIME}', '4:35'),
+'typer'
 )
-}
 
 setTimeout(
 () => endQuickEvent(sock, 'typer', ev, 'اكتب التالي'),
@@ -618,6 +628,8 @@ let lastLuckyMinute = null
 let lastTyperMinute = null
 
 const interval = setInterval(async () => {
+
+try {
 
     const now = new Date()
 
@@ -668,6 +680,10 @@ const interval = setInterval(async () => {
 
         await startTyper(sock)
     }
+
+} catch (err) {
+    console.error('quick events tick error:', err)
+}
 
 }, 5000)
 
