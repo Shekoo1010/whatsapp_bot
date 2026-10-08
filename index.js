@@ -37363,11 +37363,11 @@ const battleTimeout = setTimeout(() => {
         text: '⌛ انتهى وقت القتال وتم إلغاؤه تلقائيًا.'
     }).catch(() => {});
 }, 30000);
-    let myPower =
-        me.characters.reduce((sum, c) => sum + Number(c.power || 0), 0);
+    // 📦 نفس منطق .الترتيب: القوة = مجموع شخصيات المخزون فقط (بحدّ سعة المخزون)
+    // وليس كل الشخصيات اللي يملكها اللاعب
+    let myPower = Number(cappedPower(me)) || 0;
 
-    let enemyPower =
-        enemy.characters.reduce((sum, c) => sum + Number(c.power || 0), 0);
+    let enemyPower = Number(cappedPower(enemy)) || 0;
 
     let myAttack = myPower
 let enemyAttack = enemyPower;
@@ -38540,6 +38540,14 @@ sock.ev.on('messages.upsert', (upsert) => {
             .then(() => handleSingleMessage(m))
             .catch(err => {
                 console.error('❌ COMMAND ERROR (isolated, bot continues):', err)
+                // رد مختصر للمستخدم بدل الصمت (محمي بحيث لا يسبب خطأ ثانٍ)
+                try {
+                    const jid = m?.key?.remoteJid
+                    if (jid) {
+                        Promise.resolve(sock.sendMessage(jid, { text: '❌ حدث خطأ أثناء تنفيذ الأمر، حاول مرة أخرى.' }))
+                            .catch(() => {})
+                    }
+                } catch (_) {}
             })
             .finally(() => clearTimeout(watchdog))
     }
