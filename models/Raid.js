@@ -149,9 +149,10 @@ difficulty: {
         default: 0
     },
 
+    // كائن حر (Mixed): مفاتيح اللاعبين فيها نقاط (@s.whatsapp.net)
+    // والـ Map يرفضها. التعديل عليه يحتاج markModified('damageMap')
     damageMap: {
-        type: Map,
-        of: Number,
+        type: Object,
         default: {}
     },
 
