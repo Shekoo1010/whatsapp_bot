@@ -50,6 +50,39 @@ Math.random() * pool.length
 ]
 
 }
+async function safeBroadcast(sock, payload) {
+
+for (const group of auctionGroups) {
+
+try {
+
+await sock.sendMessage(group, payload)
+
+} catch (err) {
+
+console.log('Auction send error (' + group + '):', err.message)
+
+}
+
+}
+
+}
+
+function resetAuctionState() {
+
+if (auctionTimeout) {
+    clearTimeout(auctionTimeout)
+    auctionTimeout = null
+}
+
+currentAuction.active = false
+currentAuction.character = null
+currentAuction.highestBid = 100000
+currentAuction.highestBidder = null
+currentAuction.endTime = null
+
+}
+
 async function startAuction(sock) {
 
 console.log('🏛️ START AUCTION CALLED')
@@ -84,6 +117,23 @@ Date.now() +
 currentAuction.auctionGroups =
 auctionGroups
 
+// ⏱️ نضبط المؤقت أولاً قبل أي إرسال، فما يعلق المزاد لو فشل قروب
+if (auctionTimeout) {
+    clearTimeout(auctionTimeout)
+}
+
+auctionTimeout = setTimeout(
+() => {
+finishAuction(sock).catch(err => {
+console.log('finishAuction Error:', err)
+resetAuctionState()
+})
+},
+15 * 60 * 1000
+)
+
+try {
+
 const text =
 
 `🏛️ مزاد جديد
@@ -105,25 +155,14 @@ const text =
 استخدم:
 .مزايدة المبلغ`
 
-for (const group of auctionGroups) {
+await safeBroadcast(sock, { text })
 
-await sock.sendMessage(
-group,
-{
-text
-}
-)
+} catch (err) {
+
+console.log('startAuction Error:', err)
+resetAuctionState()
 
 }
-
-if (auctionTimeout) {
-    clearTimeout(auctionTimeout)
-}
-
-auctionTimeout = setTimeout(
-() => finishAuction(sock),
-15 * 60 * 1000
-)
 
 }
 
@@ -134,74 +173,44 @@ console.log('🏁 FINISH AUCTION CALLED')
 if (!currentAuction.active)
 return
 
-if (
-!currentAuction.highestBidder
-) {
+// نأخذ نسخة من البيانات ثم نصفّر الحالة بـ finally مهما حصل
+const character = currentAuction.character
+const bidderId = currentAuction.highestBidder
+const finalBid = currentAuction.highestBid
 
-for (
-const group
-of auctionGroups
-) {
+try {
 
-await sock.sendMessage(
-group,
-{
+if (!bidderId) {
+
+await safeBroadcast(sock, {
 text:
 
 `⌛ انتهى المزاد
 
 ❌ لم يزايد أحد
 
-👤 ${currentAuction.character.name}`
-}
-)
-
-}
-if (auctionTimeout) {
-    clearTimeout(auctionTimeout)
-    auctionTimeout = null
-}
-
-currentAuction.active = false
-currentAuction.character = null
-currentAuction.highestBid = 100000
-currentAuction.highestBidder = null
-currentAuction.endTime = null
+👤 ${character.name}`
+})
 
 return
+
 }
 
 const winner =
-await Player.findOne({
-
-userId:
-currentAuction.highestBidder
-
-})
+await Player.findOne({ userId: bidderId })
 
 if (
 winner &&
-winner.money >=
-currentAuction.highestBid
+winner.money >= finalBid
 ) {
 
-winner.money -=
-currentAuction.highestBid
+winner.money -= finalBid
 
-winner.characters.push(
-currentAuction.character
-)
+winner.characters.push(character)
 
 await winner.save()
 
-for (
-const group
-of auctionGroups
-) {
-
-await sock.sendMessage(
-group,
-{
+await safeBroadcast(sock, {
 text:
 
 `🏆 انتهى المزاد
@@ -211,32 +220,40 @@ text:
 @${winner.userId.split('@')[0]}
 
 💰 السعر النهائي:
-${currentAuction.highestBid.toLocaleString()}
+${finalBid.toLocaleString()}
 
 🎁 الشخصية:
 
-${currentAuction.character.name}`
+${character.name}`
 ,
 mentions: [
 winner.userId
 ]
-}
-)
+})
+
+} else {
+
+await safeBroadcast(sock, {
+text:
+
+`⌛ انتهى المزاد
+
+⚠️ الفائز ما عنده رصيد كافي لدفع المبلغ، أُلغي المزاد
+
+👤 ${character.name}`
+})
 
 }
 
-}
+} catch (err) {
 
-if (auctionTimeout) {
-    clearTimeout(auctionTimeout)
-    auctionTimeout = null
-}
+console.log('finishAuction Error:', err)
 
-currentAuction.active = false
-currentAuction.character = null
-currentAuction.highestBid = 100000
-currentAuction.highestBidder = null
-currentAuction.endTime = null
+} finally {
+
+resetAuctionState()
+
+}
 
 }
 

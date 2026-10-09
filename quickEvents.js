@@ -311,8 +311,7 @@ player.boxes.legendary += 1
 
 await player.save()
 
-return
-'📦 Legendary Box ×1'
+return '📦 Legendary Box ×1'
 }
 
 if (
@@ -324,8 +323,7 @@ player.boxes.sss_chance += 1
 
 await player.save()
 
-return
-'📦 SSS Chance Box ×1'
+return '📦 SSS Chance Box ×1'
 }
 
 player.boxes.sss_high += 1

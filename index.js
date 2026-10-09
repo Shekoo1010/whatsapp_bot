@@ -243,6 +243,56 @@ async function retryOnDisconnect(label, fn, tries = 5, delayMs = 3000) {
 }
 
 // =========================
+// 🛡️ حماية الإعلانات/الإرسال للقروبات (لا تفصل البوت ولا توقف بقية القروبات)
+// - safeGroupSend: يرسل لقروب واحد ولا يرمي خطأ أبداً (يسجّل ويكمل)
+// - guardGroupSends: يغلّف sock.sendMessage مرة واحدة عند إنشاء الاتصال، فأي إعلان
+//   (زعيم/رايد/فعاليات/مزاد/موسم/وحوش...) سواء بهذا الملف أو بملفات systems/*
+//   فشل إرساله لقروب (403 forbidden / طُرد البوت / غير مصرّح) يُتخطّى ويكمل للقروب التالي.
+// - انقطاع الاتصال الحقيقي (Connection Closed) يبقى يُرمى كما هو عشان إعادة المحاولة/إعادة الاتصال تشتغل
+// =========================
+function isGroupJid(jid) {
+    return typeof jid === 'string' && jid.endsWith('@g.us')
+}
+
+function isSocketDownError(err) {
+    const code = err?.output?.statusCode
+    const msg = String(err?.message || err || '')
+    return code === 428 || /connection closed|connection lost|not connected|stream errored/i.test(msg)
+}
+
+async function safeGroupSend(sock, jid, content, options, label = 'announce') {
+    try {
+        if (!sock || typeof sock.sendMessage !== 'function') return null
+        return await sock.sendMessage(jid, content, options)
+    } catch (err) {
+        console.log(`⚠️ [${label}] فشل الإرسال إلى ${jid} — تخطّيناه وكملنا:`, err?.message || err)
+        return null
+    }
+}
+
+function guardGroupSends(sock) {
+    try {
+        if (!sock || typeof sock.sendMessage !== 'function' || sock.sendMessage.__groupSafe) return sock
+        const orig = sock.sendMessage.bind(sock)
+        const guarded = async function (jid, content, options) {
+            if (!isGroupJid(jid)) return orig(jid, content, options)
+            try {
+                return await orig(jid, content, options)
+            } catch (err) {
+                if (isSocketDownError(err)) throw err
+                console.log(`⚠️ [group-send] فشل الإرسال إلى ${jid} (${err?.data || err?.output?.statusCode || ''}) — تخطّيناه وكملنا:`, err?.message || err)
+                return null
+            }
+        }
+        guarded.__groupSafe = true
+        sock.sendMessage = guarded
+    } catch (err) {
+        console.log('guardGroupSends error:', err?.message || err)
+    }
+    return sock
+}
+
+// =========================
 // 🟢 فتح البوت للأعضاء خارج وقت العمل (بأمر المطور .فتح_البوت)
 // - يفتح البوت حتى أول 10:00 صباحاً بتوقيت الرياض (وقت الفتح العادي)،
 //   بعدها يرجع الجدول الطبيعي تلقائياً (10ص - 12:00).
@@ -549,7 +599,7 @@ if (global.auctionInterval) {
     return
 }
 
-global.auctionInterval = setInterval(async () => {
+global.auctionInterval = setInterval(async () => { try { 
 
 const now = new Date()
 
@@ -578,7 +628,7 @@ err
 
 }
 
-}, 60000)
+ } catch (__err) { console.log('❌ [المزاد] خطأ محمي — البوت يكمل:', __err?.message || __err) } }, 60000)
 
 }
 
@@ -694,7 +744,7 @@ if (global.bossAttackWindowInterval) {
 global.bossAttackWindowOpen =
     global.bossAttackWindowOpen || false
 
-global.bossAttackWindowInterval = setInterval(async () => {
+global.bossAttackWindowInterval = setInterval(async () => { try { 
 
 const now = new Date()
 
@@ -786,7 +836,7 @@ global.bossAttackWindowOpen
     await closeBossAttackWindowNow(sock)
 }
 
-}, 60000)
+ } catch (__err) { console.log('❌ [نافذة هجوم الزعيم] خطأ محمي — البوت يكمل:', __err?.message || __err) } }, 60000)
 
 }
 
@@ -3696,7 +3746,7 @@ async function startZoneCycle(sock, jid) {
             player.inZone = false
     })
 
-    await sock.sendMessage(jid, {
+    await safeGroupSend(sock, jid, {
         text:
 `☣️ الزون ${global.battleRoyale.zoneLevel}
 
@@ -3707,7 +3757,7 @@ async function startZoneCycle(sock, jid) {
 .دخول_زون`
     })
 
-    setTimeout(async () => {
+    setTimeout(async () => { try { 
 
         if (
             !global.battleRoyale ||
@@ -3768,7 +3818,7 @@ async function startZoneCycle(sock, jid) {
         global.battleRoyale.zoneDamage += 2000
         global.battleRoyale.zoneActive = false
 
-        await sock.sendMessage(jid, {
+        await safeGroupSend(sock, jid, {
             text: report,
             mentions: global.battleRoyale.players.map(p => p.userId)
         })
@@ -3786,7 +3836,7 @@ async function startZoneCycle(sock, jid) {
                 userId: winner.userId
             })
 
-            await sock.sendMessage(
+            await safeGroupSend(sock, 
                 jid,
                 {
                     text:
@@ -3816,7 +3866,7 @@ async function startZoneCycle(sock, jid) {
 
         }
 
-    }, 10000)
+     } catch (__err) { console.log('❌ [زون الباتل رويال] خطأ محمي — البوت يكمل:', __err?.message || __err) } }, 10000)
 }
 
 
@@ -5035,7 +5085,7 @@ async function startBrawl(
     team1.length !== 3 ||
     team2.length !== 3
 ) {
-    return sock.sendMessage(
+    return safeGroupSend(sock, 
         jid,
         {
             text:
@@ -5105,7 +5155,7 @@ async function startBrawl(
 
     }
 
-    await sock.sendMessage(
+    await safeGroupSend(sock, 
     jid,
     {
         text:
@@ -5580,7 +5630,7 @@ for (const ability of activeAbilities2) {
 
     wins1++
 
-    await sock.sendMessage(
+    await safeGroupSend(sock, 
     jid,
     {
         text:
@@ -5629,7 +5679,7 @@ ${equipSummaryText(char2EquipBonus)}
 
     wins2++
 
-    await sock.sendMessage(
+    await safeGroupSend(sock, 
     jid,
     {
         text:
@@ -5776,7 +5826,7 @@ if (
 
 const brawlWorldPointsSuffix = brawlWorldPointsText ? `\n\n${brawlWorldPointsText}` : ''
 
-await sock.sendMessage(
+await safeGroupSend(sock, 
     jid,
     {
         text:
@@ -6397,6 +6447,9 @@ const sock = makeWASocket({
     syncFullHistory: false
 })
 
+// 🛡️ حماية الإرسال للقروبات: فشل قروب واحد ما يوقف الإعلان للباقي ولا يفصل البوت
+guardGroupSends(sock)
+
 // 🛡️ لو شخصية بدون صورة (image فارغ) انسحبت قبل ما يضع المطور صورتها بـ .ص،
 // نحوّل إرسال الصورة الفارغة لرسالة نصية بدل ما يفشل الإرسال/الأمر
 {
@@ -6759,10 +6812,10 @@ ${juubi.maxHp.toLocaleString()}
     }
 
     // 🎖️ إشعار الترقية التلقائي — يُرسل بآخر قروب تكلم فيه اللاعب (أو خاص لو ما عرفنا)
-    Player.setLevelUpNotifier(async (doc, text) => {
+    Player.setLevelUpNotifier(async (doc, text) => { try { 
         const jid = lastChatByUser.get(doc.userId) || doc.userId
         await sock.sendMessage(jid, { text, mentions: [doc.userId] })
-    })
+     } catch (__err) { console.log('❌ [إشعار الترقية] خطأ محمي — البوت يكمل:', __err?.message || __err) } })
 
     // =========================
     // CONNECTION
@@ -7286,7 +7339,7 @@ let lastBossHour = -1
 
 if (!global.bossSpawnInterval) {
 
-    global.bossSpawnInterval = setInterval(async () => {
+    global.bossSpawnInterval = setInterval(async () => { try { 
 
         const now = new Date()
 
@@ -7315,7 +7368,7 @@ if (!global.bossSpawnInterval) {
             )
         }
 
-    }, 60000)
+     } catch (__err) { console.log('❌ [زعيم رأس الساعة] خطأ محمي — البوت يكمل:', __err?.message || __err) } }, 60000)
 
 }
 
@@ -8260,7 +8313,7 @@ if (!text) return;
 
             const rewardText = await giveQuickReward(userId)
 
-            await sock.sendMessage(
+            await safeGroupSend(sock, 
                 _qeGroup,
                 {
                     text: buildWinMessage(
@@ -22460,7 +22513,7 @@ currentAuction.auctionGroups ||
 ]
 ) {
 
-await sock.sendMessage(
+await safeGroupSend(sock, 
 group,
 {
 text:
@@ -26670,7 +26723,7 @@ if (text === '.رسبن_رايد') {
 
     }
 
-    await announceRaid(sock)
+    try { await announceRaid(sock) } catch (err) { console.log('❌ [announceRaid] فشل إعلان الرايد (محمي — البوت يكمل):', err?.message || err) }
 
     return safeSend(
         msg.key.remoteJid,
@@ -31574,7 +31627,7 @@ text:
 )
 
 setTimeout(
-async () => {
+async () => { try { 
 
 if (
 !battleState.activeBattle
@@ -31655,7 +31708,7 @@ WAR_SCORE_TICK_MS
 )
 
 setTimeout(
-async () => {
+async () => { try { 
 
 const battle =
 battleState.activeBattle
@@ -31779,7 +31832,7 @@ const neutralFlags =
 redFlags -
 blueFlags
 
-await sock.sendMessage(
+await safeGroupSend(sock, 
 battle.roomId,
 {
 text:
@@ -31870,11 +31923,11 @@ await playerData.save()
 battleState.activeBattle =
 null
 
-},
+ } catch (__err) { console.log('❌ [نهاية الحرب] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 
 WAR_DURATION_MS
 )
-},
+ } catch (__err) { console.log('❌ [بدء الحرب] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 10000
 )
 
@@ -33501,6 +33554,8 @@ if (text === '.مسح_المعدات') {
             const answer =
                 global.guessGame.character
 
+            try {
+
             await safeSend(
                 global.guessGame.groupId,
                 {
@@ -33517,7 +33572,11 @@ ${answer.anime}`
                 }
             )
 
-            global.guessGame.active = false
+            } catch (err) {
+                console.log('GuessGame timeout error:', err)
+            } finally {
+                global.guessGame.active = false
+            }
 
         }, 2 * 60 * 1000)
     }
@@ -38589,7 +38648,7 @@ let result =
 
 🎉 تم توزيع الجوائز على أفضل 15 لاعب`
 
-await sock.sendMessage(
+await safeGroupSend(sock, 
     groupId,
     {
         text: result,

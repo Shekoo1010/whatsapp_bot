@@ -98,7 +98,8 @@ const SAUDI_UTC_OFFSET_HOURS = 3
 const WorldSchema = new mongoose.Schema({
     key: { type: String, required: true, unique: true },
     points: { type: Number, default: 0 },
-    season: { type: Number, default: 1 }
+    season: { type: Number, default: 1 },
+    rewardedUsers: { type: [String], default: [] }
 })
 
 const World = mongoose.models.World || mongoose.model('World', WorldSchema)
@@ -424,13 +425,32 @@ async function endWorldSeason(sock, jidOrJids) {
 
     for (const member of members) {
 
-        await member.addMoney(WORLD_REWARD_MONEY)
+        // 🔒 حجز ذرّي: كل لاعب ياخذ الجائزة مرة وحدة بالموسم حتى لو أُعيدت العملية
+        const claim = await World.updateOne(
+            { key: winningWorld.key, rewardedUsers: { $ne: member.userId } },
+            { $push: { rewardedUsers: member.userId } }
+        )
 
-        for (let i = 0; i < WORLD_REWARD_SSS_COUNT; i++) {
-            grantRandomSSSCharacter(member)
+        const alreadyRewarded = !claim.modifiedCount && !claim.nModified
+
+        if (!alreadyRewarded) {
+            try {
+                await member.addMoney(WORLD_REWARD_MONEY)
+
+                for (let i = 0; i < WORLD_REWARD_SSS_COUNT; i++) {
+                    grantRandomSSSCharacter(member)
+                }
+
+                await member.save()
+            } catch (err) {
+                // فشل المنح: نلغي الحجز عشان تنعاد المحاولة بدون ضياع الجائزة
+                await World.updateOne(
+                    { key: winningWorld.key },
+                    { $pull: { rewardedUsers: member.userId } }
+                ).catch(console.log)
+                throw err
+            }
         }
-
-        await member.save()
 
         mentions.push(member.userId)
     }
@@ -476,7 +496,7 @@ async function endWorldSeason(sock, jidOrJids) {
     for (const key of Object.keys(WORLDS)) {
         await World.updateOne(
             { key },
-            { $set: { points: 0 }, $inc: { season: 1 } }
+            { $set: { points: 0, rewardedUsers: [] }, $inc: { season: 1 } }
         )
     }
 }
