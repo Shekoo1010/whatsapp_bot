@@ -1,6 +1,6 @@
 'use strict'
 
-// 🏟️ أرينا PvP (النسخة 3) على الموقع — /u/<كود>/arena
+// 🏟️ أرينا PvP (النسخة 3) على الموقع — /u/<كود>/pvp  (ليس /arena: هذا المسار لساحة قتال التحدي بـ siteChallenge.js)
 // نفس منطق أمر الواتساب `.قتال pvp` بالضبط: نفس systems/pvpBattle.js (فرق 3 شخصيات + معدات + سلاح + إيكو)،
 // نفس قائمة الخصوم القريبين، نفس الكولداون (30ث) و20 قتال يومياً، نفس Elo والمكافآت (مال/خبرة/صندوق)،
 // ونفس مهمة الأورب والإنجازات. الموقع يعرض إعادة مرئية للمعركة الحقيقية نفسها (لا يوجد عشوائية جانبية).
@@ -236,7 +236,7 @@ module.exports = function createSiteArena(deps) {
         }
 
         // ── الصفحة ──
-        app.get('/u/:code/arena', async (req, res) => {
+        app.get('/u/:code/pvp', async (req, res) => {
             try {
                 securityHeaders(res)
                 const code = String(req.params.code || '')

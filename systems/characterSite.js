@@ -707,7 +707,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
-        ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/arena`],
+        ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
@@ -4243,7 +4243,8 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (e) { console.error('site challenge mount error:', e) }
     }
 
-    // 🏟️ أرينا PvP (النسخة 3) — /u/:code/arena (systems/siteArena.js)
+    // 🏟️ أرينا PvP (النسخة 3) — /u/:code/pvp (systems/siteArena.js)
+    // ملاحظة: /u/:code/arena مستخدم لساحة قتال التحدي (siteChallenge.js) — لا تستخدمه للأرينا
     if (opts.arena) {
         try {
             opts.arena.mount(app, {
