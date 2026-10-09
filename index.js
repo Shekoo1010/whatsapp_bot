@@ -11414,7 +11414,10 @@ ${mainCharacter ? Number(mainCharacter.power).toLocaleString() : "-"}
 
 @${userId.split("@")[0]}
 
-🏅 المستوى:
+${player.activeTitle && (player.titles || []).includes(player.activeTitle) ? `🎖️ اللقب المفعّل
+${player.activeTitle}
+
+` : ""}🏅 المستوى:
 ${player.level || 1}
 
 ✨ الخبرة:
@@ -11462,7 +11465,7 @@ ${characters.length}/${player.maxCharacters || 30}
 👑 الألقاب
 
 ${player.titles?.length
-? player.titles.join("\n")
+? player.titles.map(t => (t === player.activeTitle ? "✅ " : "") + t).join("\n")
 : "لا يوجد"}
 
 ╰━━━━━━━━━━━━━━╯`
@@ -17381,7 +17384,7 @@ if (needSave) await player.save()
 🏆 الألقاب:
 
 ${player.titles?.length
-? player.titles.join('\n')
+? player.titles.map(t => (t === player.activeTitle ? '✅ ' : '') + t).join('\n')
 : 'لا يوجد'}
 
 🏰 الطابق: 30/30
