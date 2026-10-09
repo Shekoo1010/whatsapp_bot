@@ -38241,6 +38241,8 @@ for (let i = 3; i < players.length; i++) {
         (player.boxes.epic || 0) + 2
 
     await player.save()
+
+    rewardLog.logReward(player.userId, { src: 'زعيم المجموعة — مشارك', icon: '🏅', lines: [`💰 ${Number(_siteRestMoney[i]).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 2 × صندوق Epic'] })
 }
 
     
@@ -38253,6 +38255,8 @@ for (let i = 3; i < players.length; i++) {
         (killer.boxes.sss_high || 0) + 1
 
     await killer.save()
+
+    rewardLog.logReward(killer.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
     }
 
     const rankingData = players.map(p => ({
