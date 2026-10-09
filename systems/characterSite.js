@@ -3870,6 +3870,10 @@ header b{font-size:18px;font-weight:900}.on-pill{color:var(--tx);background:rgba
 .msg{display:flex;gap:8px;margin:10px 0;align-items:flex-end}.msg:not(.me){flex-direction:row-reverse}
 .mb{max-width:76%;display:flex;flex-direction:column}.me .mb{align-items:flex-start}.msg:not(.me) .mb{align-items:flex-end}
 .nm{font-size:12px;font-weight:800;margin-bottom:2px}.mb small{font-size:10px;color:var(--mut);margin-top:2px}
+/* 🏅 اللقب بالدردشة: يظهر كامل ويلتف لسطر ثاني لو طويل (overflow:hidden يبقى لقص لمعة الليجند/الميثيك فقط) */
+.mb .nm{display:block;width:max-content;max-width:100%}
+.nm .ttl{display:inline-flex!important;flex:none;width:max-content!important;max-width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:auto!important;white-space:normal!important;word-break:break-word;border-radius:16px;padding:2px 11px}
+.nm .ttl .tei{flex:none}.nm .ttl .tn{min-width:0;white-space:normal}
 .bub{padding:9px 14px;border-radius:18px;line-height:1.6;background:var(--you);word-break:break-word}
 .me .bub{background:linear-gradient(135deg,#5b4bd6,#a23bd6);color:#fff}
 .stk{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 20px;border-radius:22px;color:#fff;font-weight:900;font-size:15px;box-shadow:0 8px 20px -8px #000,inset 0 0 0 2px rgba(255,255,255,.35)}
