@@ -718,6 +718,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
+        ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`]
     ]
     const list = items.map(([k, ic, label, href]) =>
@@ -4289,6 +4290,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN
             })
         } catch (e) { console.error('site wheel mount error:', e) }
+    }
+
+    // 📖 كتاب المجموعة — /u/:code/book (systems/siteCodexBook.js)
+    if (opts.codexBook) {
+        try {
+            opts.codexBook.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead
+            })
+        } catch (e) { console.error('site codex book mount error:', e) }
     }
 
     // صور .استبدال المحلية

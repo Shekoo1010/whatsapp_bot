@@ -493,6 +493,13 @@ module.exports = function createSiteArena(deps) {
                 const teamA = pvpBattle.buildTeam(attacker, 'A', battleDeps)
                 const teamB = pvpBattle.buildTeam(defender, 'B', battleDeps)
 
+                // 📖 بونص كتاب المجموعة: هجوم في الأرينا (League of Legends / Tekken) — لكل فريق حسب لاعبه
+                try {
+                    const cb = require('./siteCodexBook')
+                    const boost = (team, uid) => { const m = cb.bonusMult(uid, 'arena'); if (m > 1) team.fighters.forEach(f => { if (f && f.atk) f.atk = Math.floor(f.atk * m) }) }
+                    boost(teamA, attacker.userId); boost(teamB, defender.userId)
+                } catch (e) {}
+
                 // قبل المحاكاة: نلتقط القائمة (المحاكاة تغيّر الـHP والدرع)
                 const plain = c => (c && typeof c.toObject === 'function') ? c.toObject() : c
                 const roster = (team, p) => {

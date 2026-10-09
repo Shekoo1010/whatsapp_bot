@@ -307,6 +307,8 @@ module.exports = function createSiteChallenge(deps) {
             equipmentSystem.applyEquipPercentBonus(oS, foeEq)
             aS.power = attacker.power
             aS.level = playerData.level
+            // 📖 بونص كتاب المجموعة: هجوم في المضاربات (One Piece / Wuthering Waves) — نفس تطبيق أوامر البوت
+            try { aS.codexSpec = require('./siteCodexBook').bonusPct(userId, 'spec') } catch (e) {}
             oS.level = opponentData.level
 
             const result = calculateDamageAdvanced(aS, oS)

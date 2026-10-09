@@ -509,6 +509,9 @@ function createBossAttackSystem(deps) {
                 }
             }
 
+            // 📖 بونص كتاب المجموعة: هجوم على الزعيم (Bleach / Kingdom) — يشمل كل الشخصيات
+            try { damage = Math.floor(damage * require('./siteCodexBook').bonusMult(me.userId, 'boss')) } catch (e) {}
+
             const result = useAttackAbilities({ player: me, character: strongest, damage })
             damage = result.damage
             playerSkillsText = (playerSkillsText || '') + (result.playerText || '')

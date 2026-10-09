@@ -102,7 +102,7 @@ function getCharDev(player, charName) {
 }
 
 // يبني كائن المقاتل الجاهز للقتال من اسم الشخصية + تطويرها
-function buildFighter(charName, dev) {
+function buildFighter(charName, dev, arenaBonus) {
 
     const base = getArenaChar(charName)
 
@@ -117,13 +117,14 @@ function buildFighter(charName, dev) {
         sp: dev.sp || 0,
         def: dev.def || 0,
         focus: dev.focus || 0,
-        critChance
+        critChance,
+        arenaBonus: Number(arenaBonus) || 0 // 📖 بونص كتاب المجموعة (% هجوم)
     }
 }
 
 function computeHit(attacker, defender) {
 
-    const baseDmg = 480 + attacker.sp * 3
+    const baseDmg = (480 + attacker.sp * 3) * (1 + (attacker.arenaBonus || 0) / 100)
     const mult = colorMultiplier(attacker.color, defender.color)
 
     let dmg = baseDmg * mult - defender.def * 2
@@ -224,7 +225,8 @@ function compressLog(log) {
 // 🥊 معركة الأرينا الكاملة (3 مبارزات)
 // =========================
 
-function simulateArenaBattle(attackerTeam, defenderTeam, attackerDevMap, defenderDevMap) {
+function simulateArenaBattle(attackerTeam, defenderTeam, attackerDevMap, defenderDevMap, bonus) {
+    bonus = bonus || {}
 
     const duels = []
     let scoreA = 0
@@ -235,8 +237,8 @@ function simulateArenaBattle(attackerTeam, defenderTeam, attackerDevMap, defende
         const nameA = attackerTeam[i]
         const nameB = defenderTeam[i]
 
-        const fighterA = buildFighter(nameA, attackerDevMap(nameA))
-        const fighterB = buildFighter(nameB, defenderDevMap(nameB))
+        const fighterA = buildFighter(nameA, attackerDevMap(nameA), bonus.a)
+        const fighterB = buildFighter(nameB, defenderDevMap(nameB), bonus.b)
 
         const result = simulateDuel(fighterA, fighterB)
 

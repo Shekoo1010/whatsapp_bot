@@ -972,6 +972,9 @@ ${remain}
     let damage =
     battle.damage
 
+    // 📖 بونص كتاب المجموعة: هجوم في الرايد (Hunter x Hunter / Resident Evil)
+    try { damage = Math.floor(damage * require('./siteCodexBook').bonusMult(player.userId, 'raid')) } catch (e) {}
+
     let abilityText =
     battle.abilityText
 

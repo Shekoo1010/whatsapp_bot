@@ -261,7 +261,9 @@ ${names.join('\n')}`
             attackerNames,
             defenderNames,
             (name) => getCharDev(attacker, name),
-            (name) => getCharDev(defender, name)
+            (name) => getCharDev(defender, name),
+            // 📖 بونص كتاب المجموعة: هجوم في الأرينا (League of Legends / Tekken)
+            (() => { try { const cb = require('./siteCodexBook'); return { a: cb.bonusPct(attacker.userId, 'arena'), b: cb.bonusPct(defender.userId, 'arena') } } catch (e) { return {} } })()
         )
 
         const attackerWon = battle.winnerSide === 'a'
