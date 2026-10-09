@@ -4568,7 +4568,14 @@ const siteArena = require('./systems/siteArena')({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🎡 عجلة الحظ اليومية من الموقع (systems/siteWheel.js)
+const rewardLog = require('./systems/rewardLog') // 🎁 سجل آخر 10 جوائز بالموقع
+rewardLog.init(Player)
+const { createSiteWheel } = require('./systems/siteWheel')
+const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharByNameRarityFast })
+
 registerCharacterSite(app, Player, {
+    wheel: siteWheel,
     challenge: siteChallenge,
     arena: siteArena,
     shopSystem: characterShopSystem,
@@ -8658,6 +8665,23 @@ if (player.lastReset !== currentPeriod) {
     player.lastReset = currentPeriod
 
     await player.save()
+}
+
+// 🎡 عملات سحب العجلة: لما تنتهي السحبات العادية تتحول عملة وحدة لسحبة (محفوظة ولا تتصفّر مع التجديد)
+if (player.pulls <= 0 && (player.bonusPulls || 0) > 0) {
+
+    const bonusClaim = await Player.findOneAndUpdate(
+        { userId: player.userId, bonusPulls: { $gt: 0 }, pulls: { $lte: 0 } },
+        { $inc: { bonusPulls: -1, pulls: 1 } },
+        { new: true, strict: false }
+    )
+
+    if (bonusClaim) {
+        player.pulls = bonusClaim.pulls
+        player.bonusPulls = bonusClaim.bonusPulls
+        player.unmarkModified('pulls')
+        player.unmarkModified('bonusPulls')
+    }
 }
 
 if (player.pulls <= 0) {
@@ -36864,7 +36888,7 @@ ${player.money || 0}
 
 🎟️ السحبات:
 
-${player.pulls || 0}
+${player.pulls || 0}${(player.bonusPulls || 0) > 0 ? ` (+${player.bonusPulls} عملات عجلة)` : ''}
 
 🎫 تذاكر المتجر:
 
@@ -38147,6 +38171,8 @@ if (first) {
         (first.boxes.sss_high || 0) + 1
 
     await first.save()
+
+    rewardLog.logReward(first.userId, { src: 'زعيم المجموعة — المركز الأول', icon: '👑', lines: [`💰 ${Number(firstMoneyReward).toLocaleString('en')} مال`, '⭐ 1,000 XP', '📦 SSS Chance', '📦 SSS High'] })
 }
 
 if (second) {
@@ -38168,6 +38194,8 @@ if (second) {
         (second.boxes.legendary || 0) + 1
 
     await second.save()
+
+    rewardLog.logReward(second.userId, { src: 'زعيم المجموعة — المركز الثاني', icon: '🥈', lines: [`💰 ${Number(secondMoneyReward).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 SSS High', '📦 صندوق اسطوري'] })
 }
 
 if (third) {
@@ -38189,6 +38217,8 @@ if (third) {
         (third.boxes.epic || 0) + 1
 
     await third.save()
+
+    rewardLog.logReward(third.userId, { src: 'زعيم المجموعة — المركز الثالث', icon: '🥉', lines: [`💰 ${Number(thirdMoneyReward).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 صندوق اسطوري', '📦 صندوق Epic'] })
 }
 
 const _siteRestMoney = {}
