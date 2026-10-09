@@ -929,6 +929,9 @@ function trackWeeklyPull(player, character) {
 
     bumpWeekly(player, 'pulls', 1)
 
+    // 📖 كتاب المجموعة: يسجّل سحب شخصية SSS (يتجاهل غير SSS) — لا يؤثر على السحب لو فشل
+    try { require('./systems/siteCodexBook').recordPull(player.userId, character) } catch (e) {}
+
     if (character && character.rarity === 'اسطوري') {
         bumpWeekly(player, 'gotLegendary', 1)
     }
@@ -3445,7 +3448,9 @@ const COMMAND_XP = {
 }
 
 function addCommandXp(player, amount) {
-    const gain = applyDogBonus(player, amount)
+    let gain = applyDogBonus(player, amount)
+    // 📖 بونص كتاب المجموعة (Detective Conan: +5% XP)
+    try { gain = Math.floor(gain * require('./systems/siteCodexBook').bonusMult(player.userId, 'xp')) } catch (e) {}
     player.xp = (player.xp || 0) + gain
     return gain
 }
@@ -4574,7 +4579,11 @@ rewardLog.init(Player)
 const { createSiteWheel } = require('./systems/siteWheel')
 const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharByNameRarityFast })
 
+// 📖 كتاب المجموعة (SSS فقط) — systems/siteCodexBook.js
+const siteCodexBook = require('./systems/siteCodexBook').createSiteCodexBook({ Player, getCatalog: () => characters })
+
 registerCharacterSite(app, Player, {
+    codexBook: siteCodexBook,
     wheel: siteWheel,
     challenge: siteChallenge,
     arena: siteArena,
@@ -14929,6 +14938,9 @@ attackerStats.power =
 attackerStats.level =
     playerData.level
 
+// 📖 بونص كتاب المجموعة: هجوم في المضاربات
+try { attackerStats.codexSpec = require('./systems/siteCodexBook').bonusPct(playerData.userId, 'spec') } catch (e) {}
+
 opponentStats.level =
     opponentData.level
 
@@ -15455,6 +15467,9 @@ attacker.power
 attackerStats.level =
 playerData.level
 
+// 📖 بونص كتاب المجموعة: هجوم في المضاربات
+try { attackerStats.codexSpec = require('./systems/siteCodexBook').bonusPct(playerData.userId, 'spec') } catch (e) {}
+
 opponentStats.level =
 opponentData.level
 
@@ -15940,6 +15955,9 @@ attacker.power
 
 attackerStats.level =
 playerData.level
+
+// 📖 بونص كتاب المجموعة: هجوم في المضاربات
+try { attackerStats.codexSpec = require('./systems/siteCodexBook').bonusPct(playerData.userId, 'spec') } catch (e) {}
 
 opponentStats.level =
 opponentData.level
@@ -36510,6 +36528,13 @@ ${listLines.join('\n\n')}
 
                 const teamA = pvpBattle.buildTeam(attacker, 'A', battleDeps)
                 const teamB = pvpBattle.buildTeam(defender, 'B', battleDeps)
+
+                // 📖 بونص كتاب المجموعة: هجوم في الأرينا (League of Legends / Tekken)
+                try {
+                    const cb = require('./systems/siteCodexBook')
+                    const boost = (team, uid) => { const m = cb.bonusMult(uid, 'arena'); if (m > 1) team.fighters.forEach(f => { if (f && f.atk) f.atk = Math.floor(f.atk * m) }) }
+                    boost(teamA, attacker.userId); boost(teamB, defender.userId)
+                } catch (e) {}
 
                 const sim = pvpBattle.simulate(teamA.fighters, teamB.fighters)
 
