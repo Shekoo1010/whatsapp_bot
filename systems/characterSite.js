@@ -16,6 +16,7 @@ const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require(
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
+const { shardPageHTML } = require('./shardPage') // 🧩 صفحة الشظايا والتطوير والاسترجاع (نفس .شظايا / .تطوير / .استرجاع)
 
 const PAGE_SIZE = 40
 const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
@@ -711,6 +712,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
+        ['xo', '❌', 'XO أونلاين', `/u/${c}/xo`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
@@ -719,6 +721,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
+        ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
@@ -4294,6 +4297,13 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (e) { console.error('site challenge mount error:', e) }
     }
 
+    // ❌⭕ XO أونلاين — /u/:code/xo (systems/siteXO.js)
+    if (opts.xo) {
+        try {
+            opts.xo.mount(app, { auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession })
+        } catch (e) { console.error('site xo mount error:', e) }
+    }
+
     // 🏟️ أرينا PvP (النسخة 3) — /u/:code/pvp (systems/siteArena.js)
     // ملاحظة: /u/:code/arena مستخدم لساحة قتال التحدي (siteChallenge.js) — لا تستخدمه للأرينا
     if (opts.arena) {
@@ -4866,6 +4876,170 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('sell route error:', err)
             return g.fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    })
+
+    // ─────────────── 🧩 الشظايا + 💎 التطوير + ♻️ الاسترجاع (نفس .شظايا / .تطوير / .استرجاع بالواتس) ───────────────
+    // كل المنطق بـ systems/shardSystem.js (منقول من index.js بدون أي تغيير). هنا فقط: صفحة + مسارات آمنة.
+    const shardSystem = opts.shardSystem
+    const shardPollHits = new Map()
+    function shardPollRate(userId) {
+        const now = Date.now()
+        const arr = (shardPollHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 30) { shardPollHits.set(userId, arr); return false }
+        arr.push(now); shardPollHits.set(userId, arr); return true
+    }
+
+    // رابط صورة آمن (https أو custom_images محوّل لرابط كامل) — نفس أسلوب siteCharView
+    function shardImg(c, req) {
+        if (!c) return null
+        const disp = resolveDisplayChar(c, getCatalogIndex(getCatalog))
+        let img = safeImageUrl(disp.image)
+        if (img && img.startsWith('/') && req) {
+            const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
+            img = `${proto}://${req.get('host')}${img}`
+        }
+        return img || null
+    }
+
+    // شكل آمن للمتصفح من ناتج shardSystem.getState (حقول محددة فقط)
+    function shardOut(st, req) {
+        const catIdx = getCatalogIndex(getCatalog)
+        const animeOf = c => { try { return String(resolveDisplayChar(c || {}, catIdx).anime || (c && c.anime) || '') } catch (e) { return '' } }
+        return {
+            ok: true,
+            money: Number(st.money) || 0,
+            omegaUsed: Number(st.omegaUsed) || 0,
+            maxOmega: Number(st.maxOmega) || 10,
+            shards: (st.shards || []).map(s => {
+                const src = s.owned || s.cat || null
+                return {
+                    key: String(s.key),
+                    name: String(s.name),
+                    anime: animeOf(src),
+                    amount: Number(s.amount) || 0,
+                    target: Number(s.target) || 2,
+                    omega: !!s.omega,
+                    lv: s.owned ? Math.min(6, Math.max(0, Number(s.owned.evolutionLevel) || 0)) : 0,
+                    img: shardImg(src, req)
+                }
+            }),
+            evo: (st.evo || []).map(e => ({
+                index: Number(e.index),
+                name: String(e.char.name),
+                anime: animeOf(e.char),
+                level: Number(e.level) || 0,
+                power: Number(e.char.power) || 0,
+                have: Number(e.have) || 0,
+                need: Number(e.need) || 2,
+                cost: Number(e.cost) || 0,
+                nextPower: Number(e.nextPower) || 0,
+                blocked: !!e.blocked,
+                omegaLimit: !!e.omegaLimit,
+                img: shardImg(e.char, req)
+            }))
+        }
+    }
+
+    const shardStatus = code => code === 'BUSY' ? 409 : code === 'SERVER' ? 500 : 400
+
+    app.get('/u/:code/shards', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!shardSystem) return res.status(503).send('صفحة الشظايا غير مفعّلة حالياً')
+
+            const st = await shardSystem.getState(player.userId)
+            if (!st.ok) return res.status(500).send('خطأ بالخادم')
+
+            res.send(shardPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                state: shardOut(st, req),
+                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD
+            }))
+        } catch (err) {
+            console.error('shards page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // إعادة قراءة الحالة بعد كل عملية (الواجهة ما تحسب شيء بنفسها)
+    app.get('/shards/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!shardSystem || !auth.authEnabled()) return res.status(503).json({ ok: false, message: 'غير مفعّل حالياً' })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!shardPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            const st = await shardSystem.getState(sess.u)
+            if (!st.ok) return res.status(400).json({ ok: false, code: st.code, message: st.message })
+            res.json(shardOut(st, req))
+        } catch (err) {
+            console.error('shards state error:', err)
+            res.status(500).json({ ok: false, message: '❌ حدث خطأ بالخادم، حاول مرة ثانية.' })
+        }
+    })
+
+    // 💎 .تطوير رقم
+    app.post('/shards/evolve', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, shardSystem && shardSystem.evolveCharacter)
+        if (!g || !g.sess) return
+        try {
+            const idx = Number(g.body.index)
+            const name = typeof g.body.name === 'string' ? g.body.name.slice(0, 120) : ''
+            if (!Number.isInteger(idx) || idx < 0 || idx > 100000 || !name) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+
+            const r = await shardSystem.evolveCharacter({ userId: g.sess.u, index: idx, name })
+            if (!r.ok) return g.fail(shardStatus(r.code), r.code, String(r.message || '❌ تعذّر التطوير'))
+            res.json({
+                ok: true,
+                omega: !!r.omega,
+                name: String(r.name),
+                oldRank: String(r.oldRank), newRank: String(r.newRank), newLevel: Number(r.newLevel) || 0,
+                power: Number(r.power) || 0, cost: Number(r.cost) || 0, shardsUsed: Number(r.shardsUsed) || 0,
+                abilities: (r.abilities || []).map(a => ({ name: String(a.name || ''), description: String(a.description || '') })),
+                omegaUsed: r.omegaUsed != null ? Number(r.omegaUsed) : undefined,
+                maxOmega: r.maxOmega != null ? Number(r.maxOmega) : undefined,
+                worldText: String(r.worldText || ''),
+                message: String(r.message || '')
+            })
+        } catch (err) {
+            console.error('shards evolve route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // ♻️ .استرجاع رقم (المفتاح = نفس شظية القائمة؛ الخادم يعيد بناء القائمة ويطابقه)
+    app.post('/shards/restore', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, shardSystem && shardSystem.restoreShard)
+        if (!g || !g.sess) return
+        try {
+            const key = typeof g.body.key === 'string' ? g.body.key : ''
+            if (!key || key.length > 200) return g.fail(400, 'BAD_INDEX', '❌ رقم غير صحيح')
+
+            const r = await shardSystem.restoreShard({ userId: g.sess.u, key })
+            if (!r.ok) return g.fail(shardStatus(r.code), r.code, String(r.message || '❌ تعذّر الاسترجاع'))
+            res.json({
+                ok: true,
+                name: String(r.name),
+                left: Number(r.left) || 0,
+                target: Number(r.target) || 2,
+                message: String(r.message || '')
+            })
+        } catch (err) {
+            console.error('shards restore route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
         }
     })
 
