@@ -1161,9 +1161,15 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
 }
 
 // 🏪 متجر الشخصيات (نفس عروض .متجر بالواتس — تتجدد كل ساعة بتوقيت السعودية)
-function shopItemOut(d) {
+function shopItemOut(d, catIdx) {
     const c = (d && d.character) || {}
     const t = TIERS[c.rarity] || TIERS['عادي']
+    // 🖼️ نفس نظام صفحة السحب: أحدث صورة من الكتالوج، SSS وفوق = رابط https فقط، والرتب الأقل = رابط أو ملف محلي من ./characters
+    let disp = c
+    try { if (catIdx) disp = resolveDisplayChar(c, catIdx) } catch (e) { disp = c }
+    const imgUrl = t.idx >= FIRST_IMAGE_TIER
+        ? (safeImageUrl(disp.image) || safeImageUrl(c.image) || '')
+        : (safeImageUrl(disp.image) || localCharImageUrl(disp.image) || safeImageUrl(c.image) || localCharImageUrl(c.image) || '')
     return {
         id: String(d._id),
         name: String(c.name || '؟'),
@@ -1172,7 +1178,7 @@ function shopItemOut(d) {
         form: String(c.form || 'عادي'),
         ability: String(c.ability || ''),
         price: Math.round(Number(d.price) || 0),
-        img: t.idx >= FIRST_IMAGE_TIER ? (safeImageUrl(c.image) || '') : '',
+        img: imgUrl,
         color: t.color,
         stars: t.stars,
         en: t.lang === 'en'
@@ -3857,6 +3863,7 @@ header b{font-size:18px;font-weight:900}.on-pill{color:var(--tx);background:rgba
 .who .ttl{margin-inline-start:0;margin-top:2px}.nm .ttl{margin-inline-start:6px}.who{flex:1;min-width:0}.who small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note{text-align:center;font-size:12px;color:var(--mut);padding:6px;background:var(--panel2)}
 .av{position:relative;flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:23px;background:var(--panel2);border:2.5px solid var(--c);box-shadow:0 0 12px -2px var(--c)}
+.av.im{background-size:cover;background-position:center top;background-repeat:no-repeat}
 .dot{position:absolute;left:-2px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#35e08a;border:2px solid var(--panel);animation:pls 1.8s infinite}
 .strip{display:flex;gap:10px;overflow-x:auto;padding:10px 12px;flex:none}
 .sp{flex:none;width:54px;text-align:center}.sp .av{margin:auto}.sp small{display:block;font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3948,7 +3955,7 @@ function chatClient() {
     var isOn = function (id) { return id === C.me.id || !!S.onSet[id] }
     var left = function () { return Math.max(0, S.cd - Date.now()) }
     var friend = function (id) { for (var i = 0; i < S.fr.length; i++) if (S.fr[i].id === id) return S.fr[i]; return null }
-    function av(p) { return '<div class="av" style="--c:' + col(p) + '">' + esc(Array.from(p.n)[0] || '؟') + (isOn(p.id) ? '<i class="dot"></i>' : '') + '</div>' }
+    function av(p) { return '<div class="av' + (p.i ? ' im' : '') + '" style="--c:' + col(p) + (p.i ? ';background-image:url(' + esc(p.i) + ')' : '') + '">' + (p.i ? '' : esc(Array.from(p.n)[0] || '؟')) + (isOn(p.id) ? '<i class="dot"></i>' : '') + '</div>' }
     function toast(t) { var e = $('#toast'); e.textContent = t; e.className = 'show'; clearTimeout(toast.h); toast.h = setTimeout(function () { e.className = '' }, 2200) }
     function api(url, body) {
         body = body || {}; body.csrf = C.csrf
@@ -4036,7 +4043,7 @@ function chatClient() {
         if ((j.view || '') !== (S.dm || '')) return
         if (S.dm != null && j.notFriend) { S.dm = null; S.tab = 'fr'; return go() }
         var msgs = j.msgs || []
-        var sig = msgs.map(function (m) { return m.id + JSON.stringify(m.r) }).join('|')
+        var sig = msgs.map(function (m) { var pt = S.ppl[m.f]; return m.id + JSON.stringify(m.r) + (pt && pt.t ? pt.t.n : '') }).join('|')
         var changed = sig !== S.sig || S.first
         S.msgs = msgs; S.sig = sig
         if (S.first) { msgs.forEach(function (m) { seen[m.id] = 1 }) }
@@ -4895,7 +4902,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             res.send(shopPageHTML({
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
                 code,
-                items: list.map(shopItemOut),
+                items: list.map(d => shopItemOut(d, getCatalogIndex(getCatalog))),
                 money: Number(player.money) || 0,
                 msLeft: shopSystem.msUntilNextHour()
             }))
@@ -4920,7 +4927,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 ok: true,
                 money: Number(me.money) || 0,
                 msLeft: shopSystem.msUntilNextHour(),
-                items: list.map(shopItemOut)
+                items: list.map(d => shopItemOut(d, getCatalogIndex(getCatalog)))
             })
         } catch (err) {
             console.error('shop state error:', err)
@@ -6302,6 +6309,29 @@ function registerCharacterSite(app, Player, opts = {}) {
         if (chatTitles.size > 5000) chatTitles.clear()
         return out
     }
+    // 🖼️ صورة الشات = شخصية البروفايل (أول شخصية بـ .شخصياتي — ثابتة رقم 1) نفس منطق المعارض
+    const chatImgs = new Map()
+    async function chatImgsFor(ids) {
+        const now = Date.now(), out = new Map(), miss = []
+        for (const u of new Set(ids)) {
+            const c = chatImgs.get(u)
+            if (c && c.exp > now) out.set(u, c.i); else miss.push(u)
+        }
+        if (miss.length) {
+            try {
+                const rows = await Player.find({ userId: { $in: miss } }).select({ userId: 1, characters: { $slice: 1 } }).lean()
+                const catIdx = getCatalogIndex(getCatalog)
+                for (const r of rows) {
+                    const f = Array.isArray(r.characters) && r.characters[0] ? resolveDisplayChar(r.characters[0], catIdx) : null
+                    const i = f ? safeImageUrl(f.image) : null
+                    chatImgs.set(r.userId, { i, exp: now + 60 * 1000 }); out.set(r.userId, i)
+                }
+                for (const u of miss) if (!out.has(u)) out.set(u, null)
+            } catch (e) { console.error('chat images error:', e) }
+        }
+        if (chatImgs.size > 5000) chatImgs.clear()
+        return out
+    }
     function chatPerson(u, names, extra) {
         const id = pidOf(u)
         return [id, { id, n: names.get(u) || 'لاعب', h: parseInt(id.slice(0, 3), 16) % 360, ...(extra || {}) }]
@@ -6326,13 +6356,14 @@ function registerCharacterSite(app, Player, opts = {}) {
             securityHeaders(res)
             const code = String(req.params.code || '')
             if (!CODE_RE.test(code)) return html404(res)
-            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion titles activeTitle').lean()
             if (!player) return html404(res)
             const sess = ownerSession(req, player)
             if (!sess) return res.redirect(303, `/login?code=${code}`)
             if (!auth.authEnabled()) return res.status(503).send('الدردشة غير مفعّلة حالياً.')
             const nm = String(player.name || player.username || 'لاعب').slice(0, 24)
-            const [, me] = chatPerson(player.userId, new Map([[player.userId, nm]]))
+            const myImg = (await chatImgsFor([player.userId])).get(player.userId) || null
+            const [, me] = chatPerson(player.userId, new Map([[player.userId, nm]]), { t: TITLES.compactOf(player), i: myImg })
             res.send(chatPageHTML({ viewer: { name: nm, csrf: auth.csrfForSession(sess), me }, code }))
         } catch (err) {
             console.error('chat page error:', err)
@@ -6423,7 +6454,8 @@ function registerCharacterSite(app, Player, opts = {}) {
             const msgUsers = [...msgs.map(m => m.f), ...msgs.filter(m => m.q && m.q.f).map(m => m.q.f)]
             const names = await chatNamesFor([me, ...onlineIds, ...frIds, ...msgUsers])
             const tms = await chatTitlesFor([...onlineIds, ...frIds, ...msgUsers])
-            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgUsers])].map(u => chatPerson(u, names, { t: tms.get(u) || null })))
+            const ims = await chatImgsFor([...onlineIds, ...frIds, ...msgUsers])
+            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgUsers])].map(u => chatPerson(u, names, { t: tms.get(u) || null, i: ims.get(u) || null })))
 
             res.json({
                 ok: true, view: toPid, notFriend, pubUnread, friends, people,
@@ -6510,8 +6542,9 @@ function registerCharacterSite(app, Player, opts = {}) {
             const have = new Set((doc && doc.fr) || [])
             const rows = await Player.find({ username: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
                 .select('userId name username titles activeTitle').limit(15).lean()
+            const sims = await chatImgsFor(rows.map(r => r.userId))
             const items = rows.filter(r => r.userId !== sess.u && !have.has(r.userId)).slice(0, 12).map(r => {
-                const [, p] = chatPerson(r.userId, new Map([[r.userId, String(r.name || r.username || 'لاعب').slice(0, 24)]]), { u: String(r.username || '').slice(0, 20), t: TITLES.compactOf(r) })
+                const [, p] = chatPerson(r.userId, new Map([[r.userId, String(r.name || r.username || 'لاعب').slice(0, 24)]]), { u: String(r.username || '').slice(0, 20), t: TITLES.compactOf(r), i: sims.get(r.userId) || null })
                 return p
             })
             res.json({ ok: true, items })
