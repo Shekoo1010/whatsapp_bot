@@ -522,7 +522,7 @@ async function scheduleNextCoOp(sock) {
     if (coop.active) {
 
         coopTimer = setTimeout(() => {
-            scheduleNextCoOp(sock)
+            scheduleNextCoOp(sock).catch(console.log)
         }, 30000) // يفحص كل 30 ثانية
 
         return
@@ -543,9 +543,13 @@ await updated.save()
 
 setTimeout(async () => {
 
-    await startBattle(sock)
+    try {
+        await startBattle(sock)
+    } catch (err) {
+        console.log('Co-Op startBattle Error:', err)
+    }
 
-    scheduleNextCoOp(sock)
+    scheduleNextCoOp(sock).catch(console.log)
 
 }, CONFIG.joinTime)
 
@@ -555,15 +559,15 @@ return
     // الوقت المتبقي
     const delay = coop.nextSpawn - now
 
-    coopTimer = setTimeout(async () => {
+    coopTimer = setTimeout(() => {
 
-        await scheduleNextCoOp(sock)
+        scheduleNextCoOp(sock).catch(console.log)
 
     }, delay)
 
 }
 function startLoop(sock) {
-    scheduleNextCoOp(sock)
+    scheduleNextCoOp(sock).catch(console.log)
 }
 // =========================
 // Force Spawn
@@ -594,9 +598,9 @@ await current.save()
 
     setTimeout(
 
-        async () => {
+        () => {
 
-            await startBattle(sock)
+            startBattle(sock).catch(console.log)
 
         },
 

@@ -269,7 +269,7 @@ ${coop.boss.name}
 
                 sock
 
-            )
+            ).catch(console.log)
 
         },
 
