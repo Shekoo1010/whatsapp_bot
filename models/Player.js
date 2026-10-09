@@ -393,6 +393,12 @@ titles: {
     default: []
 },
 
+// 🏅 اللقب المفعّل (نص اللقب كما هو بـ titles) — يظهر بجانب الاسم بالموقع
+activeTitle: {
+    type: String,
+    default: ''
+},
+
 favoriteCharacter: {
     type: String,
     default: null
