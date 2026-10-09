@@ -3861,7 +3861,7 @@ async function startZoneCycle(sock, jid) {
         if (alive.length > 1) {
 
             setTimeout(() => {
-                startZoneCycle(sock, jid)
+                startZoneCycle(sock, jid).catch(e => console.log('❌ [زون الباتل رويال] خطأ محمي — البوت يكمل:', e?.message || e))
             }, 45000)
 
         }
@@ -7164,11 +7164,11 @@ if (!global.bankSystemStarted) {
 
     global.marketCleanerStarted = true
 
-    setInterval(async () => {
+    setInterval(async () => { try { 
 
         await cleanMarket()
 
-    }, 10 * 60 * 1000)
+     } catch (__err) { console.log('❌ [منظف السوق] خطأ محمي — البوت يكمل:', __err?.message || __err) } }, 10 * 60 * 1000)
 
     console.log('✅ Market Cleaner Started')
 
@@ -19740,7 +19740,7 @@ text:
 if (!battleState.captureIntervals[flag]) {
 
 battleState.captureIntervals[flag] = setInterval(
-async () => {
+async () => { try { 
 
 const battle2 =
 battleState.activeBattle
@@ -19903,7 +19903,7 @@ ${winningTeam === 'red' ? '🔴' : '🔵'}
 }
 }
 
-},
+ } catch (__err) { console.log('❌ [التقاط الأعلام] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 
 WAR_CAPTURE_TICK_MS
 )
@@ -22985,7 +22985,7 @@ global.battleRoyale.started = true
 
 // يبدأ أول زون بعد 30 ثانية
 setTimeout(() => {
-    startZoneCycle(sock, msg.key.remoteJid)
+    startZoneCycle(sock, msg.key.remoteJid).catch(e => console.log('❌ [زون الباتل رويال] خطأ محمي — البوت يكمل:', e?.message || e))
 }, 30000)
 
 return sock.sendMessage(
@@ -31667,7 +31667,7 @@ text:
 // =========================
 
 battleState.scoreInterval = setInterval(
-async () => {
+async () => { try { 
 
 const battle =
 battleState.activeBattle
@@ -31703,7 +31703,7 @@ battle.blueScore =
 (battle.blueScore || 0) +
 (blueFlags * WAR_SCORE_PER_FLAG)
 
-},
+ } catch (__err) { console.log('❌ [نقاط الحرب] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 WAR_SCORE_TICK_MS
 )
 
@@ -32151,7 +32151,7 @@ ${othersText}`
 )
 
 const fightInterval = setInterval(
-async () => {
+async () => { try { 
 
 const battle2 =
 battleState.activeBattle
@@ -32373,7 +32373,7 @@ text:
 )
 
 setTimeout(
-async () => {
+async () => { try { 
 
 if (!battleState.activeBattle) return
 
@@ -32396,7 +32396,7 @@ ${r.def.currentCharacter.name}
 }
 )
 
-},
+ } catch (__err) { console.log('❌ [عودة المدافع] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 30000
 )
 
@@ -32409,7 +32409,7 @@ return
 }
 }
 
-},
+ } catch (__err) { console.log('❌ [قتال الحرب] خطأ محمي — البوت يكمل:', __err?.message || __err) } },
 
 3000
 )
