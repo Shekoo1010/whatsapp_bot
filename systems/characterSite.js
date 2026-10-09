@@ -722,6 +722,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
+        ['players', '👥', 'اللاعبون', `/u/${c}/players`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
@@ -1847,6 +1848,11 @@ a.chip{text-decoration:none;display:inline-block}
 .btn{display:block;width:100%;font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;padding:14px;border-radius:14px;border:1.5px solid var(--gold);cursor:pointer;text-align:center;margin-top:10px;color:#fff;background:#080b14}
 .btn.purple{background:#b83fff;border-color:#b83fff;color:#fff}
 .btn:disabled{opacity:.4;cursor:not-allowed}
+
+.plbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;padding:14px 16px;border-radius:16px;text-decoration:none;color:#0a0d16;font:900 16px 'Cairo',sans-serif;background:linear-gradient(135deg,#f6d26b,#c8921e);box-shadow:0 0 22px rgba(240,192,74,.35)}
+.plbtn small{display:block;font:600 11px 'Cairo',sans-serif;opacity:.75}.plbtn .ar{font-size:22px}
+.vbar{margin:8px 0;text-align:center;font:700 12px 'Cairo',sans-serif;color:#8891a3;border:1px dashed #1f2740;border-radius:12px;padding:6px}.vbar b{color:#f0c04a}
+.backfab{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:60;background:linear-gradient(135deg,#f6d26b,#c8921e);color:#0a0d16;font:900 14px 'Cairo',sans-serif;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(0,0,0,.6);text-decoration:none}
 `
 
 function homeCardHTML(char) {
@@ -1875,7 +1881,7 @@ function homeCardHTML(char) {
     </div>`
 }
 
-function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips }) {
+function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips, backTo }) {
     const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
     const isOwner = !!(viewer && viewer.isOwner)
     const h = hero || {}
@@ -1917,11 +1923,13 @@ ${HOME_CSS}
 <div class="wrap">
   <div class="top">${topLeft}<span class="logo">عالم الشخصيات</span>${topRight}</div>
   ${isOwner ? navDrawerHTML(code, viewer.csrf, 'home', viewer.name) : ''}
+  ${backTo ? `<div class="vbar">👁 تشاهد مجموعة <b>${esc(title)}</b> — مشاهدة فقط</div>` : ''}
   <div class="hero"><div class="hero-in">
     <div class="av"${avStyle}>${h.img ? '' : initial}</div>
     <div class="who"><b>${esc(title)}</b>${TITLES.wrap(h.t)}<span>المستوى ${esc(h.level || 1)}</span><div class="xp"><i style="width:${Number(h.xpPct) || 0}%"></i></div></div>
   </div></div>
   <div class="stats">${statsHTML}</div>
+  ${isOwner ? `<a class="plbtn" href="/u/${esc(code)}/players"><span>👥 شخصيات اللاعبين<small>تصفّح مجموعات الآخرين بيوزرهم — بدون رابط</small></span><span class="ar">‹</span></a>` : ''}
   <div class="chips" id="chips">${chipsHTML}</div>
   <div class="grid" id="grid">${cardsHTML}</div>
   ${pagerHTML(base, page, pages)}
@@ -1968,11 +1976,127 @@ tick();
 })();
 </script>
 ${inboxPopupHTML(viewer)}
+${backTo ? `<a class="backfab" href="${esc(backTo)}">← اللاعبون</a>` : ''}
 </body>
 </html>`
 }
 
 // =====================================================================
+// 👥 صفحة اللاعبين  /u/:code/players
+// (صفحة اللاعبين: بيانات من /players/list، والبطاقات تفتح /players/open)
+// =====================================================================
+const PLAYERS_CSS = `
+.srch{display:flex;gap:8px;margin:12px 0}.srch input{flex:1;background:#0f1422;border:1px solid #1f2740;border-radius:14px;color:#eef1f8;font:700 15px 'Cairo',sans-serif;padding:12px 14px;outline:0;direction:ltr;text-align:right}
+.srch input:focus{border-color:#f0c04a;box-shadow:0 0 0 3px rgba(240,192,74,.15)}
+.pnote{font:600 12px 'Cairo',sans-serif;color:#8891a3;text-align:center;margin:4px 0 10px}
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:12px}
+.pc{--t:#f0c04a;display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,#141b30,#0f1422);border:1px solid #1f2740;border-radius:18px;padding:12px;text-decoration:none;color:inherit;transition:.25s;animation:plrise .5s both}
+.pc:hover{transform:translateY(-3px);border-color:var(--t);box-shadow:0 8px 28px rgba(0,0,0,.45)}
+@keyframes plrise{from{opacity:0;transform:translateY(16px)}}
+.pav{width:64px;height:64px;flex:none;border-radius:50%;background-size:cover;background-position:center;border:3px solid var(--t);box-shadow:0 0 16px var(--t);display:flex;align-items:center;justify-content:center;font:800 24px 'Oswald',sans-serif;background-color:#151b2e}
+.pi{flex:1;min-width:0}
+.pi b{display:block;font:800 16px 'Oswald','Cairo',sans-serif;direction:ltr;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm{display:flex;gap:10px;margin-top:5px;font:600 12px 'Cairo',sans-serif;color:#8891a3}.pm b{display:inline;font:700 12px 'Oswald',sans-serif;color:#eef1f8}
+.ptop{display:inline-block;margin-top:5px;font:800 11px 'Oswald',sans-serif;color:#0a0d16;background:var(--t);border-radius:10px;padding:2px 9px;direction:ltr}
+.pme{font:800 10px 'Cairo',sans-serif;color:#0a0d16;background:#f0c04a;border-radius:8px;padding:1px 7px;margin-inline-start:6px}
+.pgo{font-size:22px;color:#8891a3}
+.pemp{text-align:center;color:#8891a3;padding:50px 0;font:700 15px 'Cairo',sans-serif;grid-column:1/-1}
+.pmore{display:block;margin:16px auto;background:#0f1422;border:1px solid #f0c04a;color:#f0c04a;border-radius:14px;padding:10px 26px;font:800 14px 'Cairo',sans-serif;cursor:pointer}
+`
+
+// واجهة صفحة اللاعبين (تُحقن كنص عبر toString)
+function playersClient(CODE) {
+    const SORTS = [['pw', '⚔️ الأقوى'], ['lv', '🏆 الأعلى مستوى'], ['chars', '🧿 الأكثر شخصيات'], ['u', '🔤 أبجدي']]
+    const st = { q: '', s: 'pw', o: 0, total: 0, busy: false }
+    const $ = id => document.getElementById(id)
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    const f = n => Number(n).toLocaleString('en-US')
+    function sortBar() {
+        $('sort').innerHTML = SORTS.map(x => '<a class="chip' + (x[0] === st.s ? ' on' : '') + '" data-s="' + x[0] + '" style="cursor:pointer">' + x[1] + '</a>').join('')
+    }
+    function card(p, k) {
+        const t = p.top
+        const col = t ? t.color : '#f0c04a'
+        const letter = esc((Array.from(String(p.u).replace(/^@/, ''))[0] || '?').toUpperCase())
+        const av = p.av ? ' style="background-image:url(\'' + esc(p.av) + '\')"' : ''
+        return '<a class="pc" href="/players/open?id=' + esc(p.id) + '&b=' + esc(CODE) + '" style="--t:' + esc(col) + ';animation-delay:' + Math.min(k, 12) * 0.05 + 's">' +
+            '<div class="pav"' + av + '>' + (p.av ? '' : letter) + '</div><div class="pi"><b>' + esc(p.u) + (p.me ? '<span class="pme">أنت</span>' : '') + '</b>' +
+            (p.tw ? '<div>' + p.tw + '</div>' : '') +
+            '<div class="pm"><span>🏆 <b>' + f(p.lv) + '</b></span><span>🧿 <b>' + f(p.chars) + '</b></span><span>⚔️ <b>' + f(p.pw) + '</b></span></div>' +
+            (t ? '<span class="ptop">' + esc(t.name) + ' · ' + esc(t.tier) + '</span>' : '') + '</div><span class="pgo">‹</span></a>'
+    }
+    async function load(append) {
+        if (st.busy) return
+        st.busy = true
+        if (!append) st.o = 0
+        try {
+            const r = await fetch('/players/list?q=' + encodeURIComponent(st.q) + '&s=' + st.s + '&o=' + st.o, { credentials: 'same-origin', cache: 'no-store' })
+            if (r.status === 401) { location.href = '/u/' + CODE; return }
+            const j = await r.json()
+            if (!j || !j.ok) { $('list').innerHTML = '<div class="pemp">' + esc((j && j.message) || '❌ تعذّر تحميل اللاعبين') + '</div>'; return }
+            st.total = j.total
+            const html = j.players.map((p, k) => card(p, k)).join('')
+            if (append) $('list').insertAdjacentHTML('beforeend', html)
+            else $('list').innerHTML = html || '<div class="pemp">🔍 ما فيه لاعب بهذا اليوزر</div>'
+            st.o += j.players.length
+            $('cnt').textContent = f(j.total) + ' لاعب'
+            $('more').style.display = st.o < st.total ? 'block' : 'none'
+        } catch (e) {
+            $('list').innerHTML = '<div class="pemp">❌ تعذّر الاتصال بالخادم</div>'
+        } finally { st.busy = false }
+    }
+    let tm = 0
+    $('q').oninput = () => { clearTimeout(tm); tm = setTimeout(() => { st.q = $('q').value.trim(); load(false) }, 250) }
+    $('sort').onclick = e => { const c = e.target.closest('[data-s]'); if (c) { st.s = c.getAttribute('data-s'); sortBar(); load(false) } }
+    $('more').onclick = () => load(true)
+    sortBar(); load(false)
+}
+
+function playersPageHTML({ code, viewer }) {
+    const isOwner = !!(viewer && viewer.isOwner)
+    const topLeft = isOwner ? NAV_BTN : `<a class="coins" href="/u/${esc(code)}">← رجوع</a>`
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+${TITLES.HEAD}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>اللاعبون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+${HOME_CSS}
+${PLAYERS_CSS}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="glow"></div>
+<div class="wrap">
+  <div class="top">${topLeft}<span class="logo">👥 اللاعبون</span><span class="coins" id="cnt">…</span></div>
+  ${isOwner ? navDrawerHTML(code, viewer.csrf, 'players', viewer.name) : ''}
+  <div class="srch"><input id="q" type="search" inputmode="latin" maxlength="32" placeholder="ابحث بيوزر اللاعب  @username" autocomplete="off"></div>
+  <div class="pnote">اللاعبون اللي فعّلوا رابطهم بالبوت (.رابط) — اضغط على لاعب لمشاهدة مجموعته</div>
+  <div class="chips" id="sort"></div>
+  <div class="plist" id="list"></div>
+  <button class="pmore" id="more" style="display:none">عرض المزيد</button>
+</div>
+<script>
+(function(){
+var c=document.getElementById('bg'),x=c.getContext('2d'),W,H,P=[];
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}
+rs();addEventListener('resize',rs);
+for(var i=0;i<60;i++)P.push({x:Math.random(),y:Math.random(),r:Math.random()*1.7+.4,s:Math.random()*.0004+.0001,t:Math.random()*6});
+function tick(){x.clearRect(0,0,W,H);for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.s;p.t+=.03;if(p.y<0)p.y=1;x.globalAlpha=.3+.3*Math.sin(p.t);x.fillStyle=i%5?'#fff':'#f0c04a';x.beginPath();x.arc(p.x*W,p.y*H,p.r,0,6.3);x.fill()}requestAnimationFrame(tick)}
+tick();
+})();
+(${playersClient.toString()})(${JSON.stringify(String(code))})
+</script>
+</body>
+</html>`
+}
+
 // 🖼️ صفحة المعارض  /u/:code/gallery
 // تصميم مطابق لملف gallery-site-preview.html (منصة أول 3 + أعلى 10 + كل المعارض + صفحة المعرض
 // مع اللايك والتكبير). البيانات حقيقية: معرض اللاعب = نفس اختيار .المعرض (player.gallery)
@@ -4196,6 +4320,8 @@ function securityHeaders(res) {
 function registerCharacterSite(app, Player, opts = {}) {
     const getCatalog = opts.getCatalog
     const giftCharacters = opts.giftCharacters
+    // 🔢 ترتيب الشخصيات بالموقع = نفس دالة .شخصياتي بالبوت (الشخصية 1 ثابتة، الباقي حسب الرتبة ثم القوة) فتتطابق الأرقام
+    const sortChars = typeof opts.sortCharactersKeepFirst === 'function' ? opts.sortCharactersKeepFirst : sortCharactersKeepFirst
     const usernameCost = Number(opts.usernameCost) || 20000
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
@@ -4374,7 +4500,7 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             const title = player.username || player.name || 'شخصياتي'
             const sess = ownerSession(req, player)
-            const all = sortCharactersKeepFirst(player.characters || [])
+            const all = sortChars(player.characters || [])
 
             // الشاشة الأولى: مشاهدة فقط / تسجيل دخول
             if (!sess && !auth.hasViewOnly(req)) {
@@ -4383,6 +4509,9 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             // خانات التصفية (الكل / المطوّرة / أوميقا / EX / UR / SSS+ ... / أسطوري / ممتاز / عادي)
             const F = HOME_FILTERS.find(f => f.k === String(req.query.t || 'all')) || HOME_FILTERS[0]
+            // 👥 جاي من صفحة اللاعبين: pb = كود صفحة الزائر لزر الرجوع
+            const pb = (!sess && CODE_RE.test(String(req.query.pb || ''))) ? String(req.query.pb) : null
+            const withPb = u => pb ? u + (u.includes('?') ? '&' : '?') + 'pb=' + pb : u
             const catIdx = getCatalogIndex(getCatalog)
             // الرقم يبقى رقم الشخصية الحقيقي بقائمتك (حتى مع التصفية)
             const numbered = all.map((c, i) => ({ c, num: i + 1 }))
@@ -4403,7 +4532,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 label: f.label,
                 n: all.filter(f.test).length,
                 on: f.k === F.k,
-                href: `/u/${code}${f.k === 'all' ? '' : '?t=' + f.k}`
+                href: withPb(`/u/${code}${f.k === 'all' ? '' : '?t=' + f.k}`)
             }))
 
             const topCount = all.filter(c => {
@@ -4446,8 +4575,9 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             res.send(pageHTML({
                 title, total: all.length, counts: [], items, page, pages,
-                base: `/u/${code}${F.k === 'all' ? '' : '?t=' + F.k}`,
-                viewer, code, hero, stats, chips
+                base: withPb(`/u/${code}${F.k === 'all' ? '' : '?t=' + F.k}`),
+                viewer, code, hero, stats, chips,
+                backTo: pb ? `/u/${pb}/players` : null
             }))
         } catch (err) {
             console.error('character site error:', err)
@@ -4559,7 +4689,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = ownerSession(req, player)
             if (!sess) return res.redirect(303, `/login?code=${code}`)
 
-            const all = sortCharactersKeepFirst(player.characters || [])
+            const all = sortChars(player.characters || [])
             const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
             const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
             const offset = (page - 1) * PAGE_SIZE
@@ -4819,7 +4949,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = ownerSession(req, player)
             if (!sess) return res.redirect(303, `/login?code=${code}`)
 
-            const all = sortCharactersKeepFirst(player.characters || [])
+            const all = sortChars(player.characters || [])
             const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
             const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
             const offset = (page - 1) * PAGE_SIZE
@@ -5794,6 +5924,166 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ─────────────── 👥 اللاعبون  /u/:code/players ───────────────
+    // دليل اللاعبين اللي فعّلوا رابطهم (.رابط). نفس شرط بقية الصفحات: مالك مسجّل أو مشاهدة فقط.
+    // لا يُكشف كود صفحة أي لاعب بالقائمة: كل لاعب له معرّف عام مشتق (مثل المعارض) ويفتح عبر /players/open.
+    // القائمة تُحسب بتجميع واحد على قاعدة البيانات وتُخزَّن بالذاكرة (PL_TTL).
+    const plHits = new Map()
+    function plRate(key) {
+        const now = Date.now()
+        const arr = (plHits.get(key) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 60) { plHits.set(key, arr); return false }
+        arr.push(now); plHits.set(key, arr); return true
+    }
+    const plId = userId => crypto.createHash('sha256').update('pl:' + String(userId)).digest('hex').slice(0, 12)
+    const PL_TTL = 60 * 1000
+    const PL_PAGE = 40
+    let plSnap = { at: 0, list: [], byId: new Map() }
+    let plPending = null
+    function playersDirectory() {
+        if (Date.now() - plSnap.at < PL_TTL) return Promise.resolve(plSnap)
+        if (plPending) return plPending
+        plPending = (async () => {
+            try {
+                const rows = await Player.aggregate([
+                    { $match: { siteCode: { $type: 'string', $ne: '' } } },
+                    {
+                        $addFields: {
+                            n: { $size: { $ifNull: ['$characters', []] } },
+                            total: { $sum: { $slice: [{ $ifNull: ['$characters.power', []] }, CAP_EXPR] } },
+                            first: { $arrayElemAt: [{ $ifNull: ['$characters', []] }, 0] },
+                            top: {
+                                $reduce: {
+                                    input: { $ifNull: ['$characters', []] },
+                                    initialValue: null,
+                                    in: {
+                                        $cond: [
+                                            { $gt: [{ $ifNull: ['$$this.power', 0] }, { $ifNull: ['$$value.power', -1] }] },
+                                            '$$this',
+                                            '$$value'
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $project: {
+                            userId: 1, name: 1, username: 1, siteCode: 1, level: 1, titles: 1, activeTitle: 1, n: 1, total: 1,
+                            'first.name': 1, 'first.rarity': 1, 'first.form': 1, 'first.evolutionLevel': 1, 'first.image': 1, 'first.customImage': 1,
+                            'top.name': 1, 'top.rarity': 1, 'top.form': 1, 'top.evolutionLevel': 1, 'top.power': 1
+                        }
+                    }
+                ]).allowDiskUse(true)
+                const catIdx = getCatalogIndex(getCatalog)
+                const list = []
+                const byId = new Map()
+                for (const r of rows) {
+                    const id = plId(r.userId)
+                    let top = null
+                    if (r.top && r.top.name) {
+                        const d = resolveDisplayChar(r.top, catIdx)
+                        const k = resolveTierKey(d.rarity, d.evolutionLevel)
+                        const t = TIERS[k] || TIERS['عادي']
+                        top = { name: String(d.name || '—'), tier: k === 'Ω OMEGA' ? 'Ω' : String(k), color: String(t.color) }
+                    }
+                    let av = null
+                    if (r.first && r.first.name) av = safeImageUrl(resolveDisplayChar(r.first, catIdx).image)
+                    let tw = ''
+                    try { tw = String(TITLES.wrap(TITLES.compactOf(r)) || '') } catch (e) { tw = '' }
+                    const u = r.username ? '@' + r.username : (r.name || 'لاعب')
+                    list.push({
+                        id, userId: r.userId, u,
+                        ul: (String(r.username || '') + ' ' + String(r.name || '')).toLowerCase(),
+                        lv: Number(r.level) || 1, chars: Number(r.n) || 0, pw: Number(r.total) || 0,
+                        top, av, tw
+                    })
+                    byId.set(id, r.siteCode)
+                }
+                plSnap = { at: Date.now(), list, byId }
+                return plSnap
+            } catch (err) {
+                if (plSnap.at) return plSnap // لو فشل التحديث نعرض آخر نسخة
+                throw err
+            } finally {
+                plPending = null
+            }
+        })()
+        return plPending
+    }
+
+    app.get('/u/:code/players', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
+            const viewer = sess
+                ? { isOwner: true, name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) }
+                : { isOwner: false }
+            res.send(playersPageHTML({ code, viewer }))
+        } catch (err) {
+            console.error('players page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/players/list', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            securityHeaders(res)
+            const v = await galViewer(req)
+            if (!v.ok) return res.status(401).json({ ok: false, message: 'سجّل الدخول أو افتح وضع المشاهدة.' })
+            if (!plRate(v.sess ? v.sess.u : String(req.ip))) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+
+            const snap = await playersDirectory()
+            const q = String(req.query.q || '').trim().replace(/^@/, '').toLowerCase().slice(0, 32)
+            const sort = ['pw', 'lv', 'chars', 'u'].includes(String(req.query.s)) ? String(req.query.s) : 'pw'
+            const off = Math.max(0, Math.min(100000, parseInt(req.query.o, 10) || 0))
+
+            let list = q ? snap.list.filter(x => x.ul.includes(q)) : snap.list.slice()
+            if (sort === 'u') list.sort((a, b) => a.u.localeCompare(b.u, 'ar'))
+            else list.sort((a, b) => (b[sort] - a[sort]) || (b.pw - a.pw) || a.u.localeCompare(b.u, 'ar'))
+
+            res.json({
+                ok: true,
+                total: list.length,
+                players: list.slice(off, off + PL_PAGE).map(x => ({
+                    id: x.id, u: x.u, lv: x.lv, chars: x.chars, pw: x.pw, top: x.top, av: x.av, tw: x.tw,
+                    me: !!(v.sess && v.sess.u === x.userId)
+                }))
+            })
+        } catch (err) {
+            console.error('players list error:', err)
+            res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+        }
+    })
+
+    // فتح مجموعة لاعب بمشاهدة فقط (نفس /u/:code/view) من معرّفه العام
+    app.get('/players/open', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const v = await galViewer(req)
+            if (!v.ok) return res.redirect(303, '/')
+            if (!plRate(v.sess ? v.sess.u : String(req.ip))) return res.status(429).send('طلبات كثيرة، انتظر قليلاً.')
+            const id = String(req.query.id || '')
+            if (!/^[a-f0-9]{12}$/.test(id)) return html404(res)
+            let snap = await playersDirectory()
+            let siteCode = snap.byId.get(id)
+            if (!siteCode) return html404(res)
+            const b = String(req.query.b || '')
+            auth.setViewOnlyCookie(res)
+            res.redirect(303, `/u/${siteCode}${CODE_RE.test(b) ? '?pb=' + b : ''}`)
+        } catch (err) {
+            console.error('players open error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
     // ─────────────── 🖼️ المعارض  /u/:code/gallery ───────────────
     // الترتيب حسب اللايكات. اللايك لحسابات الموقع المسجّلة فقط (لايك واحد لكل لاعب، وما تقدر تلايك معرضك).
     // اللايكات تُحفظ بحقل Player.galleryLikes (مصفوفة userId) — الأفضل إضافته بالموديل (شوف الملاحظة).
@@ -6052,7 +6342,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         try {
             const m = await galLoadMine(g.sess.u)
             if (!m) return g.fail(404, 'حسابك غير موجود')
-            const pool = sortCharactersKeepFirst(m.p.characters || [])
+            const pool = sortChars(m.p.characters || [])
                 .filter(c => c && c._id)
                 .map(c => galCardData(resolveLiveCharacterData(c)))
             res.json({ ok: true, id: galId(g.sess.u), max: MAX_GALLERY, g: galMineCards(m.p), pool })
