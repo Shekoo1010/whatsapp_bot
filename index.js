@@ -4541,6 +4541,42 @@ const { sellCharacters, mergeAll } = createCharacterTradeSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🔁 بعد أي بيع / دمج / إهداء من الموقع: نطابق ترتيب شخصيات اللاعب المحفوظ مع .شخصياتي
+// (الشخصية 1 ثابتة، الباقي حسب الرتبة ثم القوة) فتتحدث أرقامه بالبوت فوراً.
+// ما نحفظ إلا لو الترتيب تغيّر فعلاً، ونتخطى اللاعب لو عنده عملية إهداء/سحب شغالة (يتطابق عند فتح .شخصياتي).
+async function syncCharacterOrder(...userIds) {
+    const sig = arr => arr.map(c => c ? `${c.name}|${c.rarity}|${c.form || ''}|${c.evolutionLevel || 0}|${c.power || 0}` : '').join('~')
+    for (const uid of new Set(userIds.filter(Boolean))) {
+        try {
+            if (giftLocks.has(uid) || pullLocks.has(uid)) continue
+            const p = await Player.findOne({ userId: uid })
+            if (!p || !Array.isArray(p.characters) || p.characters.length < 2) continue
+            const sorted = sortCharactersByRankKeepFirst(p.characters)
+            if (sig(sorted) === sig(p.characters)) continue
+            p.characters = sorted
+            p.markModified('characters')
+            await p.save()
+        } catch (err) {
+            console.error('syncCharacterOrder error:', err.message)
+        }
+    }
+}
+const siteSellCharacters = async args => {
+    const r = await sellCharacters(args)
+    if (r && r.ok) await syncCharacterOrder(args && args.userId)
+    return r
+}
+const siteMergeAll = async args => {
+    const r = await mergeAll(args)
+    if (r && r.ok) await syncCharacterOrder(args && args.userId)
+    return r
+}
+const siteGiftCharacters = async args => {
+    const r = await giftCharacters(args)
+    if (r && r.ok && !r.duplicate) await syncCharacterOrder(args && args.senderId, args && args.targetId)
+    return r
+}
+
 // 🌌 بنر الأسبوع من الموقع — نفس منطق .بنر و .سحب_بنر بالضبط (systems/bannerPullSystem.js)
 // يشارك قفل pullLocks مع .اسحب و .سحب_بنر فما يصير سحبتين متزامنتين (موقع + واتساب)
 const { createBannerPullSystem } = require('./systems/bannerPullSystem')
@@ -4663,12 +4699,13 @@ registerCharacterSite(app, Player, {
     shardSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
-    giftCharacters,
+    giftCharacters: siteGiftCharacters,
     pullCharacter,
     bannerInfo: bannerPullSystem.getBannerInfo,
     bannerPull: bannerPullSystem.pullBanner,
-    sellCharacters,
-    mergeAll,
+    sellCharacters: siteSellCharacters,
+    mergeAll: siteMergeAll,
+    sortCharactersKeepFirst: sortCharactersByRankKeepFirst,
     bossAttack: bossAttackSystem,
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
