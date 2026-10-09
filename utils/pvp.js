@@ -23,6 +23,11 @@ function calculateDamageAdvanced(attacker, defender) {
         (attacker.power || 0) +
         (attacker.attack || 0)
 
+    // 📖 بونص كتاب المجموعة: هجوم في المضاربات (One Piece / Wuthering Waves)
+    if ((attacker.codexSpec || 0) > 0) {
+        damage = Math.floor(damage * (1 + attacker.codexSpec / 100))
+    }
+
     // الدفاع
     damage -=
         (defender.defense || 0)
