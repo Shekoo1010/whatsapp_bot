@@ -78,6 +78,24 @@ sssPity: {
     default: 0
 },
 
+// 🎡 عملات سحب من عجلة الحظ — رصيد مستقل ينحفظ ولا يتصفّر مع تجديد السحبات كل ساعة
+// (تتحول لسحبة وحدة فقط لما تنتهي السحبات العادية — انظر .اسحب و /pull بالموقع)
+bonusPulls: {
+    type: Number,
+    default: 0
+},
+
+// 🎁 سجل الجوائز: آخر 10 جوائز من أي مصدر (systems/rewardLog.js)
+rewardLog: { type: Array, default: [] },
+
+// 🎡 عجلة الحظ اليومية (systems/siteWheel.js)
+// lastSpin: يوم آخر لفة بتوقيت السعودية (YYYY-MM-DD) — pending: جائزة طلعت ولم تُستلم بعد
+wheel: {
+    lastSpin: { type: String, default: '' },
+    pending: { type: mongoose.Schema.Types.Mixed, default: null },
+    spins: { type: Number, default: 0 }
+},
+
 bannerPity: {
     type: Number,
     default: 0
