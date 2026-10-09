@@ -111,6 +111,14 @@ function createKingdomRaidSystem(deps) {
 
             await player.save()
 
+            // 🎁 سجل الجوائز: نسجّل مرة وحدة عند إكمال الغزو اليومي (عشان ما تزحم المراحل العشر السجل)
+            if (raid.stage >= 10) {
+                require('./rewardLog').logReward(userId, {
+                    src: 'غزو المملكة', icon: '🏰',
+                    lines: ['🏆 أكملت الغزو اليومي', `💰 ${Number(raid.totalEarned || 0).toLocaleString('en')} مال (إجمالي اليوم)`]
+                })
+            }
+
             // الإنجاز يُرسل لخاص اللاعب (فشله لا يكسر الغزو)
             try {
                 const sock = getSock && getSock()

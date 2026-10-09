@@ -226,6 +226,11 @@ module.exports = function createSiteChallenge(deps) {
         try { await applyRankTierPromotion(loserData, lOldTier) } catch (e) { console.error('site challenge rank:', e.message) }
 
         await winnerData.save()
+        // 🎁 سجل الجوائز بالموقع (الفائز)
+        require('./rewardLog').logReward(winnerData.userId, {
+            src: 'التحدي المباشر — فوز', icon: '⚔️',
+            lines: [`💰 ${Number(moneyReward).toLocaleString('en')} مال`, `⭐ ${xpReward} XP`, boxReward].filter(Boolean)
+        })
         try { await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: winner }) } catch (e) { console.error('site challenge orb:', e.message) }
         await loserData.save()
 

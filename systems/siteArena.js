@@ -546,6 +546,12 @@ module.exports = function createSiteArena(deps) {
                 await attacker.save()
                 await defender.save()
 
+                // 🎁 سجل الجوائز بالموقع (الفائز)
+                require('./rewardLog').logReward(winner.userId, {
+                    src: 'الأرينا PvP — فوز', icon: '🏟️',
+                    lines: [`💰 ${Number(moneyReward).toLocaleString('en')} مال`, `⭐ ${xpReward} XP`, `📦 ${boxInfo.label}`]
+                })
+
                 // 🔮 الأورب + 🏅 الإنجازات (لا تُفشل القتال لو تعذّر الإرسال)
                 try {
                     const sock = getSock ? getSock() : null

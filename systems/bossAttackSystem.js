@@ -275,6 +275,13 @@ function createBossAttackSystem(deps) {
             p.xp = (p.xp || 0) + xpGain
             await p.save()
 
+            // 🎁 سجل الجوائز بالموقع
+            require('./rewardLog').logReward(p.userId, {
+                src: `الزعيم — المركز ${i + 1}`,
+                icon: ['👑', '🥈', '🥉'][i] || '🏅',
+                lines: [`💰 ${Number(money).toLocaleString('en')} مال`, `⭐ ${xpGain} XP`, ...boxes.map(b => `📦 ${b}`)]
+            })
+
             entries.push({
                 rank: i + 1, userId: p.userId, name: nameOf(p),
                 damage: p.bossDamage || 0, money, xp: xpGain, boxes
@@ -286,6 +293,7 @@ function createBossAttackSystem(deps) {
             killer.boxes = killer.boxes || {}
             killer.boxes.sss_high = (killer.boxes.sss_high || 0) + 1
             await killer.save()
+            require('./rewardLog').logReward(killer.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
             killerEntry = { userId: killer.userId, name: nameOf(killer), boxes: ['1 SSS High Box إضافي'] }
         }
 

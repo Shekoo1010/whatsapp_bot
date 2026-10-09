@@ -842,7 +842,7 @@ ${navDrawerHTML(code, csrf, 'log')}
 </body></html>`
 }
 
-// 🎁 سجل الجوائز (آخر 10) — من العجلة والزعيم والمعرض وغيرها (systems/rewardLog.js)
+// 🎁 سجل الجوائز (آخر 30) — من العجلة والزعيم والمعرض وغيرها (systems/rewardLog.js)
 function rewardsPageHTML({ log, code, csrf }) {
     const fmt = t => { try { return new Date(Number(t)).toLocaleString('ar-EG', { timeZone: 'Asia/Riyadh' }) } catch (e) { return '' } }
     const rows = log.map(e => `<div class="lg-row lg-in">
@@ -859,7 +859,7 @@ function rewardsPageHTML({ log, code, csrf }) {
 .lg-empty{text-align:center;opacity:.7;padding:40px 0}
 </style>
 <body>
-<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🎁 سجل الجوائز (آخر 10)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
+<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🎁 سجل الجوائز (آخر 30)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
 ${navDrawerHTML(code, csrf, 'rewards')}
 <div class="lg-wrap">${rows || '<div class="lg-empty">ما وصلتك جوائز بعد — جرّب عجلة الحظ 🎡</div>'}</div>
 </body></html>`
@@ -5330,7 +5330,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!player) return html404(res)
             const sess = ownerSession(req, player)
             if (!sess) return res.redirect(303, `/login?code=${code}`)
-            const log = (player.rewardLog || []).filter(Boolean).slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 10)
+            const log = (player.rewardLog || []).filter(Boolean).slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 30)
             res.send(rewardsPageHTML({ log, code, csrf: auth.csrfForSession(sess) }))
         } catch (err) {
             console.error('rewards page error:', err)

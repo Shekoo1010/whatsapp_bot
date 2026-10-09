@@ -1505,6 +1505,19 @@ ${raid.bossName}
 
             await targetPlayer.save()
 
+            // 🎁 سجل الجوائز بالموقع
+            try {
+                const _rl = [`💰 ${Number(reward.money || 0).toLocaleString('en')} مال`]
+                if (reward.boxes && reward.boxes.sss_chance) _rl.push(`📦 ${reward.boxes.sss_chance} × SSS Chance`)
+                if (reward.boxes && reward.boxes.sss_high) _rl.push(`📦 ${reward.boxes.sss_high} × SSS High`)
+                if (reward.character) _rl.push(`🎴 ${reward.character.name}`)
+                require('./rewardLog').logReward(targetId, {
+                    src: `الرايد — ${i < 3 ? 'المركز ' + ['الأول', 'الثاني', 'الثالث'][i] : 'مشارك'}`,
+                    icon: ['🥇', '🥈', '🥉'][i] || '🎖️',
+                    lines: _rl
+                })
+            } catch (e) { /* السجل ما يكسر الجوائز */ }
+
             // =====================
             // رسالة الجائزة
             // =====================

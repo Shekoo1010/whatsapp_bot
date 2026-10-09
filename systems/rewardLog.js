@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * 🎁 سجل الجوائز — آخر 10 جوائز وصلت اللاعب من أي مصدر (عجلة، معرض، زعيم، ...)
+ * 🎁 سجل الجوائز — آخر 30 جائزة وصلت اللاعب من أي مصدر (عجلة، معرض، زعيم، ...)
  * يظهر بالموقع: /u/<كود>/rewards
  *
  * بـ index.js مرة وحدة:   require('./systems/rewardLog').init(Player)
@@ -10,7 +10,7 @@
  * لا ترمي أخطاء أبداً (آمنة داخل أي نظام جوائز)، ولا تحتاج await.
  */
 
-const MAX = 10
+const MAX = 30
 let _Player = null
 
 function init(Player) { _Player = Player }
