@@ -4552,8 +4552,25 @@ const siteChallenge = require('./systems/siteChallenge')({
     getSock: () => siteSockRef.current
 })
 
+// 🏟️ أرينا PvP (النسخة 3) على الموقع — نفس منطق .قتال pvp بالضبط (systems/siteArena.js + systems/pvpBattle.js)
+const siteArena = require('./systems/siteArena')({
+    Player,
+    getTotalStats,
+    equipmentSystem,
+    getWeaponBonus: getWeaponBonusForCharacter,
+    companionsData,
+    getRank,
+    applyDogBonus,
+    getSaudiDate,
+    orbs,
+    checkAndGrantAchievement,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 registerCharacterSite(app, Player, {
     challenge: siteChallenge,
+    arena: siteArena,
     shopSystem: characterShopSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
@@ -36536,11 +36553,14 @@ ${rosterText(teamB)}
                     'فضي': { key: 'rare', label: '🎁 صندوق نادر' },
                     'ذهبي': { key: 'epic', label: '✨ صندوق ملحمي' },
                     'بلاتيني': { key: 'legendary', label: '👑 صندوق أسطوري' },
+                    'ألماسي': { key: 'legendary', label: '👑 صندوق أسطوري' },
                     'ماستر': { key: 'sss_chance', label: '🌟 صندوق فرصة SSS' },
                     'أسطوري': { key: 'sss_high', label: '💎 صندوق SSS عالي' }
                 }
 
-                const boxInfo = rankBoxMap[winner.rank] || rankBoxMap['برونزي']
+                // getRank يرجع الرتبة مع إيموجي ('🥈 ذهبي') بينما مفاتيح الخريطة بدونه → نشيل الإيموجي قبل البحث
+                const winnerRankName = String(winner.rank || '').replace(/^\S+\s+/, '').trim()
+                const boxInfo = rankBoxMap[winnerRankName] || rankBoxMap['برونزي']
 
                 winner.boxes = winner.boxes || {}
                 winner.boxes[boxInfo.key] = (winner.boxes[boxInfo.key] || 0) + 1
