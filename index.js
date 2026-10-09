@@ -4587,6 +4587,24 @@ const characterShopSystem = createCharacterShopSystem({
     refreshShop: generateCharacterShop
 })
 
+// 🧩 الشظايا + 💎 التطوير + ♻️ الاسترجاع من الموقع — نفس منطق .شظايا / .تطوير / .استرجاع بالضبط (systems/shardSystem.js)
+// يشارك أقفال giftLocks/pullLocks فما يصير تطوير/استرجاع متزامن مع إهداء أو سحب (موقع + واتساب)
+const { createShardSystem } = require('./systems/shardSystem')
+const shardSystem = createShardSystem({
+    Player,
+    giftLocks,
+    pullLocks,
+    getCatalog: () => characters,
+    resortPlayerCharacters,
+    urAbilities,
+    omegaAbilities,
+    checkAndGrantAchievement,
+    worlds,
+    maxOmega: MAX_OMEGA_EVOLUTIONS,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 // ⚔️ التحدي المباشر من الموقع (نفس نظام .تحدي / .قبول_تحدي / .هجوم الخصم / .مهارة / .ألتميت)
 const siteChallenge = require('./systems/siteChallenge')({
     Player,
@@ -4606,6 +4624,9 @@ const siteChallenge = require('./systems/siteChallenge')({
     getPeriod: getCurrentSaudi2HourPeriod,
     getSock: () => siteSockRef.current
 })
+
+// ❌⭕ XO أونلاين على الموقع (systems/siteXO.js)
+const siteXO = require('./systems/siteXO')({ Player })
 
 // 🏟️ أرينا PvP (النسخة 3) على الموقع — نفس منطق .قتال pvp بالضبط (systems/siteArena.js + systems/pvpBattle.js)
 const siteArena = require('./systems/siteArena')({
@@ -4637,7 +4658,9 @@ registerCharacterSite(app, Player, {
     wheel: siteWheel,
     challenge: siteChallenge,
     arena: siteArena,
+    xo: siteXO,
     shopSystem: characterShopSystem,
+    shardSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
     giftCharacters,
