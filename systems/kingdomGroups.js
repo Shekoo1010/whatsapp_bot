@@ -9,6 +9,7 @@
 // =====================================================================
 
 const crypto = require('crypto')
+const { logReward } = require('./rewardLog') // 🎁 سجل الجوائز بالموقع (آخر 10)
 const mongoose = require('mongoose')
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower')
 const { KingdomMember, RankRewardRun, RankReward } = require('../models/KingdomGroup')
@@ -226,7 +227,16 @@ async function processEntry(entry, runKey, kind) {
     const log = await RankReward.findOne({ key: entry.key })
     if (log.status === 'granted') return true
     try {
-        await grant(entry)
+        const res = await grant(entry)
+        if (res === 'granted') { // 'already' = انمنحت قبل (إعادة محاولة) فما نسجّلها مرتين
+            const g = groupByKey(entry.group)
+            const c = entry.rewards && entry.rewards.character
+            logReward(entry.userId, {
+                src: `قروبات المملكة — ${g ? g.name : entry.group} · المركز ${entry.pos}`,
+                icon: g ? g.emoji : '🏰',
+                lines: [...describeRewards(entry.rewards), ...(c ? [`🎴 ${c.name} (${c.rarity})`] : [])]
+            })
+        }
         await RankReward.updateOne({ key: entry.key }, { $set: { status: 'granted', grantedAt: new Date(), lastError: null } })
         return true
     } catch (err) {

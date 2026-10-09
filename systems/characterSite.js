@@ -703,6 +703,7 @@ function navDrawerHTML(code, csrf, current, name) {
     const items = [
         ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
+        ['wheel', '🎡', 'عجلة الحظ', `/u/${c}/wheel`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
@@ -716,7 +717,8 @@ function navDrawerHTML(code, csrf, current, name) {
         ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
-        ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`]
+        ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
+        ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`]
     ]
     const list = items.map(([k, ic, label, href]) =>
         `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`
@@ -837,6 +839,29 @@ function logPageHTML({ log, code, csrf }) {
 <div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">📜 سجل الإهداءات (آخر 100)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
 ${navDrawerHTML(code, csrf, 'log')}
 <div class="lg-wrap">${rows || '<div class="lg-empty">لا توجد إهداءات بعد.</div>'}</div>
+</body></html>`
+}
+
+// 🎁 سجل الجوائز (آخر 10) — من العجلة والزعيم والمعرض وغيرها (systems/rewardLog.js)
+function rewardsPageHTML({ log, code, csrf }) {
+    const fmt = t => { try { return new Date(Number(t)).toLocaleString('ar-EG', { timeZone: 'Asia/Riyadh' }) } catch (e) { return '' } }
+    const rows = log.map(e => `<div class="lg-row lg-in">
+      <div class="lg-h"><b>${esc(String(e.icon || '🎁'))} ${esc(String(e.src || 'جائزة'))}</b><span class="lg-t">${esc(fmt(e.at))}</span></div>
+      <div class="lg-c">${(Array.isArray(e.lines) ? e.lines : []).map(l => `<span class="lg-ch">${esc(String(l))}</span>`).join('')}</div></div>`).join('')
+    return shellHead('سجل الجوائز') + `
+<style>
+.lg-wrap{max-width:760px;margin:0 auto;padding:16px}
+.lg-row{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;margin:10px 0}
+.lg-in{border-inline-start:4px solid #f0c04a}
+.lg-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.lg-t{opacity:.7;font-size:.85em}
+.lg-ch{display:inline-block;background:rgba(255,255,255,.1);border-radius:8px;padding:3px 8px;margin:6px 4px 0 0}
+.lg-empty{text-align:center;opacity:.7;padding:40px 0}
+</style>
+<body>
+<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🎁 سجل الجوائز (آخر 10)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
+${navDrawerHTML(code, csrf, 'rewards')}
+<div class="lg-wrap">${rows || '<div class="lg-empty">ما وصلتك جوائز بعد — جرّب عجلة الحظ 🎡</div>'}</div>
 </body></html>`
 }
 
@@ -1381,7 +1406,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;bac
   function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
   function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
   function stats(){
-    $('s-pulls').textContent=S.pulls+'/'+S.max;
+    $('s-pulls').textContent=S.pulls+'/'+S.max+(S.bonus>0?' +'+S.bonus+'🎡':'');
     $('s-pity').textContent=S.pity+'/'+S.pityMax;
     $('s-cap').textContent=S.count+'/'+S.cap;
     $('go').disabled=busy;
@@ -1567,6 +1592,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;bac
       var j=x.j;
       if(j.state){
         if(j.state.pulls!=null) S.pulls=j.state.pulls;
+        if(j.state.bonus!=null) S.bonus=j.state.bonus;
         if(j.state.pity!=null) S.pity=j.state.pity;
         if(j.state.count!=null) S.count=j.state.count;
         if(j.state.cap!=null) S.cap=j.state.cap;
@@ -4204,6 +4230,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             pulls,
             max: 5,
             pity: Number(player.sssPity) || 0,
+            bonus: Number(player.bonusPulls) || 0, // 🎡 عملات العجلة
             pityMax: 30,
             count: (player.characters || []).length,
             cap: Number(player.maxCharacters) || 30,
@@ -4252,6 +4279,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, charView: siteCharView
             })
         } catch (e) { console.error('site arena mount error:', e) }
+    }
+
+    // 🎡 عجلة الحظ اليومية — /u/:code/wheel (systems/siteWheel.js)
+    if (opts.wheel) {
+        try {
+            opts.wheel.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN
+            })
+        } catch (e) { console.error('site wheel mount error:', e) }
     }
 
     // صور .استبدال المحلية
@@ -4514,7 +4551,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!CODE_RE.test(code)) return html404(res)
 
             const player = await Player.findOne({ siteCode: code })
-                .select('userId name username characters sessionVersion pulls lastReset sssPity maxCharacters')
+                .select('userId name username characters sessionVersion pulls lastReset sssPity maxCharacters bonusPulls')
                 .lean()
             if (!player) return html404(res)
 
@@ -4576,6 +4613,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 notes,
                 state: {
                     pulls: Number(r.pullsLeft) || 0,
+                    bonus: Number(r.bonusLeft) || 0,
                     pity: Number(r.sssPity) || 0,
                     count: Number(r.charCount) || 0,
                     cap: Number(r.capacity) || 30
@@ -5281,6 +5319,25 @@ function registerCharacterSite(app, Player, opts = {}) {
     })
 
     // ─────────────── سجل الإهداءات ───────────────
+    app.get('/u/:code/rewards', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username rewardLog sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            const log = (player.rewardLog || []).filter(Boolean).slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 10)
+            res.send(rewardsPageHTML({ log, code, csrf: auth.csrfForSession(sess) }))
+        } catch (err) {
+            console.error('rewards page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
     app.get('/u/:code/log', async (req, res) => {
         try {
             securityHeaders(res)

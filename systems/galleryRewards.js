@@ -197,6 +197,14 @@ async function grantPrize(entry, pos, period) {
     player.markModified('giftInbox')
 
     await player.save()
+
+    // 🎁 سجل الجوائز بالموقع (آخر 10)
+    require('./rewardLog').logReward(entry.userId, {
+        src: `المعارض — المركز ${pos}`,
+        icon: '🖼️',
+        lines: [...items, `🎴 ${char.name} (${char.rarity})`]
+    })
+
     return 'granted'
 }
 

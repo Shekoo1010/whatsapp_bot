@@ -84,6 +84,22 @@ function createPullSystem(deps) {
                 await player.save()
             }
 
+            // 🎡 عملات سحب العجلة: لما تنتهي السحبات العادية تتحول عملة وحدة لسحبة
+            // (بعد فحص المخزون والتجديد — فما تضيع عملة لو السحب انرفض، ومحفوظة ولا تتصفّر)
+            if (player.pulls <= 0 && (player.bonusPulls || 0) > 0) {
+                const bonusClaim = await Player.findOneAndUpdate(
+                    { userId, bonusPulls: { $gt: 0 }, pulls: { $lte: 0 } },
+                    { $inc: { bonusPulls: -1, pulls: 1 } },
+                    { new: true, strict: false }
+                )
+                if (bonusClaim) {
+                    player.pulls = bonusClaim.pulls
+                    player.bonusPulls = bonusClaim.bonusPulls
+                    player.unmarkModified('pulls')
+                    player.unmarkModified('bonusPulls')
+                }
+            }
+
             // ⏳ لا توجد سحبات
             if (player.pulls <= 0) {
                 return fail('NO_PULLS', {
@@ -303,6 +319,7 @@ function createPullSystem(deps) {
                 sonicBonusText,
                 worldPointsText,
                 pullsLeft: player.pulls,
+                bonusLeft: player.bonusPulls || 0,
                 sssPity: player.sssPity,
                 charCount: player.characters.length,
                 capacity: player.maxCharacters || 30
