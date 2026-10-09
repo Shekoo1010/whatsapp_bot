@@ -14,6 +14,7 @@ const mongoose = require('mongoose')
 const { nextPayoutAt } = require('./galleryRewards') // موعد تصفير لايكات المعارض (العدّاد التنازلي)
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
+const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
 
 const PAGE_SIZE = 40
@@ -638,6 +639,7 @@ function shellHead(title) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+${TITLES.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -719,6 +721,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
+        ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`]
     ]
     const list = items.map(([k, ic, label, href]) =>
@@ -1888,6 +1891,7 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+${TITLES.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1906,7 +1910,7 @@ ${HOME_CSS}
   ${isOwner ? navDrawerHTML(code, viewer.csrf, 'home', viewer.name) : ''}
   <div class="hero"><div class="hero-in">
     <div class="av"${avStyle}>${h.img ? '' : initial}</div>
-    <div class="who"><b>${esc(title)}</b><span>المستوى ${esc(h.level || 1)}</span><div class="xp"><i style="width:${Number(h.xpPct) || 0}%"></i></div></div>
+    <div class="who"><b>${esc(title)}</b>${TITLES.wrap(h.t)}<span>المستوى ${esc(h.level || 1)}</span><div class="xp"><i style="width:${Number(h.xpPct) || 0}%"></i></div></div>
   </div></div>
   <div class="stats">${statsHTML}</div>
   <div class="chips" id="chips">${chipsHTML}</div>
@@ -2080,11 +2084,11 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;
 function J(u,o){return fetch(u,Object.assign({credentials:'same-origin'},o||{})).then(function(r){return r.json().catch(function(){return{ok:false}})}).catch(function(){return{ok:false,message:'تعذر الاتصال بالسيرفر'}})}
 function toast(m){var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2600)}
 function av(o){if(o.i)return '<div class="av has" style="--c:hsl('+o.h+' 75% 62%);background-image:url(\''+esc(o.i)+'\')"></div>';return '<div class="av" style="--c:hsl('+o.h+' 75% 62%)">'+esc(Array.from(o.u.replace(/^@/,''))[0]||'?')+'</div>'}
-function rowH(o,rk){return '<div class="row'+(rk&&rk<=3?' top3 g'+rk:'')+'" data-u="'+esc(o.id)+'"><div class="rk">'+(rk&&rk<=3?MD[rk-1]:(rk||''))+'</div>'+av(o)+'<div class="who"><b>'+esc(o.u)+'</b><small>'+o.n+' شخصيات</small></div><div class="lkc">❤️ '+o.l+'</div></div>'}
+function rowH(o,rk){return '<div class="row'+(rk&&rk<=3?' top3 g'+rk:'')+'" data-u="'+esc(o.id)+'"><div class="rk">'+(rk&&rk<=3?MD[rk-1]:(rk||''))+'</div>'+av(o)+'<div class="who"><b>'+esc(o.u)+'</b>'+(o.t?'<div class="ttw">'+TB(o.t,1)+'</div>':'')+'<small>'+o.n+' شخصيات</small></div><div class="lkc">❤️ '+o.l+'</div></div>'}
 function list(){
  if(!owners.length){$('#app').innerHTML='<div class="narrow">'+mineBar()+'<div class="note" style="margin-top:24px">ما فيه معارض بعد'+(G.owner?' — ابدأ بمعرضك من زر إدارة معرضي':'')+'</div></div>';bindMg();return}
  var top=owners.slice(0,10),pod=[[top[1],2],[top[0],1],[top[2],3]].filter(function(p){return p[0]});
- var h='<div class="narrow">'+mineBar()+'<div class="pod">'+pod.map(function(p){var o=p[0],k=p[1];return '<div class="pc g'+k+(o.i?' pi':'')+'" data-u="'+esc(o.id)+'">'+(o.i?'<div class="pim" style="background-image:url(\''+esc(o.i)+'\')"></div>':'')+'<span class="spk" style="top:8px;right:10px">✨</span><span class="spk" style="top:30px;left:10px;animation-delay:.7s">✨</span><div class="md">'+MD[k-1]+'</div>'+(o.i?'':'<div style="display:flex;justify-content:center;margin-top:6px">'+av(o)+'</div>')+'<div class="nm">'+esc(o.u)+'</div><div class="lk">❤️ '+o.l+'</div></div>'}).join('')+'</div>';
+ var h='<div class="narrow">'+mineBar()+'<div class="pod">'+pod.map(function(p){var o=p[0],k=p[1];return '<div class="pc g'+k+(o.i?' pi':'')+'" data-u="'+esc(o.id)+'">'+(o.i?'<div class="pim" style="background-image:url(\''+esc(o.i)+'\')"></div>':'')+'<span class="spk" style="top:8px;right:10px">✨</span><span class="spk" style="top:30px;left:10px;animation-delay:.7s">✨</span><div class="md">'+MD[k-1]+'</div>'+(o.i?'':'<div style="display:flex;justify-content:center;margin-top:6px">'+av(o)+'</div>')+'<div class="nm">'+esc(o.u)+'</div>'+(o.t?'<div class="ttw">'+TB(o.t,1)+'</div>':'')+'<div class="lk">❤️ '+o.l+'</div></div>'}).join('')+'</div>';
  h+='<h2>🏆 أعلى 10 معارض <small>حسب اللايكات</small></h2>'+top.map(function(o,i){return rowH(o,i+1)}).join('');
  h+='<h2>🖼️ كل المعارض <small>('+owners.length+')</small></h2><input class="search" id="q" placeholder="ابحث باسم اللاعب…"><div id="all" style="margin-top:12px"></div></div>';
  $('#app').innerHTML=h;all();$('#q').oninput=all;bindMg();
@@ -2101,7 +2105,7 @@ function show(id){
   var rb=rows(cur.cs).map(function(r){return '<div class="roster">'+r.map(function(c){return cardH(c,i++)}).join('')+'</div>'}).join('');
   $('#app').innerHTML='<div class="narrow">'+(rank<=3?'<div class="ribbon g'+rank+'">'+MD[rank-1]+' المركز '+['الأول','الثاني','الثالث'][rank-1]+' بالمعارض</div>':(rank<=10?'<div class="ribbon" style="--rc:#8b93a1;animation:none">🏆 الترتيب #'+rank+'</div>':''))+
   '<div class="bar"><button class="like" id="lk"></button><button class="zm" id="zm">'+(zoom?'🔎 ملء الشاشة':'🔍 تكبير')+'</button>'+(cur.mine?'<button class="zm" id="ed">✏️ تعديل</button>':'')+'</div></div>'+
-  '<div id="bx"><div class="board'+(rank<=3?' top3 g'+rank:'')+'" id="bd"><div class="cn tl"></div><div class="cn br"></div><div class="eb">Character Roster</div><h1>معرض '+esc(cur.u)+'</h1><div class="sub">'+cur.cs.length+' / 10 CHARACTERS</div>'+rb+'</div></div>';
+  '<div id="bx"><div class="board'+(rank<=3?' top3 g'+rank:'')+'" id="bd"><div class="cn tl"></div><div class="cn br"></div><div class="eb">Character Roster</div><h1>معرض '+esc(cur.u)+'</h1>'+(cur.t?'<div class="ttw" style="text-align:center">'+TB(cur.t)+'</div>':'')+'<div class="sub">'+cur.cs.length+' / 10 CHARACTERS</div>'+rb+'</div></div>';
   likeBtn();
   $('#lk').onclick=function(){
    if(!G.owner){toast('سجّل دخول بحسابك عشان تعطي لايك');return}
@@ -2174,6 +2178,7 @@ function galleryPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+${TITLES.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2614,7 +2619,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;
 .row.r1 .rk{background:var(--gold);color:#0a0d16}.row.r2 .rk{background:#c9ced8;color:#0a0d16}.row.r3 .rk{background:#d08a4c;color:#0a0d16}
 .mini{flex:0 0 28px;height:28px;border-radius:50%;border:1.5px solid hsl(var(--h) 80% 60%);background-size:cover;background-position:center top}
 .bw{flex:1;min-width:0}
-.bn{display:flex;justify-content:space-between;font-size:12px;font-weight:800}
+.bn{display:flex;justify-content:space-between;font-size:12px;font-weight:800}.bn span{display:inline-flex;align-items:center;gap:2px;min-width:0;overflow:hidden;white-space:nowrap}.bn span .ttl{font-size:9.5px;padding:0 6px;margin-inline-start:4px;flex:none}
 .bn b{font-family:'Oswald',sans-serif;color:var(--gold);direction:ltr;font-weight:500}
 .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:2px;overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:hsl(var(--h) 80% 60%);transition:width .4s}
@@ -2715,6 +2720,7 @@ function bossPageHTML({ viewer, code, data }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+${TITLES.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -3113,7 +3119,7 @@ function setTheme(i){
       }
       n.el.style.transform='translateY('+(i*LBH)+'px)';
       n.el.className='row'+(r.me?' me':'')+(i<3?' r'+(i+1):'')+(r.active?' act':'');
-      n.k.textContent=i+1; n.nm.textContent=(r.me?'أنت · ':'')+r.name; n.d.textContent=fmt(r.damage); n.bar.style.width=(r.damage/top*100)+'%';
+      n.k.textContent=i+1; n.nm.textContent=(r.me?'أنت · ':'')+r.name; if(r.t&&window.TB)n.nm.insertAdjacentHTML('beforeend',TB(r.t,1)); n.d.textContent=fmt(r.damage); n.bar.style.width=(r.damage/top*100)+'%';
       if(r.img) n.m.style.backgroundImage="url('"+r.img+"')";
       if(r.damage>n.dmg){ n.d.animate([{transform:'scale(1.35)'},{transform:'scale(1)'}],{duration:500}); }
       n.dmg=r.damage;
@@ -3557,9 +3563,9 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], s
     const initial = s => esc(Array.from(String(s || '?'))[0] || '?')
     const you = d => d.isMe ? ` <em class="tp-you">${youLabel}</em>` : ''
 
-    const slot = (d, i) => `<div class="tp-slot r${i + 1}">${i === 0 ? '<div class="tp-rays"></div>' : ''}<article class="tp-pc" style="--t:${d.color}"><div class="tp-art">${i === 0 ? '<span class="tp-crown">👑</span>' : ''}<span class="tp-medal">${i + 1}</span><span class="tp-tier">${esc(d.tier)}</span><span class="tp-ph">${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}</div><div class="tp-info"><div class="tp-cn">${esc(d.charName)}</div><div class="tp-un">${esc(d.who)}${you(d)}</div><div class="tp-pw"><span data-n="${Math.round(d.total)}">${fmtInt(d.total)}</span> <small>قوة</small></div></div></article></div>`
+    const slot = (d, i) => `<div class="tp-slot r${i + 1}">${i === 0 ? '<div class="tp-rays"></div>' : ''}<article class="tp-pc" style="--t:${d.color}"><div class="tp-art">${i === 0 ? '<span class="tp-crown">👑</span>' : ''}<span class="tp-medal">${i + 1}</span><span class="tp-tier">${esc(d.tier)}</span><span class="tp-ph">${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}</div><div class="tp-info"><div class="tp-cn">${esc(d.charName)}</div><div class="tp-un">${esc(d.who)}${you(d)}</div>${TITLES.wrap(d.t, true)}<div class="tp-pw"><span data-n="${Math.round(d.total)}">${fmtInt(d.total)}</span> <small>قوة</small></div></div></article></div>`
 
-    const row = (d, i) => `<div class="tp-row${d.isMe ? ' me' : ''}" style="--t:${d.color};--i:${i}"><div class="tp-rk">${d.rank}</div><div class="tp-th"><span>${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div><div class="tp-mid"><b>${esc(d.who)}${you(d)}</b><span><i>${esc(d.tier)}</i> · ${esc(d.charName)}</span></div><div class="tp-sc">${fmtInt(d.total)}<small>مجموع القوة</small></div></div>`
+    const row = (d, i) => `<div class="tp-row${d.isMe ? ' me' : ''}" style="--t:${d.color};--i:${i}"><div class="tp-rk">${d.rank}</div><div class="tp-th"><span>${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div><div class="tp-mid"><b>${esc(d.who)}${you(d)}</b>${TITLES.wrap(d.t, true)}<span><i>${esc(d.tier)}</i> · ${esc(d.charName)}</span></div><div class="tp-sc">${fmtInt(d.total)}<small>مجموع القوة</small></div></div>`
 
     const topbar = viewer.isOwner
         ? `<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🏆 أقوى اللاعبين</span></span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
@@ -3584,7 +3590,7 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], s
   ${tabs.length ? `<nav class="gt-tabs">${tabs.map(t => `<a class="gt-tab${t.on ? ' on' : ''}" style="--g:${esc(t.color)}" href="${esc(t.href)}">${esc(t.label)}</a>`).join('')}</nav>` : ''}
   ${body}
 </div>
-<div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span><span class="p">⚔️ ${fmtInt(me.total)}</span></div></div>
+<div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span>${TITLES.wrap(me.t, true)}<span class="p">⚔️ ${fmtInt(me.total)}</span></div></div>
 ${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'top', viewer.name) : ''}
 <script>${TOP_JS}</script>
 </body></html>`
@@ -3848,7 +3854,7 @@ header b{font-size:18px;font-weight:900}.on-pill{color:var(--tx);background:rgba
 #list{flex:1;overflow-y:auto;padding:6px 12px}
 .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
 .bar>b{flex:1}.bar em{font-style:normal;color:var(--gold);font-size:13px}
-.who{flex:1;min-width:0}.who small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who .ttl{margin-inline-start:0;margin-top:2px}.nm .ttl{margin-inline-start:6px}.who{flex:1;min-width:0}.who small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note{text-align:center;font-size:12px;color:var(--mut);padding:6px;background:var(--panel2)}
 .av{position:relative;flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:23px;background:var(--panel2);border:2.5px solid var(--c);box-shadow:0 0 12px -2px var(--c)}
 .dot{position:absolute;left:-2px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#35e08a;border:2px solid var(--panel);animation:pls 1.8s infinite}
@@ -3957,7 +3963,7 @@ function chatClient() {
         var qt = ''
         if (m.q) { var qp = P(m.q.f); qt = '<div class="qt" data-a="jq" data-m="' + m.q.id + '"><b style="color:' + col(qp) + '">' + esc(qp.n) + '</b><span>' + (m.q.s >= 0 && C.stk[m.q.s] ? C.stk[m.q.s].em + ' ستيكر' : esc(m.q.x)) + '</span></div>' }
         var bar = S.open === m.id ? '<div class="rbar"><button data-a="rp" data-m="' + m.id + '" title="رد">↩️</button>' + C.re.map(function (e) { return '<button data-a="re" data-m="' + m.id + '" data-e="' + e + '">' + e + '</button>' }).join('') + '</div>' : ''
-        return '<div class="msg' + (m.me ? ' me' : '') + (seen[m.id] ? '' : ' in') + '" id="m-' + m.id + '">' + av(p) + '<div class="mb">' + (m.me ? '' : '<div class="nm" style="color:' + col(p) + '">' + esc(p.n) + '</div>') + '<div data-a="op" data-m="' + m.id + '">' + qt + body + '</div>' + bar + (re ? '<div class="rcs">' + re + '</div>' : '') + '<small>' + tm(m.t) + '</small></div></div>'
+        return '<div class="msg' + (m.me ? ' me' : '') + (seen[m.id] ? '' : ' in') + '" id="m-' + m.id + '">' + av(p) + '<div class="mb">' + (m.me ? (p.t ? '<div class="nm">' + TB(p.t, 1) + '</div>' : '') : '<div class="nm" style="color:' + col(p) + '">' + esc(p.n) + (p.t ? TB(p.t, 1) : '') + '</div>') + '<div data-a="op" data-m="' + m.id + '">' + qt + body + '</div>' + bar + (re ? '<div class="rcs">' + re + '</div>' : '') + '<small>' + tm(m.t) + '</small></div></div>'
     }
     function rList(f) {
         var l = $('#list'); if (!l) return
@@ -3987,7 +3993,7 @@ function chatClient() {
         b.innerHTML = S.fr.map(function (f) {
             var p = P(f.id), l = f.last
             var pv = l ? (l.me ? 'أنت: ' : '') + (l.s >= 0 ? C.stk[l.s].em + ' ستيكر' : esc(l.x)) : 'ابدأ المحادثة'
-            return '<div class="fr" data-a="dm" data-v="' + f.id + '">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small>' + pv + '</small></div>' + (f.un ? '<b class="bd">' + f.un + '</b>' : '') + '</div>'
+            return '<div class="fr" data-a="dm" data-v="' + f.id + '">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b>' + (p.t ? TB(p.t, 1) : '') + '<small>' + pv + '</small></div>' + (f.un ? '<b class="bd">' + f.un + '</b>' : '') + '</div>'
         }).join('') || '<div class="note">ما عندك أصدقاء بعد</div>'
         var c = $('#fc'); if (c) c.textContent = S.fr.length + '/' + C.maxFr
     }
@@ -3996,7 +4002,7 @@ function chatClient() {
         v.className = S.dm != null || S.tab === 'pub' ? 'chat' : ''
         if (S.dm != null) {
             var p = P(S.dm)
-            h = '<div class="bar"><button class="bk" data-a="bk">➜</button>' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small id="st"></small></div><button class="bk" data-a="rmf" data-v="' + S.dm + '" title="حذف الصديق">💔</button></div><div class="note">🔒 رسالة خاصة — ما يشوفها غيركم</div><div id="list"></div>'
+            h = '<div class="bar"><button class="bk" data-a="bk">➜</button>' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b>' + (p.t ? TB(p.t, 1) : '') + '<small id="st"></small></div><button class="bk" data-a="rmf" data-v="' + S.dm + '" title="حذف الصديق">💔</button></div><div class="note">🔒 رسالة خاصة — ما يشوفها غيركم</div><div id="list"></div>'
         } else if (S.tab === 'pub') {
             h = '<div class="strip" id="strip"></div><div class="note" id="pn"></div><div id="list"></div>'
         } else {
@@ -4064,7 +4070,7 @@ function chatClient() {
     }
     function fill() {
         var l = $('#sl'); if (!l) return
-        l.innerHTML = S.sr.map(function (p) { return '<div class="fr">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b><small>@' + esc(p.u) + ' · ' + (isOn(p.id) ? '🟢 متصل' : '⚫ غير متصل') + '</small></div><button class="add" data-a="addf" data-v="' + p.id + '">إضافة</button></div>' }).join('') || '<div class="note">' + (($('#q') || {}).value && $('#q').value.trim().length > 1 ? 'لا يوجد لاعبين' : 'اكتب حرفين على الأقل من اليوزر') + '</div>'
+        l.innerHTML = S.sr.map(function (p) { return '<div class="fr">' + av(p) + '<div class="who"><b style="color:' + col(p) + '">' + esc(p.n) + '</b>' + (p.t ? TB(p.t, 1) : '') + '<small>@' + esc(p.u) + ' · ' + (isOn(p.id) ? '🟢 متصل' : '⚫ غير متصل') + '</small></div><button class="add" data-a="addf" data-v="' + p.id + '">إضافة</button></div>' }).join('') || '<div class="note">' + (($('#q') || {}).value && $('#q').value.trim().length > 1 ? 'لا يوجد لاعبين' : 'اكتب حرفين على الأقل من اليوزر') + '</div>'
         var c = $('#sc'); if (c) c.textContent = S.fr.length + '/' + C.maxFr
     }
     var srT = 0
@@ -4130,6 +4136,7 @@ function chatPageHTML({ viewer, code }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+${TITLES.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -4259,13 +4266,18 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     }
 
+    // 🏅 الألقاب — /u/:code/titles + POST /titles/equip (systems/titleSystem.js)
+    try {
+        TITLES.mount(app, { Player, auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc, navDrawerHTML, NAV_BTN, shellHead, onChange: opts.onTitleChange })
+    } catch (e) { console.error('site titles mount error:', e) }
+
     // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
     // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code
     if (opts.challenge) {
         try {
             opts.challenge.mount(app, {
                 auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
-                navDrawerHTML, NAV_BTN, cappedPower,
+                navDrawerHTML, NAV_BTN, cappedPower, titles: TITLES,
                 charView: siteCharView
             })
         } catch (e) { console.error('site challenge mount error:', e) }
@@ -4277,7 +4289,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         try {
             opts.arena.mount(app, {
                 auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
-                navDrawerHTML, NAV_BTN, charView: siteCharView
+                navDrawerHTML, NAV_BTN, titles: TITLES, charView: siteCharView
             })
         } catch (e) { console.error('site arena mount error:', e) }
     }
@@ -4335,7 +4347,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!CODE_RE.test(code)) return html404(res)
 
             const player = await Player.findOne({ siteCode: code })
-                .select('userId name username characters weaponsInventory giftInbox sessionVersion money xp level')
+                .select('userId name username characters weaponsInventory giftInbox sessionVersion money xp level titles activeTitle')
                 .lean()
             if (!player) return html404(res)
 
@@ -4395,7 +4407,8 @@ function registerCharacterSite(app, Player, opts = {}) {
             const hero = {
                 level, xpPct,
                 img: firstChar ? safeImageUrl(firstChar.image) : null,
-                money: Number(player.money || 0).toLocaleString('en-US')
+                money: Number(player.money || 0).toLocaleString('en-US'),
+                t: TITLES.compactOf(player) // 🏅 اللقب المفعّل
             }
 
             const viewer = sess
@@ -4974,7 +4987,40 @@ function registerCharacterSite(app, Player, opts = {}) {
     }
 
     // يحوّل حالة الزعيم/اللاعب لشكل آمن للمتصفح (روابط صور مفلترة فقط)
-    function bossStateOut(st) {
+    // 🏅 يلصق اللقب المفعّل (t) بصفوف فيها userId أو اسم فقط (ترتيب الزعيم/الرايد). الاسم المكرّر = بلا لقب (تفادي الالتباس)
+    async function attachTitles(rows, selfId) {
+        try {
+            const arr = (rows || []).filter(r => r && typeof r === 'object')
+            if (!arr.length) return rows
+            const idOf = r => r.userId || r.uid || (typeof r.id === 'string' && r.id.includes('@') ? r.id : null)
+            const ids = [...new Set(arr.map(idOf).filter(x => typeof x === 'string' && x.length < 80))]
+            if (selfId) ids.push(selfId)
+            const names = [...new Set(arr.filter(r => !idOf(r) && r.name).map(r => String(r.name).slice(0, 80)))]
+            const or = []
+            if (ids.length) or.push({ userId: { $in: ids } })
+            if (names.length) { or.push({ name: { $in: names } }); or.push({ username: { $in: names.map(n => n.replace(/^@/, '')) } }) }
+            if (!or.length) return rows
+            const docs = await Player.find({ $or: or }).select('userId name username titles activeTitle').lean()
+            const byId = new Map(docs.map(d => [d.userId, d]))
+            const byName = new Map()
+            for (const d of docs) for (const k of [d.name, d.username, d.username ? '@' + d.username : null]) {
+                if (!k) continue
+                const a = byName.get(k) || []
+                if (!a.includes(d)) a.push(d)
+                byName.set(k, a)
+            }
+            for (const r of arr) {
+                let d = idOf(r) ? byId.get(idOf(r)) : null
+                if (!d && r.isMe && selfId) d = byId.get(selfId) || null
+                if (!d && r.name) { const a = byName.get(String(r.name)); if (a && a.length === 1) d = a[0] }
+                r.t = d ? TITLES.compactOf(d) : null
+            }
+        } catch (e) { console.error('attachTitles error:', e) }
+        return rows
+    }
+
+    async function bossStateOut(st, selfId) {
+        if (st && st.board) await attachTitles(st.board.rows, selfId)
         const catIdx = getCatalogIndex(getCatalog)
         return {
             open: st.open,
@@ -5001,7 +5047,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                     const tk = d ? resolveTierKey(d.rarity, d.evolutionLevel) : null
                     return {
                         name: String(r.name || 'لاعب'), damage: Number(r.damage) || 0, hits: Number(r.hits) || 0,
-                        active: !!r.active, me: !!r.isMe,
+                        active: !!r.active, me: !!r.isMe, t: r.t || null,
                         img: d ? safeImageUrl(d.image) : null,
                         color: tk && TIERS[tk] ? TIERS[tk].color : null
                     }
@@ -5065,7 +5111,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
                 code,
                 data: {
-                    state: bossStateOut(st),
+                    state: await bossStateOut(st, player.userId),
                     feed: bossEventsOut(bossAttack.getFeed(Math.max(0, bossAttack.latestFeedId() - 15)), player.userId),
                     lastId: bossAttack.latestFeedId(),
                     results: (() => {
@@ -5089,7 +5135,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const since = Math.max(0, parseInt(req.query.since, 10) || 0)
             const st = await bossAttack.getState(sess.u)
             if (!st) return res.status(404).json({ ok: false })
-            res.json({ ok: true, state: bossStateOut(st), feed: bossEventsOut(bossAttack.getFeed(since), sess.u) })
+            res.json({ ok: true, state: await bossStateOut(st, sess.u), feed: bossEventsOut(bossAttack.getFeed(since), sess.u) })
         } catch (err) {
             console.error('boss state error:', err)
             res.status(500).json({ ok: false })
@@ -5274,10 +5320,11 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             const st = await raidSite.getState(player.userId, req)
             if (!st) return html404(res)
+            if (Array.isArray(st.board)) await attachTitles(st.board, player.userId) // 🏅 ألقاب ترتيب الرايد
 
-            res.send(raidPageHTML({
+            res.send(TITLES.inject(raidPageHTML({
                 data: { ...st, csrf: auth.csrfForSession(sess), code, loadedAt: Date.now(), board: st.board || [] }
-            }))
+            }), st.board))
         } catch (err) {
             console.error('raid page error:', err)
             res.status(500).send('خطأ بالخادم')
@@ -5293,6 +5340,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!raidRate(raidStateHits, sess.u, 60)) return res.status(429).json({ ok: false })
             const st = await raidSite.getState(sess.u, req)
             if (!st) return res.status(404).json({ ok: false })
+            if (Array.isArray(st.board)) await attachTitles(st.board, sess.u)
             res.json({ ok: true, ...st, board: st.board || [] })
         } catch (err) {
             console.error('raid state error:', err)
@@ -5508,6 +5556,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 : []
             const snap = grp ? await kingdom.getBoard(grp.k) : await getTopList()
             const catIdx = getCatalogIndex(getCatalog)
+            const tMap = await TITLES.lookupMany(Player, snap.list.map(d => d.userId).concat(player.userId)) // 🏅 ألقاب اللاعبين
 
             const toEntry = (d, i) => {
                 const disp = resolveDisplayChar(d.top || {}, catIdx)
@@ -5521,7 +5570,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                     // الصورة من SSS وفوق فقط (مثل بقية الموقع)
                     img: tier.idx >= FIRST_IMAGE_TIER ? safeImageUrl(disp.image) : null,
                     total: Number(d.total) || 0,
-                    isMe: d.userId === player.userId
+                    isMe: d.userId === player.userId,
+                    t: tMap.get(d.userId) || null
                 }
             }
             const entries = snap.list.map(toEntry)
@@ -5535,7 +5585,8 @@ function registerCharacterSite(app, Player, opts = {}) {
             const me = {
                 rank: myRank,
                 total: myIdx >= 0 ? Number(snap.list[myIdx].total) || 0 : myTotal,
-                who: player.username ? '@' + player.username : (player.name || 'لاعب')
+                who: player.username ? '@' + player.username : (player.name || 'لاعب'),
+                t: tMap.get(player.userId) || null
             }
 
             const viewer = sess
@@ -5577,7 +5628,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     async function galleryOwners() {
         if (Date.now() - galSnap.at < GAL_TTL) return galSnap
         const docs = await Player.find({ 'gallery.0': { $exists: true } })
-            .select('userId name username gallery galleryLikes characters')
+            .select('userId name username gallery galleryLikes characters titles activeTitle')
             .lean()
         const list = []
         const catIdx = getCatalogIndex(getCatalog)
@@ -5592,6 +5643,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 i: first ? safeImageUrl(first.image) : null,
                 u: d.username ? '@' + d.username : (d.name || 'لاعب'),
                 l: Array.isArray(d.galleryLikes) ? d.galleryLikes.length : 0,
+                t: TITLES.compactOf(d),
                 n, h: parseInt(id.slice(0, 4), 16) % 360
             })
         }
@@ -5636,7 +5688,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const v = await galViewer(req)
             if (!v.ok) return res.status(401).json({ ok: false, message: 'سجّل الدخول أو افتح وضع المشاهدة.' })
             const snap = await galleryOwners()
-            res.json({ ok: true, owners: snap.list.map(o => ({ id: o.id, u: o.u, l: o.l, n: o.n, h: o.h, i: o.i })) })
+            res.json({ ok: true, owners: snap.list.map(o => ({ id: o.id, u: o.u, l: o.l, n: o.n, h: o.h, i: o.i, t: o.t || null })) })
         } catch (err) {
             console.error('gallery list error:', err)
             res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
@@ -5674,7 +5726,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             })
             const likes = Array.isArray(p.galleryLikes) ? p.galleryLikes : []
             res.json({
-                ok: true, id, u: entry.u, l: likes.length, rank: idx + 1, cs,
+                ok: true, id, u: entry.u, t: entry.t || null, l: likes.length, rank: idx + 1, cs,
                 liked: !!(v.sess && likes.includes(v.sess.u)),
                 mine: !!(v.sess && v.sess.u === p.userId)
             })
@@ -6232,6 +6284,24 @@ function registerCharacterSite(app, Player, opts = {}) {
         if (chatNames.size > 5000) chatNames.clear()
         return out
     }
+    // 🏅 ألقاب الشات (كاش قصير 30ث عشان التبديل يظهر بسرعة)
+    const chatTitles = new Map()
+    async function chatTitlesFor(ids) {
+        const now = Date.now(), out = new Map(), miss = []
+        for (const u of new Set(ids)) {
+            const c = chatTitles.get(u)
+            if (c && c.exp > now) out.set(u, c.t); else miss.push(u)
+        }
+        if (miss.length) {
+            try {
+                const rows = await Player.find({ userId: { $in: miss } }).select('userId titles activeTitle').lean()
+                for (const r of rows) { const t = TITLES.compactOf(r); chatTitles.set(r.userId, { t, exp: now + 30 * 1000 }); out.set(r.userId, t) }
+                for (const u of miss) if (!out.has(u)) out.set(u, null)
+            } catch (e) { console.error('chat titles error:', e) }
+        }
+        if (chatTitles.size > 5000) chatTitles.clear()
+        return out
+    }
     function chatPerson(u, names, extra) {
         const id = pidOf(u)
         return [id, { id, n: names.get(u) || 'لاعب', h: parseInt(id.slice(0, 3), 16) % 360, ...(extra || {}) }]
@@ -6352,7 +6422,8 @@ function registerCharacterSite(app, Player, opts = {}) {
             const onlineIds = [...chatPresence].filter(([u, t]) => u !== me && now - t < CHAT_ONLINE_MS).map(([u]) => u).slice(0, 60)
             const msgUsers = [...msgs.map(m => m.f), ...msgs.filter(m => m.q && m.q.f).map(m => m.q.f)]
             const names = await chatNamesFor([me, ...onlineIds, ...frIds, ...msgUsers])
-            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgUsers])].map(u => chatPerson(u, names)))
+            const tms = await chatTitlesFor([...onlineIds, ...frIds, ...msgUsers])
+            const people = Object.fromEntries([...new Set([...onlineIds, ...frIds, ...msgUsers])].map(u => chatPerson(u, names, { t: tms.get(u) || null })))
 
             res.json({
                 ok: true, view: toPid, notFriend, pubUnread, friends, people,
@@ -6438,9 +6509,9 @@ function registerCharacterSite(app, Player, opts = {}) {
             const doc = await ChatFr.findOne({ u: sess.u }).select('fr').lean()
             const have = new Set((doc && doc.fr) || [])
             const rows = await Player.find({ username: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
-                .select('userId name username').limit(15).lean()
+                .select('userId name username titles activeTitle').limit(15).lean()
             const items = rows.filter(r => r.userId !== sess.u && !have.has(r.userId)).slice(0, 12).map(r => {
-                const [, p] = chatPerson(r.userId, new Map([[r.userId, String(r.name || r.username || 'لاعب').slice(0, 24)]]), { u: String(r.username || '').slice(0, 20) })
+                const [, p] = chatPerson(r.userId, new Map([[r.userId, String(r.name || r.username || 'لاعب').slice(0, 24)]]), { u: String(r.username || '').slice(0, 20), t: TITLES.compactOf(r) })
                 return p
             })
             res.json({ ok: true, items })

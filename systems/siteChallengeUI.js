@@ -7,6 +7,7 @@
 'use strict'
 
 const { ARENA_CSS, INVITE_CSS } = require('./siteChallengeCss')
+const TITLES = require('./titleSystem') // 🏅 الألقاب (CSS/JS مشترك)
 
 function jsonForScript(o) {
     return JSON.stringify(o).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
@@ -103,7 +104,7 @@ function overlayClient(CSS) {
         var f = d.from || d.other || {}
         var el = document.createElement('div'); el.className = 'inv'
         el.innerHTML = '<div class="ic"><div style="display:grid;place-items:center">' + av(f, 64) + '</div><h3>⚔️ تحدي جديد!</h3>' +
-            '<p>دعاك <b>@' + esc(f.u || f.n) + '</b> لقتال PvP</p>' +
+            '<p>دعاك <b>@' + esc(f.u || f.n) + '</b> لقتال PvP</p>' + (f.t && window.TB ? '<div style="text-align:center">' + TB(f.t) + '</div>' : '') +
             '<div class="pwr"><span>قوتك ' + fm(d.pw && d.pw.me) + '</span><i>VS</i><span>قوته ' + fm(d.pw && d.pw.foe) + '</span></div>' +
             ring('chc', d.left) +
             '<div class="bt"><button class="ok" data-a="ok" type="button">✅ موافق</button><button class="no" data-a="no" type="button">❌ رفض</button></div></div>'
@@ -172,7 +173,7 @@ function overlayClient(CSS) {
 }
 
 function overlayJS() {
-    return '(' + overlayClient.toString() + ')(' + JSON.stringify(INVITE_CSS + SHADOW_EXTRA) + ');'
+    return '(' + overlayClient.toString() + ')(' + JSON.stringify(INVITE_CSS + SHADOW_EXTRA + TITLES.CSS) + ');'
 }
 
 // ───────────── صفحة التحدي: بحث + المتصلون ─────────────
@@ -208,7 +209,7 @@ function lobbyClient(CFG) {
 
     function rowHTML(p) {
         var st = p.st === 'off' ? '<span class="stt">⚫ غير متصل</span>' : p.st === 'bz' ? '<span class="stt bz">⚔️ في قتال</span>' : '<span class="stt on">🟢 متصل</span>'
-        return '<div class="rw">' + av(p, 44) + '<div class="in"><b>@' + esc(p.u || p.n) + '</b><small>' + esc(p.n) + ' · ' + fm(p.pw) + ' PWR</small></div>' + st +
+        return '<div class="rw">' + av(p, 44) + '<div class="in"><b>@' + esc(p.u || p.n) + '</b>' + (p.t && window.TB ? '<div>' + TB(p.t, 1) + '</div>' : '') + '<small>' + esc(p.n) + ' · ' + fm(p.pw) + ' PWR</small></div>' + st +
             '<button class="ch" data-p="' + esc(p.pid) + '" type="button"' + (p.st === 'on' ? '' : ' disabled') + '>⚔️ تحدي</button></div>'
     }
 
@@ -229,7 +230,7 @@ function lobbyClient(CFG) {
             return
         }
         var s = ''
-        if (a === 'wait') s = '<div class="mid"><div class="pulse">' + av(tg, 76) + '</div><h3>بانتظار رد @' + esc(tg.u || tg.n) + '</h3><p>وصلته الدعوة على شاشته الآن</p>' + ring(Math.max(0, end - Date.now())) + '<button class="gh" data-a="cancel" type="button">إلغاء الدعوة</button></div>'
+        if (a === 'wait') s = '<div class="mid"><div class="pulse">' + av(tg, 76) + '</div><h3>بانتظار رد @' + esc(tg.u || tg.n) + '</h3>' + (tg.t && window.TB ? '<div>' + TB(tg.t) + '</div>' : '') + '<p>وصلته الدعوة على شاشته الآن</p>' + ring(Math.max(0, end - Date.now())) + '<button class="gh" data-a="cancel" type="button">إلغاء الدعوة</button></div>'
         if (a === 'rej') s = '<div class="mid"><div class="big">❌</div><h3>رفض @' + esc(tg.u || tg.n) + ' التحدي</h3><p>جرّب لاعباً آخر أو أعد المحاولة لاحقاً</p><button class="go" data-a="back" type="button">رجوع للبحث</button></div>'
         if (a === 'exp') s = '<div class="mid"><div class="big">⌛</div><h3>انتهى وقت الدعوة</h3><p>لم يرد @' + esc(tg ? (tg.u || tg.n) : '') + ' خلال 30 ثانية</p><button class="go" data-a="back" type="button">رجوع للبحث</button></div>'
         if (a === 'fail') s = '<div class="mid"><div class="big">⚠️</div><h3>تعذّر بدء التحدي</h3><p>' + esc(msg) + '</p><button class="go" data-a="back" type="button">رجوع للبحث</button></div>'
@@ -300,10 +301,11 @@ function lobbyClient(CFG) {
 }
 
 function lobbyPageHTML({ code, csrf, name, nav, navBtn }) {
-    const cfg = { code, csrf, css: INVITE_CSS + SHADOW_EXTRA }
+    const cfg = { code, csrf, css: INVITE_CSS + SHADOW_EXTRA + TITLES.CSS }
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+<script>${TITLES.JS}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -365,8 +367,8 @@ function arenaClient(CFG) {
             $(p + 'st').textContent = (A.sh > 0 ? '🛡️ ' + fm(A.sh) + '   ' : '') + (A.burn > 0 ? '🔥 حرق ' + A.burn : '')
             $(p + 'pw').textContent = fm(A.tp) + ' PWR'
         })
-        $('fname').textContent = '🛡️ ' + S.foe.name
-        $('mname').textContent = '⚔️ ' + S.me.name
+        $('fname').innerHTML = '🛡️ ' + esc(S.foe.name) + (S.foe.t && window.TB ? TB(S.foe.t, 1) : '')
+        $('mname').innerHTML = '⚔️ ' + esc(S.me.name) + (S.me.t && window.TB ? TB(S.me.t, 1) : '')
         var m = S.me, can = !busy && !over && S.turn === 'me', sk = cdn(m.sk, m.turns, 2), ul = cdn(m.ul, m.turns, 5)
         $('bA').disabled = !can; $('bS').disabled = !can || sk > 0; $('bU').disabled = !can || ul > 0
         $('bS').lastChild.textContent = sk > 0 ? 'بعد ' + sk + ' جولة' : 'جاهزة'
@@ -545,6 +547,7 @@ function arenaPageHTML({ code, csrf }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+<script>${TITLES.JS}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -552,6 +555,7 @@ function arenaPageHTML({ code, csrf }) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
 <style>${ARENA_CSS}
+${TITLES.CSS}
 .ov a.go{display:block;text-decoration:none}
 .top a.back{color:var(--mut);text-decoration:none;font-size:13px;font-weight:800}
 </style>

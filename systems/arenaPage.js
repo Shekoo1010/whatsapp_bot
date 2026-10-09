@@ -1,4 +1,5 @@
 'use strict'
+const TITLES = require('./titleSystem') // 🏅 الألقاب
 
 // 🏟️ صفحة الأرينا (النسخة 3) — التصميم من نموذج "أرينا PvP - النسخة 3"
 // الصفحة تعرض إعادة مرئية للمعركة الحقيقية (أحداث pvpBattle.simulate) + أنيميشن ترقية الرتبة.
@@ -70,7 +71,7 @@ function arenaClient(D) {
                 var d = DIF[p.level] || DIF.even, lead = p.team[0], r = p.rank
                 h += '<div class="gc' + (i == mid ? ' act' : '') + '" style="--c:' + esc(r.color) + '"><div class="in"><div class="rk">' + esc(r.label) + '</div>'
                     + '<div class="big" style="' + esc(avCss(lead, r.color)) + '">' + avTxt(lead) + '</div>'
-                    + '<div class="nm">' + esc(p.name) + '</div>' + (p.username ? '<div class="un">@' + esc(p.username) + '</div>' : '')
+                    + '<div class="nm">' + esc(p.name) + '</div>' + (p.t ? '<div class="ttw">' + TB(p.t, 1) + '</div>' : '') + (p.username ? '<div class="un">@' + esc(p.username) + '</div>' : '')
                     + '<div class="st"><div>🏅 ' + fmt(p.mmr) + '</div><div>⚔️ ' + fmt(p.power) + '</div></div>'
                     + '<div class="mt">'
                 p.team.forEach(function (v) { h += '<span style="--c:' + esc(v.c) + ';' + esc(avCss(v)) + '">' + avTxt(v) + '</span>' })
@@ -128,7 +129,7 @@ function arenaClient(D) {
             o.forEach(function (p, i) {
                 h += '<div class="pd ' + cl[i] + '" style="--c:' + esc(p.rank.color) + '">' + (i == 1 ? '<div class="crown">👑</div>' : '')
                     + '<div class="av" style="--c:' + esc(p.rank.color) + ';' + esc(avCss(p.av, p.rank.color)) + '">' + avTxt(p.av) + '</div>'
-                    + '<b>' + esc(p.name) + '</b><small>' + fmt(p.mmr) + ' MMR</small><div class="base" style="--c:' + esc(p.rank.color) + '">' + nm[i] + '</div></div>'
+                    + '<b>' + esc(p.name) + '</b>' + (p.t ? '<div class="ttw">' + TB(p.t, 1) + '</div>' : '') + '<small>' + fmt(p.mmr) + ' MMR</small><div class="base" style="--c:' + esc(p.rank.color) + '">' + nm[i] + '</div></div>'
             })
             h += '</div>'
         }
@@ -136,7 +137,7 @@ function arenaClient(D) {
         rows.slice(rows.length >= 3 ? 3 : 0).forEach(function (p, i) {
             h += '<div class="row' + (p.me ? ' me2' : '') + '" style="--i:' + i + '"><div class="n">' + p.pos + '</div>'
                 + '<div class="av" style="--c:' + esc(p.rank.color) + ';' + esc(avCss(p.av, p.rank.color)) + '">' + avTxt(p.av) + '</div>'
-                + '<div><b>' + esc(p.name) + '</b><small>' + esc(p.rank.label) + ' • ⚔️ ' + fmt(p.power) + '</small></div><div class="m">' + fmt(p.mmr) + '</div></div>'
+                + '<div><b>' + esc(p.name) + '</b>' + (p.t ? '<div class="ttw">' + TB(p.t, 1) + '</div>' : '') + '<small>' + esc(p.rank.label) + ' • ⚔️ ' + fmt(p.power) + '</small></div><div class="m">' + fmt(p.mmr) + '</div></div>'
         })
         h += '</div>'
         if (!rows.some(function (r) { return r.me })) h += '<div class="mypos">🎯 ترتيبك: #' + fmt(d.myPos) + ' • ' + fmt(me.mmr) + ' MMR</div>'
@@ -329,17 +330,17 @@ function arenaClient(D) {
         var bat = $('bat'); bat.style.display = 'block'; $('res').style.display = 'none'
         buildFigs(b)
         var lA = b.A[0].v, lB = b.B[0].v
-        $('a1').textContent = b.nameA; $('a2').textContent = b.nameB
+        $('a1').innerHTML = esc(b.nameA) + (b.tA ? TB(b.tA, 1) : ''); $('a2').innerHTML = esc(b.nameB) + (b.tB ? TB(b.tB, 1) : '')
         setAv($('ma'), lA, lA.c); setAv($('mb'), lB, lB.c)
         ;['a', 'b'].forEach(function (s) { $('c' + s).style.width = '100%'; $('t' + s).style.width = '100%' })
         $('rd').textContent = ''
         $('ctl').style.display = 'none'
         // شاشة VS
         var sp = $('sp'); sp.style.display = 'flex'; sp.style.opacity = 1
-        function side(arr, name) {
-            return '<div class="c"><div class="vs3">' + arr.map(function (f) { return '<i style="--c:' + esc(f.v.c) + ';' + esc(avCss(f.v)) + '">' + avTxt(f.v) + '</i>' }).join('') + '</div>' + esc(name) + '</div>'
+        function side(arr, name, t) {
+            return '<div class="c"><div class="vs3">' + arr.map(function (f) { return '<i style="--c:' + esc(f.v.c) + ';' + esc(avCss(f.v)) + '">' + avTxt(f.v) + '</i>' }).join('') + '</div>' + esc(name) + (t ? '<div class="ttw">' + TB(t, 1) + '</div>' : '') + '</div>'
         }
-        sp.innerHTML = side(b.A, b.nameA) + '<em>VS</em>' + side(b.B, b.nameB)
+        sp.innerHTML = side(b.A, b.nameA, b.tA) + '<em>VS</em>' + side(b.B, b.nameB, b.tB)
         var c1 = sp.querySelectorAll('.c')
         c1[0].animate([{ transform: 'translateX(260px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'ease-out' })
         c1[1].animate([{ transform: 'translateX(-260px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'ease-out' })
@@ -760,13 +761,13 @@ function arenaPageHTML({ code, name, csrf, esc, NAV_BTN, drawer, data }) {
     const payload = JSON.stringify(Object.assign({ code }, data))
         .replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
 
-    return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+    return `<!DOCTYPE html><html lang="ar" dir="rtl"><head>${TITLES.HEAD}<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07050f"><title>الأرينا PvP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800;900&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body><div class="bg"></div>
-<div class="hud">${NAV_BTN}<div class="pf"><div class="av" id="mav">😎</div><div><b>${esc(name)}</b><small id="mr"></small><div class="rb"><i id="rbar"></i></div><div class="rn" id="rnx"></div></div></div><div class="chip">🎟️ <span id="tk">0</span>/20</div></div>
+<div class="hud">${NAV_BTN}<div class="pf"><div class="av" id="mav">😎</div><div><b>${esc(name)}</b>${TITLES.wrap(data && data.me && data.me.t, true)}<small id="mr"></small><div class="rb"><i id="rbar"></i></div><div class="rn" id="rnx"></div></div></div><div class="chip">🎟️ <span id="tk">0</span>/20</div></div>
 <div class="page" id="pg"></div>
 <div class="nav"><button class="on" id="n1">⚔️ الأرينا</button><button id="n2">🏆 القاعة</button></div>
 <div id="toast"></div>

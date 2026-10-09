@@ -109,6 +109,7 @@ module.exports = function createSiteChallenge(deps) {
             u: player.username || '',
             n: String(player.name || player.username || 'لاعب').slice(0, 24),
             pw: ctx.cappedPower(player) || 0,
+            t: ctx.titles ? ctx.titles.compactOf(player) : null, // 🏅 اللقب المفعّل
             img: v && v.i ? v.i : null,
             h: parseInt(pidOf(player.userId).slice(0, 3), 16) % 360
         }
@@ -131,6 +132,10 @@ module.exports = function createSiteChallenge(deps) {
     }
 
     // ───────────── القتال ─────────────
+    // 🏅 اللقب المفعّل (يُحدَّث مع كل قتال جديد؛ الميتا مخزّنة بذاكرة القتال)
+    let _titles = null
+    const titlesOf = pl => { try { return _titles && pl ? _titles.compactOf(pl) : null } catch (e) { return null } }
+
     async function metaFor(fight) {
         const key = String(fight._id)
         let m = fightMeta.get(key)
@@ -143,6 +148,7 @@ module.exports = function createSiteChallenge(deps) {
             sh2: Math.max(1, fight.shield2 || 0),
             n1: String(p1?.name || p1?.username || 'لاعب').slice(0, 24),
             n2: String(p2?.name || p2?.username || 'لاعب').slice(0, 24),
+            t1: titlesOf(p1), t2: titlesOf(p2),
             at: Date.now()
         }
         fightMeta.set(key, m)
@@ -166,7 +172,8 @@ module.exports = function createSiteChallenge(deps) {
                 sk: (isFirst ? fight.skillTurn1 : fight.skillTurn2) ?? -99,
                 ul: (isFirst ? fight.ultimateTurn1 : fight.ultimateTurn2) ?? -99,
                 burn: Math.max(0, Number((isFirst ? fight.burn?.player1 : fight.burn?.player2) || 0)),
-                name: isFirst ? m.n1 : m.n2
+                name: isFirst ? m.n1 : m.n2,
+                t: (isFirst ? m.t1 : m.t2) || null
             }
         }
         return {
@@ -427,7 +434,7 @@ module.exports = function createSiteChallenge(deps) {
         })
         fightMeta.set(String(fight._id), {
             max1: hp1, max2: hp2, sh1: Math.max(1, stats1.shield || 0), sh2: Math.max(1, stats2.shield || 0),
-            n1: String(p1.name || p1.username || 'لاعب').slice(0, 24), n2: String(p2.name || p2.username || 'لاعب').slice(0, 24), at: Date.now()
+            n1: String(p1.name || p1.username || 'لاعب').slice(0, 24), n2: String(p2.name || p2.username || 'لاعب').slice(0, 24), t1: titlesOf(p1), t2: titlesOf(p2), at: Date.now()
         })
         return { ok: true, fight, p1, p2 }
     }
@@ -448,6 +455,7 @@ module.exports = function createSiteChallenge(deps) {
 
     // ───────────── المسارات ─────────────
     function mount(app, ctx) {
+        _titles = ctx.titles || null
         const { auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc } = ctx
 
         // 💉 حقن سكربت الدعوات (فوق أي صفحة من صفحات اللاعب)
@@ -524,11 +532,11 @@ module.exports = function createSiteChallenge(deps) {
                 res.on('error', cleanup)
 
                 // لقطة البداية: الدعوة المعلّقة + القتال الجاري
-                const player = await Player.findOne({ userId: me }).select('siteCode userId name username characters maxCharacters').lean()
+                const player = await Player.findOne({ userId: me }).select('siteCode userId name username characters maxCharacters titles activeTitle').lean()
                 const hello = { csrf: auth.csrfForSession(sess), pid: pidOf(me), code: player && player.siteCode, inv: null, fight: false }
                 const inv = await pendingInvite(me)
                 if (inv) {
-                    const other = await Player.findOne({ userId: inv.from === me ? inv.to : inv.from }).select('userId name username characters maxCharacters').lean()
+                    const other = await Player.findOne({ userId: inv.from === me ? inv.to : inv.from }).select('userId name username characters maxCharacters titles activeTitle').lean()
                     hello.inv = {
                         dir: inv.from === me ? 'out' : 'in', id: inv.id,
                         left: Math.max(0, new Date(inv.exp).getTime() - Date.now()),
@@ -556,10 +564,10 @@ module.exports = function createSiteChallenge(deps) {
                 if (q) {
                     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
                     rows = await Player.find({ userId: { $ne: me }, $or: [{ username: rx }, { name: rx }] })
-                        .select('userId name username characters maxCharacters').limit(20).lean()
+                        .select('userId name username characters maxCharacters titles activeTitle').limit(20).lean()
                 } else {
                     const ids = [...conns.keys()].filter(u => u !== me && isOnline(u)).slice(0, 60)
-                    rows = ids.length ? await Player.find({ userId: { $in: ids } }).select('userId name username characters maxCharacters').lean() : []
+                    rows = ids.length ? await Player.find({ userId: { $in: ids } }).select('userId name username characters maxCharacters titles activeTitle').lean() : []
                 }
                 const ids = rows.map(r => r.userId)
                 const [fights, invs] = await Promise.all([
@@ -593,8 +601,8 @@ module.exports = function createSiteChallenge(deps) {
 
                 return await withLock('u:' + [me, target].sort().join('|'), async () => {
                     const [mePl, tgPl] = await Promise.all([
-                        Player.findOne({ userId: me }).select('userId name username characters maxCharacters challengeFights lastChallengeReset').lean(),
-                        Player.findOne({ userId: target }).select('userId name username characters maxCharacters').lean()
+                        Player.findOne({ userId: me }).select('userId name username characters maxCharacters challengeFights lastChallengeReset titles activeTitle').lean(),
+                        Player.findOne({ userId: target }).select('userId name username characters maxCharacters titles activeTitle').lean()
                     ])
                     if (!mePl || !tgPl) return fail(404, 'NO_ACCOUNT', '❌ اللاعب لا يملك حساباً')
                     if (!mePl.characters?.length || !tgPl.characters?.length) return fail(400, 'NO_CHARS', '❌ يجب أن يملك اللاعبان شخصيات')
@@ -627,7 +635,7 @@ module.exports = function createSiteChallenge(deps) {
                 const me = sess.u
                 const inv = await Invite.findOneAndUpdate({ from: me, status: 'pending' }, { status: 'cancelled' }, { new: true }).lean()
                 if (!inv) return res.json({ ok: true, none: true })
-                const mePl = await Player.findOne({ userId: me }).select('userId name username characters maxCharacters').lean()
+                const mePl = await Player.findOne({ userId: me }).select('userId name username characters maxCharacters titles activeTitle').lean()
                 emit(inv.to, 'result', { type: 'cancelled', id: inv.id, by: mePl ? person(mePl, ctx, req) : null })
                 emit(me, 'result', { type: 'cancelled_self', id: inv.id })
                 res.json({ ok: true })
@@ -652,7 +660,7 @@ module.exports = function createSiteChallenge(deps) {
                 ).lean()
                 if (!inv) return fail(410, 'GONE', '⌛ انتهت الدعوة أو أُلغيت')
 
-                const mePl = await Player.findOne({ userId: me }).select('userId name username characters maxCharacters').lean()
+                const mePl = await Player.findOne({ userId: me }).select('userId name username characters maxCharacters titles activeTitle').lean()
                 if (!accept) {
                     emit(inv.from, 'result', { type: 'rejected', id: inv.id, by: mePl ? person(mePl, ctx, req) : null })
                     emit(me, 'result', { type: 'rejected_self', id: inv.id })

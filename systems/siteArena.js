@@ -125,12 +125,15 @@ module.exports = function createSiteArena(deps) {
             try { return charView(c, req) } catch (e) { return { n: String((c && c.name) || '—'), r: '', c: '#b06bff', s: '', k: 0, en: false, p: num(c && c.power), i: null } }
         }
 
+        const tOf = p => { try { return ctx.titles && p ? ctx.titles.compactOf(p) : null } catch (e) { return null } } // 🏅 اللقب المفعّل
+
         const teamView = (p, req) => pvpBattle.resolveTeamCharacters(p).characters.map(c => view(c, req))
 
         function meView(p, req) {
             const { auto } = pvpBattle.resolveTeamCharacters(p)
             return {
                 name: p.name || p.username || 'لاعب',
+                t: tOf(p),
                 mmr: num(p.mmr),
                 rank: rankInfo(p.mmr),
                 power: pvpBattle.teamPower(p),
@@ -158,7 +161,7 @@ module.exports = function createSiteArena(deps) {
                         'characters.0': { $exists: true },
                         mmr: { $gte: myMmr - range, $lte: myMmr + range }
                     },
-                    'userId name username mmr rank pvpBattleTeam characters.name characters.power'
+                    'userId name username mmr rank pvpBattleTeam titles activeTitle characters.name characters.power'
                 ).limit(40).lean()
                 if (found.length >= 5) break
             }
@@ -177,7 +180,7 @@ module.exports = function createSiteArena(deps) {
 
             // تفاصيل العرض (صور الفريق) لخمسة لاعبين فقط
             const full = await Player.find({ userId: { $in: ids } })
-                .select('userId name username mmr pvpBattleTeam ' + CHAR_PROJ).lean()
+                .select('userId name username mmr pvpBattleTeam titles activeTitle ' + CHAR_PROJ).lean()
             const byId = new Map(full.map(p => [p.userId, p]))
 
             return closest.map((p, i) => {
@@ -192,6 +195,7 @@ module.exports = function createSiteArena(deps) {
                 return {
                     i,
                     name: p.name || 'لاعب',
+                    t: tOf(f),
                     username: p.username || '',
                     mmr: num(p.mmr),
                     rank: rankInfo(p.mmr),
@@ -204,7 +208,7 @@ module.exports = function createSiteArena(deps) {
 
         async function loadMe(userId) {
             return Player.findOne({ userId })
-                .select('userId name username mmr pvpBattleTeam pvpFights lastPvpReset lastPvP companion arenaRefreshDay arenaRefreshes ' + CHAR_PROJ)
+                .select('userId name username mmr pvpBattleTeam pvpFights lastPvpReset lastPvP companion arenaRefreshDay arenaRefreshes titles activeTitle ' + CHAR_PROJ)
                 .lean()
         }
 
@@ -213,12 +217,13 @@ module.exports = function createSiteArena(deps) {
             if (Date.now() - hallCache.at > 60 * 1000) {
                 const top = await Player.find({ 'characters.0': { $exists: true }, mmr: { $gt: 0 } })
                     .sort({ mmr: -1 }).limit(30)
-                    .select('userId name username mmr ' + CHAR_PROJ + ' pvpBattleTeam').lean()
+                    .select('userId name username mmr titles activeTitle ' + CHAR_PROJ + ' pvpBattleTeam').lean()
                 hallCache = {
                     at: Date.now(),
                     rows: top.map(p => ({
                         userId: p.userId,
                         name: p.name || 'لاعب',
+                        t: tOf(p),
                         username: p.username || '',
                         mmr: num(p.mmr),
                         rank: rankInfo(p.mmr),
@@ -586,6 +591,7 @@ module.exports = function createSiteArena(deps) {
                         B: rosterB,
                         nameA: attacker.name || attacker.username || 'أنت',
                         nameB: defender.name || defender.username || 'الخصم',
+                        tA: tOf(attacker), tB: tOf(defender),
                         rounds: sim.rounds.map(r => ({
                             no: r.no,
                             enrage: r.enrage || 0,
