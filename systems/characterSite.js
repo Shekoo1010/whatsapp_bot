@@ -707,6 +707,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
+        ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/arena`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
@@ -4212,6 +4213,24 @@ function registerCharacterSite(app, Player, opts = {}) {
 
     const CODE_RE = /^[a-f0-9]{10}$/
 
+    // 🖼️ عرض الشخصية (مشترك بين التحدي والأرينا)
+    const siteCharView = (c, req) => {
+        const disp = resolveDisplayChar(c || {}, getCatalogIndex(getCatalog))
+        const tier = TIERS[resolveTierKey(disp.rarity, disp.evolutionLevel)] || TIERS['عادي']
+        const showImg = tier.idx >= FIRST_IMAGE_TIER
+        let img = showImg ? safeImageUrl(disp.image) : null
+        if (img && img.startsWith('/') && req) {
+            const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
+            img = `${proto}://${req.get('host')}${img}`
+        }
+        return {
+            n: String(disp.name || (c && c.name) || '—'),
+            r: tier.key, c: tier.color, s: tier.stars,
+            k: showImg ? 1 : 0, en: tier.lang === 'en',
+            p: Number(c && c.power) || 0, i: img
+        }
+    }
+
     // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
     // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code
     if (opts.challenge) {
@@ -4219,24 +4238,19 @@ function registerCharacterSite(app, Player, opts = {}) {
             opts.challenge.mount(app, {
                 auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
                 navDrawerHTML, NAV_BTN, cappedPower,
-                charView: (c, req) => {
-                    const disp = resolveDisplayChar(c || {}, getCatalogIndex(getCatalog))
-                    const tier = TIERS[resolveTierKey(disp.rarity, disp.evolutionLevel)] || TIERS['عادي']
-                    const showImg = tier.idx >= FIRST_IMAGE_TIER
-                    let img = showImg ? safeImageUrl(disp.image) : null
-                    if (img && img.startsWith('/') && req) {
-                        const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
-                        img = `${proto}://${req.get('host')}${img}`
-                    }
-                    return {
-                        n: String(disp.name || (c && c.name) || '—'),
-                        r: tier.key, c: tier.color, s: tier.stars,
-                        k: showImg ? 1 : 0, en: tier.lang === 'en',
-                        p: Number(c && c.power) || 0, i: img
-                    }
-                }
+                charView: siteCharView
             })
         } catch (e) { console.error('site challenge mount error:', e) }
+    }
+
+    // 🏟️ أرينا PvP (النسخة 3) — /u/:code/arena (systems/siteArena.js)
+    if (opts.arena) {
+        try {
+            opts.arena.mount(app, {
+                auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, charView: siteCharView
+            })
+        } catch (e) { console.error('site arena mount error:', e) }
     }
 
     // صور .استبدال المحلية

@@ -198,6 +198,7 @@ function simulate(teamA, teamB, rng = Math.random) {
     const SIDE_ICON = { A: '🟦', B: '🟥' }
     const rounds = []          // [{ lines: [{text, notable}], summary }]
     const all = teamA.concat(teamB)
+    const idxOf = new Map(all.map((f, i) => [f, i]))   // فهرس المقاتل: فريق A ثم B (للإعادة المرئية بالموقع)
 
     const alive = team => team.some(f => f.hp > 0)
     const pct = team => {
@@ -215,7 +216,8 @@ function simulate(teamA, teamB, rng = Math.random) {
             : 1
 
         const lines = []
-        const say = (text, notable = false) => lines.push({ text, notable })
+        const say = (text, notable = false, ev = null) => lines.push({ text, notable, ev })
+        const ix = f => idxOf.get(f)
 
         const order = all
             .filter(f => f.hp > 0)
@@ -235,10 +237,10 @@ function simulate(teamA, teamB, rng = Math.random) {
                 const burnDmg = Math.max(1, Math.ceil(f.maxHp * CFG.BURN_PCT))
                 f.hp -= burnDmg
                 f.burn--
-                say(`🔥 ${icon}${f.name} احترق -${burnDmg}`)
+                say(`🔥 ${icon}${f.name} احترق -${burnDmg}`, false, { t: 'burn', f: ix(f), dmg: burnDmg, hp: Math.max(0, f.hp) })
                 if (f.hp <= 0) {
                     f.hp = 0
-                    say(`💀 ${icon}${f.name} سقط`, true)
+                    say(`💀 ${icon}${f.name} سقط`, true, { t: 'dead', f: ix(f) })
                     continue
                 }
             }
@@ -247,7 +249,7 @@ function simulate(teamA, teamB, rng = Math.random) {
             if (f.stun > 0) {
                 f.stun--
                 f.stunImmune = 2
-                say(`💫 ${icon}${f.name} مذهول — خسر دوره`, true)
+                say(`💫 ${icon}${f.name} مذهول — خسر دوره`, true, { t: 'stun', f: ix(f) })
                 continue
             }
             if (f.stunImmune > 0) f.stunImmune--
@@ -273,7 +275,7 @@ function simulate(teamA, teamB, rng = Math.random) {
             // 💨 التفادي (الدقة الزائدة فوق 100 تلغي جزءًا منه)
             const dodgeChance = clamp(t.dodge - Math.max(0, f.accuracy - 100), 0, CFG.CAPS.dodge)
             if (rng() * 100 < dodgeChance) {
-                say(`💨 ${tIcon}${t.name} تفادى ${label} ${icon}${f.name}`)
+                say(`💨 ${tIcon}${t.name} تفادى ${label} ${icon}${f.name}`, false, { t: 'dodge', f: ix(f), to: ix(t), k: kind })
                 continue
             }
 
@@ -298,11 +300,13 @@ function simulate(teamA, teamB, rng = Math.random) {
             t.energy += CFG.ENERGY_PER_HIT
 
             let extra = ''
+            let evHeal = 0, evBack = 0, evBurn = false, evStun = false
 
             // 🩸 امتصاص الحياة
             if (f.lifesteal > 0 && real > 0) {
                 const heal = Math.floor(real * f.lifesteal / 100)
                 f.hp = Math.min(f.maxHp, f.hp + heal)
+                evHeal = heal
             }
 
             // 🪞 عكس الضرر
@@ -310,6 +314,7 @@ function simulate(teamA, teamB, rng = Math.random) {
                 const back = Math.floor(real * t.reflect / 100)
                 if (back > 0) {
                     f.hp -= back
+                    evBack = back
                     extra += ` 🪞-${back}`
                 }
             }
@@ -318,10 +323,12 @@ function simulate(teamA, teamB, rng = Math.random) {
             if (t.hp > 0) {
                 if (kind === 'skill' && rng() < CFG.BURN_CHANCE) {
                     t.burn = CFG.BURN_TURNS
+                    evBurn = true
                     extra += ' 🔥'
                 }
                 if (kind === 'ultimate' && rng() < CFG.STUN_CHANCE && t.stun === 0 && t.stunImmune === 0) {
                     t.stun = 1
+                    evStun = true
                     extra += ' 💫'
                 }
             }
@@ -329,21 +336,27 @@ function simulate(teamA, teamB, rng = Math.random) {
             say(
                 `${label} ${icon}${f.name} ➜ ${tIcon}${t.name}: ${dmg.toLocaleString('en-US')}` +
                 `${crit.isCrit ? ' 💥' : ''}${absorbed ? ` (🛡️${absorbed})` : ''}${extra}`,
-                kind === 'ultimate' || crit.isCrit
+                kind === 'ultimate' || crit.isCrit,
+                {
+                    t: 'hit', f: ix(f), to: ix(t), k: kind, dmg, crit: crit.isCrit, abs: absorbed,
+                    hp: Math.max(0, t.hp), fhp: Math.max(0, f.hp), heal: evHeal, back: evBack,
+                    burn: evBurn, stun: evStun
+                }
             )
 
             if (t.hp <= 0) {
                 t.hp = 0
-                say(`💀 ${tIcon}${t.name} سقط`, true)
+                say(`💀 ${tIcon}${t.name} سقط`, true, { t: 'dead', f: ix(t) })
             }
             if (f.hp <= 0) {
                 f.hp = 0
-                say(`💀 ${icon}${f.name} سقط (ضرر منعكس)`, true)
+                say(`💀 ${icon}${f.name} سقط (ضرر منعكس)`, true, { t: 'dead', f: ix(f) })
             }
         }
 
         rounds.push({
             no: roundNo,
+            enrage: enrage > 1 ? Math.round((enrage - 1) * 100) : 0,
             lines,
             summary:
                 `📊 🟦 ${Math.round(pct(teamA) * 100)}% | 🟥 ${Math.round(pct(teamB) * 100)}%` +
