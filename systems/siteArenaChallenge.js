@@ -198,9 +198,10 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function imgU(u){return(typeof u==='string'&&/^https:\/\//.test(u)&&!/['"()\\\s]/.test(u))?u:''}
 function bg(u){u=imgU(u);return u?' style="background-image:url(\''+u+'\')"':''}
 function sk(k){return SK.filter(function(x){return x[0]===k})[0]}
-function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on3');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on3')},2200)}
+function toast(t,ms){var e=$('toast');e.textContent=t;e.classList.add('on3');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on3')},ms||2200)}
 var LD=null,LT=0,DR=0,TS=0,TP=0,AS=-1,SK2='acs:'+CODE;
 function get(){var ac=window.AbortController?new AbortController():null,t=ac?setTimeout(function(){ac.abort()},25000):0;return fetch('/u/'+CODE+'/arena-challenge/data',{credentials:'same-origin',signal:ac?ac.signal:undefined}).then(function(r){return r.json()}).catch(function(){return{ok:false,net:1,message:'تعذر الاتصال بالخادم'}}).then(function(j){clearTimeout(t);return j})}
+function post(op,b){b=b||{};b.csrf=CSRF;var ac=window.AbortController?new AbortController():null,t=ac?setTimeout(function(){ac.abort()},45000):0;return fetch('/arena-challenge/'+op,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(b),signal:ac?ac.signal:undefined}).then(function(r){return r.json()}).catch(function(){return{ok:false,message:'تعذر الاتصال بالخادم (الخادم بطيء أو انقطع الاتصال)'}}).then(function(j){clearTimeout(t);return j})}
 function fill3(){var t=(S&&S.me&&S.me.team)||[];return[0,1,2].map(function(k){var v=t[k];return(v!==undefined&&v!==null&&byI(+v))?+v:null})}
 function load(n){if(LD)return LD;n=n||0;LT=Date.now();
  LD=get().then(function(j){LD=null;
@@ -309,11 +310,13 @@ function strike(e,A,B,dots){var P=function(s){return s==='a'?'m':'e'},ua=$(P(e.s
   $('lg').textContent=(e.ti!==e.i?'🤝 '+att.n+' يساعد بضرب '+tg.n:att.n+' يضرب '+tg.n)+(e.cr?' ضربة حرجة!':'')+(e.m>1?' ▲ ميزة اللون':'');
   if(e.ko){ut.classList.add('ko');if(e.ts==='a')dots[e.ti].className='l'}
   setTimeout(function(){ut.classList.remove('tg')},260)},fast?40:230)}
-async function attack(o){
+async function attack(o){try{await attack0(o)}catch(e){busy=false;$('bt').classList.remove('on2');embers(false);toast('حدث خطأ أثناء عرض المعركة، حاول مرة أخرى',5000);load()}}
+async function attack0(o){
  if(busy)return;busy=true;fast=false;
+ $('rs').classList.remove('on2');$('te').innerHTML='';$('tm').innerHTML='';$('bn').textContent='VS '+o.n;$('lg').textContent='⏳ جاري تجهيز المعركة...';$('bt').classList.add('on2');
  var r=await post('attack',{target:o.id});
- if(!r||!r.ok){busy=false;toast((r&&r.message)||'تعذر الهجوم');load();return}
- var A=r.a,B=r.b,dots=$('dt').children;
+ if(!r||!r.ok){busy=false;$('bt').classList.remove('on2');toast((r&&r.message)||'تعذر الهجوم',5000);load();return}
+ var A=r.a,B=r.b,dots=$('dt').children;$('lg').textContent='';
  $('bt').classList.add('on2');$('rs').classList.remove('on2');$('bn').textContent='VS '+o.n;$('lg').textContent='';
  for(var q=0;q<3;q++)dots[q].className='w';
  row($('te'),B,'e');row($('tm'),A,'m');embers(true);
@@ -579,17 +582,15 @@ ${PAGE_BODY}
                 const team = Array.isArray(g.body.team) ? g.body.team.map(Number) : []
                 if (team.length !== 3 || team.some(i => !Number.isInteger(i) || i < 0)) return g.fail(400, 'BAD', 'اختر 3 شخصيات.')
                 if (new Set(team).size !== 3) return g.fail(400, 'BAD', 'لا يمكن تكرار نفس الشخصية.')
-                const player = await Player.findOne({ userId: g.sess.u })
+                // ⚡ حفظ خفيف: نقرأ أسماء الشخصيات فقط ونحدّث حقل الفريق وحده (بدون تحميل/حفظ مستند اللاعب الضخم)
+                const player = await Player.findOne({ userId: g.sess.u }).select('characters.name').lean()
                 if (!player) return g.fail(404, 'NOPLAYER', 'لا يوجد حساب.')
-                ensureArenaObject(player)
                 for (const i of team) {
                     const c = (player.characters || [])[i]
                     if (!c) return g.fail(400, 'BAD', 'شخصية غير موجودة بروسترك.')
                     if (!isArenaEligible(c.name)) return g.fail(400, 'BAD', `${c.name} غير مؤهّلة للأرينا.`)
                 }
-                player.arena.team = team
-                player.markModified('arena')
-                await player.save()
+                await Player.updateOne({ userId: g.sess.u }, { $set: { 'arena.team': team } })
                 res.json({ ok: true })
             } catch (err) {
                 console.error('arena challenge team error:', err)
