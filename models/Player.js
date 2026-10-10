@@ -1398,6 +1398,9 @@ PlayerSchema.post('save', function (doc) {
 // نفس تعريف الفهرس الذي ينشئه index.js (username_1 partial unique) — بدون تعارض
 PlayerSchema.index({ username: 1 }, { unique: true, partialFilterExpression: { username: { $type: 'string' } } })
 
+// ⚡ فهرس ترتيب الأرينا — بدونه كل فتح لصفحة تحدي ارينا يمسح كل مستندات اللاعبين (ثقيلة بسبب characters) ويسبب التأخير
+PlayerSchema.index({ 'arena.points': -1 })
+
 const PlayerModel = mongoose.model('Player', PlayerSchema)
 
 PlayerModel.MAX_LEVEL = MAX_PLAYER_LEVEL
