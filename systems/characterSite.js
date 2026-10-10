@@ -15,7 +15,9 @@ const { nextPayoutAt } = require('./galleryRewards') // موعد تصفير لا
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
+const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
+const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
 const { shardPageHTML } = require('./shardPage') // 🧩 صفحة الشظايا والتطوير والاسترجاع (نفس .شظايا / .تطوير / .استرجاع)
 
 const PAGE_SIZE = 40
@@ -640,7 +642,7 @@ function shellHead(title) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -723,6 +725,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
         ['players', '👥', 'اللاعبون', `/u/${c}/players`],
+        ['war', '⚔️', 'حرب الأعلام', `/u/${c}/war`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
@@ -1906,7 +1909,7 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2058,7 +2061,7 @@ function playersPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2311,7 +2314,7 @@ function galleryPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2853,7 +2856,7 @@ function bossPageHTML({ viewer, code, data }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -4274,7 +4277,7 @@ function chatPageHTML({ viewer, code }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}
+${TITLES.HEAD}${PWA.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -4410,6 +4413,9 @@ function registerCharacterSite(app, Player, opts = {}) {
     try {
         TITLES.mount(app, { Player, auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc, navDrawerHTML, NAV_BTN, shellHead, onChange: opts.onTitleChange })
     } catch (e) { console.error('site titles mount error:', e) }
+
+    // 📲 تثبيت كتطبيق — manifest + أيقونات (systems/sitePwa.js) بدون Service Worker وبدون أي تغيير بالمنطق
+    try { PWA.mount(app, { CODE_RE }) } catch (e) { console.error('site pwa mount error:', e) }
 
     // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
     // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code
@@ -5921,6 +5927,163 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('top players page error:', err)
             res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── ⚔️ حرب الأعلام  /u/:code/war ───────────────
+    // كل المنطق بـ systems/warSystem.js (حالة بالذاكرة، حرب واحدة). هنا: صفحة + مسارات آمنة.
+    // الصفحة تستطلع /war/state كل ثانية؛ الإجراءات (إنشاء/انضمام/اذهب/إلغاء) POST بحماية CSRF ونفس أصل.
+    const warSystem = opts.warSystem
+    const warPollHits = new Map()
+    function warPollRate(userId) {
+        const now = Date.now()
+        const arr = (warPollHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 120) { warPollHits.set(userId, arr); return false }
+        arr.push(now); warPollHits.set(userId, arr); return true
+    }
+    const warImgCache = new WeakMap()
+    function warChar(c, req) {
+        if (!c) return null
+        if (warImgCache.has(c)) return warImgCache.get(c)
+        const o = { n: String(c.name || '?'), p: Number(c.power) || 1, img: shardImg(c, req) }
+        warImgCache.set(c, o)
+        return o
+    }
+    function warOut(st, req) {
+        if (st.phase === 'none') return { ok: true, phase: 'none', max: st.max }
+        return {
+            ok: true, phase: st.phase, max: st.max, me: st.me, creator: st.creator, id: st.id,
+            cdLeft: st.cdLeft, left: st.left, flags: st.flags, fights: st.fights, eid: st.eid, events: st.events,
+            result: st.result,
+            players: st.players.map(p => ({
+                i: p.i, u: p.u, team: p.team,
+                main: warChar(p.main, req), sec: warChar(p.sec, req), cur: warChar(p.cur, req), us: p.us,
+                hp: p.hp, alive: p.alive, flag: p.flag, fg: p.fg, cd: p.cd, rs: p.rs,
+                kills: p.kills, deaths: p.deaths, captures: p.captures
+            }))
+        }
+    }
+    async function warSession(req) {
+        const sess = auth.readSession(req)
+        if (!sess) return null
+        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        return me && (me.sessionVersion || 0) === sess.v ? sess : null
+    }
+
+    app.get('/u/:code/war', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!warSystem) return res.status(503).send('حرب الأعلام غير مفعّلة حالياً')
+            res.send(warPageHTML({
+                code,
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD
+            }))
+        } catch (err) {
+            console.error('war page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/war/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!warSystem || !auth.authEnabled()) return res.status(503).json({ ok: false, message: 'غير مفعّل حالياً' })
+            const sess = await warSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!warPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const since = Math.max(0, parseInt(req.query.since, 10) || 0)
+            res.json(warOut(warSystem.getState(sess.u, since), req))
+        } catch (err) {
+            console.error('war state error:', err)
+            res.status(500).json({ ok: false, message: '❌ حدث خطأ بالخادم، حاول مرة ثانية.' })
+        }
+    })
+
+    // شخصياتك بنفس أرقام .شخصياتي (للاختيار قبل الانضمام)، 24 بالدفعة
+    app.get('/war/chars', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!warSystem || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = await warSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!warPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const off = Math.max(0, Math.min(100000, parseInt(req.query.o, 10) || 0))
+            const doc = await Player.findOne({ userId: sess.u }).select('characters').lean()
+            const all = (doc && doc.characters) || []
+            const catIdx = getCatalogIndex(getCatalog)
+            const chars = all.slice(off, off + 24).map((c, i) => {
+                const d = resolveDisplayChar(c, catIdx)
+                return { no: off + i + 1, n: String(d.name || c.name || '?'), p: Number(c.power) || 0, img: shardImg(c, req) }
+            })
+            res.json({ ok: true, chars, more: off + 24 < all.length })
+        } catch (err) {
+            console.error('war chars error:', err)
+            res.status(500).json({ ok: false, message: '❌ حدث خطأ بالخادم.' })
+        }
+    })
+
+    const warStatus = code => (code === 'BUSY' ? 409 : 400)
+
+    app.post('/war/create', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, warSystem && warSystem.create)
+        if (!g || !g.sess) return
+        try {
+            const r = await warSystem.create(g.sess.u)
+            if (!r.ok) return g.fail(warStatus(r.code), r.code, String(r.message || '❌ تعذّر إنشاء الحرب'))
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('war create error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    app.post('/war/join', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, warSystem && warSystem.join)
+        if (!g || !g.sess) return
+        try {
+            // الأرقام مثل .انضم 1 2 (تبدأ من 1)
+            const a = Number(g.body.a) - 1, b = Number(g.body.b) - 1
+            const r = await warSystem.join(g.sess.u, a, b)
+            if (!r.ok) return g.fail(warStatus(r.code), r.code, String(r.message || '❌ تعذّر الانضمام'))
+            res.json({ ok: true, team: r.team })
+        } catch (err) {
+            console.error('war join error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    app.post('/war/go', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, warSystem && warSystem.go)
+        if (!g || !g.sess) return
+        try {
+            const flag = String(g.body.flag || '').toUpperCase().slice(0, 1)
+            const r = warSystem.go(g.sess.u, flag)
+            if (!r.ok) return g.fail(400, r.code, String(r.message || '❌ تعذّر التحرك'))
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('war go error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    app.post('/war/cancel', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, warSystem && warSystem.cancel)
+        if (!g || !g.sess) return
+        try {
+            const r = warSystem.cancel(g.sess.u)
+            if (!r.ok) return g.fail(400, r.code, String(r.message || '❌ تعذّر الإلغاء'))
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('war cancel error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
         }
     })
 
