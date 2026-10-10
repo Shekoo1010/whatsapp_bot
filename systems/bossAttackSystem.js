@@ -35,11 +35,22 @@ function createBossAttackSystem(deps) {
     let feedSeq = 0
     let lastResults = null
 
+    // 📡 مشتركو البث المباشر (SSE من الموقع) — يستلمون كل حدث عام لحظة حدوثه
+    const subs = new Set()
+    function notifySubs(ev) {
+        subs.forEach(fn => { try { fn(ev) } catch (_) {} })
+    }
+    function subscribe(fn) {
+        subs.add(fn)
+        return () => subs.delete(fn)
+    }
+
     function pushPublic(ev) {
         ev.id = ++feedSeq
         ev.t = Date.now()
         feed.push(ev)
         if (feed.length > 40) feed.shift()
+        notifySubs(ev)
         return ev
     }
 
@@ -50,6 +61,7 @@ function createBossAttackSystem(deps) {
         ev.t = Date.now()
         hitFeed.push(ev)
         if (hitFeed.length > 60) hitFeed.shift()
+        notifySubs(ev)
         return ev
     }
 
@@ -171,10 +183,12 @@ function createBossAttackSystem(deps) {
         }
     }
 
-    async function getState(userId) {
+    // lite = استطلاع الصفحة كل ثواني: بدون قائمة الشخصيات (الصفحة تحتفظ بقائمتها) → قراءة أخف بكثير
+    async function getState(userId, opts = {}) {
+        const lite = !!opts.lite
         const boss = getBoss()
         const me = await Player.findOne({ userId })
-            .select('userId name username characters bossHp bossMaxHp bossDead bossRespawn lastBossAttack bossDamage bossHits')
+            .select('userId name username ' + (lite ? '' : 'characters ') + 'bossHp bossMaxHp bossDead bossRespawn lastBossAttack bossDamage bossHits')
             .lean()
         if (!me) return null
 
@@ -225,11 +239,13 @@ function createBossAttackSystem(deps) {
             },
             cooldownMs: cdLeft,
             board,
-            characters: (me.characters || []).map((c, i) => ({
-                index: i + 1, name: c.name, rarity: c.rarity, power: c.power || 0,
-                evolutionLevel: c.evolutionLevel || 0, image: c.image || null,
-                customImage: c.customImage || null, form: c.form, anime: c.anime
-            }))
+            ...(lite ? {} : {
+                characters: (me.characters || []).map((c, i) => ({
+                    index: i + 1, name: c.name, rarity: c.rarity, power: c.power || 0,
+                    evolutionLevel: c.evolutionLevel || 0, image: c.image || null,
+                    customImage: c.customImage || null, form: c.form, anime: c.anime
+                }))
+            })
         }
     }
 
@@ -1073,7 +1089,7 @@ function createBossAttackSystem(deps) {
         }
     }
 
-    return { attack, getState, getFeed, latestFeedId, getLastResults, recordResults, COOLDOWN_MS }
+    return { attack, getState, getFeed, latestFeedId, getLastResults, recordResults, subscribe, COOLDOWN_MS }
 }
 
 module.exports = { createBossAttackSystem }

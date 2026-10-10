@@ -3536,10 +3536,12 @@ function setTheme(i){
   }
 
   // ───── متابعة أحداث الزعيم العامة (Polling) ─────
+  var lastPollAt=0, sseOk=false, stTimer=null;
   function poll(){
     if(document.hidden) return;
+    lastPollAt=Date.now();
     var wasBusy=busy;
-    fetch('/boss/state?since='+lastId,{credentials:'same-origin'})
+    fetch('/boss/state?lite=1&since='+lastId,{credentials:'same-origin'})
     .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
     .then(function(j){
       if(!j||!j.ok) return;
@@ -3547,14 +3549,44 @@ function setTheme(i){
       if(wasBusy||busy){ if(j.state&&j.state.board) renderBoard(j.state.board); return; }
       var keepChars=S.characters, hpBefore=(S.me&&S.me.hp)||0;
       applyState(j.state); S.characters=keepChars;
-      var drop=Math.max(0,hpBefore-((S.me&&S.me.hp)||0)), fresh=[];
-      (j.feed||[]).forEach(function(e){ var isNew=!(e.id&&seen[e.id]); addPub(e); if(isNew && e.type!=='results') fresh.push(e); });
-      var hitEvs=fresh.filter(function(e){ return e.type==='follower_hit' && !e.mine; });
-      if(hitEvs.length){ folHits.length=0; hitEvs.slice(-8).forEach(function(e,i){ setTimeout(function(){ playFolHitEv(e); },i*380); }); }
-      else { flushFolHits(); }
-      fresh.filter(function(e){ return e.type!=='follower_hit'; }).slice(-3).forEach(function(e){ if(e.anim==='raid'||e.anim==='enrage'||e.anim==='boss_dead'){ pubQ.push({ev:e,drop:(e.anim==='raid'?drop:0)}); if(e.anim==='raid') drop=0; } });
-      runPubQ();
+      handleFeed(j.feed, Math.max(0,hpBefore-((S.me&&S.me.hp)||0)));
     }).catch(function(){});
+  }
+
+  // معالجة أحداث عامة (تُستخدم من الاستطلاع ومن البث المباشر — نفس المنطق بالضبط)
+  function handleFeed(feed, drop){
+    var fresh=[];
+    (feed||[]).forEach(function(e){ var isNew=!(e.id&&seen[e.id]); addPub(e); if(isNew && e.type!=='results') fresh.push(e); });
+    var hitEvs=fresh.filter(function(e){ return e.type==='follower_hit' && !e.mine; });
+    if(hitEvs.length){ folHits.length=0; hitEvs.slice(-8).forEach(function(e,i){ setTimeout(function(){ playFolHitEv(e); },i*380); }); }
+    else { flushFolHits(); }
+    fresh.filter(function(e){ return e.type!=='follower_hit'; }).slice(-3).forEach(function(e){ if(e.anim==='raid'||e.anim==='enrage'||e.anim==='boss_dead'){ pubQ.push({ev:e,drop:(e.anim==='raid'?drop:0)}); if(e.anim==='raid') drop=0; } });
+    runPubQ();
+  }
+
+  // ───── 📡 بث مباشر (SSE): الأحداث تصل لحظة حدوثها، والاستطلاع يبقى احتياطاً ─────
+  function schedState(){
+    if(stTimer) return;
+    var wait=Math.max(0,1200-(Date.now()-lastPollAt));
+    stTimer=setTimeout(function(){ stTimer=null; poll(); },wait);
+  }
+  function startStream(){
+    if(!window.EventSource) return;
+    try{
+      var es=new EventSource('/boss/stream');
+      es.onopen=function(){ sseOk=true; };
+      es.onerror=function(){ sseOk=false; };
+      es.onmessage=function(m){
+        if(document.hidden) return;
+        var ev; try{ ev=JSON.parse(m.data); }catch(e){ return; }
+        // الضربة الجماعية/النتائج تحتاج الدم قبل/بعد → نتركها للاستطلاع الفوري
+        if(ev.anim==='raid'||ev.type==='results'){ poll(); return; }
+        // أثناء أنيميشن هجومي: لا نمسّ العرض، والحدث يُجلب بالاستطلاع التالي
+        if(busy){ schedState(); return; }
+        handleFeed([ev],0);
+        schedState();
+      };
+    }catch(e){}
   }
 
   S.characters=S.characters||[];
@@ -3563,7 +3595,10 @@ function setTheme(i){
   (D.feed||[]).filter(function(e){ return e.type!=='results'; }).forEach(function(e){ seen[e.id]=1; });
   (D.feed||[]).slice().reverse().forEach(function(e){ if(e.type!=='results' && e.type!=='follower_hit') addTo($('pub'),eventNode(e,true),12); });
   if(D.results) renderResults(D.results);
-  tick(); setInterval(tick,500); pollTimer=setInterval(poll,3000);
+  tick(); setInterval(tick,500);
+  pollTimer=setInterval(function(){ if(sseOk && Date.now()-lastPollAt<9000) return; poll(); },2000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(); });
+  startStream();
 })();
 </script></body></html>`
 }
@@ -5417,11 +5452,17 @@ function registerCharacterSite(app, Player, opts = {}) {
         })
     }
 
+    // ⚡ كاش 60 ثانية لفحص نسخة الجلسة (استطلاع الزعيم كل ثواني — نفس أسلوب siteNotify)
+    const _bossSessCache = new Map()
     async function bossSession(req) {
         const sess = auth.readSession(req)
         if (!sess) return null
+        const c = _bossSessCache.get(sess.u)
+        if (c && c.v === sess.v && Date.now() - c.at < 60000) return sess
         const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
         if (!me || (me.sessionVersion || 0) !== sess.v) return null
+        _bossSessCache.set(sess.u, { v: sess.v, at: Date.now() })
+        if (_bossSessCache.size > 5000) _bossSessCache.clear()
         return sess
     }
 
@@ -5462,6 +5503,62 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // 📡 بث مباشر لأحداث الزعيم (SSE) — للقراءة فقط، نفس بيانات الاستطلاع ونفس تنقية bossEventsOut
+    // حدود: اتصالان لكل لاعب + سقف إجمالي، ويُغلق كل 4 دقائق ليُعاد التحقق من الجلسة (المتصفح يعيد الاتصال تلقائياً)
+    const SSE_MAX_TOTAL = 300, SSE_MAX_USER = 2, SSE_LIFETIME_MS = 4 * 60 * 1000, SSE_PING_MS = 25000
+    const _sseUsers = new Map()
+    let _sseTotal = 0
+
+    app.get('/boss/stream', async (req, res) => {
+        try {
+            if (!bossAttack || typeof bossAttack.subscribe !== 'function' || !auth.authEnabled()) return res.status(503).end()
+            const sess = await bossSession(req)
+            if (!sess) return res.status(401).end()
+            if (_sseTotal >= SSE_MAX_TOTAL || (_sseUsers.get(sess.u) || 0) >= SSE_MAX_USER) return res.status(429).end()
+
+            _sseTotal++
+            _sseUsers.set(sess.u, (_sseUsers.get(sess.u) || 0) + 1)
+
+            let closed = false
+            let unsub = null, ping = null, life = null
+            const cleanup = () => {
+                if (closed) return
+                closed = true
+                if (unsub) unsub()
+                clearInterval(ping); clearTimeout(life)
+                _sseTotal = Math.max(0, _sseTotal - 1)
+                const n = (_sseUsers.get(sess.u) || 1) - 1
+                if (n <= 0) _sseUsers.delete(sess.u); else _sseUsers.set(sess.u, n)
+                try { res.end() } catch (_) {}
+            }
+
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'Cache-Control': 'no-store, no-transform',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+                'X-Content-Type-Options': 'nosniff'
+            })
+            try { req.socket.setTimeout(0); req.socket.setNoDelay(true) } catch (_) {}
+            res.write('retry: 3000\n\n')
+
+            unsub = bossAttack.subscribe(ev => {
+                if (closed) return
+                if (res.writableLength > 262144) return cleanup() // عميل بطيء: نقطعه ويرجع للاستطلاع
+                const out = bossEventsOut([ev], sess.u)[0]
+                res.write('data: ' + JSON.stringify(out) + '\n\n')
+            })
+            ping = setInterval(() => { if (!closed) res.write(': ping\n\n') }, SSE_PING_MS)
+            life = setTimeout(cleanup, SSE_LIFETIME_MS)
+
+            req.on('close', cleanup)
+            res.on('error', cleanup)
+        } catch (err) {
+            console.error('boss stream error:', err)
+            try { res.status(500).end() } catch (_) {}
+        }
+    })
+
     app.get('/boss/state', async (req, res) => {
         res.set('Cache-Control', 'no-store')
         try {
@@ -5469,7 +5566,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = await bossSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             const since = Math.max(0, parseInt(req.query.since, 10) || 0)
-            const st = await bossAttack.getState(sess.u)
+            const st = await bossAttack.getState(sess.u, { lite: req.query.lite === '1' })
             if (!st) return res.status(404).json({ ok: false })
             res.json({ ok: true, state: await bossStateOut(st, sess.u), feed: bossEventsOut(bossAttack.getFeed(since), sess.u) })
         } catch (err) {
