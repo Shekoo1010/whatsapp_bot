@@ -140,6 +140,9 @@ body{background:radial-gradient(900px 400px at 50% -10%,#f0c04a14,transparent 60
 .cd{position:relative;overflow:hidden}.cd b{position:relative;z-index:0}.pc2{position:absolute;inset:0;background:center 20%/cover;border-radius:50%}
 .pic{position:absolute;inset:0;background:center 20%/cover}.fc em,.cc{z-index:2}.ac .im{background-position:center 20%}
 .mid .spl{z-index:5}
+.slot{cursor:pointer;transition:border-color .15s,box-shadow .15s}.slot.on4{border:2px solid var(--gold);box-shadow:0 0 14px var(--gold)}
+.tst{text-align:center;font-size:12px;font-weight:700;color:var(--dim);margin:-2px 0 10px;min-height:18px}
+.ac{-webkit-tap-highlight-color:transparent;user-select:none}.ac:active{transform:scale(.97)}
 
 /* ترقية الرتبة */
 #pu{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:radial-gradient(circle,#2b1a05f2,#05060df7 70%);overflow:hidden}#pu.on{display:flex}
@@ -161,16 +164,16 @@ const PAGE_BODY = String.raw`<div id="pu"><canvas id="pup"></canvas><div class="
 
 <div class="hdr">
  <div class="hr"><div><div style="font-size:12px;color:var(--dim)">رتبتك في الأرينا</div><div class="rk" id="rk"></div></div><div class="tr on" id="tr"></div></div>
- <div class="st"><span id="at"></span><span id="md"></span><span>🏆 فوز <b id="ws"></b> | خسارة <b id="ls"></b></span></div>
+ <div class="st"><span id="at"></span><span id="md"></span><span>🏆 فوز <b id="ws">–</b> | خسارة <b id="ls">–</b></span></div>
  <div class="zb" id="zb"><div class="mk" id="mk"></div></div>
  <div class="zl"><span>منطقة الهبوط</span><span>آمن</span><span>منطقة الترقية</span></div>
  <div class="zm" id="zm"></div>
 </div>
 <div class="tabs" id="tabs"><button data-t="s1" class="cur">⚔️ الخصوم</button><button data-t="s4">👥 فريقي</button><button data-t="s5">🛒 المتجر</button><button data-t="s6">🏆 الترتيب</button><button data-t="s2">🎨 الألوان</button><button data-t="s3">🎖️ الرتب</button></div>
-<div class="sec cur" id="s1"><div class="my" id="my"></div><div id="ol"></div></div>
+<div class="sec cur" id="s1"><div class="my" id="my">⏳ جاري تحميل الساحة...</div><div id="ol"></div></div>
 <div class="sec" id="s2"><div class="wh"><svg id="wsv" viewBox="0 0 260 260"></svg><p id="wi">اضغط على أي لون لترى تأثيره</p></div></div>
 <div class="sec" id="s3"><div id="rl"></div><div class="nt">مكافأة كل ترقية: 25,000 💰 + 150 XP + صندوق ملحمي، ومع رتبة «قائد» صندوق SSS عالي. تتجدد الرتب كل يومين عند 12:00ص بتوقيت السعودية.</div></div>
-<div class="sec" id="s4"><div class="nt" style="margin:0 0 8px">اختر 3 شخصيات بالترتيب: الأولى تواجه الأولى، وهكذا. تظهر هنا شخصياتك المؤهلة للأرينا فقط.</div><div class="ts" id="tslots"></div><div class="fch" id="fchips"></div><div class="cg" id="cg"></div><div class="act"><button id="tsv">حفظ فريق الدفاع</button></div></div>
+<div class="sec" id="s4"><div class="nt" style="margin:0 0 8px">اضغط على الشخصيات لاختيار 3 بالترتيب: الأولى تواجه الأولى وهكذا. يُحفظ فريقك تلقائياً ويمكنك تغييره بأي وقت (اضغط خانة ثم اختر بديلها).</div><div class="ts" id="tslots"></div><div class="tst" id="tst"></div><div class="fch" id="fchips"></div><div class="cg" id="cg"></div></div>
 <div class="sec" id="s5"><div class="shh"><span class="chp" id="shm"></span><span class="chp" id="shc"></span></div><div class="ofs" id="ofs"></div><div class="nt" id="shn"></div></div>
 <div class="sec" id="s6"><div id="lbl"></div></div>
 <div id="md2"><div id="pk"></div></div><div id="toast"></div>
@@ -196,11 +199,16 @@ function imgU(u){return(typeof u==='string'&&/^https:\/\//.test(u)&&!/['"()\\\s]
 function bg(u){u=imgU(u);return u?' style="background-image:url(\''+u+'\')"':''}
 function sk(k){return SK.filter(function(x){return x[0]===k})[0]}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on3');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on3')},2200)}
-function get(){return fetch('/u/'+CODE+'/arena-challenge/data',{credentials:'same-origin'}).then(function(r){return r.json()}).catch(function(){return{ok:false,message:'تعذر الاتصال بالخادم'}})}
-function post(op,b){b=b||{};b.csrf=CSRF;return fetch('/arena-challenge/'+op,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json()}).catch(function(){return{ok:false,message:'تعذر الاتصال بالخادم'}})}
-function load(){return get().then(function(j){if(!j||!j.ok){toast((j&&j.message)||'تعذر التحميل');return}S=j.state;SL=S.me.team.slice();R();
+var LD=null,LT=0,DR=0,TS=0,TP=0,AS=-1,SK2='acs:'+CODE;
+function get(){var ac=window.AbortController?new AbortController():null,t=ac?setTimeout(function(){ac.abort()},25000):0;return fetch('/u/'+CODE+'/arena-challenge/data',{credentials:'same-origin',signal:ac?ac.signal:undefined}).then(function(r){return r.json()}).catch(function(){return{ok:false,net:1,message:'تعذر الاتصال بالخادم'}}).then(function(j){clearTimeout(t);return j})}
+function fill3(){var t=(S&&S.me&&S.me.team)||[];return[0,1,2].map(function(k){var v=t[k];return(v!==undefined&&v!==null&&byI(+v))?+v:null})}
+function load(n){if(LD)return LD;n=n||0;LT=Date.now();
+ LD=get().then(function(j){LD=null;
+  if(!j||!j.ok){if(!j||j.net||/خادم/.test(j.message||'')){if(n<3){if(!S)$('my').textContent='⏳ الخادم بطيء، نعيد المحاولة...';setTimeout(function(){load(n+1)},1500*(n+1));return}}toast((j&&j.message)||'تعذر التحميل');if(!S)$('my').textContent='تعذر التحميل — حدّث الصفحة';return}
+  S=j.state;if(!DR&&!TS&&!TP)SL=fill3();R();try{localStorage.setItem(SK2,JSON.stringify(S))}catch(e){}
  var key='acr:'+CODE,prev=null,cur=S.me.rankIdx;try{prev=localStorage.getItem(key);localStorage.setItem(key,String(cur))}catch(e){}
- if(prev!==null&&cur>+prev){var r=S.ranks[cur],rw=r.rw?'<span class="ch">💰 '+Number(r.rw.money).toLocaleString('en-US')+'</span><span class="ch">⭐ '+r.rw.xp+' XP</span><span class="ch">📦 صندوق ملحمي</span>'+(r.rw.sss?'<span class="ch">📦 SSS عالي</span>':''):'';promote(S.ranks[+prev].n,r.n,rw)}})}
+ if(prev!==null&&cur>+prev){var r=S.ranks[cur],rw=r.rw?'<span class="ch">💰 '+Number(r.rw.money).toLocaleString('en-US')+'</span><span class="ch">⭐ '+r.rw.xp+' XP</span><span class="ch">📦 صندوق ملحمي</span>'+(r.rw.sss?'<span class="ch">📦 SSS عالي</span>':''):'';promote(S.ranks[+prev].n,r.n,rw)}
+ });return LD}
 function cd(t){return '<span class="cd" style="color:'+col(t.c)+';background:'+col(t.c)+'"><b style="color:#0a0d16">'+esc(String(t.n||'?').charAt(0))+'</b><i class="pc2"'+bg(t.img)+'></i></span>'}
 function byI(i){return S.roster.filter(function(r){return r.i===i})[0]}
 function R(){
@@ -229,17 +237,32 @@ $('wsv').addEventListener('click',function(e){var g=e.target.closest('[data-w]')
  $('wi').textContent=cn(k)+(mu.length?' يتبادل +50% ضرر مع '+mu.join(' و'):'')+(a2.length?' يتفوق على '+a2.join(' و')+' (+50% ضرر)':'')+(b2.length?'، ويتفوق عليه '+b2.join(' و')+' (−25% ضرر عليك)':'')+(!mu.length&&!a2.length&&!b2.length?' محايد بلا تفوق':'')});
 $('tabs').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;document.querySelectorAll('.tabs button,.sec').forEach(function(x){x.classList.remove('cur')});b.classList.add('cur');$(b.dataset.t).classList.add('cur')});
 $('ol').addEventListener('click',function(e){var b=e.target.closest('button');if(!b||b.disabled||busy)return;attack(S.opps[+b.dataset.o])});
-/* فريقي */
+/* فريقي — حفظ تلقائي مثل الواتس */
 function ac(r,sel){return '<div class="ac'+(sel>=0?' sel':'')+'" data-i="'+r.i+'" style="--c:'+col(r.c)+'"><div class="im"'+bg(r.img)+'>'+(imgU(r.img)?'':esc(r.n.charAt(0)))+'</div><span class="cdot" style="background:'+col(r.c)+'"></span><u class="ord">'+(sel+1)+'</u><div class="an"><b>'+esc(r.n)+'</b><small>'+esc(cn(r.c))+'</small></div><div class="as">'+SK.map(function(k){return '<span>'+k[1]+' '+(r.dev[k[0]]||0)+'</span>'}).join('')+'</div></div>'}
 function renderTeam(){
- $('tslots').innerHTML=[0,1,2].map(function(k){var r=SL[k]!==undefined?byI(SL[k]):null;return r?'<div class="slot f" style="--c:'+col(r.c)+'"><b>'+(k+1)+'</b><span>'+esc(r.n)+'</span></div>':'<div class="slot">'+(k+1)+'</div>'}).join('');
+ if(SL.length!==3)SL=fill3();
+ var n=SL.filter(function(x){return x!==null}).length;
+ $('tslots').innerHTML=[0,1,2].map(function(k){var r=SL[k]!==null?byI(SL[k]):null,a=AS===k?' on4':'';return r?'<div class="slot f'+a+'" data-s="'+k+'" style="--c:'+col(r.c)+'"><b>'+(k+1)+'</b><span>'+esc(r.n)+'</span></div>':'<div class="slot'+a+'" data-s="'+k+'">'+(k+1)+'</div>'}).join('');
+ $('tst').textContent=(TS||TP)?'⏳ جاري الحفظ...':n<3?'اختر '+(3-n)+(3-n===1?' شخصية':' شخصيات')+' لإكمال الفريق (يُحفظ تلقائياً)':'✅ فريقك محفوظ — غيّره بأي وقت';
  $('fchips').innerHTML=['all'].concat(S.colors.keys).map(function(f){return '<button data-f="'+esc(f)+'" class="'+(FC===f?'cur':'')+'" style="--c:'+(f==='all'?'#8d96b8':col(f))+'">'+(f==='all'?'الكل':esc(cn(f)))+'</button>'}).join('');
- $('cg').innerHTML=S.roster.length?S.roster.map(function(r){return FC==='all'||r.c===FC?ac(r,SL.indexOf(r.i)):''}).join(''):'<div class="nt" style="grid-column:1/-1">ما عندك أي شخصية مؤهّلة للأرينا حالياً</div>';
- $('tsv').disabled=SL.length!==3}
-$('cg').addEventListener('click',function(e){var a=e.target.closest('.ac');if(!a)return;var i=+a.dataset.i,k=SL.indexOf(i);
- if(k>=0)SL.splice(k,1);else if(SL.length<3)SL.push(i);else{toast('الفريق مكتمل، أزل شخصية أولاً');return}renderTeam()});
+ $('cg').innerHTML=S.roster.length?S.roster.map(function(r){return FC==='all'||r.c===FC?ac(r,SL.indexOf(r.i)):''}).join(''):'<div class="nt" style="grid-column:1/-1">ما عندك أي شخصية مؤهّلة للأرينا حالياً</div>'}
+function queueSave(){clearTimeout(TP);TP=0;DR=1;
+ if(SL.some(function(x){return x===null}))return;
+ var cur=(S.me.team||[]);if(cur.length===3&&SL.every(function(x,k){return+cur[k]===x})){DR=0;return}
+ TP=setTimeout(doSave,350)}
+function doSave(){TP=0;if(TS){TP=setTimeout(doSave,300);return}
+ var t=SL.slice();TS=1;renderTeam();
+ post('team',{team:t}).then(function(r){TS=0;
+  if(r&&r.ok){S.me.team=t.slice();try{localStorage.setItem(SK2,JSON.stringify(S))}catch(e){}if(!TP)DR=0;toast('تم حفظ الفريق ✅')}
+  else{toast((r&&r.message)||'تعذر الحفظ');if(!TP){DR=0;SL=fill3()}}
+  R()})}
+$('tslots').addEventListener('click',function(e){var s=e.target.closest('.slot');if(!s)return;var k=+s.dataset.s;
+ if(AS===k&&SL[k]!==null){SL[k]=null;DR=1;clearTimeout(TP);TP=0}else AS=(AS===k?-1:k);renderTeam()});
+$('cg').addEventListener('click',function(e){var a=e.target.closest('.ac');if(!a)return;var i=+a.dataset.i,j=SL.indexOf(i);
+ if(j>=0){if(AS>=0&&AS!==j){var t=SL[AS];SL[AS]=i;SL[j]=t;AS=-1}else{SL[j]=null;AS=j}}
+ else{var k=AS>=0?AS:SL.indexOf(null);if(k<0){toast('الفريق مكتمل — اضغط الخانة التي تريد استبدالها أولاً');return}SL[k]=i;AS=-1}
+ renderTeam();queueSave()});
 $('fchips').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;FC=b.dataset.f;renderTeam()});
-$('tsv').onclick=function(){if(SL.length!==3)return;post('team',{team:SL}).then(function(r){toast(r.ok?'تم حفظ فريق الدفاع ✅':(r.message||'تعذر الحفظ'));if(r.ok)load()})};
 /* المتجر */
 function renderShop(){var sh=S.shop;$('shm').textContent='🥇 '+S.me.medals;
  $('ofs').innerHTML=sh.items.map(function(o,i){var k=sk(o.stat)||['','❔',o.stat];return '<div class="of"><div class="ic">'+k[1]+'</div><b>'+k[2]+'</b><div class="am on">+'+o.amount+'</div><button data-of="'+i+'" '+(sh.done||S.me.medals<o.cost?'disabled':'')+'>🥇 '+o.cost+'</button></div>'}).join('');
@@ -250,7 +273,7 @@ $('ofs').addEventListener('click',function(e){var b=e.target.closest('button');i
 $('md2').addEventListener('click',function(e){if(e.target===$('md2')||e.target.id==='pkx'){$('md2').classList.remove('on3');return}
  var b=e.target.closest('.pr');if(!b||b.disabled)return;b.disabled=true;
  post('buy',{item:PO,char:+b.dataset.j}).then(function(r){$('md2').classList.remove('on3');toast(r.ok?r.message:(r.message||'تعذر الشراء'));load()})});
-function cdTick(){if(!S)return;var d=Math.max(0,Math.floor((S.shop.resetAt-Date.now())/1000)),f=function(x){return('0'+x).slice(-2)};$('shc').textContent='⏳ يتجدد بعد '+f(Math.floor(d/3600))+':'+f(Math.floor(d%3600/60))+':'+f(d%60);if(d===0&&!busy)load()}
+function cdTick(){if(!S)return;var d=Math.max(0,Math.floor((S.shop.resetAt-Date.now())/1000)),f=function(x){return('0'+x).slice(-2)};$('shc').textContent='⏳ يتجدد بعد '+f(Math.floor(d/3600))+':'+f(Math.floor(d%3600/60))+':'+f(d%60);if(d===0&&!busy&&!LD&&Date.now()-LT>15000)load()}
 setInterval(cdTick,1000);
 /* الترتيب */
 function renderLB(){function r(x,pos){var m=pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos;return '<div class="lr'+(x.me?' me':'')+'"><b class="on">'+m+'</b><span class="av" style="background:'+RC[Math.min(5,Math.floor(x.ri*6/S.ranks.length))]+'">'+esc(String(x.n).charAt(0))+'</span><div><b>'+esc(x.n)+'</b><small>'+esc(x.rk)+'</small></div><div class="lp on">🏆 '+x.p+'<small>فوز '+x.wr+'%</small></div></div>'}
@@ -303,6 +326,8 @@ async function attack(o){
  $('r2').textContent=sg(X.dMe)+' 🏆 لك | '+sg(X.dOpp)+' 🏆 للخصم | '+sg(X.dMed)+' 🥇';
  $('r3').textContent=X.zoneBefore==='red'&&X.zoneAfter!=='red'?'✅ خرجت من منطقة الهبوط':X.zoneAfter==='red'?'⚠️ أنت بمنطقة الهبوط':X.zoneAfter==='green'&&X.zoneBefore!=='green'?'🔥 دخلت منطقة الترقية':''}
 $('rb').onclick=function(){$('bt').classList.remove('on2');busy=false;load()};
+(function(){try{var c=JSON.parse(localStorage.getItem(SK2)||'null');if(c&&c.me&&c.roster&&c.colors){S=c;SL=fill3();R()}}catch(e){S=null}})();
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&!busy&&!TS&&!TP&&Date.now()-LT>30000)load()});
 load();
 `
 
@@ -454,9 +479,11 @@ module.exports = function createSiteArenaChallenge(deps) {
             // الخصوم الأقرب بالترافي (لهم فريق دفاع كامل)
             const base = { 'arena.team.2': { $exists: true }, userId: { $ne: player.userId }, siteCode: { $type: 'string' } }
             const sel = 'userId name username siteCode characters arena'
-            const [up, down] = await Promise.all([
+            const [up, down, top, ahead] = await Promise.all([
                 Player.find({ ...base, 'arena.points': { $gte: a.points } }).sort({ 'arena.points': 1 }).limit(4).select(sel).lean(),
-                Player.find({ ...base, 'arena.points': { $lt: a.points } }).sort({ 'arena.points': -1 }).limit(4).select(sel).lean()
+                Player.find({ ...base, 'arena.points': { $lt: a.points } }).sort({ 'arena.points': -1 }).limit(4).select(sel).lean(),
+                Player.find({ 'arena.points': { $gt: 0 } }).sort({ 'arena.points': -1 }).limit(15).select('userId name username arena.points arena.rank arena.wins arena.losses').lean(),
+                Player.countDocuments({ 'arena.points': { $gt: a.points } })
             ])
             const opps = up.concat(down)
                 .sort((x, y) => Math.abs(x.arena.points - a.points) - Math.abs(y.arena.points - a.points))
@@ -464,13 +491,12 @@ module.exports = function createSiteArenaChallenge(deps) {
                 .map(p => ({ id: p.siteCode, n: dispName(p), pts: p.arena.points || 0, rk: p.arena.rank || '', team: teamOf(p, req) }))
                 .filter(o => o.team.length === 3 && o.team.every(Boolean))
 
-            const top = await Player.find({ 'arena.points': { $gt: 0 } }).sort({ 'arena.points': -1 }).limit(15).select('userId name username arena').lean()
             const rIdx = pts => zoneInfo(pts).idx
             const lbTop = top.map(p => ({
                 n: dispName(p), p: p.arena.points || 0, rk: p.arena.rank || '', ri: rIdx(p.arena.points || 0),
                 wr: wr(p.arena.wins || 0, p.arena.losses || 0), me: p.userId === player.userId
             }))
-            const pos = (await Player.countDocuments({ 'arena.points': { $gt: a.points } })) + 1
+            const pos = ahead + 1
             const lbMe = { pos, n: dispName(player), p: a.points, rk: a.rank, ri: z.idx, wr: wr(a.wins || 0, a.losses || 0), me: true }
 
             const keys = Object.keys(COLOR_EMOJI)
