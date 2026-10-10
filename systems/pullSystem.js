@@ -47,7 +47,7 @@ function createPullSystem(deps) {
 
         // 📡 الأمر أصلاً ما يشتغل والبوت غير متصل
         const sock = getSock()
-        if (!sock || !sock.user) return fail('OFFLINE')
+        // 🌐 السحب من الموقع لا يحتاج اتصال الواتساب (الإنجازات/نقاط العالم داخل try/catch)
 
         // 🔒 نفس قفل .اسحب (يمنع سحبتين متزامنتين لنفس اللاعب، حتى بين الموقع والأمر)
         if (pullLocks.has(userId)) return fail('BUSY')

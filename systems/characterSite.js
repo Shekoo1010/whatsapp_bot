@@ -15,6 +15,7 @@ const { nextPayoutAt } = require('./galleryRewards') // موعد تصفير لا
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
+const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
 const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
@@ -642,7 +643,7 @@ function shellHead(title) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1910,7 +1911,7 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2062,7 +2063,7 @@ function playersPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2315,7 +2316,7 @@ function galleryPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2857,7 +2858,7 @@ function bossPageHTML({ viewer, code, data }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -4278,7 +4279,7 @@ function chatPageHTML({ viewer, code }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -4417,6 +4418,7 @@ function registerCharacterSite(app, Player, opts = {}) {
 
     // 📲 تثبيت كتطبيق — manifest + أيقونات (systems/sitePwa.js) بدون Service Worker وبدون أي تغيير بالمنطق
     try { PWA.mount(app, { CODE_RE }) } catch (e) { console.error('site pwa mount error:', e) }
+    try { NOTIFY.mount(app, { Player, auth }) } catch (e) { console.error('site notify mount error:', e) }
 
     // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
     // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code

@@ -77,7 +77,7 @@ function createBannerPullSystem(deps) {
         if (botAvailable && !botAvailable() && !(isOwnerId && isOwnerId(userId))) return { ok: false, code: 'CLOSED' }
 
         const sock = getSock ? getSock() : null
-        if (!sock) return { ok: false, code: 'OFFLINE' }
+        // 🌐 سحب البنر من الموقع لا يحتاج اتصال الواتساب
 
         const cost = n === 1 ? PULL_COST : MULTI_COST
 
