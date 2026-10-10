@@ -842,6 +842,66 @@ global.bossAttackWindowOpen
 
 }
 
+// 🌐 حلقة الزعيم المستقلة عن الواتساب: تشتغل 24 ساعة من تشغيل السيرفر نفسه (بدون انتظار اتصال البوت)
+// - تحمّل الزعيم من القاعدة (أو تنشئ واحد) — spawnBoss ما يستخدم الـ sock فنمرّر null
+// - تعيد إنشاء الزعيم تلقائياً عند انتهاء مهلة الـ respawn حتى بين 12ص و10ص
+// - تفتح نافذة الهجوم رأس كل ساعة (نفس منطق scheduleBossAttackWindow بدون الاعتماد على الـ sock)
+function startSiteBossLoop() {
+    if (global.siteBossLoopStarted) return
+    global.siteBossLoopStarted = true
+    global.siteBossLoopActive = true
+
+    let busy = false
+
+    const respawnNext = async () => {
+        const nextIndex = ((currentBoss.bossIndex || 0) + 1) % bosses.length
+        await Boss.deleteMany({})
+        currentBoss = null
+        await spawnBoss(null, nextIndex)
+        currentBoss = await Boss.findOne()
+    }
+
+    const tick = async () => {
+        if (busy) return
+        busy = true
+        try {
+            if (!currentBoss) {
+                currentBoss = await Boss.findOne()
+                if (!currentBoss) {
+                    await spawnBoss(null)
+                    currentBoss = await Boss.findOne()
+                }
+            }
+
+            if (currentBoss && currentBoss.finished) {
+                if (!currentBoss.respawnAt || currentBoss.respawnAt <= Date.now()) {
+                    console.log('👑 إعادة إنشاء الزعيم (حلقة الموقع)')
+                    await respawnNext()
+                }
+            }
+
+            // نافذة الهجوم: تفتح رأس كل ساعة (24 ساعة) وتقفل فقط بسقوط الزعيم
+            const hourKey = Math.floor(Date.now() / 3600000)
+            if (global.bossWindowHourKey !== hourKey) {
+                const firstRun = global.bossWindowHourKey === undefined
+                global.bossWindowHourKey = hourKey
+                global.bossAttackWindowOpen = firstRun
+                    ? !!(currentBoss && !currentBoss.finished && (currentBoss.hp || 0) > 0)
+                    : true
+            }
+
+            // زعيم جديد حي والنافذة مقفولة من ساعة سابقة؟ تبقى كما هي حتى رأس الساعة (نفس السلوك القديم)
+        } catch (err) {
+            console.log('❌ [حلقة الزعيم بالموقع] خطأ محمي:', err?.message || err)
+        } finally {
+            busy = false
+        }
+    }
+
+    tick()
+    setInterval(tick, 30000)
+}
+
 function getSaudiDate() {
 
 return new Date()
@@ -4059,6 +4119,9 @@ mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5 })
 
     console.log('✅ MongoDB Connected')
 
+    // 🌐 الزعيم بالموقع يشتغل 24 ساعة ومستقل عن اتصال الواتساب
+    try { startSiteBossLoop() } catch (e) { console.log('site boss loop start error:', e?.message || e) }
+
     // ═══════════════════════════════════════════════
     // ⚡ Indexes — آمنة 100%: إضافة فهارس فقط، ما تغيّر أي بيانات
     // ولا أي منطق. createIndex idempotent (لو الفهرس موجود أصلاً
@@ -4685,7 +4748,8 @@ const siteChallenge = require('./systems/siteChallenge')({
     checkAndGrantAchievement,
     orbs,
     getPeriod: getCurrentSaudi2HourPeriod,
-    getSock: () => siteSockRef.current
+    getSock: () => siteSockRef.current,
+    trackWin: doc => siteMissions.trackWinOn(doc) // 🎯 مهمة الفوز
 })
 
 // ❌⭕ XO أونلاين على الموقع (systems/siteXO.js)
@@ -4704,7 +4768,8 @@ const siteArena = require('./systems/siteArena')({
     orbs,
     checkAndGrantAchievement,
     getSock: () => siteSockRef.current,
-    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid),
+    trackWin: doc => siteMissions.trackWinOn(doc) // 🎯 مهمة الفوز (للمهاجم)
 })
 
 // 🏟️ تحدي ارينا على الموقع — نفس بيانات أرينا البوت (arenaSystem/arenaData/player.arena) بمعركة فريق 3 ضد 3 بنمط BBS (systems/siteArenaChallenge.js)
@@ -4724,7 +4789,31 @@ const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharB
 // 📖 كتاب المجموعة (SSS فقط) — systems/siteCodexBook.js
 const siteCodexBook = require('./systems/siteCodexBook').createSiteCodexBook({ Player, getCatalog: () => characters })
 
+// 🎯 المهام اليومية والأسبوعية بالموقع (/missions) — نفس بيانات وأقفال وجوائز أوامر الواتساب (systems/siteMissions.js)
+const siteMissions = require('./systems/siteMissions')({
+    Player,
+    auth: siteAuth,
+    characters,
+    orbs,
+    getSaudiDate,
+    getSaudiWeekKey,
+    resetDailyMissions,
+    ensureWeeklyMissions,
+    WEEKLY_GOALS,
+    applyDogBonus,
+    checkAndGrantAchievement,
+    isWeeklyBanned,
+    dailyLocks,
+    missionsClaimLocks,
+    weeklyLocks,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+siteMissions.mount(app)
+Player.setMissionNotifier(siteMissions.onSave) // 🔔 إشعار من أعلى الشاشة عند إكمال أي مهمة (حتى لو البوت مقفول)
+
 registerCharacterSite(app, Player, {
+    missions: siteMissions,
     codexBook: siteCodexBook,
     wheel: siteWheel,
     challenge: siteChallenge,
@@ -7124,6 +7213,8 @@ if (currentBoss) {
                 currentBoss?.respawnAt
             )
 
+            if (global.siteBossLoopActive) return // 🌐 حلقة الموقع المستقلة هي المسؤولة عن إعادة الإنشاء
+
             if (
     currentBoss &&
     currentBoss.finished &&
@@ -8185,8 +8276,7 @@ if (!text) return;
 
                 global.botForceOpenUntil = 0
                 saveBotForceOpen(0)
-                // 👑 قفل البوت خارج الدوام يقفل نافذة الزعيم بالموقع أيضاً
-                if (getRiyadhHour() < 10) global.bossAttackWindowOpen = false
+                // 👑 نافذة الزعيم بالموقع مستقلة عن جدول الواتساب — قفل البوت لا يقفلها
 
                 return sock.sendMessage(msg.key.remoteJid, {
                     text: '🔴 تم قفل البوت عن الأعضاء — رجع للجدول العادي (10 ص - 12:00 ص)'
