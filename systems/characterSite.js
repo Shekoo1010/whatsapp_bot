@@ -714,6 +714,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
+        ['arenachallenge', '⚔️', 'تحدي ارينا', `/u/${c}/arena-challenge`],
         ['xo', '❌', 'XO أونلاين', `/u/${c}/xo`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
@@ -4445,6 +4446,17 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, titles: TITLES, charView: siteCharView
             })
         } catch (e) { console.error('site arena mount error:', e) }
+    }
+
+    // 🏟️ تحدي ارينا — /u/:code/arena-challenge (systems/siteArenaChallenge.js)
+    // نفس أرينا البوت (فريق/رتب/متجر/ترتيب) بمعركة فريق 3 ضد 3 بنمط BBS
+    if (opts.arenaChallenge) {
+        try {
+            opts.arenaChallenge.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, charView: siteCharView
+            })
+        } catch (e) { console.error('site arena challenge mount error:', e) }
     }
 
     // 🎡 عجلة الحظ اليومية — /u/:code/wheel (systems/siteWheel.js)
