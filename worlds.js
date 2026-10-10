@@ -31,10 +31,10 @@ async function sendMessageWithRetry(sock, jid, content, maxRetries = 5, delayMs 
 // =========================
 
 const WORLDS = {
-    onepiece:   { key: 'onepiece',   name: 'ون بيس 🏴‍☠️' },
-    bleach:     { key: 'bleach',     name: 'بليتش ⚔️' },
-    hunter:     { key: 'hunter',     name: 'هنتر × هنتر 🎯' },
-    dragonball: { key: 'dragonball', name: 'دراغون بول 🐉' }
+    onepiece:   { key: 'onepiece',   name: 'ون بيس 🏴‍☠️',      icon: '🏴‍☠️' },
+    bleach:     { key: 'bleach',     name: 'بليتش ⚔️',        icon: '⚔️' },
+    hunter:     { key: 'hunter',     name: 'هنتر × هنتر 🎯',  icon: '🎯' },
+    dragonball: { key: 'dragonball', name: 'دراغون بول 🐉',   icon: '🐉' }
 }
 
 // أوامر الانضمام
@@ -270,6 +270,16 @@ async function awardPoints(player, sock, jid, points) {
         { key: player.world },
         { $inc: { points } }
     )
+
+    // 🔔 يظهر بالموقع كإشعار من أعلى الشاشة
+    try {
+        require('./systems/siteNotify').push(player.userId, {
+            type: 'world',
+            icon: WORLDS[player.world].icon || '🌍', // إيموجي العالم نفسه
+            title: `+${points} نقطة لعالم ${WORLDS[player.world].name.replace(WORLDS[player.world].icon || '', '').trim()}`,
+            text: `📊 مجموع نقاطك: ${player.worldPoints}`
+        })
+    } catch (e) { /* لا يوقف النقاط */ }
 
     return `🌍 +${points} نقطة لعالم ${WORLDS[player.world].name}!
 📊 مجموع نقاطك: ${player.worldPoints}`

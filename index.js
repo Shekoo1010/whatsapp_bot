@@ -757,7 +757,7 @@ const minutes = now.getMinutes()
 // ما يفتح القروب إطلاقاً حتى لو صار رأس ساعة بهذي الفترة.
 const riyadhHour = getRiyadhHour()
 // 🟢 .فتح_البوت (فتح يدوي من المطور) يفتح نافذة الزعيم بالموقع حتى خارج 10ص–11م
-const withinAttackHours = (riyadhHour >= 10 && riyadhHour <= 23) || isBotForceOpen()
+const withinAttackHours = true // 🌐 نافذة الزعيم بالموقع شغالة 24 ساعة (لا تتأثر بجدول الواتساب)
 
 // 🌐 وضع الموقع: النافذة تفتح رأس الساعة (10ص–11م) وتبقى مفتوحة بدون
 // وقت محدد، وتقفل فقط لما يسقط الزعيم (closeWindow من bossAttackSystem).
@@ -1718,6 +1718,8 @@ const achievementsSystem =
 require('./systems/achievements')
 
 // يتحقق من الإنجازات، يمنح الجوائز تلقائياً، ويرسل إشعاراً فورياً
+const siteNotify = require('./systems/siteNotify') // 🔔 إشعارات الموقع (نفس ما يُرسل للواتساب)
+
 async function checkAndGrantAchievement(
     player,
     categoryKey,
@@ -1861,6 +1863,22 @@ ${categoryDef.icon} ${categoryDef.name}
 
         text += `\n━━━━━━━━━━━━━━\n\n`
     }
+
+    // 🔔 نفس الإشعار يظهر بالموقع (قبل الإرسال للواتساب عشان ما يتأثر بانقطاعه)
+    try {
+        for (const tierDef of unlocked) {
+            const parts = [`💰 +${(tierDef.money || 0).toLocaleString()}`, `⭐ +${(tierDef.xp || 0).toLocaleString()} XP`]
+            for (const b in (tierDef.boxes || {})) parts.push(`📦 +${tierDef.boxes[b]} ${b}`)
+            if (tierDef.sssCharacter && earnedSSS) parts.push(`🌟 ${earnedSSS.name}`)
+            if (tierDef.title) parts.push(`🎖️ ${tierDef.title}`)
+            siteNotify.push(player.userId, {
+                type: 'ach',
+                icon: categoryDef.icon,
+                title: `إنجاز جديد — ${categoryDef.name}`,
+                text: `${tierDef.label}\n${parts.join(' · ')}`
+            })
+        }
+    } catch (e) { /* لا يوقف الإنجاز */ }
 
     text += `📊 استخدم .انجازاتي لعرض تقدمك الكامل`
 
@@ -4317,6 +4335,8 @@ kingdom.init({
 })
 
 async function siteNotifyDm(userId, text) {
+    // 🔔 نفس الرسالة تظهر بالموقع (حتى لو الواتساب منقطع)
+    siteNotify.push(userId, { type: 'dm', icon: '📩', title: 'إشعار', text: String(text || '').replace(/[━═─]{2,}/g, '').trim() })
     try {
         const s = siteSockRef.current
         if (!s || !userId) return
@@ -4484,7 +4504,7 @@ const { pullCharacter } = createPullSystem({
     checkAndGrantAchievement,
     worlds,
     isBanned,
-    botAvailable,
+    botAvailable: () => true, // 🌐 السحب من الموقع شغال 24 ساعة (جدول 10ص-12ص للواتساب فقط)
     isOwnerId: uid => String(uid || '').split('@')[0] === ownerId,
     getSock: () => siteSockRef.current,
     // إشعارات الإنجاز/الترقية تنرسل لآخر قروب تكلم فيه اللاعب (مثل الأمر)، وإلا للخاص
@@ -4595,7 +4615,7 @@ const bannerPullSystem = createBannerPullSystem({
     checkAndGrantAchievement,
     worlds,
     isBanned,
-    botAvailable,
+    botAvailable: () => true, // 🌐 السحب من الموقع شغال 24 ساعة (جدول 10ص-12ص للواتساب فقط)
     isOwnerId: uid => String(uid || '').split('@')[0] === ownerId,
     getSock: () => siteSockRef.current,
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
@@ -6890,6 +6910,29 @@ ${juubi.maxHp.toLocaleString()}
 
     // 🎖️ إشعار الترقية التلقائي — يُرسل بآخر قروب تكلم فيه اللاعب (أو خاص لو ما عرفنا)
     Player.setLevelUpNotifier(async (doc, text) => { try { 
+        // 🔔 يظهر بالموقع حتى لو الواتساب منقطع
+        // 🏅 المستويات الفاصلة (10، 20، 30 ...) لها شكل مميز — نكشفها حتى لو قفز اللاعب عدة مستويات
+        const lvTo = doc.level || 1
+        const lvFrom = (doc.$locals && doc.$locals.levelUpFrom) || (lvTo - 1)
+        let milestone = 0
+        for (let m = Math.floor(lvTo / 10) * 10; m > lvFrom && m >= 10; m -= 10) { milestone = m; break }
+        const lvText = String(text || '').replace(/[━═─]{2,}/g, '').replace(/\n{2,}/g, '\n').trim().slice(0, 260)
+        if (milestone) {
+            const big = milestone % 100 === 0
+            siteNotify.push(doc.userId, {
+                type: 'milestone',
+                icon: big ? '👑' : '🏅',
+                title: `مستوى فاصل! وصلت ${milestone}`,
+                text: lvText
+            })
+        } else {
+            siteNotify.push(doc.userId, {
+                type: 'level',
+                icon: '🎖️',
+                title: `ترقية! المستوى ${lvTo}`,
+                text: lvText
+            })
+        }
         const jid = lastChatByUser.get(doc.userId) || doc.userId
         await sock.sendMessage(jid, { text, mentions: [doc.userId] })
      } catch (__err) { console.log('❌ [إشعار الترقية] خطأ محمي — البوت يكمل:', __err?.message || __err) } })
