@@ -410,6 +410,8 @@ const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogIma
 
 // 🏟️ نظام الأرينا (ملف خارجي كامل — راجع systems/arenaCommands.js و systems/arenaSystem.js)
 const { handleArenaCommand, ARENA_HELP } = require('./systems/arenaCommands')
+// ⏸️ تعطيل مؤقت لأمر .هجوم_ارينا بالواتساب (الهجوم متاح من الموقع: تحدي ارينا). لإعادة التفعيل: غيّرها إلى false
+const ARENA_ATTACK_WA_DISABLED = true
 const { startArenaSchedulers } = require('./systems/arenaSystem')
 
 const worlds = require('./worlds')
@@ -4685,6 +4687,14 @@ const siteArena = require('./systems/siteArena')({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🏟️ تحدي ارينا على الموقع — نفس بيانات أرينا البوت (arenaSystem/arenaData/player.arena) بمعركة فريق 3 ضد 3 بنمط BBS (systems/siteArenaChallenge.js)
+const siteArenaChallenge = require('./systems/siteArenaChallenge')({
+    Player,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid),
+    orbs
+})
+
 // 🎡 عجلة الحظ اليومية من الموقع (systems/siteWheel.js)
 const rewardLog = require('./systems/rewardLog') // 🎁 سجل آخر 10 جوائز بالموقع
 rewardLog.init(Player)
@@ -4699,6 +4709,7 @@ registerCharacterSite(app, Player, {
     wheel: siteWheel,
     challenge: siteChallenge,
     arena: siteArena,
+    arenaChallenge: siteArenaChallenge,
     xo: siteXO,
     shopSystem: characterShopSystem,
     shardSystem,
@@ -8508,6 +8519,14 @@ if (!text) return;
     // 🚢 SHIP SYSTEM (أوامر السفن — لازم قبل أي فحص عام لأوامر تبدأ بـ .
     // عشان .شراء_سفينة وغيرها ما توصل لفحص .شراء العام)
     // =========================
+    // 👑 .الغاء_حروب_السفينة — للمطور فقط
+    if (text.trim().startsWith('.الغاء_حروب_السفينة') && !isOwner(msg)) {
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ هذا الأمر للمطور فقط'
+        }).catch(() => {})
+        return
+    }
+
     if (
         textMatchesAnyPrefix(text, SHIP_COMMAND_PREFIXES) &&
         await handleShipCommand({ sock, msg, text, userId, safeSend })
@@ -14691,6 +14710,13 @@ console.log('📸 IMAGE SENT')
 // 📂 قسم: القتال
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+
+// ⏸️ .هجوم_ارينا معطّل مؤقتاً بالواتساب
+if (ARENA_ATTACK_WA_DISABLED && text.startsWith('.هجوم_ارينا')) {
+    return safeSend(msg.key.remoteJid, {
+        text: '⏸️ أمر .هجوم_ارينا معطّل مؤقتاً بالواتساب.\n\n🏟️ تقدر تهاجم من الموقع: «تحدي ارينا».'
+    })
+}
 
 // ─── نظام الأرينا (ملف خارجي كامل — systems/arenaCommands.js) ───
 if (
