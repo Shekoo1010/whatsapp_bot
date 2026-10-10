@@ -4176,6 +4176,10 @@ mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5 })
             // ⚡ يُستخدم باستعلام الضربة الجماعية للزعيم (bossHits > 0) كل 15 هجمة —
             // بدونه كل استعلام يمسح مجموعة اللاعبين كاملة
             Player.collection.createIndex({ bossHits: 1 }),
+            // ⚡ لوحة ترتيب الزعيم بالموقع (sort على bossDamage + المتصلون الآن بـ lastBossAttack) —
+            // بدونهما كل استطلاع يمسح مجموعة اللاعبين كاملة (مستندات ثقيلة) فيتأخر ظهور الضربات
+            Player.collection.createIndex({ bossDamage: -1 }),
+            Player.collection.createIndex({ lastBossAttack: -1 }),
             // partial index: يفهرس فقط اللاعبين اللي username عندهم نص
             // (String) فعلي — أي لاعب ما سجّل يوزر (username غايب تماماً
             // الآن بعد حذف default:null) يُستثنى تلقائياً، بدون تعارض
@@ -4810,7 +4814,11 @@ const siteMissions = require('./systems/siteMissions')({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 siteMissions.mount(app)
-Player.setMissionNotifier(siteMissions.onSave) // 🔔 إشعار من أعلى الشاشة عند إكمال أي مهمة (حتى لو البوت مقفول)
+if (typeof Player.setMissionNotifier === 'function') {
+    Player.setMissionNotifier(siteMissions.onSave) // 🔔 إشعار من أعلى الشاشة عند إكمال أي مهمة (حتى لو البوت مقفول)
+} else {
+    console.log('⚠️ models/Player.js قديم: استبدله بالنسخة المعدّلة لتفعيل إشعارات إكمال المهام')
+}
 
 registerCharacterSite(app, Player, {
     missions: siteMissions,
