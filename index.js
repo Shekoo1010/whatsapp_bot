@@ -4641,6 +4641,11 @@ const shardSystem = createShardSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// ⚔️ حرب الأعلام من الموقع (systems/warSystem.js): الفوز بعدد الأعلام، استحواذ 15ث، انتظار 30ث بين التحركات.
+// حالتها بالذاكرة وحرب واحدة، منفصلة عن .حرب القديمة بالواتس (battleSystem.js) — ما تتعارضان.
+const { createWarSystem } = require('./systems/warSystem')
+const warSystem = createWarSystem({ Player, applyDogBonus })
+
 // ⚔️ التحدي المباشر من الموقع (نفس نظام .تحدي / .قبول_تحدي / .هجوم الخصم / .مهارة / .ألتميت)
 const siteChallenge = require('./systems/siteChallenge')({
     Player,
@@ -4697,6 +4702,7 @@ registerCharacterSite(app, Player, {
     xo: siteXO,
     shopSystem: characterShopSystem,
     shardSystem,
+    warSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
     giftCharacters: siteGiftCharacters,
