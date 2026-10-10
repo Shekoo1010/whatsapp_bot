@@ -1363,10 +1363,13 @@ PlayerSchema.pre('save', async function () {
 
         if ((this.xp || 0) < xpForLevel(this.level || 1)) return
 
+        const levelBefore = this.level || 1 // 🏅 نحفظ المستوى قبل الترقية عشان الإشعار يعرف المستويات الفاصلة
+
         const message = await levelHooks.handler(this)
 
         if (message) {
             this.$locals.levelUpMessage = message
+            this.$locals.levelUpFrom = levelBefore
         }
 
     } catch (err) {
