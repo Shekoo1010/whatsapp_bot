@@ -37,7 +37,7 @@ module.exports = function createSiteArena(deps) {
     const {
         Player, getTotalStats, equipmentSystem, getWeaponBonus, companionsData,
         getRank, applyDogBonus, getSaudiDate, orbs, checkAndGrantAchievement,
-        getSock, getNotifyJid
+        getSock, getNotifyJid, trackWin
     } = deps
 
     // ── جدول الرتب: يُستخرج من getRank نفسها فلا يخرج عن rank.js لو تغيّرت الحدود ──
@@ -554,6 +554,9 @@ module.exports = function createSiteArena(deps) {
                 const boxInfo = RANK_BOX_MAP[rankKeyOf(winner.rank)] || RANK_BOX_MAP['برونزي']
                 winner.boxes = winner.boxes || {}
                 winner.boxes[boxInfo.key] = (winner.boxes[boxInfo.key] || 0) + 1
+
+                // 🎯 مهمة الفوز اليومية/الأسبوعية (للمهاجم فقط — المدافع ما شارك)
+                if (winner === attacker && trackWin) { try { await trackWin(attacker) } catch (e) {} }
 
                 await attacker.save()
                 await defender.save()

@@ -21,7 +21,7 @@ module.exports = function createSiteChallenge(deps) {
     const {
         Player, PvP, mongoose, equipmentSystem, getTotalStats, calculateDamageAdvanced,
         getRank, getRankTier, applyRankTierPromotion, applyDogBonus, addCommandXp, COMMAND_XP,
-        checkAndGrantAchievement, orbs, getPeriod, getSock
+        checkAndGrantAchievement, orbs, getPeriod, getSock, trackWin
     } = deps
 
     const Invite = Player.db.models.SiteChallengeInvite || Player.db.model('SiteChallengeInvite', new mongoose.Schema({
@@ -231,6 +231,9 @@ module.exports = function createSiteChallenge(deps) {
         loserData.rankTier = getRankTier(loserData.rankPoints)
         try { await applyRankTierPromotion(winnerData, wOldTier) } catch (e) { console.error('site challenge rank:', e.message) }
         try { await applyRankTierPromotion(loserData, lOldTier) } catch (e) { console.error('site challenge rank:', e.message) }
+
+        // 🎯 مهمة الفوز اليومية/الأسبوعية
+        if (trackWin) { try { await trackWin(winnerData) } catch (e) {} }
 
         await winnerData.save()
         // 🎁 سجل الجوائز بالموقع (الفائز)

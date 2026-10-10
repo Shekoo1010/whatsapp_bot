@@ -731,7 +731,8 @@ function navDrawerHTML(code, csrf, current, name) {
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
-        ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`]
+        ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
+        ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
     ]
     const list = items.map(([k, ic, label, href]) =>
         `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`

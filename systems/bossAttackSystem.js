@@ -329,8 +329,9 @@ function createBossAttackSystem(deps) {
         try {
             if (isBanned && isBanned(userId)) return fail('BANNED', '❌ حسابك محظور.')
 
-            const sock = getSock()
-            if (!sock) return fail('OFFLINE', '⏳ البوت غير متصل حالياً، حاول بعد قليل.')
+            // 🌐 الهجوم من الموقع ما يعتمد على اتصال الواتساب: لو الـ sock غير متاح نستخدم بديل صامت
+            // (الإنجازات/نقاط العالم تظهر بالموقع عبر siteNotify، وإرسال الواتساب يُتجاهل)
+            const sock = getSock() || { sendMessage: async () => {} }
 
             if (!isAttackOpen()) {
                 return fail('CLOSED', '🔴 باب الهجوم مغلق الآن — يفتح رأس كل ساعة.')
