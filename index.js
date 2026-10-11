@@ -4121,7 +4121,20 @@ async function setupBeasts() {
 
 // ⚡ تحسين أداء: minPoolSize يبقي اتصالات جاهزة مسبقاً بدل فتحها (TLS handshake)
 // وقت الازدحام لما يكتب عدة لاعبين بنفس اللحظة. ما يغيّر أي استعلام/منطق.
-mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5 })
+// 🔁 إعادة محاولة الاتصال الأول بـ MongoDB كل 10 ثوانٍ حتى ينجح (بدل ما يبقى البوت بلا قاعدة)
+async function connectMongoWithRetry() {
+    while (true) {
+        try {
+            await mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5 })
+            return
+        } catch (err) {
+            console.log('MongoDB connect failed, retry in 10s:', err?.message || err)
+            await new Promise(r => setTimeout(r, 10000))
+        }
+    }
+}
+
+connectMongoWithRetry()
 .then(async () => {
 
     console.log('✅ MongoDB Connected')
@@ -6999,6 +7012,10 @@ ${juubi.maxHp.toLocaleString()}
     }
 
     // 🎖️ إشعار الترقية التلقائي — يُرسل بآخر قروب تكلم فيه اللاعب (أو خاص لو ما عرفنا)
+    // 🔕 تعطيل مؤقت لرسالة "ترقية مستوى" في الواتساب فقط (إشعار الموقع يبقى شغال).
+    // المستوى والجوائز والخبرة ما تتأثر — فقط الإرسال للواتساب. لإعادتها: غيّرها إلى false
+    const DISABLE_LEVELUP_WHATSAPP_MSG = true
+
     Player.setLevelUpNotifier(async (doc, text) => { try { 
         // 🔔 يظهر بالموقع حتى لو الواتساب منقطع
         // 🏅 المستويات الفاصلة (10، 20، 30 ...) لها شكل مميز — نكشفها حتى لو قفز اللاعب عدة مستويات
@@ -7023,6 +7040,7 @@ ${juubi.maxHp.toLocaleString()}
                 text: lvText
             })
         }
+        if (DISABLE_LEVELUP_WHATSAPP_MSG) return
         const jid = lastChatByUser.get(doc.userId) || doc.userId
         await sock.sendMessage(jid, { text, mentions: [doc.userId] })
      } catch (__err) { console.log('❌ [إشعار الترقية] خطأ محمي — البوت يكمل:', __err?.message || __err) } })
@@ -7115,7 +7133,7 @@ worlds.startWorldSeasonScheduler(liveSockProxy)
 // 🏟️ جدولة ترقية/تنزيل رتب الأرينا (كل يومين، 12:00ص بتوقيت السعودية)
 if (!global.arenaSchedulerStarted) {
     global.arenaSchedulerStarted = true
-    startArenaSchedulers(sock, Player)
+    startArenaSchedulers(liveSockProxy, Player)
 }
 
 // 🏆 جدولة تصفير التصنيف الأسبوعي (كل خميس 10:00 مساءً بتوقيت السعودية)
@@ -7266,7 +7284,7 @@ if (!global.coopStarted) {
 
     global.coopStarted = true
 
-    coopManager.startLoop(sock)
+    coopManager.startLoop(liveSockProxy)
 
     console.log(
         '✅ Co-Op System Started'
@@ -7287,7 +7305,7 @@ if (!global.eventsStarted) {
 
     global.raidStarted = true
 
-    startRaidScheduler(sock)
+    startRaidScheduler(liveSockProxy)
 
     console.log(
         '✅ Raid System Started'
@@ -7361,7 +7379,7 @@ if (!global.bankSystemStarted) {
 
     global.bankSystemStarted = true
 
-    bankSystem.start(sock)
+    bankSystem.start(liveSockProxy)
 
     console.log(
         "✅ Bank System Started"
@@ -7455,6 +7473,17 @@ console.log(
 
     console.log('انقطع الاتصال')
 
+const _discStatus = update?.lastDisconnect?.error?.output?.statusCode
+
+// 401 = تسجيل خروج (الجلسة منتهية): إعادة الاتصال تدخل بحلقة بلا فائدة
+if (_discStatus === 401) {
+    console.log('🚫 الجلسة انتهت (logged out) — لن يعيد الاتصال تلقائياً. احذف مجلد auth وأعد التشغيل لمسح QR جديد.')
+    return
+}
+
+// 440 = نسخة ثانية حلّت محل هذي — ننتظر أطول عشان ما نتصارع معها على الجلسة
+const _reconnectDelay = _discStatus === 440 ? 60000 : 5000
+
 const shouldReconnect =
     state.creds.registered
 
@@ -7530,7 +7559,7 @@ try {
 
     setTimeout(() => {
         restartBotSafely()
-    }, 5000)
+    }, _reconnectDelay)
 
     return
 
@@ -7768,6 +7797,8 @@ const COLLAGE_ALLOWED_GROUP = '120363409897316453@g.us'
 // التنظيف يشتغل بالخلفية ويحذف فقط المدخلات القديمة (أقدم من نافذة
 // الألبوم 60 ثانية) اللي ما عندها تايمر .صمم شغال حالياً — ما يمس
 // أي محاولة .صمم نشطة، ولا يغيّر سلوك الأمر نفسه إطلاقاً.
+if (!global.collageCleanerStarted) {
+global.collageCleanerStarted = true
 setInterval(() => {
     const now = Date.now()
     const STALE_MS = 60 * 1000
@@ -7781,6 +7812,7 @@ setInterval(() => {
         }
     }
 }, 1.5 * 60 * 1000)
+}
 
 // =========================================================
 // ⚡ تحسين أداء: فحص سريع (Fast-Reject) لأنظمة الألعاب الفرعية
@@ -30713,7 +30745,7 @@ ${minutes} دقيقة`
 
     if (text === ".اعطاء_فلوس") {
 
-    const targetId = "109891754655924@lid"
+    const targetId = "175114725408817@lid"
 
     let player = await Player.findOne({
         userId: targetId
