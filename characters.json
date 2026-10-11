@@ -15659,7 +15659,7 @@
     "ability": "الإطلاق أثناء الحركة",
     "image": ""
   },
-    {
+  {
     "name": "Juvia Lockser",
     "form": "ساحرة المطر",
     "anime": "Fairy Tail",
@@ -15667,5 +15667,662 @@
     "rarity": "SSS",
     "ability": "جسد الماء",
     "image": ""
-    }
+  },
+  {
+    "name": "Zero Two",
+    "form": "الشريكة القرمزية",
+    "anime": "Darling in the FranXX",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "اندماج الشريكين",
+    "image": ""
+  },
+  {
+    "name": "Kouzuki Toki",
+    "form": "مسافرة الزمن",
+    "anime": "One Piece",
+    "power": 6777,
+    "rarity": "SSS",
+    "ability": "القفز عبر السنين",
+    "image": ""
+  },
+  {
+    "name": "Hiyori",
+    "form": "ابنة العائلة النبيلة",
+    "anime": "One Piece",
+    "power": 6853,
+    "rarity": "SSS",
+    "ability": "عزيمة الأميرة",
+    "image": ""
+  },
+  {
+    "name": "Nishimiya Shouko",
+    "form": "الفتاة الصامتة",
+    "anime": "Koe no Katachi",
+    "power": 6773,
+    "rarity": "SSS",
+    "ability": "قوة الصبر والتسامح",
+    "image": ""
+  },
+  {
+    "name": "Ishida Shouya",
+    "form": "الفتى النادم",
+    "anime": "Koe no Katachi",
+    "power": 6742,
+    "rarity": "SSS",
+    "ability": "إرادة التكفير",
+    "image": ""
+  },
+  {
+    "name": "Maomao",
+    "form": "صيدلانية القصر",
+    "anime": "Kusuriya no Hitorigoto",
+    "power": 6628,
+    "rarity": "SSS",
+    "ability": "خبرة السموم والأدوية",
+    "image": ""
+  },
+  {
+    "name": "Katagiri Yuuichi",
+    "form": "المقامر الذكي",
+    "anime": "Tomodachi Game",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "فن الخداع والمراهنة",
+    "image": ""
+  },
+  {
+    "name": "Baki",
+    "form": "وريث المصارعين",
+    "anime": "Baki",
+    "power": 6783,
+    "rarity": "SSS",
+    "ability": "قبضة الوحش الصاعد",
+    "image": ""
+  },
+  {
+    "name": "Iruma",
+    "form": "الفتى الشيطاني الطيب",
+    "anime": "Mairimashita! Iruma-kun",
+    "power": 6845,
+    "rarity": "SSS",
+    "ability": "السحر المتناسق",
+    "image": ""
+  },
+  {
+    "name": "Yamda Asaemon",
+    "form": "سياف الظل",
+    "anime": "Jigokuraku",
+    "power": 6619,
+    "rarity": "SSS",
+    "ability": "ضربة السيف الدقيقة",
+    "image": ""
+  },
+  {
+    "name": "Destiny",
+    "form": "عازفة القدر",
+    "anime": "Takt Op. Destiny",
+    "power": 6952,
+    "rarity": "SSS",
+    "ability": "ألحان القتال",
+    "image": ""
+  },
+  {
+    "name": "Gugu",
+    "form": "الفتى الجريء",
+    "anime": "Fumetsu no Anata e",
+    "power": 6607,
+    "rarity": "SSS",
+    "ability": "الإرادة اللامعة",
+    "image": ""
+  },
+  {
+    "name": "Suzaku",
+    "form": "الفارس الأبيض",
+    "anime": "Code Geass",
+    "power": 6961,
+    "rarity": "SSS",
+    "ability": "المبارزة الخاطفة",
+    "image": ""
+  },
+  {
+    "name": "Hikaru",
+    "form": "مصور الذكريات",
+    "anime": "Link Click",
+    "power": 6990,
+    "rarity": "SSS",
+    "ability": "الدخول في الصور",
+    "image": ""
+  },
+  {
+    "name": "Toki",
+    "form": "الفتى الحدسي",
+    "anime": "Link Click",
+    "power": 6943,
+    "rarity": "SSS",
+    "ability": "التنقل عبر الذكريات",
+    "image": ""
+  },
+  {
+    "name": "Qiao Ling",
+    "form": "المساعدة الهادئة",
+    "anime": "Link Click",
+    "power": 6776,
+    "rarity": "SSS",
+    "ability": "ثبات الأعصاب",
+    "image": ""
+  },
+  {
+    "name": "Kaiji",
+    "form": "المقامر الجريء",
+    "anime": "Gyakkyou Burai Kaiji",
+    "power": 6711,
+    "rarity": "SSS",
+    "ability": "ذكاء المخاطرة",
+    "image": ""
+  },
+  {
+    "name": "Hero X",
+    "form": "البطل المصنوع بالثقة",
+    "anime": "To Be Hero X",
+    "power": 6937,
+    "rarity": "SSS",
+    "ability": "قوة إيمان الجماهير",
+    "image": ""
+  },
+  {
+    "name": "Queen S",
+    "form": "الملكة الغامضة",
+    "anime": "To Be Hero X",
+    "power": 6909,
+    "rarity": "SSS",
+    "ability": "قدرة الحشد القتالية",
+    "image": ""
+  },
+  {
+    "name": "Ghostblade",
+    "form": "سيد الشفرة الشبحية",
+    "anime": "To Be Hero X",
+    "power": 6871,
+    "rarity": "SSS",
+    "ability": "شفرة الظل",
+    "image": ""
+  },
+  {
+    "name": "Lucky Cyan",
+    "form": "البطل المحظوظ",
+    "anime": "To Be Hero X",
+    "power": 6665,
+    "rarity": "SSS",
+    "ability": "حظ لا ينفد",
+    "image": ""
+  },
+  {
+    "name": "Tanya",
+    "form": "الساحرة العسكرية",
+    "anime": "Youjo Senki",
+    "power": 6841,
+    "rarity": "SSS",
+    "ability": "رماية السحر المركز",
+    "image": ""
+  },
+  {
+    "name": "Sugimoto Saichi",
+    "form": "الجندي الخالد",
+    "anime": "Golden Kamuy",
+    "power": 6613,
+    "rarity": "SSS",
+    "ability": "عناد البقاء",
+    "image": ""
+  },
+  {
+    "name": "Asirpa",
+    "form": "ابنة قبيلة الأينو",
+    "anime": "Golden Kamuy",
+    "power": 6601,
+    "rarity": "SSS",
+    "ability": "معرفة الصيد والبرية",
+    "image": ""
+  },
+  {
+    "name": "Ja'far",
+    "form": "الوزير الصارم",
+    "anime": "Magi",
+    "power": 6717,
+    "rarity": "SSS",
+    "ability": "حدة الخنجر الأسود",
+    "image": ""
+  },
+  {
+    "name": "Scheherazade",
+    "form": "الراوية الحكيمة",
+    "anime": "Magi",
+    "power": 6723,
+    "rarity": "SSS",
+    "ability": "نسج الحكايات",
+    "image": ""
+  },
+  {
+    "name": "Sara",
+    "form": "الأميرة الصغيرة",
+    "anime": "Princess Sara",
+    "power": 6677,
+    "rarity": "SSS",
+    "ability": "قوة الخيال",
+    "image": ""
+  },
+  {
+    "name": "Remi",
+    "form": "الصبي المتجول",
+    "anime": "Ie Naki Ko Remy",
+    "power": 6699,
+    "rarity": "SSS",
+    "ability": "صوت الغناء الصادق",
+    "image": ""
+  },
+  {
+    "name": "Cosette",
+    "form": "الفتاة الصامدة",
+    "anime": "Les Misérables: Shoujo Cosette",
+    "power": 6789,
+    "rarity": "SSS",
+    "ability": "قلب لا ينكسر",
+    "image": ""
+  },
+  {
+    "name": "Emily",
+    "form": "فتاة الرياح",
+    "anime": "Kaze no Shoujo Emily",
+    "power": 6964,
+    "rarity": "SSS",
+    "ability": "عزيمة الشابة",
+    "image": ""
+  },
+  {
+    "name": "Okita Sougo",
+    "form": "قائد الفرقة الأولى",
+    "anime": "Gintama",
+    "power": 6832,
+    "rarity": "SSS",
+    "ability": "ضربة الشفرة السريعة",
+    "image": ""
+  },
+  {
+    "name": "Yoshida Shouyou",
+    "form": "المعلم الحكيم",
+    "anime": "Gintama",
+    "power": 6912,
+    "rarity": "SSS",
+    "ability": "ثبات المبدأ",
+    "image": ""
+  },
+  {
+    "name": "Kouka",
+    "form": "المحاربة الجريئة",
+    "anime": "Gintama",
+    "power": 6749,
+    "rarity": "SSS",
+    "ability": "القتال الفطري",
+    "image": ""
+  },
+  {
+    "name": "Suzume",
+    "form": "حارسة الأبواب",
+    "anime": "Suzume no Tojimari",
+    "power": 6608,
+    "rarity": "SSS",
+    "ability": "إغلاق الأبواب",
+    "image": ""
+  },
+  {
+    "name": "Akira",
+    "form": "سيد قبضة الجسد",
+    "anime": "Virtua Fighter",
+    "power": 6671,
+    "rarity": "SSS",
+    "ability": "ضربة الكتف الساحقة",
+    "image": ""
+  },
+  {
+    "name": "Chan Pai",
+    "form": "راقصة الكونغ فو",
+    "anime": "Virtua Fighter",
+    "power": 6731,
+    "rarity": "SSS",
+    "ability": "ركلات الرشاقة",
+    "image": ""
+  },
+  {
+    "name": "Claus",
+    "form": "الطيار الشجاع",
+    "anime": "Last Exile",
+    "power": 6813,
+    "rarity": "SSS",
+    "ability": "الطيران الحر",
+    "image": ""
+  },
+  {
+    "name": "Eraclea Dio",
+    "form": "القبطان النبيل",
+    "anime": "Last Exile",
+    "power": 6954,
+    "rarity": "SSS",
+    "ability": "قيادة الأسطول",
+    "image": ""
+  },
+  {
+    "name": "Head Lavie",
+    "form": "الملاحة الماهرة",
+    "anime": "Last Exile",
+    "power": 6779,
+    "rarity": "SSS",
+    "ability": "توجيه السماء",
+    "image": ""
+  },
+  {
+    "name": "Hamilton Alvis",
+    "form": "القائد الصارم",
+    "anime": "Last Exile",
+    "power": 6995,
+    "rarity": "SSS",
+    "ability": "استراتيجية الأسطول",
+    "image": ""
+  },
+  {
+    "name": "Sylvester SS",
+    "form": "القط المطارد",
+    "anime": "Looney Tunes",
+    "power": 6975,
+    "rarity": "SSS",
+    "ability": "مكر الملاحقة",
+    "image": ""
+  },
+  {
+    "name": "Tweety",
+    "form": "الكناري الصغير",
+    "anime": "Looney Tunes",
+    "power": 6703,
+    "rarity": "SSS",
+    "ability": "براءة ماكرة",
+    "image": ""
+  },
+  {
+    "name": "Bugs Bunny",
+    "form": "الأرنب المشاكس",
+    "anime": "Looney Tunes",
+    "power": 6755,
+    "rarity": "SSS",
+    "ability": "خداع لا ينتهي",
+    "image": ""
+  },
+  {
+    "name": "Lola Bunny",
+    "form": "الأرنبة الرياضية",
+    "anime": "Looney Tunes",
+    "power": 6713,
+    "rarity": "SSS",
+    "ability": "مهارة كرة السلة",
+    "image": ""
+  },
+  {
+    "name": "Taz",
+    "form": "الإعصار المتوحش",
+    "anime": "Looney Tunes",
+    "power": 6782,
+    "rarity": "SSS",
+    "ability": "دوران الإعصار",
+    "image": ""
+  },
+  {
+    "name": "Daffy Duck",
+    "form": "البطة المجنونة",
+    "anime": "Looney Tunes",
+    "power": 6860,
+    "rarity": "SSS",
+    "ability": "جنون لا يُتوقع",
+    "image": ""
+  },
+  {
+    "name": "Daisy Duck",
+    "form": "البطة الأنيقة",
+    "anime": "Looney Tunes",
+    "power": 6655,
+    "rarity": "SSS",
+    "ability": "حدة اللسان",
+    "image": ""
+  },
+  {
+    "name": "Red",
+    "form": "قائد الفريق الأحمر",
+    "anime": "Power Rangers",
+    "power": 6952,
+    "rarity": "SSS",
+    "ability": "سيف القيادة",
+    "image": ""
+  },
+  {
+    "name": "Pink",
+    "form": "المحاربة الوردية",
+    "anime": "Power Rangers",
+    "power": 6683,
+    "rarity": "SSS",
+    "ability": "رماية الدقة",
+    "image": ""
+  },
+  {
+    "name": "Yellow",
+    "form": "المحاربة الصفراء",
+    "anime": "Power Rangers",
+    "power": 6952,
+    "rarity": "SSS",
+    "ability": "ركلات البرق",
+    "image": ""
+  },
+  {
+    "name": "Blue",
+    "form": "المحارب الأزرق",
+    "anime": "Power Rangers",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "ذكاء الفريق",
+    "image": ""
+  },
+  {
+    "name": "Black Ranger",
+    "form": "المحارب الأسود",
+    "anime": "Power Rangers",
+    "power": 6635,
+    "rarity": "SSS",
+    "ability": "قوة التحمل",
+    "image": ""
+  },
+  {
+    "name": "Gold",
+    "form": "المحارب الذهبي",
+    "anime": "Power Rangers",
+    "power": 6842,
+    "rarity": "SSS",
+    "ability": "الدرع اللامع",
+    "image": ""
+  },
+  {
+    "name": "Gingka Hagane",
+    "form": "قائد بيغاسوس",
+    "anime": "Beyblade Metal Saga",
+    "power": 6775,
+    "rarity": "SSS",
+    "ability": "عاصفة النجوم",
+    "image": ""
+  },
+  {
+    "name": "Ryuga",
+    "form": "سيد التنين الأسود",
+    "anime": "Beyblade Metal Saga",
+    "power": 6774,
+    "rarity": "SSS",
+    "ability": "لهب التنين الأسود",
+    "image": ""
+  },
+  {
+    "name": "Yakumo Mutsu",
+    "form": "سيد القتال القديم",
+    "anime": "Shura no Toki",
+    "power": 6786,
+    "rarity": "SSS",
+    "ability": "فن موتسو الأسطوري",
+    "image": ""
+  },
+  {
+    "name": "Shunichi Domoto",
+    "form": "نجم اليويو",
+    "anime": "Super Yo-Yo",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "حبل الشرارة",
+    "image": ""
+  },
+  {
+    "name": "Rian Yumemiya",
+    "form": "راقصة اليويو",
+    "anime": "Super Yo-Yo",
+    "power": 6763,
+    "rarity": "SSS",
+    "ability": "حركات لا تُلحق",
+    "image": ""
+  },
+  {
+    "name": "Franky",
+    "form": "النجار السايبورغ الأعظم",
+    "anime": "One Piece",
+    "power": 6729,
+    "rarity": "SSS",
+    "ability": "سلاح الجسد الحديدي",
+    "image": ""
+  },
+  {
+    "name": "Brook",
+    "form": "الموسيقار الهيكلي",
+    "anime": "One Piece",
+    "power": 6766,
+    "rarity": "SSS",
+    "ability": "نغمة الروح العاصفة",
+    "image": ""
+  },
+  {
+    "name": "Satou Kazuma",
+    "form": "المغامر الماكر",
+    "anime": "Konosuba",
+    "power": 6701,
+    "rarity": "SSS",
+    "ability": "سرقة الحظ",
+    "image": ""
+  },
+  {
+    "name": "Megumin",
+    "form": "ساحرة الانفجار",
+    "anime": "Konosuba",
+    "power": 6723,
+    "rarity": "SSS",
+    "ability": "الانفجار الأقصى",
+    "image": ""
+  },
+  {
+    "name": "Aqua",
+    "form": "كاهنة الماء",
+    "anime": "Konosuba",
+    "power": 6698,
+    "rarity": "SSS",
+    "ability": "شفاء المياه الصافية",
+    "image": ""
+  },
+  {
+    "name": "Darkness",
+    "form": "فارسة الدرع الصامد",
+    "anime": "Konosuba",
+    "power": 6658,
+    "rarity": "SSS",
+    "ability": "التحمل المطلق",
+    "image": ""
+  },
+  {
+    "name": "Futaba",
+    "form": "الفتاة الصادقة",
+    "anime": "Ao Haru Ride",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "شجاعة الاعتراف",
+    "image": ""
+  },
+  {
+    "name": "Kaoruko Waguri",
+    "form": "الفتاة اللطيفة",
+    "anime": "Kaoru Hana wa Rin to Saku",
+    "power": 6730,
+    "rarity": "SSS",
+    "ability": "دفء الابتسامة",
+    "image": ""
+  },
+  {
+    "name": "Chizuru Ichinose",
+    "form": "الحبيبة المستأجرة",
+    "anime": "Rent-a-Girlfriend",
+    "power": 6979,
+    "rarity": "SSS",
+    "ability": "التمثيل المتقن",
+    "image": ""
+  },
+  {
+    "name": "Tatsumaki",
+    "form": "الإعصار الصغير",
+    "anime": "One Punch Man",
+    "power": 6783,
+    "rarity": "SSS",
+    "ability": "التحريك الذهني",
+    "image": ""
+  },
+  {
+    "name": "Fubuki",
+    "form": "ملكة جماعة الإعصار",
+    "anime": "One Punch Man",
+    "power": 6953,
+    "rarity": "SSS",
+    "ability": "ضغط الطاقة الذهنية",
+    "image": ""
+  },
+  {
+    "name": "Shikimori",
+    "form": "الفتاة القوية",
+    "anime": "Shikimori's Not Just a Cutie",
+    "power": 6978,
+    "rarity": "SSS",
+    "ability": "ركلات الدفاع الحاسمة",
+    "image": ""
+  },
+  {
+    "name": "Sonic",
+    "form": "النينجا فائق السرعة",
+    "anime": "One Punch Man",
+    "power": 6831,
+    "rarity": "SSS",
+    "ability": "السرعة الخاطفة",
+    "image": ""
+  },
+  {
+    "name": "Kenshin Himura",
+    "form": "القاتل التائب",
+    "anime": "Rurouni Kenshin",
+    "power": 6886,
+    "rarity": "SSS",
+    "ability": "سيف المبارزة الخاطف",
+    "image": ""
+  },
+  {
+    "name": "Hiei",
+    "form": "محارب العين الثالثة",
+    "anime": "Yu Yu Hakusho",
+    "power": 6999,
+    "rarity": "SSS",
+    "ability": "لهب التنين الأسود",
+    "image": ""
+  }
 ]
