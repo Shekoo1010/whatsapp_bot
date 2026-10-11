@@ -347,7 +347,8 @@ function createBossAttackSystem(deps) {
 
             // 🌐 الهجوم من الموقع ما يعتمد على اتصال الواتساب: لو الـ sock غير متاح نستخدم بديل صامت
             // (الإنجازات/نقاط العالم تظهر بالموقع عبر siteNotify، وإرسال الواتساب يُتجاهل)
-            const sock = getSock() || { sendMessage: async () => {} }
+            // 🔕 الإشعارات (إنجازات/نقاط عالم) تظهر بالموقع فقط — نمرّر sock صامت فلا يُرسل شيء للواتساب
+            const sock = { sendMessage: async () => {} }
 
             if (!isAttackOpen()) {
                 return fail('CLOSED', '🔴 باب الهجوم مغلق الآن — يفتح رأس كل ساعة.')
@@ -893,7 +894,7 @@ function createBossAttackSystem(deps) {
             invalidateBoard()
 
             // الإشعارات الجانبية (إنجاز/نقاط عالم) تروح لخاص اللاعب — ولا شيء للقروب
-            const notifyJid = await getNotifyJid(userId)
+            const notifyJid = null // 🔕 لا إرسال للواتساب — لا حاجة لاستعلام رقم اللاعب
 
             await checkAndGrantAchievement(me, 'boss', me.totalBossDamage, sock, notifyJid)
             await checkAndGrantAchievement(me, 'wealth', me.totalEarnedMoney, sock, notifyJid)
@@ -910,34 +911,35 @@ function createBossAttackSystem(deps) {
                 const players = await Player.find({
                     bossDead: { $ne: true },
                     bossHits: { $gt: 0 }
-                }).select('userId name username bossHp bossMaxHp bossRespawn')
+                }).select('userId name username bossHp bossMaxHp bossRespawn').lean()
 
                 const raidDamage = Math.floor((boss.attack || 3000) * 1.5)
 
-                await Promise.all(players.map(p => {
+                const raidRespawn = new Date(Date.now() + RESPAWN_MS)
+                const raidOps = players.map(p => {
                     const newHp = Math.max(0, (p.bossHp || p.bossMaxHp) - raidDamage)
                     // مزامنة نسخة اللاعب المهاجم بالذاكرة مع ضرر الضربة الجماعية، عشان
                     // الضربة المرتدة وحفظها بعدها يبنون على الدم الصحيح (ما يضيع ضرر الجماعية)
                     if (String(p._id) === String(me._id)) {
                         me.bossHp = newHp
                         me.bossDead = newHp <= 0
-                        me.bossRespawn = newHp <= 0
-                            ? new Date(Date.now() + RESPAWN_MS)
-                            : p.bossRespawn
+                        me.bossRespawn = newHp <= 0 ? raidRespawn : p.bossRespawn
                     }
-                    return Player.updateOne(
-                        { _id: p._id },
-                        {
-                            $set: {
-                                bossHp: newHp,
-                                bossDead: newHp <= 0,
-                                bossRespawn: newHp <= 0
-                                    ? new Date(Date.now() + RESPAWN_MS)
-                                    : p.bossRespawn
+                    return {
+                        updateOne: {
+                            filter: { _id: p._id },
+                            update: {
+                                $set: {
+                                    bossHp: newHp,
+                                    bossDead: newHp <= 0,
+                                    bossRespawn: newHp <= 0 ? raidRespawn : p.bossRespawn
+                                }
                             }
                         }
-                    )
-                }))
+                    }
+                })
+                // ⚡ عملية واحدة بدل N عملية منفصلة
+                if (raidOps.length) await Player.bulkWrite(raidOps, { ordered: false })
 
                 // أسماء/يوزرات كل من تضرر (بدل المنشن بالقروب)
                 emit({
@@ -1013,8 +1015,15 @@ function createBossAttackSystem(deps) {
 
                 boss.finished = true
 
+                // ⏰ وقت الرسبن = رأس الساعة القادمة — نكتبه فورًا مع finished
+                // (قبل توزيع الجوائز) عشان حلقة الرسبن ما تلقى finished بدون respawnAt وتسبّن زعيم جديد فورًا
+                const earlyNextHour = new Date()
+                earlyNextHour.setMinutes(0, 0, 0)
+                earlyNextHour.setHours(earlyNextHour.getHours() + 1)
+                boss.respawnAt = earlyNextHour.getTime()
+
                 try {
-                    await Boss.updateOne({}, { $set: { finished: true, hp: 0 } })
+                    await Boss.updateOne({}, { $set: { finished: true, hp: 0, respawnAt: boss.respawnAt } })
                 } catch (err) {
                     console.log('خطأ حفظ finished فورًا عند موت الزعيم (موقع):', err)
                 }
