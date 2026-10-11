@@ -76,42 +76,25 @@ async function answer(sock, msg, player, text, userId) {
     if (!state || !state.active)
         return { handled: false }
 
-    if (!text.startsWith(".اختيار "))
-        return { handled:false }
+    if (!text.startsWith(".اختيار"))
+        return { handled: false }
 
-    if (state.chosenPlayers.has(userId)) {
+    // الرقم لازم يكون 1 أو 2 أو 3 فقط (أي شيء ثاني مثل W يتجاهله البوت)
+    const match = text.slice(7).trim().match(/^([123])$/)
+
+    if (!match)
+        return { handled: true }
+
+    const choice = Number(match[1])
+
+    const uid = userId || player.userId
+
+    if (state.chosenPlayers.has(uid)) {
 
         await sock.sendMessage(jid, {
 
             text:
 `❌ لقد اخترت صندوقًا بالفعل.`
-
-        })
-
-        return { handled: true }
-
-    }
-
-    const choice =
-        parseInt(
-            text
-                .slice(8)
-                .trim()
-        )
-
-    if (
-        choice < 1 ||
-        choice > 3
-    ) {
-
-        await sock.sendMessage(jid, {
-
-            text:
-`❌ اختر أحد الصناديق:
-
-1️⃣
-2️⃣
-3️⃣`
 
         })
 
@@ -132,14 +115,30 @@ async function answer(sock, msg, player, text, userId) {
 
     }
 
-    state.chosenPlayers.add(userId)
+    // نحجز الصندوق قبل أي await حتى لا يفتحه شخصان في نفس اللحظة
+    state.chosenPlayers.add(uid)
     state.openedBoxes.add(choice)
 
-    const reward =
-        await giveAnimeReward(player)
+    const finished = state.openedBoxes.size >= 3
+
+    let reward
+
+    try {
+
+        reward = await giveAnimeReward(player)
+
+    } catch (e) {
+
+        // فشل إعطاء الجائزة: نرجع الصندوق للاعب
+        state.chosenPlayers.delete(uid)
+        state.openedBoxes.delete(choice)
+
+        throw e
+
+    }
 
     // إذا تم فتح جميع الصناديق ينتهي الحدث مباشرة
-    if (state.openedBoxes.size >= 3) {
+    if (finished) {
 
         clearTimeout(state.timeout)
 
@@ -164,17 +163,17 @@ async function answer(sock, msg, player, text, userId) {
 
     return {
 
-    handled: true,
+        handled: true,
 
-    winner: player.userId,
+        winner: uid,
 
-    reward,
+        reward,
 
-    extraText: `🎁 فتح الصندوق رقم ${choice}`,
+        extraText: `🎁 فتح الصندوق رقم ${choice}`,
 
-    finished: state.openedBoxes.size >= 3
+        finished
 
-}
+    }
 
 }
 

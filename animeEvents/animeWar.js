@@ -31,34 +31,47 @@ function shuffle(array) {
 
 function buildBattle() {
 
-    const teamSize = random(1, 4)
+    // الأنميات وعدد شخصيات SSS في كل واحد
+    const byAnime = new Map()
 
-    const animeList = [
-        ...new Set(
-            sssCharacters.map(c => c.anime)
-        )
-    ]
+    for (const c of sssCharacters) {
 
-    const shuffledAnime = shuffle(animeList)
+        if (!byAnime.has(c.anime)) byAnime.set(c.anime, [])
 
-    const anime1 = shuffledAnime[0]
-    const anime2 = shuffledAnime[1]
+        byAnime.get(c.anime).push(c)
 
-    const team1 =
-        shuffle(
-            sssCharacters.filter(c => c.anime === anime1)
-        ).slice(0, teamSize)
+    }
 
-    const team2 =
-        shuffle(
-            sssCharacters.filter(c => c.anime === anime2)
-        ).slice(0, teamSize)
+    // الفريقين دائمًا بنفس العدد: نختار العدد (1-4) ثم أنميين عندهم على الأقل هذا العدد
+    let teamSize = random(1, 4)
+
+    let candidates = []
+
+    while (teamSize >= 1) {
+
+        candidates = [...byAnime.entries()]
+            .filter(([, list]) => list.length >= teamSize)
+            .map(([anime]) => anime)
+
+        if (candidates.length >= 2) break
+
+        teamSize--
+
+    }
+
+    if (candidates.length < 2)
+        throw new Error("animeWar: لا يوجد أنميين كافيين من فئة SSS")
+
+    const [anime1, anime2] = shuffle(candidates)
+
+    const team1 = shuffle(byAnime.get(anime1)).slice(0, teamSize)
+    const team2 = shuffle(byAnime.get(anime2)).slice(0, teamSize)
 
     const power1 =
-        team1.reduce((s, c) => s + c.power, 0)
+        team1.reduce((s, c) => s + (Number(c.power) || 0), 0)
 
     const power2 =
-        team2.reduce((s, c) => s + c.power, 0)
+        team2.reduce((s, c) => s + (Number(c.power) || 0), 0)
 
     return {
 
@@ -173,16 +186,12 @@ async function answer(sock, msg, player, text) {
     if (!text.startsWith(".جواب "))
         return { handled: false }
 
-    const choice =
-        parseInt(
-            text.slice(6).trim()
-        )
+    const m = text.slice(6).trim().match(/^([12])$/)
 
-    if (
-        choice !== 1 &&
-        choice !== 2
-    )
+    if (!m)
         return { handled: true }
+
+    const choice = Number(m[1])
 
     if (choice !== state.battle.correct) {
 

@@ -39,6 +39,10 @@ function randomLegendary() {
 
 async function giveAnimeReward(player) {
 
+    // حماية: لاعب بدون صناديق أو شخصيات ما يسبب كراش
+    player.boxes = player.boxes || {}
+    if (!Array.isArray(player.characters)) player.characters = []
+
     const roll = Math.random() * 100
 
     // =========================
@@ -48,7 +52,7 @@ async function giveAnimeReward(player) {
 
         const amount = random(10000, 1000000)
 
-        player.money += amount
+        player.money = (player.money || 0) + amount
 
         await player.save()
 
@@ -69,7 +73,7 @@ async function giveAnimeReward(player) {
 
         const xp = random(100, 1000)
 
-        player.xp += xp
+        player.xp = (player.xp || 0) + xp
 
         await player.save()
 
@@ -147,7 +151,7 @@ return {
     // =========================
     if (roll < 85) {
 
-        player.boxes.legendary += 1
+        player.boxes.legendary = (player.boxes.legendary || 0) + 1
 
         await player.save()
 
@@ -204,7 +208,7 @@ return {
     // =========================
     if (roll < 95) {
 
-        player.boxes.sss_high += 1
+        player.boxes.sss_high = (player.boxes.sss_high || 0) + 1
 
         await player.save()
 
@@ -225,7 +229,7 @@ return {
     // 📦 صندوق SSS Chance 5%
     // =========================
 
-    player.boxes.sss_chance += 1
+    player.boxes.sss_chance = (player.boxes.sss_chance || 0) + 1
 
     await player.save()
 

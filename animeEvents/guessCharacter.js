@@ -1,9 +1,10 @@
 const imageQuestions = require("../imageQuestions")
 const { giveAnimeReward } = require("./AnimeRewards")
+const { nextIndex } = require("./deck")
 
 const states = new Map()
 
-function randomQuestion() {
+function randomQuestion(jid) {
 
     const list = imageQuestions.filter(q =>
         q.image &&
@@ -11,11 +12,9 @@ function randomQuestion() {
         q.answers.length
     )
 
+    // يمر على كل الصور مرة مرة، وبعد ما تخلص يعيد من جديد
     return list[
-        Math.floor(
-            Math.random() *
-            list.length
-        )
+        nextIndex("guessCharacter:" + jid, list.length)
     ]
 
 }
@@ -24,7 +23,7 @@ async function start(sock, jid) {
 
     const state = {
 
-        currentQuestion: randomQuestion(),
+        currentQuestion: randomQuestion(jid),
 
         answered: false,
 
@@ -95,8 +94,11 @@ async function answer(sock, msg, player, text) {
 
     const normalize = str =>
 
-        str
+        String(str)
             .toLowerCase()
+            .replace(/[أإآ]/g, "ا")
+            .replace(/ة/g, "ه")
+            .replace(/ى/g, "ي")
             .replace(/[._-]/g, " ")
             .replace(/\s+/g, " ")
             .trim()
@@ -104,6 +106,10 @@ async function answer(sock, msg, player, text) {
     const answer = normalize(
         text.slice(6)
     )
+
+    // جواب فاضي أو حرف واحد ما يحسب
+    if (answer.length < 2)
+        return { handled: true }
 
     const isCorrect =
         state.currentQuestion.answers.some(a => {

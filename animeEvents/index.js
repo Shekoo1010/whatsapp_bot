@@ -23,11 +23,67 @@ const activeEvents = new Map()
 
 let currentEventIndex = 0
 
+// من فاز/استلم جائزة في هذه الجولة (في أي قروب) ما ياخذ جائزة ثانية بقروب آخر
+let roundWinners = new Set()
+const pendingUsers = new Set()
+
 const EVENT_INTERVAL = 17 * 60 * 1000
 const EVENT_DURATION = 5 * 60 * 1000
 
-let scheduler = null
+// ⏱️ وقت الفعالية القادمة ورقم الفعالية يتحفظون بقاعدة البيانات (BotState)
+// حتى لو البوت انقفل أو انقطع الاتصال، ما تبدأ فعالية جديدة مباشرة عند التشغيل
+// بل يكمل العد من الوقت المحفوظ.
+const BotState = require("../models/BotState")
+
+let timer = null
 let running = false
+let generation = 0
+let liveSock = null
+let nextRunAt = 0
+
+async function loadSchedule() {
+
+    try {
+
+        const st = await BotState.findOne().lean()
+
+        return {
+            nextRunAt: Number(st && st.animeEventsNextRunAt) || 0,
+            index: Number(st && st.animeEventsIndex)
+        }
+
+    } catch (e) {
+
+        console.log("Anime Events: خطأ قراءة الوقت المحفوظ", e)
+
+        return { nextRunAt: 0, index: NaN }
+
+    }
+
+}
+
+async function saveSchedule(runAt, index) {
+
+    try {
+
+        await BotState.updateOne(
+            {},
+            {
+                $set: {
+                    animeEventsNextRunAt: runAt,
+                    animeEventsIndex: index
+                }
+            },
+            { upsert: true, strict: false }
+        )
+
+    } catch (e) {
+
+        console.log("Anime Events: خطأ حفظ الوقت", e)
+
+    }
+
+}
 
 function nextEvent() {
 
@@ -48,6 +104,9 @@ async function startNextEvent(sock) {
     const event = nextEvent()
 
     if (!event) return
+
+    roundWinners = new Set()
+    pendingUsers.clear()
 
     for (const jid of GROUPS) {
 
@@ -71,35 +130,93 @@ async function startNextEvent(sock) {
 
             console.log(`Anime Event Error (${jid})`, e)
 
+            if (activeEvents.get(jid) === event) activeEvents.delete(jid)
+
         }
 
     }
 
 }
 
-function startScheduler(sock) {
+function scheduleNext(gen, delay) {
+
+    if (gen !== generation) return
+
+    timer = setTimeout(async () => {
+
+        if (gen !== generation) return
+
+        // نحفظ الوقت القادم ورقم الفعالية التالية قبل الإرسال
+        nextRunAt = Date.now() + EVENT_INTERVAL
+
+        await saveSchedule(
+            nextRunAt,
+            (currentEventIndex + 1) % events.length
+        )
+
+        try {
+
+            await startNextEvent(liveSock)
+
+        } catch (e) {
+
+            console.log("Anime Events Error", e)
+
+        }
+
+        scheduleNext(gen, Math.max(0, nextRunAt - Date.now()))
+
+    }, Math.max(0, delay))
+
+}
+
+async function startScheduler(sock) {
+
+    liveSock = sock
 
     if (running) return
 
     running = true
 
-    startNextEvent(sock)
+    const gen = ++generation
 
-    scheduler = setInterval(async () => {
+    const saved = await loadSchedule()
 
-        await startNextEvent(sock)
+    // إذا انقفل الجدولة أثناء القراءة
+    if (gen !== generation) return
 
-    }, EVENT_INTERVAL)
+    if (
+        Number.isInteger(saved.index) &&
+        saved.index >= 0 &&
+        saved.index < events.length
+    ) {
+        currentEventIndex = saved.index
+    }
+
+    const now = Date.now()
+
+    // لا يوجد وقت محفوظ (أول تشغيل) أو فات موعده: تبدأ الآن
+    // وإلا: تنتظر المتبقي من الوقت المحفوظ
+    const delay =
+        saved.nextRunAt > now
+            ? saved.nextRunAt - now
+            : 0
+
+    nextRunAt = now + delay
+
+    scheduleNext(gen, delay)
 
 }
 
 function stopScheduler() {
 
-    if (scheduler) {
+    generation++
 
-        clearInterval(scheduler)
+    if (timer) {
 
-        scheduler = null
+        clearTimeout(timer)
+
+        timer = null
 
     }
 
@@ -120,36 +237,60 @@ async function handleAnswer(sock, msg, text, player, userId) {
     if (typeof event.answer !== "function")
         return false
 
+    const uid = userId || (player && player.userId)
+
+    // رسائل الإجابة فقط: إذا اللاعب أخذ جائزة بقروب آخر بنفس الجولة، نتجاهله بصمت
+    // (السؤال يبقى مفتوح بهذا القروب ويقدر يفوز فيه شخص ثاني)
+    const isAnswerMsg =
+        typeof text === "string" &&
+        (text.startsWith(".جواب") || text.startsWith(".اختيار"))
+
+    if (isAnswerMsg && uid) {
+
+        if (roundWinners.has(uid) || pendingUsers.has(uid))
+            return true
+
+        pendingUsers.add(uid)
+
+    }
+
     let result
 
-try {
+    try {
 
-    result = await event.answer(
-        sock,
-        msg,
-        player,
-        text,
-        userId
-    )
+        result = await event.answer(
+            sock,
+            msg,
+            player,
+            text,
+            userId
+        )
 
-} catch (err) {
+    } catch (err) {
 
-    console.error(
-        "[Anime Event Error]",
-        event.name,
-        err
-    )
+        console.error(
+            "[Anime Event Error]",
+            event.name,
+            err
+        )
 
-    activeEvents.delete(jid)
+        activeEvents.delete(jid)
 
-    return false
+        return false
 
-}
+    } finally {
+
+        if (isAnswerMsg && uid) pendingUsers.delete(uid)
+
+    }
 
     if (!result)
         return false
 
     if (result.handled && result.winner) {
+
+    roundWinners.add(result.winner)
+    if (uid) roundWinners.add(uid)
 
     await sock.sendMessage(jid, {
 
