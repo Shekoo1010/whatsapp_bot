@@ -874,7 +874,14 @@ function startSiteBossLoop() {
             }
 
             if (currentBoss && currentBoss.finished) {
-                if (!currentBoss.respawnAt || currentBoss.respawnAt <= Date.now()) {
+                if (!currentBoss.respawnAt) {
+                    // ميت بدون وقت رسبن → نجدول لرأس الساعة القادمة (لا رسبن فوري)
+                    const nh = new Date()
+                    nh.setMinutes(0, 0, 0)
+                    nh.setHours(nh.getHours() + 1)
+                    currentBoss.respawnAt = nh.getTime()
+                    await Boss.updateOne({}, { $set: { respawnAt: currentBoss.respawnAt } })
+                } else if (new Date(currentBoss.respawnAt).getTime() <= Date.now()) {
                     console.log('👑 إعادة إنشاء الزعيم (حلقة الموقع)')
                     await respawnNext()
                 }
@@ -6117,22 +6124,8 @@ currentBoss = {
         console.log('⚠️ فشل إشعار الهاتف للزعيم:', err)
     })
 
-    // تحديث دم الزعيم لكل اللاعبين دفعة واحدة (أسرع بكثير من save لكل لاعب)
-    const players = await Player.find({}, { 'characters.power': 1 }).lean()
-
-    const ops = players.map(p => {
-        const totalPower = (p.characters || []).reduce((sum, c) => sum + (c.power || 0), 0)
-        let hp = 30000 + Math.floor(totalPower / 3)
-        if (hp > 100000) hp = 100000
-        return {
-            updateOne: {
-                filter: { _id: p._id },
-                update: { $set: { bossMaxHp: hp, bossHp: hp, bossDead: false, bossRespawn: null } }
-            }
-        }
-    })
-
-    if (ops.length) await Player.bulkWrite(ops, { ordered: false })
+    // ❤️ دم الجميع ثابت 100000 — عملية واحدة بدون قراءة اللاعبين أو حساب أي معادلة
+    await Player.updateMany({}, { $set: { bossMaxHp: 100000, bossHp: 100000, bossDead: false, bossRespawn: null } })
 
 
 } // إغلاق spawnBoss
@@ -7182,16 +7175,12 @@ if (currentBoss) {
         !currentBoss.respawnAt
     ) {
 
-        const nextIndex =
-            ((currentBoss.bossIndex || 0) + 1) % bosses.length
-
-        await Boss.deleteMany({})
-
-        currentBoss = null
-
-        await spawnBoss(sock, nextIndex)
-
-        currentBoss = await Boss.findOne()
+        // ⏰ بدل الرسبن الفوري: نجدول الرسبن لرأس الساعة القادمة
+        const nh = new Date()
+        nh.setMinutes(0, 0, 0)
+        nh.setHours(nh.getHours() + 1)
+        currentBoss.respawnAt = nh.getTime()
+        await Boss.updateOne({}, { $set: { respawnAt: currentBoss.respawnAt } })
 
     }
 
@@ -10746,6 +10735,14 @@ if (currentBoss.hp <= 0) {
 
     currentBoss.finished = true
 
+    // ⏰ نحدد وقت الرسبن (رأس الساعة القادمة) فورًا مع finished عشان ما يسبّن زعيم جديد مباشرة
+    {
+        const earlyNextHour = new Date()
+        earlyNextHour.setMinutes(0, 0, 0)
+        earlyNextHour.setHours(earlyNextHour.getHours() + 1)
+        currentBoss.respawnAt = earlyNextHour.getTime()
+    }
+
     // 🔒 إصلاح: نكتب finished=true بقاعدة البيانات فورًا هنا (قبل
     // توزيع الجوائز)، مو بعد ما تخلص distributeBossRewards. سابقًا
     // كانت الكتابة الفعلية تصير فقط بآخر العملية — فلو صار ريستارت
@@ -10755,7 +10752,7 @@ if (currentBoss.hp <= 0) {
     // بكتابتها هنا فورًا، حتى لو صار ريستارت منتصف التوزيع، القاعدة
     // أصلاً تعرف إن الزعيم خلص وما تسمح بتكرار التوزيع.
     try {
-        await Boss.updateOne({}, { $set: { finished: true, hp: 0 } })
+        await Boss.updateOne({}, { $set: { finished: true, hp: 0, respawnAt: currentBoss.respawnAt } })
     } catch (err) {
         console.log('خطأ حفظ finished فورًا عند موت الزعيم:', err)
     }
