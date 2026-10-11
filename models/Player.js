@@ -492,12 +492,12 @@ lastRaidAttack: {
 
 bossHp: {
     type: Number,
-    default: 0
+    default: 100000
 },
 
 bossMaxHp: {
     type: Number,
-    default: 0
+    default: 100000
 },
 
 bossDead: {
