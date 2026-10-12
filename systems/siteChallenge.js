@@ -21,8 +21,14 @@ module.exports = function createSiteChallenge(deps) {
     const {
         Player, PvP, mongoose, equipmentSystem, getTotalStats, calculateDamageAdvanced,
         getRank, getRankTier, applyRankTierPromotion, applyDogBonus, addCommandXp, COMMAND_XP,
-        checkAndGrantAchievement, orbs, getPeriod, getSock, trackWin
+        checkAndGrantAchievement, orbs, getPeriod, getSock, trackWin,
+        resolveChallengeTeam, getChallengeSaved, getChallengeSlots, isChallengeTeamValid,
+        describeChallengeRule, getChallengeKind, CHALLENGE_TEAM_SIZE
     } = deps
+
+    // 🛡️ تشكيلة التحدي (.فريق_تحدي) — نفس منطق البوت؛ إذا ما وصلت الدوال من index.js نرجع للاختيار العشوائي
+    const teamReady = [resolveChallengeTeam, getChallengeSaved, getChallengeSlots, isChallengeTeamValid,
+        describeChallengeRule, getChallengeKind].every(f => typeof f === 'function') && Number(CHALLENGE_TEAM_SIZE) > 0
 
     const Invite = Player.db.models.SiteChallengeInvite || Player.db.model('SiteChallengeInvite', new mongoose.Schema({
         id: { type: String, index: true },
@@ -402,6 +408,190 @@ module.exports = function createSiteChallenge(deps) {
         })
     }
 
+    // 🛡️ سكربت زر "تشكيلة التحدي" (يُحقن بصفحة اللوبي فقط) — بدون اعتماد على تصميم siteChallengeUI
+    const TEAM_JS = String.raw`(function () {
+'use strict';
+if (window.__chTeam) return;
+var self = document.currentScript;
+var csrf = (self && self.getAttribute('data-csrf')) || '';
+var KIND = { omega: ['🌌', 'أوميقا', '#b57bff'], ex: ['✨', 'EX', '#ffcf4d'], normal: ['👑', 'عادية', '#8fa3c7'] };
+
+function el(tag, props, kids) {
+  var e = document.createElement(tag);
+  if (props) for (var k in props) {
+    if (k === 'text') e.textContent = props[k];
+    else if (k === 'css') e.style.cssText = props[k];
+    else e.setAttribute(k, props[k]);
+  }
+  (kids || []).forEach(function (c) { if (c) e.appendChild(c); });
+  return e;
+}
+function api(method, body) {
+  var opt = { method: method, credentials: 'same-origin', cache: 'no-store', headers: {} };
+  if (body) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  return fetch('/challenge/team', opt).then(function (r) {
+    return r.json().catch(function () { return { ok: false, message: 'خطأ بالخادم' }; });
+  });
+}
+
+var btn = document.getElementById('teamBtn');
+if (!btn && !(self && self.getAttribute('data-mode') === 'api')) {
+  btn = el('button', { type: 'button', text: '🛡️ تشكيلة التحدي',
+    css: 'position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:9000;padding:11px 16px;border-radius:14px;border:1px solid #f5b94266;background:#1b1f2d;color:#f5b942;font:700 14px system-ui,sans-serif;box-shadow:0 6px 20px #0008;cursor:pointer' });
+  document.body.appendChild(btn);
+}
+
+var root = null, data = null, sel = [], busy = false;
+
+function kindCount(list) {
+  var c = { omega: 0, ex: 0, normal: 0 };
+  list.forEach(function (i) { c[data.chars[i].k]++; });
+  return c;
+}
+function localOk() {
+  if (!data || sel.length !== data.size) return false;
+  var c = kindCount(sel);
+  return c.omega >= data.slots.omega && c.ex >= data.slots.ex && c.normal >= data.slots.normal;
+}
+function toast(msg, bad) {
+  var t = root && root.querySelector('[data-t]');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.color = bad ? '#ff7b7b' : '#6be28a';
+}
+function close() { if (root) { root.remove(); root = null; } document.body.style.overflow = ''; }
+
+function render() {
+  if (!root) return;
+  var box = root.querySelector('[data-box]');
+  box.textContent = '';
+  var statusTxt = data.status === 'custom' ? 'تشكيلتك المحفوظة'
+    : data.status === 'partial' ? 'تشكيلة محفوظة (عُدّلت بعض الخانات تلقائياً حسب القاعدة)'
+    : 'تلقائي: الأقوى حسب القاعدة';
+  box.appendChild(el('div', { text: '📌 القاعدة: ' + data.rule, css: 'font-weight:700;margin-bottom:4px' }));
+  box.appendChild(el('div', { text: statusTxt, css: 'font-size:12px;opacity:.7;margin-bottom:10px' }));
+
+  var strip = el('div', { css: 'display:flex;gap:8px;margin-bottom:10px' });
+  for (var s = 0; s < data.size; s++) {
+    var ci = sel[s];
+    var has = ci !== undefined;
+    var ch = has ? data.chars[ci] : null;
+    strip.appendChild(el('div', {
+      css: 'flex:1;min-height:42px;border-radius:10px;border:1px dashed ' + (has ? KIND[ch.k][2] : '#ffffff33') + ';display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center;padding:4px;background:#ffffff08',
+      text: has ? (KIND[ch.k][0] + ' ' + ch.n) : ('خانة ' + (s + 1))
+    }));
+  }
+  box.appendChild(strip);
+
+  var grid = el('div', { css: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;max-height:46vh;overflow:auto;padding:2px' });
+  data.chars.forEach(function (c, i) {
+    var pos = sel.indexOf(i);
+    var on = pos >= 0;
+    var card = el('button', { type: 'button',
+      css: 'position:relative;text-align:center;padding:6px;border-radius:12px;background:#1c2030;color:#e8ecf5;cursor:pointer;font:inherit;border:2px solid ' + (on ? '#f5b942' : '#ffffff1a') });
+    if (c.img) {
+      var im = el('img', { src: c.img, alt: '', loading: 'lazy', css: 'width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:#0003' });
+      card.appendChild(im);
+    }
+    card.appendChild(el('div', { text: c.n, css: 'font-size:12px;font-weight:700;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }));
+    card.appendChild(el('div', { text: KIND[c.k][0] + ' ' + KIND[c.k][1] + ' · ⚔️ ' + Number(c.p).toLocaleString('en-US'), css: 'font-size:11px;opacity:.8;margin-top:2px;color:' + KIND[c.k][2] }));
+    card.appendChild(el('span', { text: String(i + 1), css: 'position:absolute;top:4px;right:4px;background:#000a;border-radius:8px;padding:0 6px;font-size:11px' }));
+    if (on) card.appendChild(el('span', { text: String(pos + 1), css: 'position:absolute;top:4px;left:4px;background:#f5b942;color:#000;border-radius:50%;width:20px;height:20px;line-height:20px;font-size:12px;font-weight:800' }));
+    card.addEventListener('click', function () {
+      if (busy) return;
+      var p = sel.indexOf(i);
+      if (p >= 0) sel.splice(p, 1);
+      else if (sel.length < data.size) sel.push(i);
+      else { toast('الحد الأقصى ' + data.size + ' شخصيات — أزل واحدة أولاً', true); return; }
+      render();
+    });
+    grid.appendChild(card);
+  });
+  box.appendChild(grid);
+
+  box.appendChild(el('div', { 'data-t': '1', text: '', css: 'min-height:20px;margin:10px 0 6px;font-size:13px;font-weight:700' }));
+
+  var row = el('div', { css: 'display:flex;gap:8px' });
+  var save = el('button', { type: 'button', text: '💾 حفظ التشكيلة',
+    css: 'flex:2;padding:11px;border-radius:12px;border:0;font:700 14px system-ui,sans-serif;cursor:pointer;background:' + (localOk() ? '#f5b942' : '#555') + ';color:#111' });
+  var auto = el('button', { type: 'button', text: '🔄 تلقائي (الأقوى)',
+    css: 'flex:1;padding:11px;border-radius:12px;border:1px solid #ffffff33;background:transparent;color:#e8ecf5;font:600 13px system-ui,sans-serif;cursor:pointer' });
+  var cls = el('button', { type: 'button', text: 'إغلاق',
+    css: 'flex:1;padding:11px;border-radius:12px;border:1px solid #ffffff33;background:transparent;color:#e8ecf5;font:600 13px system-ui,sans-serif;cursor:pointer' });
+  save.addEventListener('click', function () {
+    if (busy) return;
+    if (!localOk()) { toast(sel.length !== data.size ? 'اختر ' + data.size + ' شخصيات' : 'التشكيلة لا تطابق القاعدة: ' + data.rule, true); return; }
+    busy = true;
+    api('POST', { csrf: csrf, picks: sel.map(function (i) { return { i: i, n: data.chars[i].n }; }) }).then(function (r) {
+      busy = false;
+      if (!r.ok) { toast(r.message || 'تعذّر الحفظ', true); return; }
+      data = r.team; sel = data.picked.slice(); render(); toast('✅ تم حفظ تشكيلة التحدي');
+    }).catch(function () { busy = false; toast('تعذّر الاتصال بالخادم', true); });
+  });
+  auto.addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    api('POST', { csrf: csrf, reset: true }).then(function (r) {
+      busy = false;
+      if (!r.ok) { toast(r.message || 'تعذّر التحديث', true); return; }
+      data = r.team; sel = data.picked.slice(); render(); toast('✅ رجعت التشكيلة تلقائية (الأقوى حسب القاعدة)');
+    }).catch(function () { busy = false; toast('تعذّر الاتصال بالخادم', true); });
+  });
+  cls.addEventListener('click', close);
+  row.appendChild(save); row.appendChild(auto); row.appendChild(cls);
+  box.appendChild(row);
+}
+
+function open() {
+  if (root) return;
+  root = el('div', { dir: 'rtl', css: 'position:fixed;inset:0;z-index:2147483600;background:#000b;display:flex;align-items:flex-end;justify-content:center;font-family:system-ui,sans-serif' });
+  var panel = el('div', { css: 'width:100%;max-width:560px;max-height:92vh;overflow:auto;background:#12141c;color:#e8ecf5;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px #000a' });
+  panel.appendChild(el('div', { text: '🛡️ تشكيلة التحدي', css: 'font-size:17px;font-weight:800;margin-bottom:10px' }));
+  panel.appendChild(el('div', { 'data-box': '1', text: '⏳ جاري التحميل...' }));
+  root.appendChild(panel);
+  root.addEventListener('click', function (e) { if (e.target === root) close(); });
+  document.body.appendChild(root);
+  document.body.style.overflow = 'hidden';
+  api('GET').then(function (r) {
+    if (!root) return;
+    if (!r.ok) { root.querySelector('[data-box]').textContent = r.message || 'تعذّر التحميل'; return; }
+    data = r.team; sel = data.picked.slice(); render();
+  }).catch(function () { if (root) root.querySelector('[data-box]').textContent = 'تعذّر الاتصال بالخادم'; });
+}
+if (btn) btn.addEventListener('click', open);
+window.__chTeam = { open: open };
+})();`
+
+    // معلومات التشكيلة لصفحة التعديل (الأرقام = ترتيب .شخصياتي)
+    function teamInfo(player, ctx, req) {
+        const chars = Array.from(player.characters || [])
+        const r = resolveChallengeTeam(player, getChallengeSaved(player))
+        const status = r.usedSaved === 0 ? 'auto' : r.usedSaved < r.team.length ? 'partial' : 'custom'
+        return {
+            size: r.slots.size,
+            slots: { omega: r.slots.omega, ex: r.slots.ex, normal: r.slots.normal, any: r.slots.any },
+            rule: describeChallengeRule(r.slots).replace(/🌌 |✨ /g, ''),
+            status,
+            picked: r.team.map(c => chars.indexOf(c)).filter(i => i >= 0),
+            chars: chars.map(c => {
+                let img = null
+                try { const v = ctx.charView(c, req); img = v && v.i ? v.i : null } catch (e) { /* بدون صورة */ }
+                return { n: String(c.name || '').slice(0, 40), p: Number(c.power || 0), k: getChallengeKind(c), img }
+            })
+        }
+    }
+
+    // يختار فريق اللاعب لبدء القتال: تشكيلته المحفوظة حسب القاعدة، وإلا الأقوى (مثل البوت)
+    function pickFightTeam(player, plain) {
+        if (teamReady) {
+            try {
+                const t = resolveChallengeTeam(player, getChallengeSaved(player)).team
+                if (t && t.length) return t.map(plain)
+            } catch (e) { console.error('site challenge team error:', e.message) }
+        }
+        return [...player.characters].sort(() => Math.random() - 0.5).slice(0, 3).map(plain)
+    }
+
     // بدء القتال بعد القبول — نفس منطق .قبول_تحدي + خصم محاولة المُتحدّي (عند القبول)
     async function startFight(inv, ctx, req) {
         const [p1, p2] = await Promise.all([Player.findOne({ userId: inv.from }), Player.findOne({ userId: inv.to })])
@@ -420,8 +610,9 @@ module.exports = function createSiteChallenge(deps) {
         const stats1 = getTotalStats(p1)
         const stats2 = getTotalStats(p2)
         const plain = c => (c && typeof c.toObject === 'function') ? c.toObject() : c
-        const team1 = [...p1.characters].sort(() => Math.random() - 0.5).slice(0, 3).map(plain)
-        const team2 = [...p2.characters].sort(() => Math.random() - 0.5).slice(0, 3).map(plain)
+        // 🏆 الفريق حسب تشكيلة .فريق_تحدي (1 أوميقا + 1 EX + الباقي، أو 2 EX إذا ما عنده أوميقا)
+        const team1 = pickFightTeam(p1, plain)
+        const team2 = pickFightTeam(p2, plain)
         const first = Math.random() < 0.5 ? inv.from : inv.to
 
         const hp1 = getGroupHP(p1), hp2 = getGroupHP(p2)
@@ -735,6 +926,72 @@ module.exports = function createSiteChallenge(deps) {
             }
         })
 
+        // 🛡️ سكربت زر تشكيلة التحدي
+        app.get('/challenge/team.js', (req, res) => {
+            res.set({ 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' })
+            res.send(TEAM_JS)
+        })
+
+        // 🛡️ عرض تشكيلة التحدي الحالية + القاعدة
+        app.get('/challenge/team', async (req, res) => {
+            try {
+                const sess = await guard(req, res, false)
+                if (!sess) return
+                if (!teamReady) return res.status(501).json({ ok: false, code: 'NOTEAM', message: 'ميزة التشكيلة غير مفعّلة بالخادم' })
+                const pl = await Player.findOne({ userId: sess.u }).select('userId characters challengeTeam').lean()
+                if (!pl || !pl.characters?.length) return res.status(400).json({ ok: false, code: 'NO_CHARS', message: '❌ لا تملك شخصيات' })
+                res.json({ ok: true, team: teamInfo(pl, ctx, req) })
+            } catch (err) {
+                console.error('challenge team get error:', err)
+                res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+            }
+        })
+
+        // 💾 حفظ تشكيلة التحدي (نفس تحققات .فريق_تحدي) أو إرجاعها تلقائية
+        app.post('/challenge/team', jsonBody, async (req, res) => {
+            const fail = (st, code, message) => res.status(st).json({ ok: false, code, message })
+            try {
+                const sess = await guard(req, res, true)
+                if (!sess) return
+                if (!teamReady) return fail(501, 'NOTEAM', 'ميزة التشكيلة غير مفعّلة بالخادم')
+                const me = sess.u
+                return await withLock('t:' + me, async () => {
+                    const pl = await Player.findOne({ userId: me }).select('userId characters challengeTeam').lean()
+                    if (!pl || !pl.characters?.length) return fail(400, 'NO_CHARS', '❌ لا تملك شخصيات')
+                    const chars = Array.from(pl.characters)
+                    const size = Math.min(CHALLENGE_TEAM_SIZE, chars.length)
+                    const slots = getChallengeSlots(chars, size)
+                    const ruleText = describeChallengeRule(slots).replace(/🌌 |✨ /g, '')
+
+                    // رجوع للتلقائي (الأقوى حسب القاعدة)
+                    if (req.body && req.body.reset === true) {
+                        await Player.updateOne({ userId: me }, { $set: { challengeTeam: [] } }, { strict: false })
+                        pl.challengeTeam = []
+                        return res.json({ ok: true, team: teamInfo(pl, ctx, req) })
+                    }
+
+                    const picks = req.body && req.body.picks
+                    if (!Array.isArray(picks) || picks.length !== size) return fail(400, 'BAD', '❌ اختر ' + size + ' شخصيات')
+                    const idx = picks.map(p => Number(p && p.i))
+                    if (idx.some(i => !Number.isInteger(i) || i < 0 || i >= chars.length)) return fail(400, 'BAD', '❌ أرقام غير صحيحة')
+                    if (new Set(idx).size !== size) return fail(400, 'DUP', '❌ لا يمكن تكرار نفس الشخصية')
+                    if (idx.some((i, k) => chars[i].name !== String(picks[k].n))) return fail(409, 'STALE', '⚠️ تغيّرت قائمة شخصياتك — أغلق النافذة وافتحها من جديد')
+
+                    const picked = idx.map(i => chars[i])
+                    if (!isChallengeTeamValid(picked, slots)) {
+                        return fail(400, 'RULE', '❌ التشكيلة لا تطابق القاعدة — المطلوب: ' + ruleText + (slots.omega ? '' : ' (لما تطوّر أوميقا تصير 1 أوميقا + 1 EX)'))
+                    }
+
+                    await Player.updateOne({ userId: me }, { $set: { challengeTeam: picked.map(c => c.name) } }, { strict: false })
+                    pl.challengeTeam = picked.map(c => c.name)
+                    return res.json({ ok: true, team: teamInfo(pl, ctx, req) })
+                })
+            } catch (err) {
+                console.error('challenge team save error:', err)
+                fail(500, 'SERVER', 'خطأ بالخادم')
+            }
+        })
+
         // 📄 صفحة التحدي (البحث + المتصلون)
         app.get('/u/:code/challenge', async (req, res) => {
             try {
@@ -747,7 +1004,14 @@ module.exports = function createSiteChallenge(deps) {
                 if (!sess) return res.redirect(303, `/login?code=${code}`)
                 if (!auth.authEnabled()) return res.status(503).send('التحدي غير مفعّل حالياً.')
                 const nm = String(player.name || player.username || 'لاعب').slice(0, 24)
-                res.send(UI.lobbyPageHTML({ code, csrf: auth.csrfForSession(sess), name: nm, nav: ctx.navDrawerHTML(code, auth.csrfForSession(sess), 'challenge', nm), navBtn: ctx.NAV_BTN }))
+                let page = UI.lobbyPageHTML({ code, csrf: auth.csrfForSession(sess), name: nm, nav: ctx.navDrawerHTML(code, auth.csrfForSession(sess), 'challenge', nm), navBtn: ctx.NAV_BTN, team: teamReady })
+                // 🛡️ زر "تشكيلة التحدي" (تعديل الفريق قبل الدخول بتحدي)
+                if (teamReady && typeof page === 'string') {
+                    const tag = '<script src="/challenge/team.js" defer data-csrf="' + esc(auth.csrfForSession(sess)) + '"></script>'
+                    const bi = page.lastIndexOf('</body>')
+                    page = bi >= 0 ? page.slice(0, bi) + tag + page.slice(bi) : page + tag
+                }
+                res.send(page)
             } catch (err) {
                 console.error('challenge page error:', err)
                 res.status(500).send('خطأ بالخادم')

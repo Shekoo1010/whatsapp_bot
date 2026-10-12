@@ -87,6 +87,14 @@ function overlayClient(CSS) {
             .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'خطأ بالاتصال' } }) })
             .catch(function () { return { ok: false, message: 'تعذّر الاتصال بالخادم' } })
     }
+    CH.openTeam = function () {
+        if (window.__chTeam) return window.__chTeam.open()
+        var s = document.createElement('script')
+        s.src = '/challenge/team.js'; s.setAttribute('data-csrf', CH.csrf); s.setAttribute('data-mode', 'api')
+        s.onload = function () { if (window.__chTeam) window.__chTeam.open() }
+        s.onerror = function () { toast('تعذّر تحميل التشكيلة') }
+        document.head.appendChild(s)
+    }
     CH.get = function (url) {
         return fetch(url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json() }).catch(function () { return { ok: false } })
     }
@@ -107,7 +115,8 @@ function overlayClient(CSS) {
             '<p>دعاك <b>@' + esc(f.u || f.n) + '</b> لقتال PvP</p>' + (f.t && window.TB ? '<div style="text-align:center">' + TB(f.t) + '</div>' : '') +
             '<div class="pwr"><span>قوتك ' + fm(d.pw && d.pw.me) + '</span><i>VS</i><span>قوته ' + fm(d.pw && d.pw.foe) + '</span></div>' +
             ring('chc', d.left) +
-            '<div class="bt"><button class="ok" data-a="ok" type="button">✅ موافق</button><button class="no" data-a="no" type="button">❌ رفض</button></div></div>'
+            '<div class="bt"><button class="ok" data-a="ok" type="button">✅ موافق</button><button class="no" data-a="no" type="button">❌ رفض</button></div>' +
+            '<button class="gh" data-a="team" type="button" style="width:100%;margin-top:8px">🛡️ تشكيلتي</button></div>'
         root.appendChild(el)
         if (!silent) beep()
         tmr = setInterval(function () {
@@ -117,6 +126,7 @@ function overlayClient(CSS) {
         }, 250)
         el.addEventListener('click', function (e) {
             var t = e.target.closest && e.target.closest('[data-a]'); if (!t || !cur) return
+            if (t.getAttribute('data-a') === 'team') { CH.openTeam(); return }
             var accept = t.getAttribute('data-a') === 'ok', id = cur.id
             el.querySelectorAll('button').forEach(function (b) { b.disabled = true })
             CH.post('/challenge/respond', { id: id, accept: accept }).then(function (r) {
@@ -300,7 +310,7 @@ function lobbyClient(CFG) {
     if (window.__CH && window.__CH.hello) window.dispatchEvent(new CustomEvent('ch:ev', { detail: { type: 'hello', data: window.__CH.hello } }))
 }
 
-function lobbyPageHTML({ code, csrf, name, nav, navBtn }) {
+function lobbyPageHTML({ code, csrf, name, nav, navBtn, team }) {
     const cfg = { code, csrf, css: INVITE_CSS + SHADOW_EXTRA + TITLES.CSS }
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -321,12 +331,13 @@ body{background:radial-gradient(520px 320px at 15% 5%,rgba(62,168,255,.15),trans
 .top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .top b{font-weight:900;font-size:22px;color:var(--gold);margin-inline-end:auto}
 .chip{font:700 12px 'Oswald',sans-serif;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--mut);direction:ltr}
+.chip.tb{cursor:pointer;color:var(--gold);border-color:#f0c04a77;direction:rtl;font-family:'Cairo',system-ui,sans-serif}
 .sub{color:var(--mut);font-size:12px;line-height:1.8;margin:0 2px 12px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top">${navBtn || ''}<b>⚔️ التحدي</b><span class="chip" id="att">⚔️ -/5</span><span class="chip" id="rst">⏳ --:--:--</span></header>
+  <header class="top">${navBtn || ''}<b>⚔️ التحدي</b>${team ? '<button class="chip tb" id="teamBtn" type="button">🛡️ تشكيلة</button>' : ''}<span class="chip" id="att">⚔️ -/5</span><span class="chip" id="rst">⏳ --:--:--</span></header>
   <p class="sub">ابحث باليوزر أو اختر لاعباً من المتصلين الآن، وستصله دعوتك لحظياً. تُخصم المحاولة عند القبول فقط، وتتجدد 5 محاولات كل ساعتين.</p>
   <div id="lobby"></div>
 </div>
