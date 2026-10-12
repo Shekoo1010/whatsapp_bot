@@ -5012,6 +5012,16 @@ const characterShopSystem = createCharacterShopSystem({
     refreshShop: generateCharacterShop
 })
 
+// 🛍️ السوق / المزاد العادي المشترك (الموقع + .مزاد/.شراء) — حجز ذري + رجوع العرض لصاحبه بعد 24 ساعة
+const { createMarketSystem } = require('./systems/marketSystem')
+const { charHash: marketCharHash } = require('./systems/giftSystem')
+const marketSystem = createMarketSystem({
+    Player,
+    resortPlayerCharacters,
+    charHash: marketCharHash,
+    locks: [giftLocks, pullLocks]
+})
+
 // 🧩 الشظايا + 💎 التطوير + ♻️ الاسترجاع من الموقع — نفس منطق .شظايا / .تطوير / .استرجاع بالضبط (systems/shardSystem.js)
 // يشارك أقفال giftLocks/pullLocks فما يصير تطوير/استرجاع متزامن مع إهداء أو سحب (موقع + واتساب)
 const { createShardSystem } = require('./systems/shardSystem')
@@ -5136,6 +5146,7 @@ registerCharacterSite(app, Player, {
     arenaChallenge: siteArenaChallenge,
     xo: siteXO,
     shopSystem: characterShopSystem,
+    marketSystem,
     shardSystem,
     warSystem,
     kingdomRaid: kingdomRaidSystem,
@@ -5448,6 +5459,17 @@ function createPlayer() {
 // =========================
 
 // 🔒 قفل: لو استدعاها الموقع والبوت بنفس اللحظة تعمل مرة واحدة فقط (بدون توليد مزدوج 20 عنصر)
+// 💾 وقت آخر توليد ناجح للمتجر (يبقى بعد إعادة التشغيل) — لا يعتمد على وجود عناصر بالمتجر
+const SHOP_META_FILE = path.join(__dirname, 'shopMeta.json')
+function readShopGenAt() {
+    try { return JSON.parse(fs.readFileSync(SHOP_META_FILE, 'utf8')).lastGenAt || 0 }
+    catch { return 0 }
+}
+function writeShopGenAt(t) {
+    try { fs.writeFileSync(SHOP_META_FILE, JSON.stringify({ lastGenAt: t })) }
+    catch (e) { console.log('shopMeta write error:', e) }
+}
+
 let _shopGenLock = null
 function generateCharacterShop() {
     if (_shopGenLock) return _shopGenLock
@@ -5464,30 +5486,23 @@ async function _generateCharacterShopInner() {
     // للجهاز)، فترجع بالضبط الحالة الصحيحة: لو فاتت ساعة أو أكثر
     // وقت الانطفاء، تصفّر المتجر فورًا؛ ولو لسا داخل نفس الساعة،
     // تسيبه كما هو. ما في حاجة لحفظ الوقت بمكان منفصل.
-    const shopItems = await Shop.find()
+    // ✅ تم التوليد بهذه الساعة؟ لا تعيد التوليد — حتى لو اشتروا كل العروض والمتجر فاضي
+    // (التوليد الناجح فقط يُسجَّل، فلو فشل التوليد بنص الطريق يُعاد في المحاولة التالية)
+    const lastBoundary = getLastSaudiHourBoundary().getTime()
+    const metaAt = readShopGenAt()
+    if (metaAt >= lastBoundary) return
 
-    // ⏳ يتم تصفير المتجر فقط عند رأس كل ساعة بتوقيت السعودية (UTC+3)
-    // مثال: 1:00 ، 2:00 ، 3:00 ... بتوقيت السعودية بالضبط
-    if (shopItems.length > 0) {
-
-    const firstItem = shopItems[0]
-
-    if (firstItem?.createdAt) {
-
-        const lastBoundary =
-            getLastSaudiHourBoundary()
-
-        const createdAt =
-            new Date(firstItem.createdAt)
-
-        // إذا تاريخ إنشاء المتجر بعد آخر رأس ساعة سعودي
-        // يعني المتجر لسا "طري" لهذه الساعة، لا تعيد التوليد
-        if (createdAt >= lastBoundary) return
+    // أول تشغيل بعد التحديث (لا يوجد ملف وقت): نعتمد على وقت عناصر المتجر الموجودة
+    if (!metaAt) {
+        const first = await Shop.findOne().sort({ _id: 1 }).select('createdAt').lean()
+        const itemTime = first?.createdAt ? new Date(first.createdAt).getTime() : 0
+        if (itemTime >= lastBoundary) {
+            writeShopGenAt(itemTime)
+            return
+        }
     }
-}
 
-    await Shop.deleteMany({})
-
+    const newDocs = []
     let createdCount = 0
 
     for (let i = 0; i < 10; i++) {
@@ -5541,14 +5556,19 @@ async function _generateCharacterShopInner() {
                 )
         }
 
-        await Shop.create({
-            character,
-            price
-        })
+        newDocs.push({ character, price })
 
         createdCount++
     }
 
+    // ⚠️ لو الشخصيات لسا ما انحمّلت ما نسجّل نجاح (يعيد المحاولة بدل ما يقفل متجر فاضي لساعة كاملة)
+    if (!newDocs.length) throw new Error('Shop: no characters available yet')
+
+    // استبدال العروض القديمة بالجديدة؛ أي فشل (انقطاع اتصال) يرمي خطأ فيُعاد لاحقاً
+    await Shop.deleteMany({})
+    for (const d of newDocs) await Shop.create(d)
+
+    writeShopGenAt(Date.now())
     console.log(`🏪 Shop generated: ${createdCount}/10 items created`)
 }
 
@@ -7252,40 +7272,43 @@ ${juubi.maxHp.toLocaleString()}
     if (!global.characterShopStarted) {
         global.characterShopStarted = true
 
-        // ✅ يتحقق فورًا عند كل تشغيل/إعادة تشغيل: لو مرّ رأس ساعة
-        // وقت ما كان البوت مطفي، يصفّر المتجر مباشرة بدون انتظار
-        try {
-            await generateCharacterShop()
-        } catch (err) {
-            console.log("❌ Shop initial generation error:", err)
+        // 🛡️ محاولات متكررة عند الفشل (انقطاع اتصال بقاعدة البيانات مثلاً)
+        // generateCharacterShop آمنة للتكرار: ما تولّد إلا لو دخلت ساعة جديدة ولم يُسجَّل توليد ناجح لها
+        let _shopEnsureRunning = false
+        const ensureShopFresh = async tag => {
+            if (_shopEnsureRunning) return
+            _shopEnsureRunning = true
+            try {
+                for (let attempt = 1; attempt <= 6; attempt++) {
+                    try {
+                        await generateCharacterShop()
+                        return
+                    } catch (err) {
+                        console.log(`❌ Shop ${tag} error (attempt ${attempt}/6):`, err?.message || err)
+                        await new Promise(r => setTimeout(r, Math.min(30000, 2000 * 2 ** (attempt - 1))))
+                    }
+                }
+            } finally {
+                _shopEnsureRunning = false
+            }
         }
 
-        // 🕐 أول تصفير تلقائي يكون بالضبط عند رأس الساعة القادمة
-        // (getMsUntilNextSaudiHour يحسب الوقت من اللحظة الحقيقية
-        // الحالية، فيصير صحيح دايمًا مهما كان وقت إعادة التشغيل)
-        // بتوقيت السعودية، وبعدها يتكرر كل ساعة بالضبط
-        setTimeout(async () => {
+        // ✅ عند كل تشغيل/إعادة تشغيل: لو مرّ رأس ساعة والبوت مطفي يولّد فوراً
+        await ensureShopFresh('initial')
 
-            try {
-                await generateCharacterShop()
-                console.log("🏪 Shop refreshed (Saudi top of hour)")
-            } catch (err) {
-                console.log("❌ Shop refresh error:", err)
-            }
+        // 🕐 توليد دقيق عند رأس الساعة السعودية القادمة
+        const scheduleNextShopTick = () => {
+            setTimeout(async () => {
+                await ensureShopFresh('hourly')
+                scheduleNextShopTick()
+            }, getMsUntilNextSaudiHour() + 500)
+        }
+        scheduleNextShopTick()
 
-            setInterval(async () => {
-                try {
-                    await generateCharacterShop()
-                    console.log("🏪 Shop refreshed (Saudi top of hour)")
-                } catch (err) {
-                    console.log("❌ Shop refresh error:", err)
-                }
-            }, 60 * 60 * 1000)
-
-        }, getMsUntilNextSaudiHour())
+        // 🐕 حارس احتياطي كل 30 ثانية: لو فشل التوليد أو انقطع الاتصال وقت رأس الساعة يعيد المحاولة
+        // (رخيص: يقرأ ملف صغير ويخرج إذا الساعة الحالية مولَّدة)
+        setInterval(() => { ensureShopFresh('watchdog') }, 30 * 1000)
     }
-
- 
 
     // =========================
     // safeSend
@@ -7961,6 +7984,10 @@ function getRandomPlayerAbility() {
     for (const item of expired) {
 
         try {
+
+            // 🔒 حجز ذري: لو الموقع أو عملية ثانية رجّعت العرض قبلنا نتخطاه (بدون تكرار الشخصية)
+            const claimed = await Market.findOneAndDelete({ _id: item._id })
+            if (!claimed) continue
 
             const seller = await Player.findOne({
                 userId: item.seller
@@ -22284,6 +22311,14 @@ if (text === '.متجر') {
 
 📦 السعة الحالية:
 ${player.maxCharacters || 30}`
+            })
+        }
+
+        // 🔒 حجز ذري للعرض قبل الدفع: لو اشتراه لاعب بالموقع بنفس اللحظة ما ينباع مرتين
+        const claimedItem = await Market.findOneAndDelete({ _id: item._id })
+        if (!claimedItem) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ العرض غير موجود'
             })
         }
 
