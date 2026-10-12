@@ -712,6 +712,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['wheel', '🎡', 'عجلة الحظ', `/u/${c}/wheel`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
+        ['market', '🛍️', 'السوق (المزاد)', `/u/${c}/market`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
@@ -1313,6 +1314,209 @@ function shopPageHTML({ viewer, code, items, money, msLeft }) {
     $('sp-cd').textContent=(m<10?'0':'')+m+':'+(r<10?'0':'')+r;
   }
   draw(); tick(); setInterval(tick,1000); setInterval(poll,5000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(true); });
+})();
+</script></body></html>`
+}
+
+// 🛍️ السوق / المزاد العادي (نفس .مزاد / .سوق / .شراء بالواتس — العرض 24 ساعة ثم يرجع لصاحبه)
+function marketItemOut(d, catIdx) {
+    const c = (d && d.character) || d || {}
+    const tk = resolveTierKey(c.rarity, c.evolutionLevel)
+    const t = TIERS[tk] || TIERS[c.rarity] || TIERS['عادي']
+    let disp = c
+    try { if (catIdx) disp = resolveDisplayChar(c, catIdx) } catch (e) { disp = c }
+    const imgUrl = t.idx >= FIRST_IMAGE_TIER
+        ? (safeImageUrl(disp.image) || safeImageUrl(c.image) || '')
+        : (safeImageUrl(disp.image) || localCharImageUrl(disp.image) || safeImageUrl(c.image) || localCharImageUrl(c.image) || '')
+    return {
+        name: String(c.name || '؟'),
+        rarity: String(tk || c.rarity || ''),
+        power: Math.round(Number(c.power) || 0),
+        ability: String(c.ability || ''),
+        img: imgUrl,
+        color: t.color,
+        stars: t.stars,
+        en: t.lang === 'en',
+        omega: Number(c.evolutionLevel) === 7
+    }
+}
+
+function marketPageHTML({ viewer, code, items, own, money, count, cap }) {
+    return `${shellHead('السوق')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">🛍️ السوق</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'market', viewer.name)}
+<style>
+.mk{max-width:640px;margin:0 auto}
+.mk-sub{text-align:center;color:var(--text-dim);font-size:12px;margin:6px 0 14px;line-height:1.8}
+.mk-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.mk-bar div{background:#0f1422;border:1px solid #222a42;border-radius:14px;padding:8px 10px;text-align:center}
+.mk-bar small{display:block;color:var(--text-dim);font-size:11px}
+.mk-bar b{display:block;font:700 20px 'Oswald',sans-serif;color:var(--gold);direction:ltr}
+.mk-tabs{display:flex;gap:6px;background:#0f1422;border:1px solid #222a42;border-radius:16px;padding:5px;margin-bottom:14px}
+.mk-tab{flex:1;border:0;background:transparent;color:var(--text-dim);padding:10px 4px;border-radius:12px;font:900 13px 'Cairo',sans-serif;cursor:pointer}
+.mk-tab.on{background:linear-gradient(90deg,var(--gold-dim),var(--gold));color:#0a0d16}
+.mk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.mk-c{--t:#8b93a1;position:relative;display:flex;flex-direction:column;border-radius:16px;border:2px solid var(--t);background:#0f1422;overflow:hidden;box-shadow:0 0 14px color-mix(in srgb,var(--t) 30%,transparent);transition:opacity .3s,filter .3s}
+.mk-c.sss{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;animation:rot 5s linear infinite}
+.mk-c.gone{opacity:.5;filter:grayscale(.7)}
+.mk-tt{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 0}
+.mk-tn{font-weight:900;font-size:13px;color:var(--t)}.mk-tn.en{font-family:'Oswald',sans-serif;letter-spacing:.1em}
+.mk-pw{font:700 12px 'Oswald',sans-serif;color:var(--text-dim);direction:ltr}
+.mk-st{padding:0 10px;color:var(--t);font-size:11px;letter-spacing:2px}
+.mk-art{position:relative;margin:8px 10px;height:96px;border-radius:12px;overflow:hidden;display:grid;place-items:center;font:900 44px 'Cairo',sans-serif;color:var(--t);background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--t) 28%,#0f1422),#0a0d16)}
+.mk-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mk-nm{padding:0 10px;font-weight:900;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-by{padding:0 10px;color:var(--text-dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-tm{padding:2px 10px 0;font:700 12px 'Oswald',sans-serif;color:#ff9aa6;direction:ltr;text-align:right}
+.mk-pr{margin-top:auto;padding:6px 10px;font:700 15px 'Oswald',sans-serif;color:var(--gold);direction:ltr;text-align:right}
+.mk-btn{width:calc(100% - 20px);margin:0 10px 10px;padding:9px;border:0;border-radius:12px;font:900 14px 'Cairo',sans-serif;cursor:pointer;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.mk-btn.rt{background:#173a28;color:#4fe08a}
+.mk-btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+.mk-btn:focus-visible,.mk-tab:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.mk-h{margin:20px 0 10px;font-weight:900;color:var(--gold);font-size:15px}
+.mk-empty{text-align:center;color:var(--text-dim);padding:40px 10px;line-height:2}
+.mk-mod{position:fixed;inset:0;z-index:80;background:#000a;display:flex;align-items:flex-end;justify-content:center}
+.mk-mod[hidden]{display:none}
+.mk-sh{width:100%;max-width:560px;background:#0f1422;border:1px solid #222a42;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.mk-sh h3{margin:0 0 6px;font-size:16px}
+.mk-sh p{color:var(--text-dim);font-size:12.5px;line-height:1.8;margin:6px 0}
+.mk-sh p b{color:var(--gold)}
+.mk-in{width:100%;margin:8px 0;padding:12px;border-radius:12px;border:1.5px solid #222a42;background:#0a0d16;color:var(--text);font:700 16px 'Oswald',sans-serif;direction:ltr;text-align:right}
+.mk-row{display:flex;gap:8px}.mk-row .mk-btn{margin:6px 0 0;width:auto;flex:1}
+.mk-toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid var(--gold-dim);border-radius:14px;padding:12px 16px;font-weight:700;font-size:14px;transition:.3s;max-width:92%;text-align:center;z-index:90}
+.mk-toast.on{transform:translate(-50%,0);opacity:1}.mk-toast.good{border-color:#4fe08a}.mk-toast.bad{border-color:#ff6b6b;color:#ff9aa6}
+@media (prefers-reduced-motion:reduce){.mk-c.sss{animation:none}.mk-toast{transition:none}}
+</style>
+  <div class="mk">
+    <div class="mk-bar"><div><small>💳 رصيدك</small><b id="mk-money">0</b></div><div><small>📦 شخصياتك</small><b id="mk-cnt">0</b></div></div>
+    <div class="mk-tabs"><button class="mk-tab on" type="button" data-t="m">🛒 السوق</button><button class="mk-tab" type="button" data-t="s">🔨 المزاد — اعرض شخصيتك</button></div>
+    <div id="mk-v"></div>
+  </div>
+</div>
+<div class="mk-mod" id="mk-mod" hidden><div class="mk-sh">
+  <h3 id="mk-mn"></h3>
+  <p id="mk-mi"></p>
+  <input class="mk-in" id="mk-pr" inputmode="numeric" autocomplete="off" placeholder="السعر المطلوب">
+  <div class="mk-row"><button class="mk-btn" id="mk-ok" type="button">عرض في السوق</button><button class="mk-btn rt" id="mk-no" type="button">إلغاء</button></div>
+</div></div>
+<div class="mk-toast" id="mk-toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)};
+  var items=${jsonForScript(items)}, own=${jsonForScript(own)}, money=${Number(money) || 0}, count=${Number(count) || 0}, cap=${Number(cap) || 30};
+  var tab='m', busy={}, gone={}, polling=false, th=0, pick=null;
+  function $(i){ return document.getElementById(i); }
+  function fm(n){ return Number(n).toLocaleString('en-US'); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(m,k){ var t=$('mk-toast'); t.textContent=m; t.className='mk-toast on '+(k||''); clearTimeout(th); th=setTimeout(function(){ t.className='mk-toast'; },3400); }
+  function pad(n){ return (n<10?'0':'')+n; }
+  function tl(ms){ var s=Math.max(0,Math.floor(ms/1000)); return pad(Math.floor(s/3600))+':'+pad(Math.floor(s%3600/60))+':'+pad(s%60); }
+  function art(it){ return '<div class="mk-art">'+esc(Array.from(it.name)[0]||'?')+(it.img?'<img src="'+esc(it.img)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'')+'</div>'; }
+  function head(it){ return '<div class="mk-tt"><span class="mk-tn'+(it.en?' en':'')+'">'+esc(it.rarity)+'</span><span class="mk-pw">'+fm(it.power)+' PWR</span></div><div class="mk-st">'+new Array(it.stars+1).join('★')+'</div>'+art(it)+'<div class="mk-nm">'+esc(it.name)+'</div>'; }
+  function cls(it){ return 'mk-c'+(/^SSS/.test(it.rarity)||it.omega?' sss':''); }
+  function offer(it){
+    var g=gone[it.id], full=count>=cap, no=!it.mine&&money<it.price;
+    var label=g?'العرض غير متاح':it.mine?'↩️ استرجاع مجاناً':(no?'رصيدك لا يكفي':'اشترِ الشخصية');
+    var dis=(g||busy[it.id]||full||no)?' disabled':'';
+    return '<article class="'+cls(it)+(g?' gone':'')+'" style="--t:'+esc(it.color)+'">'+head(it)
+      +'<div class="mk-by">👤 '+(it.mine?'عرضك':esc(it.seller))+'</div>'
+      +'<div class="mk-tm" data-end="'+it.expiresAt+'">⏳ '+tl(it.expiresAt-Date.now())+'</div>'
+      +'<div class="mk-pr">💰 '+fm(it.price)+'</div>'
+      +'<button class="mk-btn'+(it.mine?' rt':'')+'" type="button" data-id="'+esc(it.id)+'"'+dis+'>'+(full&&!g?'المخزون ممتلئ':label)+'</button></article>';
+  }
+  function draw(){
+    $('mk-money').textContent=fm(money); $('mk-cnt').textContent=count+'/'+cap;
+    var h='';
+    if(tab==='m'){
+      h='<p class="mk-sub">شخصيات معروضة من اللاعبين — السعر ثابت والأسرع يشتري<br>كل عرض يبقى 24 ساعة ثم يرجع لصاحبه تلقائياً</p>'
+       +(items.length?'<div class="mk-grid">'+items.map(offer).join('')+'</div>':'<div class="mk-empty">🛍️ السوق فارغ حالياً</div>');
+    } else {
+      var mine=items.filter(function(i){ return i.mine; });
+      h='<p class="mk-sub">اعرض شخصياتك بسعر ثابت — تنسحب منك وتظهر بالسوق<br>ترجع لك تلقائياً بعد 24 ساعة لو ما انباعت، وتقدر تسترجعها مجاناً بأي وقت</p>'
+       +(own.length?'<div class="mk-grid">'+own.map(function(it,i){
+          return '<article class="'+cls(it)+'" style="--t:'+esc(it.color)+'">'+head(it)
+            +'<div class="mk-by">'+(it.omega?'🌌 أوميقا لا تُعرض':'🔝 الحد: '+fm(it.limit))+'</div>'
+            +'<button class="mk-btn" type="button" data-sell="'+i+'" style="margin-top:8px"'+(it.omega?' disabled':'')+'>'+(it.omega?'غير متاحة':'اعرضها')+'</button></article>';
+        }).join('')+'</div>':'<div class="mk-empty">ما عندك شخصيات للعرض</div>')
+       +'<div class="mk-h">📋 عروضي الحالية</div>'
+       +(mine.length?'<div class="mk-grid">'+mine.map(offer).join('')+'</div>':'<div class="mk-empty" style="padding:16px">ما عرضت شيء بعد</div>');
+    }
+    $('mk-v').innerHTML=h;
+  }
+  function post(url,body){
+    body.csrf=CSRF; body.code=CODE;
+    return fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); });
+  }
+  function buy(id){
+    if(busy[id]) return; busy[id]=1; draw();
+    post('/market/buy',{id:id}).then(function(x){
+      delete busy[id];
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.ok){
+        toast(x.j.message,'good');
+        if(x.j.retrieved){ setTimeout(function(){ location.reload(); },900); return; }
+        items=items.filter(function(i){ return i.id!==id; });
+        if(x.j.money!=null) money=x.j.money; count++;
+      } else { if(x.j.code==='GONE') gone[id]=1; toast(x.j.message||'فشل الشراء','bad'); }
+      draw(); poll(true);
+    }).catch(function(){ delete busy[id]; toast('لم يصلنا رد من السيرفر — حدّث الصفحة وتأكد من رصيدك قبل إعادة المحاولة.','bad'); draw(); });
+  }
+  function openSell(i){
+    pick=own[i]; if(!pick) return;
+    $('mk-mn').textContent=pick.name+' — '+pick.rarity;
+    $('mk-mi').innerHTML='🔝 الحد الأقصى المسموح: <b>'+fm(pick.limit)+'</b><br>تنسحب الشخصية منك وتظهر بالسوق لمدة 24 ساعة.';
+    $('mk-pr').value=''; $('mk-mod').hidden=false; setTimeout(function(){ $('mk-pr').focus(); },50);
+  }
+  function closeSell(){ $('mk-mod').hidden=true; pick=null; }
+  $('mk-pr').addEventListener('input',function(){ var d=this.value.replace(/\\D/g,''); this.value=d?fm(d):''; });
+  $('mk-no').addEventListener('click',closeSell);
+  $('mk-mod').addEventListener('click',function(e){ if(e.target===this) closeSell(); });
+  $('mk-ok').addEventListener('click',function(){
+    if(!pick||busy.sell) return;
+    var price=parseInt($('mk-pr').value.replace(/\\D/g,''),10);
+    if(!price){ toast('❌ اكتب سعراً صحيحاً','bad'); return; }
+    if(price>pick.limit){ toast('❌ السعر أعلى من الحد: '+fm(pick.limit),'bad'); return; }
+    busy.sell=1; this.disabled=true; var self=this, key=pick.key;
+    post('/market/sell',{key:key,price:price}).then(function(x){
+      busy.sell=0; self.disabled=false;
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.ok){
+        own=own.filter(function(o){ return o.key!==key; }); count=Math.max(0,count-1);
+        closeSell(); toast(x.j.message,'good'); draw(); poll(true);
+      } else toast(x.j.message||'فشل العرض','bad');
+    }).catch(function(){ busy.sell=0; self.disabled=false; toast('لم يصلنا رد من السيرفر — تأكد من عروضك قبل إعادة المحاولة.','bad'); });
+  });
+  $('mk-v').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('button'); if(!b||b.disabled) return;
+    if(b.hasAttribute('data-id')) buy(b.getAttribute('data-id'));
+    else if(b.hasAttribute('data-sell')) openSell(Number(b.getAttribute('data-sell')));
+  });
+  document.querySelectorAll('.mk-tab').forEach(function(b){ b.addEventListener('click',function(){
+    tab=b.getAttribute('data-t'); document.querySelectorAll('.mk-tab').forEach(function(x){ x.classList.toggle('on',x===b); }); draw();
+  }); });
+  function poll(force){
+    if(polling||(document.hidden&&!force)||!$('mk-mod').hidden) return; polling=true;
+    fetch('/market/state',{credentials:'same-origin',cache:'no-store'})
+    .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.ok?r.json():null; })
+    .then(function(j){
+      polling=false; if(!j||!j.ok) return;
+      money=j.money; count=j.count; cap=j.cap; items=j.items; gone={}; draw();
+    }).catch(function(){ polling=false; });
+  }
+  function tick(){
+    var now=Date.now(), exp=false;
+    document.querySelectorAll('.mk-tm').forEach(function(e){
+      var l=Number(e.getAttribute('data-end'))-now; e.textContent='⏳ '+tl(l); if(l<=0) exp=true;
+    });
+    if(exp) poll(true);
+  }
+  draw(); setInterval(tick,1000); setInterval(poll,5000);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(true); });
 })();
 </script></body></html>`
@@ -5346,6 +5550,141 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+
+    // ─────────────── 🛍️ السوق / المزاد العادي (نفس .مزاد / .سوق / .شراء بالواتس) ───────────────
+    // المنطق كله بـ systems/marketSystem.js: حجز ذري + دفع ذري + رجوع العرض لصاحبه بعد 24 ساعة.
+    const marketSystem = opts.marketSystem
+    const MARKET_ERR = (marketSystem && marketSystem.ERRORS) || {}
+    function marketMsg(r) {
+        let m = MARKET_ERR[r.code] || MARKET_ERR.SERVER || 'حدث خطأ'
+        if (r.code === 'PRICE_LIMIT' && r.limit) m += `: ${Number(r.limit).toLocaleString('en-US')}`
+        return m
+    }
+    async function marketItemsFor(userId) {
+        const list = await marketSystem.listMarket()
+        const sellerIds = [...new Set(list.map(d => d.seller).filter(Boolean))]
+        const ps = sellerIds.length
+            ? await Player.find({ userId: { $in: sellerIds } }).select('userId name username').lean()
+            : []
+        const names = new Map(ps.map(p => [p.userId, p.name || p.username || 'لاعب']))
+        const catIdx = getCatalogIndex(getCatalog)
+        return list.map(d => ({
+            ...marketItemOut(d, catIdx),
+            id: String(d._id),
+            price: Math.round(Number(d.price) || 0),
+            mine: d.seller === userId,
+            seller: String(names.get(d.seller) || 'لاعب'),
+            expiresAt: marketSystem.expiresAtOf(d)
+        }))
+    }
+
+    app.get('/u/:code/market', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username money characters maxCharacters sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!marketSystem) return res.status(503).send('السوق غير مفعّل حالياً')
+
+            const catIdx = getCatalogIndex(getCatalog)
+            const seen = new Map()
+            const own = (player.characters || []).map(c => {
+                const h = charHash(c)
+                const n = seen.get(h) || 0
+                seen.set(h, n + 1)
+                return { ...marketItemOut(c, catIdx), key: `${h}:${n}`, limit: marketSystem.priceLimit(c) }
+            })
+
+            res.send(marketPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                items: await marketItemsFor(player.userId),
+                own,
+                money: Number(player.money) || 0,
+                count: (player.characters || []).length,
+                cap: Number(player.maxCharacters) > 0 ? Number(player.maxCharacters) : 30
+            }))
+        } catch (err) {
+            console.error('market page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // حالة السوق الحيّة (كل ثواني من الصفحة)
+    app.get('/market/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!marketSystem || !auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!shopPollRate(sess.u)) return res.status(429).json({ ok: false })
+            const p = await Player.findOne({ userId: sess.u }).select('money characters maxCharacters sessionVersion').lean()
+            if (!p || (p.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            res.json({
+                ok: true,
+                money: Number(p.money) || 0,
+                count: (p.characters || []).length,
+                cap: Number(p.maxCharacters) > 0 ? Number(p.maxCharacters) : 30,
+                items: await marketItemsFor(sess.u)
+            })
+        } catch (err) {
+            console.error('market state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/market/buy', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, marketSystem && marketSystem.buyItem)
+        if (!g || !g.sess) return
+        try {
+            const id = String(g.body.id || '')
+            if (!/^[a-f0-9]{24}$/.test(id)) return g.fail(400, 'BAD_ID', marketMsg({ code: 'BAD_ID' }))
+            const r = await marketSystem.buyItem({ userId: g.sess.u, marketId: id })
+            if (!r.ok) {
+                const status = r.code === 'GONE' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return g.fail(status, r.code, marketMsg(r))
+            }
+            res.json({
+                ok: true,
+                retrieved: !!r.retrieved,
+                money: Number(r.money) || 0,
+                message: r.retrieved
+                    ? `↩️ رجعت ${r.name} لمجموعتك بدون أي خصم`
+                    : `✅ تم شراء ${r.name} بـ ${Number(r.price).toLocaleString('en-US')}\n💳 رصيدك الحالي: ${(Number(r.money) || 0).toLocaleString('en-US')}`
+            })
+        } catch (err) {
+            console.error('market buy route error:', err)
+            return g.fail(500, 'SERVER', marketMsg({ code: 'SERVER' }))
+        }
+    })
+
+    app.post('/market/sell', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, marketSystem && marketSystem.sellItem)
+        if (!g || !g.sess) return
+        try {
+            const key = String(g.body.key || '')
+            const price = Number(String(g.body.price == null ? '' : g.body.price).replace(/[,\s]/g, ''))
+            if (!/^[a-f0-9]{40}:\d{1,3}$/.test(key)) return g.fail(400, 'NO_CHAR', marketMsg({ code: 'NO_CHAR' }))
+            const r = await marketSystem.sellItem({ userId: g.sess.u, key, price })
+            if (!r.ok) {
+                const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
+                return g.fail(status, r.code, marketMsg(r))
+            }
+            res.json({
+                ok: true,
+                message: `✅ تم عرض ${r.name} في السوق\n💰 السعر: ${Number(r.price).toLocaleString('en-US')}\n⏳ ترجع لك بعد 24 ساعة لو ما انباعت`
+            })
+        } catch (err) {
+            console.error('market sell route error:', err)
+            return g.fail(500, 'SERVER', marketMsg({ code: 'SERVER' }))
+        }
+    })
 
     // ─────────────── 👑 هجوم الزعيم ───────────────
     // حد عدد الطلبات: 20 بالدقيقة لكل لاعب (حماية فقط — القيد الحقيقي كولداون الـ30 ثانية)
