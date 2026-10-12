@@ -1605,6 +1605,166 @@ async function scheduleWeaponPullsReset() {
 
     }, 60000)
 }
+// ══════════════════════════════════════════════════════════
+// 🗼 ريست البرج الأسبوعي التلقائي — كل جمعة 12:00 ص بتوقيت السعودية
+// ══════════════════════════════════════════════════════════
+// نفس منطق أمر .ريست_البرج_للجميع بالضبط (دالة وحدة يستعملها الأمر والجدولة).
+async function resetTowerForAll() {
+    return Player.updateMany(
+        {},
+        {
+            $set: {
+                towerFloor: 1,
+                usedCharacters: [],
+                towerCompleted: false,
+
+                attackBonus: 0,
+                defenseBonus: 0,
+                hpBonus: 0,
+                speedBonus: 0
+            },
+
+            $unset: {
+                usedCharacter: "",
+                towerCharacters: "",
+                usedTowerCharacters: ""
+            }
+        }
+    )
+}
+
+// 🔒 الحماية:
+// 1) آخر أسبوع تم ريسته يتخزن بقاعدة البيانات (BotState.lastTowerResetWeek)
+//    فلو البوت ريستارت/انقطع ما يعيد الريست لنفس الأسبوع.
+// 2) لو البوت كان طافي وقت الجمعة 12:00، أول فحص بعد ما يشتغل يريست (الأسبوع تغيّر).
+// 3) "حجز" ذري: قبل الريست نحجز الأسبوع بالقاعدة، فلو شغّلت نسختين من البوت
+//    (مثل redeploy على Render) واحدة بس تنفّذ.
+// 4) لو الريست فشل (انقطاع اتصال القاعدة...) يعيد المحاولة 5 مرات بفواصل متزايدة،
+//    ولو فشلت كلها يلغي الحجز ويحاول من جديد بعد 5 دقائق (ما يضيع الأسبوع).
+// 5) أول تشغيل بعد إضافة هذا الكود: ما يريست، فقط يسجّل الأسبوع الحالي كبداية
+//    (عشان ما يتصفّر تقدم اللاعبين لحظة النشر).
+// يستعمل collection مباشرة عشان ما يحتاج تعديل على models/BotState.
+let lastTowerResetWeekKnown = null
+let towerResetRunning = false
+let towerResetRetryAt = 0
+
+const TOWER_RESET_RETRY_DELAYS = [5000, 15000, 30000, 60000, 120000]
+
+async function scheduleTowerWeeklyReset() {
+
+    if (global.towerWeeklyResetInterval) {
+        return
+    }
+
+    const tick = async () => {
+
+        if (towerResetRunning) return
+        if (Date.now() < towerResetRetryAt) return
+
+        const week = getSaudiWeekKey()
+
+        if (lastTowerResetWeekKnown === week) return
+
+        // الاتصال بالقاعدة غير جاهز → نتخطى ونعيد بالفحص القادم
+        if (mongoose.connection.readyState !== 1) return
+
+        towerResetRunning = true
+
+        try {
+
+            const stateCol = BotState.collection
+            const state = await stateCol.findOne({})
+            const stored = state?.lastTowerResetWeek || null
+
+            // أول تشغيل: نسجّل الأسبوع الحالي فقط بدون ريست
+            if (!stored) {
+                await stateCol.updateOne(
+                    {},
+                    { $set: { lastTowerResetWeek: week } },
+                    { upsert: true }
+                )
+                lastTowerResetWeekKnown = week
+                console.log('🗼 ريست البرج الأسبوعي: تسجيل الأسبوع الحالي كبداية —', week)
+                return
+            }
+
+            if (stored === week) {
+                lastTowerResetWeekKnown = week
+                return
+            }
+
+            // 🔒 حجز ذري للأسبوع (لو نسخة ثانية حجزته قبلنا matchedCount = 0)
+            const claim = await stateCol.updateOne(
+                { lastTowerResetWeek: stored },
+                { $set: { lastTowerResetWeek: week } }
+            )
+
+            if (!claim.matchedCount) {
+                lastTowerResetWeekKnown = week
+                return
+            }
+
+            // 🔁 تنفيذ الريست مع إعادة المحاولة
+            let done = false
+            let result = null
+
+            for (let i = 0; i <= TOWER_RESET_RETRY_DELAYS.length; i++) {
+                try {
+                    if (mongoose.connection.readyState !== 1) {
+                        throw new Error('قاعدة البيانات غير متصلة')
+                    }
+                    result = await resetTowerForAll()
+                    done = true
+                    break
+                } catch (err) {
+                    console.log(
+                        `⚠️ فشل ريست البرج (محاولة ${i + 1}):`,
+                        err?.message || err
+                    )
+                    if (i < TOWER_RESET_RETRY_DELAYS.length) {
+                        await new Promise(r =>
+                            setTimeout(r, TOWER_RESET_RETRY_DELAYS[i])
+                        )
+                    }
+                }
+            }
+
+            if (done) {
+                lastTowerResetWeekKnown = week
+                console.log(
+                    '✅ تم ريست البرج الأسبوعي لجميع اللاعبين —',
+                    week,
+                    '| عدد اللاعبين:',
+                    result?.modifiedCount ?? result?.nModified ?? '?'
+                )
+            } else {
+                // نلغي الحجز عشان المحاولة القادمة تعيد الريست بدل ما يضيع الأسبوع
+                try {
+                    await stateCol.updateOne(
+                        { lastTowerResetWeek: week },
+                        { $set: { lastTowerResetWeek: stored } }
+                    )
+                } catch (e) {
+                    console.log('❌ تعذر إلغاء حجز ريست البرج:', e?.message || e)
+                }
+                towerResetRetryAt = Date.now() + 5 * 60 * 1000
+                console.log('❌ فشل ريست البرج بعد كل المحاولات — إعادة بعد 5 دقائق')
+            }
+
+        } catch (err) {
+            console.log('❌ خطأ ريست البرج الأسبوعي:', err?.message || err)
+            towerResetRetryAt = Date.now() + 60 * 1000
+        } finally {
+            towerResetRunning = false
+        }
+    }
+
+    global.towerWeeklyResetInterval = setInterval(tick, 60000)
+
+    // فحص أول بعد 10 ثواني من التشغيل (بدل ما ننتظر دقيقة كاملة)
+    setTimeout(tick, 10000)
+}
+
 function getRandomAbilities(count = 7) {
 
     const pool = [...urAbilities]
@@ -3200,6 +3360,126 @@ ${reward.boxLabel} × 1`
 // 🌌 الحد الأقصى لتطوير شخصيات أوميقا Ω لكل لاعب (مدى الحياة)
 const MAX_OMEGA_EVOLUTIONS = 10
 
+// ═══════════════════════════════════════════════════════════
+// 🏆 تشكيلة .تحدي / .قبول_تحدي (مستقلة تماماً عن .تشكيلة و .pvp و .فريق_رويال ...)
+// القاعدة:
+//   • عنده أوميقا  → 1 أوميقا + 1 EX + الباقي من شخصياته (عادية)
+//   • ما عنده أوميقا → 2 EX + الباقي من شخصياته (عادية)
+//   • أول ما يطوّر أوميقا بحسابه ترجع القاعدة تلقائياً 1-1
+//   • لو ما عنده كفاية EX/أوميقا تتعبّى الخانات من شخصياته (الأقوى)
+// التخزين بالأسماء (مو بالأرقام) لأن .شخصياتي يعيد الترتيب تلقائياً
+// ═══════════════════════════════════════════════════════════
+const CHALLENGE_TEAM_SIZE = 3
+
+function getChallengeKind(c) {
+    const lvl = Number(c?.evolutionLevel || 0)
+    if (lvl >= 7) return 'omega'
+    if (lvl === 6) return 'ex'
+    return 'normal'
+}
+
+function getChallengeSlots(chars, size = CHALLENGE_TEAM_SIZE) {
+    const own = { omega: 0, ex: 0, normal: 0 }
+    for (const c of chars) own[getChallengeKind(c)]++
+
+    const omega = Math.min(1, own.omega, size)
+    const ex = Math.min(own.omega > 0 ? 1 : 2, own.ex, size - omega)
+    const normal = Math.min(size - omega - ex, own.normal)
+    const any = size - omega - ex - normal
+
+    return { size, omega, ex, normal, any }
+}
+
+function isChallengeTeamValid(team, slots) {
+    if (!team || team.length !== slots.size) return false
+
+    const cnt = { omega: 0, ex: 0, normal: 0 }
+    for (const c of team) cnt[getChallengeKind(c)]++
+
+    return cnt.omega >= slots.omega &&
+        cnt.ex >= slots.ex &&
+        cnt.normal >= slots.normal
+}
+
+function describeChallengeRule(slots) {
+    const parts = []
+    if (slots.omega) parts.push(`${slots.omega} 🌌 أوميقا`)
+    if (slots.ex) parts.push(`${slots.ex} ✨ EX`)
+    if (slots.normal + slots.any) parts.push(`${slots.normal + slots.any} من باقي شخصياتك`)
+    return parts.join(' + ')
+}
+
+function getChallengeSaved(player) {
+    try {
+        const v = typeof player?.get === 'function'
+            ? player.get('challengeTeam')
+            : player?.challengeTeam
+        return Array.isArray(v) ? v.map(String) : []
+    } catch (_) {
+        return []
+    }
+}
+
+// يرجّع فريق التحدي الفعلي: يحترم تشكيلته المحفوظة قدر الإمكان،
+// وأي خانة ناقصة/تغيّرت قاعدتها تتعبّى تلقائياً بأقوى شخصية مناسبة
+function resolveChallengeTeam(player, savedNames) {
+    const chars = Array.from(player?.characters || [])
+    const size = Math.min(CHALLENGE_TEAM_SIZE, chars.length)
+    const slots = getChallengeSlots(chars, size)
+
+    const used = new Set()
+    const saved = []
+
+    for (const name of (savedNames || [])) {
+        const c = chars.find(x => x.name === name && !used.has(x))
+        if (c) {
+            used.add(c)
+            saved.push(c)
+        }
+    }
+
+    const team = []
+    const byPower = (a, b) => Number(b.power || 0) - Number(a.power || 0)
+
+    const take = (kind, count) => {
+        let got = 0
+
+        for (const c of saved) {
+            if (got >= count) break
+            if (getChallengeKind(c) === kind && !team.includes(c)) {
+                team.push(c)
+                got++
+            }
+        }
+
+        const pool = chars
+            .filter(c => getChallengeKind(c) === kind && !team.includes(c))
+            .sort(byPower)
+
+        for (const c of pool) {
+            if (got >= count) break
+            team.push(c)
+            got++
+        }
+    }
+
+    take('omega', slots.omega)
+    take('ex', slots.ex)
+    take('normal', slots.normal)
+
+    if (team.length < size) {
+        const rest = chars.filter(c => !team.includes(c)).sort(byPower)
+        for (const c of rest) {
+            if (team.length >= size) break
+            team.push(c)
+        }
+    }
+
+    const usedSaved = team.filter(c => saved.includes(c)).length
+
+    return { team, usedSaved, slots }
+}
+
 const ABILITY_CHANCE = 30
 const levelAbilities = {
 
@@ -4772,6 +5052,13 @@ const siteChallenge = require('./systems/siteChallenge')({
     checkAndGrantAchievement,
     orbs,
     getPeriod: getCurrentSaudi2HourPeriod,
+    resolveChallengeTeam,
+    getChallengeSaved,
+    getChallengeSlots,
+    isChallengeTeamValid,
+    describeChallengeRule,
+    getChallengeKind,
+    CHALLENGE_TEAM_SIZE,
     getSock: () => siteSockRef.current,
     trackWin: doc => siteMissions.trackWinOn(doc) // 🎯 مهمة الفوز
 })
@@ -7333,6 +7620,18 @@ if (!global.weaponResetStarted) {
 
     console.log(
         '✅ Weapon Pulls Reset System Started'
+    )
+
+}
+
+if (!global.towerWeeklyResetStarted) {
+
+    global.towerWeeklyResetStarted = true
+
+    scheduleTowerWeeklyReset()
+
+    console.log(
+        '✅ Tower Weekly Reset System Started'
     )
 
 }
@@ -11268,6 +11567,7 @@ const commandExplanations = {
         '.تحدي': 'يرسل تحدي قتال (PvP) للاعب آخر عن طريق المنشن. مثال: .تحدي @شخص',
         '.قبول_تحدي': 'يقبل تحدي قتال (PvP) معلّق أرسله لاعب آخر لك.',
         '.رفض_تحدي': 'يرفض تحدي قتال (PvP) معلّق أرسله لاعب آخر لك.',
+        '.فريق_تحدي': 'يحدد تشكيلة .تحدي (مستقلة عن .تشكيلة): 1 أوميقا + 1 EX + الباقي من شخصياتك، وإذا ما عندك أوميقا فـ 2 EX + الباقي. بدون أرقام يعرض تشكيلتك. مثال: .فريق_تحدي 1 2 3',
         '.قتال': 'يبدأ قتال شخصية مباشرة بذكر اسمها وقوتها مع منشن الخصم. مثال: .قتال Hashirama 2300 @شخص',
         '.قتال pvp': 'يبدأ قتال PvP فوري بفريقك (3 شخصيات). بدون منشن يعرض لك الخصوم القريبين منك، ومع منشن أو رقم الخصم يقاتله مباشرة. 20 قتال يومياً. مثال: .قتال pvp @شخص',
         '.pvp': 'يحدد فريق PvP من 3 من شخصياتك بأرقامها (مستقل عن .تشكيلة). بدون أرقام يعرض فريقك الحالي. مثال: .pvp 1 2 3',
@@ -14901,6 +15201,110 @@ if (
 ) {
     const arenaHandled = await handleArenaCommand({ sock, msg, text, userId, safeSend, Player })
     if (arenaHandled) return
+}
+
+// ─── .فريق_تحدي (تشكيلة .تحدي — مستقلة عن .تشكيلة) ───
+
+if (text === '.فريق_تحدي' || text.startsWith('.فريق_تحدي ')) {
+
+    const me = await Player.findOne({ userId })
+
+    if (!me) {
+        return safeSend(msg.key.remoteJid, { text: '❌ لا يوجد حساب' })
+    }
+
+    const myChars = Array.from(me.characters || [])
+
+    if (!myChars.length) {
+        return safeSend(msg.key.remoteJid, { text: '❌ لا تملك شخصيات' })
+    }
+
+    const teamSize = Math.min(CHALLENGE_TEAM_SIZE, myChars.length)
+    const slots = getChallengeSlots(myChars, teamSize)
+    const ruleText = describeChallengeRule(slots)
+    const ctArgs = text.trim().split(/\s+/).slice(1)
+
+    const kindIcon = c => {
+        const k = getChallengeKind(c)
+        return k === 'omega' ? '🌌' : k === 'ex' ? '✨' : '👑'
+    }
+
+    // بدون أرقام: عرض التشكيلة الحالية
+    if (!ctArgs.length) {
+
+        const { team, usedSaved } = resolveChallengeTeam(me, getChallengeSaved(me))
+
+        const status =
+            usedSaved === 0 ? ' (تلقائي: الأقوى حسب القاعدة)'
+            : usedSaved < team.length ? ' (تم تعديل بعض الخانات تلقائياً حسب القاعدة)'
+            : ''
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`⚔️ ═══〔 تشكيلة .تحدي 〕═══ ⚔️${status}
+
+${team.map(c => `${kindIcon(c)} ${c.name} — ⚔️ ${Number(c.power || 0).toLocaleString('en-US')}`).join('\n')}
+
+📌 القاعدة الحالية: ${ruleText}
+
+لتغييرها اكتب: .فريق_تحدي 1 2 3
+(أرقام شخصياتك بنفس ترتيبها في .شخصياتي)`
+        })
+    }
+
+    if (ctArgs.length !== teamSize) {
+        return safeSend(msg.key.remoteJid, {
+            text:
+`❌ الاستخدام الصحيح:
+
+.فريق_تحدي ${Array.from({ length: teamSize }, (_, i) => i + 1).join(' ')}
+
+📌 القاعدة الحالية: ${ruleText}`
+        })
+    }
+
+    const ctIdx = ctArgs.map(a => parseInt(a, 10) - 1)
+
+    if (ctIdx.some(i => isNaN(i) || i < 0)) {
+        return safeSend(msg.key.remoteJid, { text: '❌ أرقام غير صحيحة' })
+    }
+
+    if (new Set(ctIdx).size !== teamSize) {
+        return safeSend(msg.key.remoteJid, { text: '❌ لا يمكن تكرار نفس الشخصية' })
+    }
+
+    for (const i of ctIdx) {
+        if (!myChars[i]) {
+            return safeSend(msg.key.remoteJid, { text: `❌ الشخصية رقم ${i + 1} غير موجودة` })
+        }
+    }
+
+    const picked = ctIdx.map(i => myChars[i])
+
+    if (!isChallengeTeamValid(picked, slots)) {
+        return safeSend(msg.key.remoteJid, {
+            text:
+`❌ التشكيلة لا تطابق القاعدة
+
+📌 المطلوب: ${ruleText}${slots.omega ? '' : '\n\n💡 لما تطوّر شخصية لأوميقا تتحول القاعدة إلى 1 أوميقا + 1 EX'}`
+        })
+    }
+
+    // strict:false عشان يشتغل حتى لو الحقل ما انضاف لـ Player.js
+    await Player.updateOne(
+        { userId },
+        { $set: { challengeTeam: picked.map(c => c.name) } },
+        { strict: false }
+    )
+
+    return safeSend(msg.key.remoteJid, {
+        text:
+`⚔️ ═══〔 تم حفظ تشكيلة .تحدي 〕═══ ⚔️
+
+${picked.map(c => `${kindIcon(c)} ${c.name}`).join('\n')}
+
+🔥 جاهز للتحدي: .تحدي @شخص`
+    })
 }
 
 // ─── .تحدي ───
@@ -24000,27 +24404,7 @@ if (text === '.ريست_البرج_للجميع') {
         )
     }
 
-    await Player.updateMany(
-        {},
-        {
-            $set: {
-                towerFloor: 1,
-                usedCharacters: [],
-                towerCompleted: false,
-
-                attackBonus: 0,
-                defenseBonus: 0,
-                hpBonus: 0,
-                speedBonus: 0
-            },
-
-            $unset: {
-                usedCharacter: "",
-                towerCharacters: "",
-                usedTowerCharacters: ""
-            }
-        }
-    )
+    await resetTowerForAll()
 
     return sock.sendMessage(
         msg.key.remoteJid,
@@ -36136,13 +36520,10 @@ const stats2 =
 
 fight.shield1 = stats1.shield
 fight.shield2 = stats2.shield
-    const team1 = [...player1Data.characters]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
+    // 🏆 اختيار الفريق حسب تشكيلة .فريق_تحدي (1 أوميقا + 1 EX + الباقي، أو 2 EX إذا ما عنده أوميقا)
+    const team1 = resolveChallengeTeam(player1Data, getChallengeSaved(player1Data)).team
 
-const team2 = [...player2Data.characters]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
+const team2 = resolveChallengeTeam(player2Data, getChallengeSaved(player2Data)).team
 
 console.log("team1 before save =", team1)
 console.log("team2 before save =", team2)
