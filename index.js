@@ -203,6 +203,9 @@ const codenamesGame = require('./systems/codenamesGame')
 // 🏆 بطولة أجمل معرض
 // =========================
 const galleryTournament = require('./systems/galleryTournament')
+// ⛔ تعطيل مؤقت لأي شي يشغّل Chrome بالواتس (غيّرها إلى false لإعادة التفعيل)
+const GALLERY_TOURNAMENT_DISABLED = true
+const CARD_DESIGN_DISABLED = true
 // ⚡ تُستدعى مع كل رسالة تبدأ بـ "." (كل أوامر البوت تقريباً)، وكانت
 // تعيد حساب Intl.DateTimeFormat في كل مرة. النتيجة ما تتغير إلا مع
 // تغيّر الدقيقة، فنخزّنها لثانيتين فقط — فرق آمن تماماً (أسوأ حالة:
@@ -8980,6 +8983,7 @@ if (!text) return;
     // 🏆 بطولة أجمل معرض (تسجيل/انضمام/بدء فوري/تصويت)
     // =========================
     if (
+        !GALLERY_TOURNAMENT_DISABLED &&
         textMatchesAnyPrefix(text, GALLERY_TOURNAMENT_PREFIXES) &&
         await galleryTournament.handleMessage(
             sock,
@@ -37847,6 +37851,12 @@ const currentRankLabel =
 // ─── .عرض_تصميم ─── (نفس بيانات .عرض، لكن كبطاقة تصميم رسومية
 // بدل صورة خام + كابشن — لمن يحب يشوف التصميم بدل الوضع الافتراضي)
 if (text.startsWith('.عرض_تصميم')) {
+
+    if (CARD_DESIGN_DISABLED) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⚠️ .عرض_تصميم معطّل مؤقتاً، استخدم .عرض'
+        })
+    }
 
 try {
 
