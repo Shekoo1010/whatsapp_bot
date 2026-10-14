@@ -613,7 +613,7 @@ const saudiDay = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slic
                 const title = `${out.names[0]} هاجمك!`
                 const text = out.winner === 2 ? `🛡️ دفاعك فاز ${out.wins[1]}-${out.wins[0]}` : out.winner === 1 ? `💥 خسرت ${out.wins[1]}-${out.wins[0]} — شاهد الإعادة بسجل المضاربة` : '⚖️ انتهت بالتعادل'
                 siteNotifyPush(target.userId, { type: 'dm', icon: '🥊', title, text })
-                notifyDm(target.userId, `🥊 ${title}\n${text}\nافتح صفحة المضاربة بالموقع لمشاهدة الإعادة.`).catch(() => {})
+                // لا نرسل رسالة خاصة بنتيجة الهجوم — تظهر بسجل المضاربة بالموقع فقط (siteNotifyPush أعلاه)
 
                 res.json({ ok: true, brawl: out })
             } catch (err) {
@@ -738,7 +738,7 @@ const saudiDay = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slic
                 target.pendingBrawl = { challenger: sess.u, createdAt: Date.now() }
                 await target.save()
 
-                notifyDm(target.userId, `🥊 ${player.name || player.username} أرسل لك طلب مضاربة!\nافتح صفحة المضاربة بالموقع لقبول الطلب أو رفضه.`).catch(() => {})
+                // لا نرسل رسالة خاصة بطلب المضاربة — يظهر بالموقع فقط
 
                 res.json({ ok: true, target: target.name || target.username })
             } catch (err) {
