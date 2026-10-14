@@ -5286,6 +5286,20 @@ async function handlePasswordPrivate(sockRef, msg, text) {
     return true
 }
 
+// 📊 مراقبة صحية (قراءة فقط — لا تغيّر أي منطق): تأخر حلقة الأحداث + الذاكرة. تطبع سطراً فقط عند وجود ضغط.
+try {
+    const { monitorEventLoopDelay } = require('perf_hooks')
+    const _lag = monitorEventLoopDelay({ resolution: 20 })
+    _lag.enable()
+    setInterval(() => {
+        const mu = process.memoryUsage()
+        const p99 = _lag.percentile(99) / 1e6, mx = _lag.max / 1e6
+        const rss = Math.round(mu.rss / 1048576)
+        if (p99 > 150 || rss > 380) console.log(`📊 HEALTH lag p99=${p99.toFixed(0)}ms max=${mx.toFixed(0)}ms rss=${rss}MB heap=${Math.round(mu.heapUsed / 1048576)}MB`)
+        _lag.reset()
+    }, 30000).unref()
+} catch (e) { /* اختياري */ }
+
 app.listen(process.env.PORT || 3000, () => {
     console.log("Server running")
 })
