@@ -11903,6 +11903,7 @@ const commandExplanations = {
         '.حذف_العشائر_الفارغة': 'أمر للمطور فقط - يحذف كل العشائر اللي ما فيها أعضاء.',
         '.الغاء_الحروب': 'أمر للمطور فقط - يلغي كل حروب العشائر الجارية حالياً.',
         '.اصلاح_المخزون': 'أمر للمطور فقط - يعيد حساب مخزون الشخصيات (maxCharacters) لكل اللاعبين.',
+        '.تغيير_فورم': 'أمر للمطور فقط - يطبّق فورم شخصية من characters.json على كل نسخها عند اللاعبين وبالسوق (الفورم فقط). مثال: .تغيير_فورم Cha Heera',
         '.مسح_المعدات': 'أمر للمطور فقط - يمسح أي أثر متبقي لنظام المعدات القديم من قاعدة البيانات لكل اللاعبين.',
         '.تصفير_الانجازات': 'أمر للمطور فقط - يصفّر إنجازات اللاعبين.',
         '.فحصxp': 'أمر للمطور فقط - يفحص ويعرض تفاصيل نظام الخبرة (XP) للاعبين.',
@@ -34131,6 +34132,99 @@ ${progressBar}
     
 
     
+// =========================
+// .تغيير_فورم <اسم الشخصية>
+// أمر للمطور فقط - يطبّق الفورم الحالي من characters.json على كل نسخ
+// الشخصية عند جميع اللاعبين (واتساب + الموقع) وعروض السوق.
+// يغيّر حقل form فقط، لا يمس القوة ولا المستوى ولا القدرات ولا أي شي ثاني.
+// =========================
+if (text === '.تغيير_فورم' || text.startsWith('.تغيير_فورم ')) {
+
+    if (!isOwner(msg)) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ هذا الأمر للمطور فقط.'
+        })
+    }
+
+    const formCmdName = text.slice('.تغيير_فورم'.length).trim()
+
+    if (!formCmdName) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ اكتب اسم الشخصية.\nمثال: .تغيير_فورم Cha Heera'
+        })
+    }
+
+    const formCmdMatches = characters.filter(
+        c => String(c.name).toLowerCase() === formCmdName.toLowerCase()
+    )
+
+    if (formCmdMatches.length === 0) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ الشخصية غير موجودة في characters.json'
+        })
+    }
+
+    if (formCmdMatches.length > 1) {
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ يوجد أكثر من شخصية بنفس الاسم في characters.json، الأمر يعمل فقط مع اسم له إدخال واحد.'
+        })
+    }
+
+    try {
+
+        const formCmdChar = formCmdMatches[0]
+        const formCmdNewForm = formCmdChar.form || ''
+
+        const playersResult = await Player.collection.updateMany(
+            {
+                characters: {
+                    $elemMatch: {
+                        name: formCmdChar.name,
+                        rarity: formCmdChar.rarity,
+                        form: { $ne: formCmdNewForm }
+                    }
+                }
+            },
+            { $set: { 'characters.$[c].form': formCmdNewForm } },
+            {
+                arrayFilters: [{
+                    'c.name': formCmdChar.name,
+                    'c.rarity': formCmdChar.rarity,
+                    'c.form': { $ne: formCmdNewForm }
+                }]
+            }
+        )
+
+        const marketResult = await Market.collection.updateMany(
+            {
+                'character.name': formCmdChar.name,
+                'character.rarity': formCmdChar.rarity,
+                'character.form': { $ne: formCmdNewForm }
+            },
+            { $set: { 'character.form': formCmdNewForm } }
+        )
+
+        return sock.sendMessage(msg.key.remoteJid, {
+            text:
+`✅ تم تحديث الفورم
+
+🧿 الشخصية: ${formCmdChar.name}
+🔥 الفورم الجديد: ${formCmdNewForm}
+
+👥 لاعبين تعدّلوا: ${playersResult.modifiedCount}
+🏪 عروض سوق تعدّلت: ${marketResult.modifiedCount}
+
+(تغيّر الفورم فقط، بدون أي تغيير آخر)`
+        })
+
+    } catch (err) {
+        console.log('❌ خطأ .تغيير_فورم:', err)
+        return sock.sendMessage(msg.key.remoteJid, {
+            text: '❌ صار خطأ أثناء تحديث الفورم.'
+        })
+    }
+}
+
 if (text === '.اصلاح_المخزون') {
 
     const players = await Player.find({})
