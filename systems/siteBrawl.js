@@ -54,6 +54,8 @@ function create(deps) {
     })
     logSchema.index({ defender: 1, at: -1 })
     const BrawlLog = mongoose.models.BrawlLog || mongoose.model('BrawlLog', logSchema)
+    // ⚡ فهرس للبحث عن "طلبي المعلّق" (كان مسحاً كاملاً للمجموعة عند كل استعلام حالة) — آمن ويُنشأ مرة واحدة
+    try { Player.collection.createIndex({ 'pendingBrawl.challenger': 1 }, { sparse: true, background: true }).catch(() => {}) } catch (e) { /* اختياري */ }
 
     // sock وهمي لو ما فيه اتصال: يمنع الانهيار داخل دوال تحاول ترسل رسالة واتساب
     const stubSock = { sendMessage: async () => {}, groupSettingUpdate: async () => {} }
@@ -354,17 +356,23 @@ function create(deps) {
         }
         const bad = (res, code, message, status = 400) => res.status(status).json({ ok: false, code, message })
 
-        async function buildState(userId, req) {
-            const me = await Player.findOne({ userId })
+        async function buildState(userId, req, withTeam) {
+            // قراءة خفيفة (lean + حقول محددة): بدل تحميل مستند اللاعب كاملاً مع كل شخصياته عند كل استعلام حالة
+            let me = await Player.findOne({ userId }).select('userId brawlFights lastBrawlReset brawlWins brawlLosses rankTier rankPoints pvpTeam pendingBrawl').lean()
             if (!me) return null
-            if (refreshBrawlDaily(me)) await me.save()
+            if (refreshBrawlDaily(me)) {   // يوم جديد (مرة باليوم): نحفظ عبر المستند الكامل مثل قبل
+                const doc = await Player.findOne({ userId })
+                if (!doc) return null
+                if (refreshBrawlDaily(doc)) await doc.save()
+                me = doc.toObject()
+            }
 
             let incoming = null
             const pb = me.pendingBrawl
             if (pb && pb.challenger) {
                 if (Date.now() - pb.createdAt > BRAWL_REQUEST_TTL) {
                     me.pendingBrawl = null
-                    await me.save()
+                    await Player.updateOne({ userId }, { $set: { pendingBrawl: null } })
                 } else {
                     const ch = await Player.findOne({ userId: pb.challenger }).select('name username').lean()
                     if (ch) incoming = { name: ch.name || ch.username || 'لاعب', username: ch.username || '', leftMs: BRAWL_REQUEST_TTL - (Date.now() - pb.createdAt) }
@@ -378,6 +386,17 @@ function create(deps) {
             const latest = rec && Date.now() - rec.at < RESULT_TTL ? rec.payload : null
 
             const logUnseen = await BrawlLog.countDocuments({ defender: userId, seen: false })
+
+            // التشكيلة (تحتاج الشخصيات): تُجلب فقط عند الطلب (?team=1) — أول فتح للصفحة وبعد حفظ التشكيلة
+            let ready = Array.isArray(me.pvpTeam) && me.pvpTeam.length === 3
+            let team
+            if (withTeam) {
+                const t = await Player.findOne({ userId }).select('pvpTeam characters').lean()
+                const chars = (t && t.characters) || []
+                const tm = ((t && t.pvpTeam) || []).map(i => chars[i]).filter(Boolean)
+                team = tm.map(c => charView(c, req))
+                ready = tm.length === 3 && ((t && t.pvpTeam) || []).length === 3
+            }
             return {
                 ok: true,
                 left: Math.max(0, Number(me.brawlFights) || 0),
@@ -386,8 +405,8 @@ function create(deps) {
                 losses: me.brawlLosses || 0,
                 rank: me.rankTier || getRankTier(me.rankPoints || 0),
                 points: me.rankPoints || 0,
-                ready: hasTeam(me),
-                team: teamOf(me).map(c => charView(c, req)),
+                ready,
+                team,
                 incoming,
                 outgoing: out ? { name: out.name || out.username || 'لاعب', leftMs: BRAWL_REQUEST_TTL - (Date.now() - out.pendingBrawl.createdAt) } : null,
                 latestId: latest ? latest.id : null,
@@ -420,7 +439,7 @@ function create(deps) {
             try {
                 const sess = await guard(req, res, false)
                 if (!sess) return
-                const st = await buildState(sess.u, req)
+                const st = await buildState(sess.u, req, req.query.team === '1')
                 if (!st) return bad(res, 'NOPLAYER', 'لا يوجد حساب', 404)
                 res.json(st)
             } catch (err) {
@@ -962,9 +981,9 @@ ${navDrawerHTML(code, csrf, 'brawl', name)}
 .fx-sh{width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;gap:10px;background:#0f1422;border:1px solid rgba(240,192,74,.4);border-bottom:0;border-radius:22px 22px 0 0;padding:16px 14px calc(14px + env(safe-area-inset-bottom,0px));animation:fxUpS .3s cubic-bezier(.2,.9,.3,1)}
 @keyframes fxUpS{from{transform:translateY(60px);opacity:0}}
 .fx-sh h3{margin:0;font:900 16px 'Cairo',sans-serif;color:#e8ecf5}.fx-sh p{margin:0;font-size:12px;color:#8f98ad}
-.fx-gr{overflow:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:4px 2px}
-.fx-ch{position:relative;border-radius:14px;border:2px solid var(--t);background:#0c101c;overflow:hidden;cursor:pointer;text-align:center;padding-bottom:6px;color:#e8ecf5}
-.fx-ch .im{aspect-ratio:1;background:#141a2b center/cover no-repeat;display:flex;align-items:center;justify-content:center;font:800 22px 'Cairo',sans-serif;color:var(--t)}
+.fx-gr{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:max-content;align-content:start;gap:8px;padding:4px 2px}
+.fx-ch{position:relative;align-self:start;min-height:0;border-radius:14px;border:2px solid var(--t);background:#0c101c;overflow:hidden;cursor:pointer;text-align:center;padding-bottom:6px;color:#e8ecf5}
+.fx-ch .im{width:100%;aspect-ratio:1/1;background:#141a2b center/cover no-repeat;display:flex;align-items:center;justify-content:center;font:800 22px 'Cairo',sans-serif;color:var(--t)}
 .fx-ch .nm{font:800 12px 'Cairo',sans-serif;margin:5px 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fx-ch .pw{font:700 12px 'Oswald',sans-serif;color:var(--t)}
 .fx-ch .no{position:absolute;top:5px;inset-inline-start:5px;min-width:22px;height:22px;border-radius:11px;padding:0 5px;background:rgba(0,0,0,.65);font:700 12px 'Oswald',sans-serif;display:flex;align-items:center;justify-content:center}
 .fx-ch .od{position:absolute;top:5px;inset-inline-end:5px;width:26px;height:26px;border-radius:50%;background:#f0c04a;color:#241800;font:900 14px 'Oswald',sans-serif;display:none;align-items:center;justify-content:center}
@@ -1058,7 +1077,7 @@ function render(st){
   $('sLeft').textContent=st.left+'/'+st.max;
   $('sRank').textContent=st.rank;
   $('sWL').textContent=st.wins+' / '+st.losses;
-  $('myTeam').innerHTML=st.team.map(miniCard).join('');
+  if(st.team)$('myTeam').innerHTML=st.team.map(miniCard).join('');
   $('teamNote').hidden=st.ready;$('btnTeam').textContent=st.ready?'🎯 تغيير التشكيلة':'🎯 تحديد التشكيلة';
   $('btnSend').disabled=!st.ready||st.left<=0;
   var lb=$('logBadge');if(st.logUnseen){lb.hidden=false;lb.textContent=st.logUnseen+' جديد'}else lb.hidden=true;
@@ -1069,7 +1088,7 @@ function render(st){
   if(st.outgoing){out.hidden=false;$('outName').textContent=st.outgoing.name}else out.hidden=true;
 }
 
-var lastUn=0;
+var lastUn=0,needTeam=true;
 function ago(t){var s=Math.max(0,(Date.now()-t)/1000);if(s<60)return 'الآن';if(s<3600)return 'قبل '+Math.floor(s/60)+' د';if(s<86400)return 'قبل '+Math.floor(s/3600)+' س';return 'قبل '+Math.floor(s/86400)+' يوم'}
 function thumb(c){return '<span class="th" style="--t:'+esc(c.c)+(c.k&&c.i?';background-image:url(&quot;'+esc(c.i)+'&quot;)':'')+'"></span>'}
 function opHTML(o){return '<div class="bw-op"><div class="bw-op-h"><b>'+(o.online?'🟢 ':'')+esc(o.name)+'</b><small>'+esc(o.tier)+' · '+num(o.points)+' نقطة · ⚔️ '+num(o.power)+'</small></div><div class="bw-op-t">'+o.team.map(thumb).join('')+'</div><div class="bw-op-b"><button class="bw-btn gold" data-a="atk" data-r="'+esc(o.ref)+'" type="button">⚔️ هجوم</button>'+(o.online?'<button class="bw-btn line" data-a="ch" data-r="'+esc(o.ref)+'" type="button">🥊 تحدي مباشر</button>':'')+'</div></div>'}
@@ -1082,8 +1101,9 @@ function markSeen(id){try{sessionStorage.setItem('bw_seen',id)}catch(e){}}
 function poll(){
   clearTimeout(pollT);
   if(playing||document.hidden){pollT=setTimeout(poll,3000);return}
-  api('/brawl/state').then(function(st){
+  api('/brawl/state'+(needTeam?'?team=1':'')).then(function(st){
     if(st&&st.ok){
+      if(st.team)needTeam=false;
       render(st);
       // الخصم قبل الطلب وأنا أنتظر: أجلب النتيجة وأعرضها بنفس الأنميشن
       if(st.latestId&&!seen(st.latestId)){
@@ -1091,7 +1111,7 @@ function poll(){
         api('/brawl/result?id='+encodeURIComponent(st.latestId)).then(function(r){if(r&&r.ok)play(r.brawl)});
       }
     }
-    pollT=setTimeout(poll,3000);
+    pollT=setTimeout(poll,(st&&st.ok&&st.outgoing)?3000:8000);
   });
 }
 
@@ -1232,7 +1252,7 @@ $('btnDecline').onclick=function(){
   if(busy)return;busy=true;
   api('/brawl/decline',{}).then(function(r){busy=false;say(r.ok?'❌ تم رفض المضاربة':(r.message||'فشل'),r.ok);poll()});
 };
-$('btnTeam').onclick=function(){api('/brawl/chars').then(function(r){if(!r.ok){say(r.message||'تعذّر التحميل');return}FX.picker({chars:r.chars,onSave:function(ix){return api('/brawl/team',{indexes:ix}).then(function(x){if(x.ok)poll();return x})}})})};
+$('btnTeam').onclick=function(){api('/brawl/chars').then(function(r){if(!r.ok){say(r.message||'تعذّر التحميل');return}FX.picker({chars:r.chars,onSave:function(ix){return api('/brawl/team',{indexes:ix}).then(function(x){if(x.ok){needTeam=true;poll()}return x})}})})};
 $('btnNear').onclick=function(){loadNear(true)};
 $('near').onclick=function(e){var b=e.target.closest('button[data-a]');if(!b||busy)return;var ref=b.getAttribute('data-r');busy=true;b.disabled=true;say('');
  if(b.getAttribute('data-a')==='atk'){api('/brawl/attack',{ref:ref}).then(function(r){busy=false;b.disabled=false;if(r.ok){markSeen(r.brawl.id);play(r.brawl)}else{say(r.message||'فشل الهجوم');if(r.code==='STALE')loadNear()}})}
