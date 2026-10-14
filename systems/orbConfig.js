@@ -26,7 +26,7 @@ const DAILY_MISSIONS = [
     { key: 'groupWins',     name: 'الفوز في قتال المجموعات',   cmd: '.قتال_مجموع',    target: 10, orbs: 200 },
     { key: 'pvpWins',       name: 'الفوز في PvP',              cmd: '.قتال pvp',      target: 10, orbs: 200 },
     { key: 'challengeWins', name: 'الفوز في التحدي',           cmd: '.تحدي',          target: 5,  orbs: 150 },
-    { key: 'brawlWins',     name: 'الفوز في المضاربة',         cmd: '.مضاربة',        target: 10, orbs: 150 }
+    { key: 'brawlWins',     name: 'الفوز في المضاربة',         cmd: '.مضاربة',        target: 5,  orbs: 150 }
 ]
 
 const DAILY_ORBS_TOTAL = DAILY_MISSIONS.reduce((s, m) => s + m.orbs, 0)   // 1200

@@ -717,6 +717,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
         ['arenachallenge', '⚔️', 'تحدي ارينا', `/u/${c}/arena-challenge`],
+        ['brawl', '🥊', 'المضاربة', `/u/${c}/brawl`],
         ['xo', '❌', 'XO أونلاين', `/u/${c}/xo`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
@@ -731,6 +732,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['war', '⚔️', 'حرب الأعلام', `/u/${c}/war`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
+        ['sss', '🌟', 'قائمة SSS', `/u/${c}/sss`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
         ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
@@ -4699,6 +4701,26 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, charView: siteCharView
             })
         } catch (e) { console.error('site arena challenge mount error:', e) }
+    }
+
+    // 🥊 المضاربة — /u/:code/brawl (systems/siteBrawl.js)
+    if (opts.brawl) {
+        try {
+            opts.brawl.mount(app, {
+                auth, jsonBody, bossSession, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead, charView: siteCharView
+            })
+        } catch (e) { console.error('site brawl mount error:', e) }
+    }
+
+    // 🌟 قائمة SSS — /u/:code/sss (systems/siteSssList.js)
+    if (opts.sssList) {
+        try {
+            opts.sssList.mount(app, {
+                auth, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead, safeImageUrl, localCharImageUrl
+            })
+        } catch (e) { console.error('site sss list mount error:', e) }
     }
 
     // 🎡 عجلة الحظ اليومية — /u/:code/wheel (systems/siteWheel.js)
