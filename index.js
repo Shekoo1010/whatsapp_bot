@@ -66,6 +66,9 @@ const dailyLocks = new Set();
 const missionsClaimLocks = new Set();
 // 🔒 قفل لأوامر المضاربة (.مضاربة / .قبول مضاربة) — يمنع الخصم المزدوج أو تجاوز الحد من رسائل متزامنة (نفس فكرة قفل .اسحب)
 const brawlLocks = new Set();
+// 🔌 تعطيل مؤقت لأوامر المضاربة من الواتساب (تعمل من الموقع فقط). غيّرها إلى true لإرجاعها.
+const BRAWL_WHATSAPP_ENABLED = false
+const BRAWL_SITE_ONLY_MSG = '🥊 المضاربة متاحة حالياً من الموقع فقط — افتح صفحتك ثم القائمة ← المضاربة.'
 // 🔒 قفل لأوامر .قتال و .تحدي و .قبول_تحدي — نفس فكرة قفل .اسحب (رسالتين متزامنتين لنفس اللاعب ما تنفذان معاً)
 const fightCmdLocks = new Set();
 const bankSystem = require("./bankSystem")
@@ -5112,6 +5115,8 @@ const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharB
 
 // 📖 كتاب المجموعة (SSS فقط) — systems/siteCodexBook.js
 const siteCodexBook = require('./systems/siteCodexBook').createSiteCodexBook({ Player, getCatalog: () => characters })
+// 🌟 قائمة شخصيات SSS (A-Z) — systems/siteSssList.js (تقرأ الكتالوج الحي characters بما فيه صور .ص)
+const siteSssList = require('./systems/siteSssList').createSiteSssList({ Player, getCatalog: () => characters })
 
 // 🎯 المهام اليومية والأسبوعية بالموقع (/missions) — نفس بيانات وأقفال وجوائز أوامر الواتساب (systems/siteMissions.js)
 const siteMissions = require('./systems/siteMissions')({
@@ -5140,13 +5145,37 @@ if (typeof Player.setMissionNotifier === 'function') {
     console.log('⚠️ models/Player.js قديم: استبدله بالنسخة المعدّلة لتفعيل إشعارات إكمال المهام')
 }
 
+// 🥊 المضاربة من الموقع (systems/siteBrawl.js) — نفس منطق startBrawl، ونفس brawlLocks مع البوت
+const siteBrawl = require('./systems/siteBrawl').create({
+    Player,
+    equipmentSystem,
+    companionsData,
+    getWeaponBonusForCharacter,
+    rollCrit,
+    shuffle,
+    applyCatBonus,
+    getRankTier,
+    rankTierIndex,
+    rankTierInfo,
+    refreshBrawlDaily,
+    BRAWL_DAILY_LIMIT,
+    brawlLocks,
+    checkAndGrantAchievement,
+    orbs,
+    worlds,
+    getSock: () => siteSockRef.current,
+    notifyDm: siteNotifyDm
+})
+
 registerCharacterSite(app, Player, {
     missions: siteMissions,
     codexBook: siteCodexBook,
+    sssList: siteSssList,
     wheel: siteWheel,
     challenge: siteChallenge,
     arena: siteArena,
     arenaChallenge: siteArenaChallenge,
+    brawl: siteBrawl,
     xo: siteXO,
     shopSystem: characterShopSystem,
     marketSystem,
@@ -8194,7 +8223,10 @@ const handleSingleMessage = async (msg) => {
     // 🖼️ .ص — (للمطور) صور الكتالوج العامة للشخصيات اللي بدون صورة (systems/catalogImages.js)
     if (await catalogImages.handleCatalogImageCommand(msg, {
         sock, safeSend, downloadMediaMessage, uploadCatalogImage, isOwner, characters
-    })) return
+    })) {
+        try { siteSssList.invalidate() } catch (e) {} // 🌟 صور الكتالوج تغيّرت → أعد بناء صفحة قائمة SSS عند أول زيارة
+        return
+    }
 
 
     // =========================
@@ -11605,9 +11637,9 @@ const commandExplanations = {
         '.هجوم الخصم': 'يوجّه هجوم لخصمك خلال قتال PvP نشط بينكم.',
         '.مهارة': 'يستخدم مهارة شخصيتك الخاصة خلال قتال PvP نشط.',
         '.ألتميت': 'يستخدم الهجوم الألتميت (القوي) لشخصيتك خلال قتال PvP نشط.',
-        '.مضاربة': 'يرسل طلب مضاربة (رهان قتالي) للاعب آخر بالمنشن.',
-        '.قبول مضاربة': 'يقبل طلب مضاربة معلّق أرسله لاعب آخر لك.',
-        '.رفض مضاربة': 'يرفض طلب مضاربة معلّق.',
+        '.مضاربة': 'يرسل طلب مضاربة (رهان قتالي) للاعب آخر بالمنشن. (متاح حالياً من الموقع فقط).',
+        '.قبول مضاربة': 'يقبل طلب مضاربة معلّق أرسله لاعب آخر لك. (متاح حالياً من الموقع فقط).',
+        '.رفض مضاربة': 'يرفض طلب مضاربة معلّق. (متاح حالياً من الموقع فقط).',
         '.مضارباتي': 'يعرض سجل مضارباتك السابقة (فوز/خسارة).',
         '.قبول_بدل': 'يقبل طلب تبديل (شخصيات أو موارد) معلّق من لاعب آخر.',
         '.رفض_بدل': 'يرفض طلب تبديل معلّق.',
@@ -12961,6 +12993,26 @@ if (text === '.شخصياتي') {
             }
         )
     }
+}
+
+// ─── .قائمة_sss ─── يرسل رابط صفحة قائمة شخصيات SSS (A-Z) بالموقع
+if (text.trim().toLowerCase() === '.قائمة_sss') {
+
+    const player = await Player.findOne({ userId }).select('siteCode').lean()
+
+    if (!player || !player.siteCode) {
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '❌ ما عندك رابط موقع بعد — اكتب .رابط أولاً ثم أعد الأمر' }
+        )
+    }
+
+    const base = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
+
+    return safeSend(
+        msg.key.remoteJid,
+        { text: `🌟 قائمة شخصيات SSS (A-Z):\n${base}/u/${player.siteCode}/sss` }
+    )
 }
 
 // ─── .رابط ───
@@ -17032,6 +17084,7 @@ return safeSend(msg.key.remoteJid, {
 // ─── .مضاربة ───
 
     if (text.startsWith('.مضاربة')) {
+    if (!BRAWL_WHATSAPP_ENABLED) return safeSend(msg.key.remoteJid, { text: BRAWL_SITE_ONLY_MSG })
 
     // 🔒 منع تنفيذ أكثر من أمر مضاربة بنفس الوقت لنفس اللاعب
     if (brawlLocks.has(userId)) {
@@ -17186,6 +17239,7 @@ return safeSend(msg.key.remoteJid, {
 // ─── .قبول مضاربة ───
 
 if (text === '.قبول مضاربة') {
+    if (!BRAWL_WHATSAPP_ENABLED) return safeSend(msg.key.remoteJid, { text: BRAWL_SITE_ONLY_MSG })
 
     // 🔒 منع تنفيذ أكثر من قبول بنفس الوقت لنفس اللاعب
     if (brawlLocks.has(userId)) {
@@ -17350,6 +17404,7 @@ if (age > 5 * 60 * 1000) {
 // ─── .رفض مضاربة ───
 
     if (text === '.رفض مضاربة') {
+    if (!BRAWL_WHATSAPP_ENABLED) return safeSend(msg.key.remoteJid, { text: BRAWL_SITE_ONLY_MSG })
 
     const player =
         await Player.findOne({
@@ -37062,7 +37117,20 @@ ${pvpIdx.map(i => `👑 ${me.characters[i].name}`).join('\n')}
             })
         }
 
+        // 🔧 تعطيل مؤقت: .قتال pvp بالموقع فقط (غيّرها إلى true لإرجاع الأمر بالواتس)
+        const PVP_FIGHT_WHATSAPP_ENABLED = false
+
         if (text.startsWith('.قتال pvp')) {
+
+            if (!PVP_FIGHT_WHATSAPP_ENABLED) {
+                return safeSend(msg.key.remoteJid, {
+                    text:
+`🏟️ قتال PvP متاح حالياً من الموقع فقط
+
+🔗 اكتب .رابط لتحصل على رابط موقعك
+ثم افتح صفحة «الأرينا» من القائمة`
+                })
+            }
 
             const attacker = await Player.findOne({ userId })
 
@@ -38620,18 +38688,12 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
         // اختيار شخصية الخصم
         // =====================
 
+        // 🛡️ شخصية المدافع: عشوائية من أقوى 10 شخصيات عنده
         const sortedChars = [...enemy.characters].sort((a, b) => b.power - a.power)
-        const chance = Math.random() * 100
+        const topEnemyChars = sortedChars.slice(0, 10)
 
-        let enemyCharacter
-
-        if (chance <= 30) {
-            enemyCharacter = sortedChars[0]
-        } else if (chance <= 70) {
-            enemyCharacter = sortedChars[sortedChars.length - 1]
-        } else {
-            enemyCharacter = sortedChars[Math.floor(Math.random() * sortedChars.length)]
-        }
+        const enemyCharacter =
+            topEnemyChars[Math.floor(Math.random() * topEnemyChars.length)]
 
         if (!enemyCharacter) {
             return safeSend(msg.key.remoteJid, {
@@ -38786,6 +38848,45 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
             if (ab.type === "lifesteal") {
                 const heal = finalMyAttack * (ab.value || 0) / 100
                 me.hp = (me.hp || 100) + heal
+            }
+        }
+
+        // 🛡️ قدرات المدافع: نفس منطق قدرات المهاجم بالضبط (كانت لا تُطبَّق سابقاً)
+        for (let ab of enemy.allAbilities || []) {
+
+            if (!ab) continue
+
+            if (ab.type === "attack") {
+                finalEnemyAttack += finalEnemyAttack * (ab.value || 0) / 100
+            }
+
+            if (ab.type === "defense") {
+                finalMyAttack -= finalMyAttack * (ab.value || 0) / 100
+            }
+
+            if (ab.type === "crit") {
+                if (Math.random() * 100 < (ab.value || 0)) {
+                    finalEnemyAttack *= 2
+                    abilityMessage += `\n⚡ كريتيكال الخصم من ${ab.name || 'قدرة'}`
+                }
+            }
+
+            if (ab.type === "dodge") {
+                if (Math.random() * 100 < (ab.value || 0)) {
+                    finalMyAttack = 0
+                    abilityMessage += `\n💨 مراوغة الخصم من ${ab.name || 'قدرة'}`
+                }
+            }
+
+            if (ab.type === "reflect") {
+                const reflectedEnemy = Math.floor(finalMyAttack * (ab.value || 0) / 100)
+                finalEnemyAttack += reflectedEnemy
+                abilityMessage += `\n🔄 عكس ضرر الخصم من ${ab.name || 'قدرة'}`
+            }
+
+            if (ab.type === "lifesteal") {
+                const healEnemy = finalEnemyAttack * (ab.value || 0) / 100
+                enemy.hp = (enemy.hp || 100) + healEnemy
             }
         }
 
