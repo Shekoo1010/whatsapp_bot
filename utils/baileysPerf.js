@@ -351,7 +351,97 @@ function baileysSupportsMediaCache() {
     }
 }
 
+// ---------------------------------------------------------------------
+// 6) دعم إعادة المحاولة الرسمي (getMessage + msgRetryCounterCache)
+// ---------------------------------------------------------------------
+// لما جهاز المستلم يفشل بفك تشفير رد البوت، يطلب من Baileys "أعد الإرسال".
+// بدون getMessage ما يلقى نص الرسالة الأصلية فيفشل الطلب: اللاعب يشوف
+// "في انتظار هذه الرسالة..." وقد يوصله الرد بعد دقيقة أو ما يوصل أبداً.
+// هذا بالضبط الإعداد الموصى به بمثال Baileys الرسمي. إضافي بالكامل:
+//   - الرسالة غير موجودة بالذاكرة → undefined → نفس السلوك القديم تماماً
+//   - مقيّد الحجم (آخر 400 رسالة) فما يكبر الاستهلاك
+// تعطيله: DISABLE_BAILEYS_RETRY_SUPPORT=1
+function createSentMessageStore({ maxEntries = 400, ttlMs = 60 * 60 * 1000 } = {}) {
+
+    const store = new Map()   // id -> { message, at }
+
+    function remember(id, message) {
+        if (!id || !message) return
+        store.delete(id)
+        store.set(id, { message, at: Date.now() })
+        while (store.size > maxEntries) {
+            store.delete(store.keys().next().value)
+        }
+    }
+
+    async function getMessage(key) {
+        try {
+            const entry = key && store.get(key.id)
+            if (!entry) return undefined
+            if (Date.now() - entry.at > ttlMs) {
+                store.delete(key.id)
+                return undefined
+            }
+            return entry.message
+        } catch (_) {
+            return undefined
+        }
+    }
+
+    // يلفّ sock.sendMessage ليتذكر آخر الرسائل المرسلة — لا يغيّر النتيجة ولا الأخطاء
+    function attach(sock) {
+        try {
+            if (!sock || typeof sock.sendMessage !== 'function' || sock.sendMessage.__remembers) return sock
+
+            const original = sock.sendMessage
+
+            const wrapped = async function (...args) {
+                const result = await original.apply(sock, args)
+                try {
+                    if (result && result.key && result.message) remember(result.key.id, result.message)
+                } catch (_) { /* لا شي */ }
+                return result
+            }
+
+            wrapped.__remembers = true
+            for (const k of Object.keys(original)) wrapped[k] = original[k]
+            sock.sendMessage = wrapped
+        } catch (_) { /* لا شي */ }
+        return sock
+    }
+
+    return { getMessage, remember, attach, _store: store }
+}
+
+// عدّاد محاولات إعادة الإرسال (يمنع حلقات إعادة محاولة لا نهائية). واجهة get/set/del/flushAll
+function createRetryCounterCache({ ttlMs = 10 * 60 * 1000, maxEntries = 1000 } = {}) {
+
+    const store = new Map()
+
+    return {
+        get(key) {
+            const e = store.get(key)
+            if (!e) return undefined
+            if (Date.now() - e.at > ttlMs) {
+                store.delete(key)
+                return undefined
+            }
+            return e.value
+        },
+        set(key, value) {
+            store.delete(key)
+            store.set(key, { value, at: Date.now() })
+            while (store.size > maxEntries) store.delete(store.keys().next().value)
+        },
+        del(key) { store.delete(key) },
+        flushAll() { store.clear() },
+        _store: store
+    }
+}
+
 module.exports = {
+    createSentMessageStore,
+    createRetryCounterCache,
     createBaileysLogger,
     wrapAuthState,
     createGroupMetadataCache,
