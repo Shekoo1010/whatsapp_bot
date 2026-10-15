@@ -226,7 +226,7 @@ function watchDriver(mongoose) {
                 const coll = ev.command && typeof ev.command[ev.commandName] === 'string'
                     ? ev.command[ev.commandName]
                     : ''
-                pending.set(ev.requestId, { name: ev.commandName, coll })
+                pending.set(ev.requestId, { name: ev.commandName, coll, cmd: ev.command })
                 if (pending.size > 2000) pending.delete(pending.keys().next().value)
             } catch (_) { /* لا شي */ }
         })
@@ -237,8 +237,21 @@ function watchDriver(mongoose) {
                 if (!info) return
                 pending.delete(ev.requestId)
                 if (TRACE_ALL || ev.duration >= SLOW_DB_MS) {
+                    // حجم الطلب/الرد بالكيلوبايت (يُحسب فقط للبطيء) — يكشف لو مستند اللاعب كبير
+                    let sizes = ''
+                    try {
+                        let bson = null
+                        try { bson = require('bson') } catch (_) { /* نستخدم JSON تقريباً */ }
+                        const kb = (o) => {
+                            if (!o) return 0
+                            try {
+                                return Math.round((bson ? bson.calculateObjectSize(o) : Buffer.byteLength(JSON.stringify(o))) / 1024)
+                            } catch (_) { return -1 }
+                        }
+                        sizes = ` reqKB=${kb(info.cmd)} replyKB=${kb(ev.reply)}`
+                    } catch (_) { /* اختياري */ }
                     console.log(
-                        `⏱️ TRACE db ${info.name}${info.coll ? ' ' + info.coll : ''} took=${ev.duration}ms loopLag5s=${recentLag()}ms`
+                        `⏱️ TRACE db ${info.name}${info.coll ? ' ' + info.coll : ''} took=${ev.duration}ms loopLag5s=${recentLag()}ms${sizes}`
                     )
                 }
             } catch (_) { /* لا شي */ }
