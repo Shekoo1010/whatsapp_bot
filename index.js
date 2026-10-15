@@ -287,12 +287,24 @@ function guardGroupSends(sock) {
     try {
         if (!sock || typeof sock.sendMessage !== 'function' || sock.sendMessage.__groupSafe) return sock
         const orig = sock.sendMessage.bind(sock)
+        // ⚡ قروب رجّع 403 (forbidden): نتخطّاه فوراً لفترة قصيرة بدل ما كل إعلان ينتظر ~9 ثوانٍ ويفشل من جديد.
+        // يعود تلقائياً بعد المدة. لإلغائه بالكامل: GROUP_403_SKIP_MIN=0
+        const forbiddenUntil = new Map()
+        const skipMs = Math.max(0, Number(process.env.GROUP_403_SKIP_MIN ?? 10)) * 60 * 1000
         const guarded = async function (jid, content, options) {
             if (!isGroupJid(jid)) return orig(jid, content, options)
+            if (skipMs > 0) {
+                const until = forbiddenUntil.get(jid)
+                if (until && until > Date.now()) return null
+            }
             try {
                 return await orig(jid, content, options)
             } catch (err) {
                 if (isSocketDownError(err)) throw err
+                if (skipMs > 0 && (err?.data === 403 || err?.output?.statusCode === 403)) {
+                    forbiddenUntil.set(jid, Date.now() + skipMs)
+                    console.log(`⏭️ [group-send] ${jid} رجّع 403 — نتخطّاه ${Math.round(skipMs / 60000)} دقيقة`)
+                }
                 console.log(`⚠️ [group-send] فشل الإرسال إلى ${jid} (${err?.data || err?.output?.statusCode || ''}) — تخطّيناه وكملنا:`, err?.message || err)
                 return null
             }
@@ -9400,7 +9412,7 @@ if (player.pulls <= 0 && (player.bonusPulls || 0) > 0) {
     const bonusClaim = await Player.findOneAndUpdate(
         { userId: player.userId, bonusPulls: { $gt: 0 }, pulls: { $lte: 0 } },
         { $inc: { bonusPulls: -1, pulls: 1 } },
-        { new: true, strict: false }
+        { new: true, strict: false, projection: { pulls: 1, bonusPulls: 1 } } // ⚡ نقرأ الحقلين فقط
     )
 
     if (bonusClaim) {
@@ -9659,7 +9671,7 @@ if (
 const pullClaim = await Player.findOneAndUpdate(
     { userId, pulls: { $gt: 0 } },
     { $inc: { pulls: -1 } },
-    { new: true, strict: false }
+    { new: true, strict: false, projection: { pulls: 1 } } // ⚡ نحتاج pulls فقط — بدون جلب المستند كاملاً (~100KB)
 )
 
 if (!pullClaim) {
