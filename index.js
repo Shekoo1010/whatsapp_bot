@@ -4419,7 +4419,7 @@ async function setupBeasts() {
 async function connectMongoWithRetry() {
     while (true) {
         try {
-            await mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5 })
+            await mongoose.connect(process.env.MONGO_URI, { minPoolSize: 5, monitorCommands: process.env.TRACE !== '0' })
             return
         } catch (err) {
             console.log('MongoDB connect failed, retry in 10s:', err?.message || err)
@@ -4435,6 +4435,7 @@ connectMongoWithRetry()
 
     // ⏱️ فحص زمن Atlas + إبقاء اتصالات المجمّع دافئة (آمن — شوف utils/perfTrace.js). تعطيله: MONGO_WARM=0
     try { perfTrace.startMongoProbe(mongoose) } catch (e) { /* اختياري */ }
+    try { perfTrace.watchDriver(mongoose) } catch (e) { /* اختياري */ }
 
     // 🌐 الزعيم بالموقع يشتغل 24 ساعة ومستقل عن اتصال الواتساب
     try { startSiteBossLoop() } catch (e) { console.log('site boss loop start error:', e?.message || e) }
