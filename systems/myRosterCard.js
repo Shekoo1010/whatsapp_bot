@@ -10,7 +10,7 @@
 
 const puppeteer = require('puppeteer')
 // ⚡ تحسين أداء: المتصفح مشترك ومحمي من التشغيل المتزامن (utils/sharedBrowser.js)
-const { getBrowser } = require('../utils/sharedBrowser')
+const { getBrowser, newLimitedPage } = require('../utils/sharedBrowser')
 const fs = require('fs')
 const path = require('path')
 
@@ -353,8 +353,7 @@ async function renderSingleCharacterCard(char) {
     const imgSrc = await resolveImageSrc(char.image)
     const html = singleCardHTML({ ...char, __imgSrc: imgSrc })
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         await page.setViewport({
             width: 860,
@@ -438,8 +437,7 @@ async function renderRosterImage(characters, opts = {}) {
 
     const html = fullPageHTML(charactersWithImg, opts.title, opts.subtitle)
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         const rowCount = Math.ceil(characters.length / MAX_PER_ROW)
         await page.setViewport({

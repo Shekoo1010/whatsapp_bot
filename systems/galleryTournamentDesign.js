@@ -17,7 +17,7 @@
 
 const puppeteer = require('puppeteer')
 // ⚡ تحسين أداء: المتصفح مشترك ومحمي من التشغيل المتزامن (utils/sharedBrowser.js)
-const { getBrowser } = require('../utils/sharedBrowser')
+const { getBrowser, newLimitedPage } = require('../utils/sharedBrowser')
 
 // ---------------------------------------------------------------
 // متصفح مشترك (نفس فكرة myRosterCard.js) — يعاد استخدامه للسرعة
@@ -152,8 +152,7 @@ async function renderRoundImage({ roundTitle, roundBadge, matches }) {
 
     const html = roundHTML({ roundTitle, roundBadge, matches })
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         await page.setViewport({
             width: 1080,
@@ -663,8 +662,7 @@ async function renderBracketTreeImage({ size, matches, roundBadge }) {
     // وأيها "شل" غير مسجل
     const viewport = { width: 2000, height: 1250 }
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         await page.setViewport({ ...viewport, deviceScaleFactor: 2 })
         await page.setContent(html, { waitUntil: 'networkidle0' })
@@ -734,8 +732,7 @@ ${baseStyles()}
 async function renderFinalImage({ aName, bName }) {
     const html = finalHTML({ aName, bName })
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         await page.setViewport({ width: 900, height: 720, deviceScaleFactor: 2 })
         await page.setContent(html, { waitUntil: 'networkidle0' })
@@ -793,8 +790,7 @@ ${baseStyles()}
 async function renderChampionImage({ championName, runnerUpName }) {
     const html = championHTML({ championName, runnerUpName })
 
-    const browser = await getBrowser()
-    const page = await browser.newPage()
+    const page = await newLimitedPage() // ⚡ حد للصفحات المتزامنة (utils/sharedBrowser.js)
     try {
         await page.setViewport({ width: 900, height: 760, deviceScaleFactor: 2 })
         await page.setContent(html, { waitUntil: 'networkidle0' })
