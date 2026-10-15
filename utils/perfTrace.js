@@ -175,4 +175,91 @@ function startMongoProbe(mongoose, { everyMs = 45000, parallel = 5 } = {}) {
     return timer
 }
 
-module.exports = { begin, wrapSend, startMongoProbe }
+
+// ---------------------------------------------------------------
+// ⏱️ مراقبة استعلامات Mongo الحقيقية (قراءة فقط — لا تغيّر أي سلوك)
+// تطبع فقط الاستعلامات البطيئة، مع "تأخر الـ event loop" في آخر 5 ثوانٍ:
+//   - لو db بطيء و loopLag صغير  → المشكلة بالقاعدة/الشبكة/حجم المستند
+//   - لو db بطيء و loopLag كبير  → المعالج/الرام مشغول (Render المجاني)
+// ---------------------------------------------------------------
+const SLOW_DB_MS = Number(process.env.TRACE_SLOW_DB_MS || 300)
+const NOISE_CMDS = new Set(['ping', 'hello', 'isMaster', 'ismaster', 'endSessions', 'saslStart', 'saslContinue', 'buildInfo'])
+
+let lagSamples = []
+function startLagSampler() {
+    if (global.__lagSamplerStarted) return
+    global.__lagSamplerStarted = true
+    let last = Date.now()
+    const t = setInterval(() => {
+        const now = Date.now()
+        const drift = Math.max(0, now - last - 100)
+        last = now
+        lagSamples.push({ at: now, drift })
+        const cutoff = now - 5000
+        while (lagSamples.length && lagSamples[0].at < cutoff) lagSamples.shift()
+    }, 100)
+    if (t.unref) t.unref()
+}
+
+function recentLag() {
+    let worst = 0
+    for (const s of lagSamples) if (s.drift > worst) worst = s.drift
+    return worst
+}
+
+function watchDriver(mongoose) {
+    if (!ENABLED || process.env.TRACE_DB === '0') return null
+    if (global.__driverWatchStarted) return null
+
+    try {
+        const client = mongoose.connection.getClient()
+        if (!client || typeof client.on !== 'function') return null
+
+        global.__driverWatchStarted = true
+        startLagSampler()
+
+        const pending = new Map() // requestId -> { name, coll }
+
+        client.on('commandStarted', (ev) => {
+            try {
+                if (NOISE_CMDS.has(ev.commandName)) return
+                const coll = ev.command && typeof ev.command[ev.commandName] === 'string'
+                    ? ev.command[ev.commandName]
+                    : ''
+                pending.set(ev.requestId, { name: ev.commandName, coll })
+                if (pending.size > 2000) pending.delete(pending.keys().next().value)
+            } catch (_) { /* لا شي */ }
+        })
+
+        client.on('commandSucceeded', (ev) => {
+            try {
+                const info = pending.get(ev.requestId)
+                if (!info) return
+                pending.delete(ev.requestId)
+                if (TRACE_ALL || ev.duration >= SLOW_DB_MS) {
+                    console.log(
+                        `⏱️ TRACE db ${info.name}${info.coll ? ' ' + info.coll : ''} took=${ev.duration}ms loopLag5s=${recentLag()}ms`
+                    )
+                }
+            } catch (_) { /* لا شي */ }
+        })
+
+        client.on('commandFailed', (ev) => {
+            try { pending.delete(ev.requestId) } catch (_) { /* لا شي */ }
+        })
+
+        client.on('connectionCreated', () => {
+            try { console.log('⏱️ TRACE db new connection opened') } catch (_) { /* لا شي */ }
+        })
+
+        client.on('connectionClosed', (ev) => {
+            try { console.log(`⏱️ TRACE db connection closed reason=${ev && ev.reason}`) } catch (_) { /* لا شي */ }
+        })
+    } catch (_) {
+        return null
+    }
+
+    return true
+}
+
+module.exports = { begin, wrapSend, startMongoProbe, watchDriver }
