@@ -4436,6 +4436,12 @@ connectMongoWithRetry()
     // ⏱️ فحص زمن Atlas + إبقاء اتصالات المجمّع دافئة (آمن — شوف utils/perfTrace.js). تعطيله: MONGO_WARM=0
     try { perfTrace.startMongoProbe(mongoose) } catch (e) { /* اختياري */ }
     try { perfTrace.watchDriver(mongoose) } catch (e) { /* اختياري */ }
+    if (process.env.CPU_PROFILE_SECONDS) {
+        try {
+            const secs = Math.max(5, Math.min(120, Number(process.env.CPU_PROFILE_SECONDS) || 30))
+            setTimeout(() => { try { require('./utils/cpuProfile').run({ seconds: secs }) } catch (e) { /* اختياري */ } }, 20000)
+        } catch (e) { /* اختياري */ }
+    }
 
     // 🌐 الزعيم بالموقع يشتغل 24 ساعة ومستقل عن اتصال الواتساب
     try { startSiteBossLoop() } catch (e) { console.log('site boss loop start error:', e?.message || e) }
