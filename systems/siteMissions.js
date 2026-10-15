@@ -68,7 +68,8 @@ function createSiteMissions(d) {
 
     // ───────── الحالة ─────────
     async function getState(userId) {
-        const player = await Player.findOne({ userId })
+        // ⚡ الصفحة تسأل كل 5 ثوانٍ: نجلب الحقول اللازمة فقط (بدل المستند كاملاً ~100KB)
+        const player = await Player.findOne({ userId }).select('userId dailyMissions weeklyMissions dailyReward')
         if (!player) return null
 
         await resetDailyMissions(player)
