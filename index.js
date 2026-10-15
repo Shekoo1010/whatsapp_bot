@@ -1,3 +1,10 @@
+// ⚡ مجمّع خيوط libuv: الافتراضي 4 فقط، وهو مشترك بين قراءة/كتابة ملفات جلسة واتساب (auth/)،
+// وDNS، والتشفير (scrypt عند تسجيل الدخول بالموقع)، وضغط الصور. لو 4 عمليات بطيئة (مثلاً 4 تسجيلات
+// دخول بالموقع بنفس اللحظة على معالج Render الضعيف) شغلوا الخيوط كلها، كل عمليات ملفات/DNS
+// الواتساب تنتظر → البوت "يتجمّد" ثواني. 16 يمنع هذا. (يجب ضبطه قبل أول استخدام؛ وضعه بمتغيرات
+// البيئة بـ Render أضمن: UV_THREADPOOL_SIZE=16 — أي قيمة موجودة مسبقاً تُحترم.)
+if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '16'
+
 const fs = require('fs')
 
 // ⚡ تحسين أداء: فحص وجود ملف بدون حجب الـ event loop.
@@ -1201,6 +1208,7 @@ const {
 // ⚡ تحسينات أداء اتصال Baileys (كاش القروبات/المفاتيح/الصور + logger هادئ)
 // كلها بديلها الاحتياطي هو السلوك القديم بالضبط — شوف utils/baileysPerf.js
 const baileysPerf = require('./utils/baileysPerf')
+const perfTrace = require('./utils/perfTrace') // ⏱️ قياس فقط (قراءة فقط) — شوف utils/perfTrace.js
 const { warmBrowser } = require('./utils/sharedBrowser')
 
 // 🧪 جلسة الواتساب ترجع تُخزَّن بملفات محلية (./auth) بدل MongoDB —
@@ -4425,6 +4433,9 @@ connectMongoWithRetry()
 
     console.log('✅ MongoDB Connected')
 
+    // ⏱️ فحص زمن Atlas + إبقاء اتصالات المجمّع دافئة (آمن — شوف utils/perfTrace.js). تعطيله: MONGO_WARM=0
+    try { perfTrace.startMongoProbe(mongoose) } catch (e) { /* اختياري */ }
+
     // 🌐 الزعيم بالموقع يشتغل 24 ساعة ومستقل عن اتصال الواتساب
     try { startSiteBossLoop() } catch (e) { console.log('site boss loop start error:', e?.message || e) }
 
@@ -6965,6 +6976,12 @@ console.log(
 const baileysLogger = baileysPerf.createBaileysLogger('warn')
 const groupMetadataCache = baileysPerf.createGroupMetadataCache()
 
+// 🔁 دعم إعادة المحاولة الرسمي (يمنع "في انتظار هذه الرسالة" عند المستلمين). إضافي فقط —
+// تعطيله: DISABLE_BAILEYS_RETRY_SUPPORT=1  (شوف baileysPerf.createSentMessageStore)
+const retrySupportOn = process.env.DISABLE_BAILEYS_RETRY_SUPPORT !== '1'
+const sentMessageStore = retrySupportOn ? baileysPerf.createSentMessageStore() : null
+const retryCounterCache = retrySupportOn ? baileysPerf.createRetryCounterCache() : null
+
 // ⚡ كاش الرفع الرسمي: أي صورة تُرسل كـ { image: { url } } تُرفع لواتساب مرة وحدة
 // وتُعاد بدون تنزيل/تشفير/رفع (شوف baileysPerf.createMediaCache). نفعّله فقط لو
 // نسخة Baileys المثبتة تدعمه فعلاً، وإلا نرجع للسلوك القديم بالكامل.
@@ -6982,6 +6999,13 @@ const sock = makeWASocket({
     logger: baileysLogger,
 
     cachedGroupMetadata: (jid) => groupMetadataCache.get(jid),
+
+    ...(retrySupportOn
+        ? {
+            getMessage: (key) => sentMessageStore.getMessage(key),
+            msgRetryCounterCache: retryCounterCache
+        }
+        : {}),
 
     ...(global.mediaCacheActive
         ? { mediaCache: baileysPerf.createMediaCache() }
@@ -7029,6 +7053,10 @@ groupMetadataCache.attach(sock)
 if (!global.mediaCacheActive) {
     baileysPerf.installImageUrlCache(sock)
 }
+
+// 🔁 يتذكر آخر الرسائل المرسلة (لإعادة المحاولة) + ⏱️ يقيس زمن كل إرسال. الاثنان لا يغيّران النتيجة.
+if (sentMessageStore) sentMessageStore.attach(sock)
+perfTrace.wrapSend(sock)
     
 
 if (!state.creds.registered) {
@@ -7340,7 +7368,14 @@ ${juubi.maxHp.toLocaleString()}
         }
 
         // ✅ عند كل تشغيل/إعادة تشغيل: لو مرّ رأس ساعة والبوت مطفي يولّد فوراً
-        await ensureShopFresh('initial')
+        // ⏱️ نفس السلوك (ننتظر توليد المتجر قبل ما نسجّل مستمعي الرسائل)، لكن بحد أقصى 8 ثواني.
+        // قبل: لو Atlas بطيء/نايم وقت الإقلاع، المحاولات (6 × تأخير يصل 30ث) كانت تؤخر تسجيل
+        // مستمعي connection.update / messages.upsert لدقيقة+، وقد يضيع حدث "open" فيبدو البوت ميت.
+        // التوليد يكمل بالخلفية (محمي بـ _shopEnsureRunning فما يتكرر مع الـ watchdog).
+        await Promise.race([
+            ensureShopFresh('initial'),
+            new Promise(r => setTimeout(r, Number(process.env.SHOP_INITIAL_WAIT_MS || 8000)))
+        ])
 
         // 🕐 توليد دقيق عند رأس الساعة السعودية القادمة
         const scheduleNextShopTick = () => {
@@ -39568,9 +39603,15 @@ await safeGroupSend(sock,
 sock.ev.on('messages.upsert', (upsert) => {
     // نفس السلوك القديم بالضبط: نعالج أول رسالة بالدفعة فقط (messages[0])
     const first = upsert && upsert.messages && upsert.messages[0]
-    const list = first ? [first] : []
+    // PROCESS_ALL_UPSERT=1 (اختياري، مُعطّل افتراضياً): يعالج كل رسائل الدفعة بدل الأولى فقط.
+    // الافتراضي = نفس السلوك القديم بالضبط. لو وصلت رسالتان بدفعة وحدة (ازدحام/بعد إعادة اتصال)
+    // الثانية تضيع بصمت بالسلوك القديم — فعّله فقط لو لاحظت أوامر "ما ردّ عليها البوت".
+    const list = process.env.PROCESS_ALL_UPSERT === '1'
+        ? ((upsert && upsert.messages) || [])
+        : (first ? [first] : [])
     for (const m of list) {
         const startedAt = Date.now()
+        const trace = perfTrace.begin(m) // ⏱️ قياس فقط
         const watchdog = setTimeout(() => {
             console.log('⚠️ SLOW/HUNG HANDLER (>60s):', m?.key?.remoteJid, JSON.stringify(m?.message || {}).slice(0, 120))
         }, 60000)
@@ -39587,7 +39628,7 @@ sock.ev.on('messages.upsert', (upsert) => {
                     }
                 } catch (_) {}
             })
-            .finally(() => clearTimeout(watchdog))
+            .finally(() => { clearTimeout(watchdog); trace.end() })
     }
 })
 
