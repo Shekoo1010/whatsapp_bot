@@ -31290,6 +31290,31 @@ ${minutes} دقيقة`
 }
     
 
+    if (text === '.هدية') {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ هذا الأمر للمطور فقط'
+            })
+        }
+
+        const GIFT_AMOUNT = 50000000
+
+        const result = await Player.updateMany(
+            {},
+            { $inc: { money: GIFT_AMOUNT } }
+        )
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🎁 هدية من المطور!
+
+💰 تم إعطاء كل اللاعبين ${GIFT_AMOUNT.toLocaleString()}
+
+👥 عدد المستلمين: ${result.modifiedCount}`
+        })
+    }
+
     if (text === ".اعطاء_فلوس") {
 
     const targetId = "175114725408817@lid"
