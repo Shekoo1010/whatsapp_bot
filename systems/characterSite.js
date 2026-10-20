@@ -18,6 +18,7 @@ const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الن�
 const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
+const contribResults = require('./dailyContribResults') // 🏆 نتيجة جوائز المساهمات اليومية (تظهر بنافذة الهدايا)
 const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
 const { shardPageHTML } = require('./shardPage') // 🧩 صفحة الشظايا والتطوير والاسترجاع (نفس .شظايا / .تطوير / .استرجاع)
 
@@ -714,6 +715,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['market', '🛍️', 'السوق (المزاد)', `/u/${c}/market`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['contrib', '💥', 'مساهمات الزعيم', `/u/${c}/contrib`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
         ['arenachallenge', '⚔️', 'تحدي ارينا', `/u/${c}/arena-challenge`],
@@ -735,6 +737,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['sss', '🌟', 'قائمة SSS', `/u/${c}/sss`],
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
+        ['achievements', '🏆', 'إنجازاتي', `/u/${c}/achievements`],
         ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
     ]
     const list = items.map(([k, ic, label, href]) =>
@@ -932,6 +935,14 @@ function prepareRewardGifts(list) {
 function inboxPopupHTML(viewer) {
     if (!viewer || !viewer.isOwner || !viewer.gifts || !viewer.gifts.length) return ''
     return `<div class="overlay" id="gov" hidden><div class="gbox" id="gbox"></div></div>
+<style>
+.cb-sec{background:#0b0e18;border:1px solid #1f2740;border-radius:14px;padding:12px;margin:10px 0}
+.cb-h{font-weight:700;color:#fff;margin-bottom:6px;font-size:15px}
+.cb-l{font-size:14px;color:#cfd6ee;margin:3px 0}
+.cb-l b{color:#f0c04a}
+.cb-me{border:2px solid #f0c04a;background:linear-gradient(180deg,rgba(240,192,74,.14),#0b0e18)}
+.cb-foot{text-align:center;font-size:13px;color:#9aa3c0;margin:10px 0}
+</style>
 <script>
 (function(){
   var G=${jsonForScript(viewer.gifts)}, CSRF=${jsonForScript(viewer.csrf)}, i=0;
@@ -942,6 +953,54 @@ function inboxPopupHTML(viewer) {
   function render(){
     var g=G[i]; if(!g){ ov.hidden=true; document.body.style.overflow=''; return; }
     box.style.setProperty('--tier', g.color); box.innerHTML='';
+    if(g.kind==='contrib'){
+      var N=function(n){return Number(n).toLocaleString('en-US');};
+      var ct=el('div','g-top'); ct.appendChild(el('span','',(i+1)+' / '+G.length)); ct.appendChild(el('span','','🏆 جوائز المساهمات اليومية')); box.appendChild(ct);
+      box.appendChild(el('div','g-ago',g.date));
+      if(g.empty){ var es=el('div','cb-sec'); es.appendChild(el('div','cb-l','😴 لا توجد مساهمات مسجّلة لهذا اليوم')); box.appendChild(es); }
+      var medals=['🥇','🥈','🥉'];
+      g.top.forEach(function(t){
+        var sec=el('div','cb-sec'); sec.appendChild(el('div','cb-h',(medals[t.rank-1]||'🏅')+' '+t.name));
+        sec.appendChild(el('div','cb-l','💥 الضرر اليومي: '+N(t.damage)));
+        sec.appendChild(el('div','cb-l','💰 +'+N(t.money)+' مال'));
+        if(t.charName) sec.appendChild(el('div','cb-l','🌟 شخصية SSS: '+t.charName));
+        if(t.boxes) sec.appendChild(el('div','cb-l','📦 +'+t.boxes+' صندوق SSS High'));
+        box.appendChild(sec);
+      });
+      if(g.rest.count){
+        var rs=el('div','cb-sec'); rs.appendChild(el('div','cb-h','👥 باقي المساهمين ('+g.rest.count+')'));
+        rs.appendChild(el('div','cb-l','💰 +'+N(g.rest.money)+' مال لكل واحد'));
+        rs.appendChild(el('div','cb-l','👑 +شخصية أسطورية لكل واحد'));
+        box.appendChild(rs);
+      }
+      if(g.killers.hits){
+        var ks=el('div','cb-sec'); ks.appendChild(el('div','cb-h','🗡️ أكثر ضربة قاضية اليوم ('+g.killers.hits+' مرة)'));
+        g.killers.names.forEach(function(n){ ks.appendChild(el('div','cb-l','• '+n)); });
+        ks.appendChild(el('div','cb-l','💰 +'+N(g.killers.money)+' مال لكل واحد'));
+        if(g.killers.boxes) ks.appendChild(el('div','cb-l','📦 +'+g.killers.boxes+' صندوق SSS High لكل واحد'));
+        box.appendChild(ks);
+      }
+      box.appendChild(el('div','cb-foot','✅ تم تصفير المساهمات، بالتوفيق غداً!'));
+      var me=el('div','cb-sec cb-me'); me.appendChild(el('div','cb-h','🎁 هديتك'));
+      var m=g.mine;
+      if(!m){ me.appendChild(el('div','cb-l','⚔️ ما ساهمت بالزعيم اليوم — شارك غداً وخذ جوائزك!')); }
+      else {
+        var parts=[];
+        if(m.roles.indexOf('top')>=0) parts.push((medals[m.rank-1]||'🏅')+' المركز '+m.rank+' بالمساهمات');
+        if(m.roles.indexOf('rest')>=0) parts.push('👥 من باقي المساهمين');
+        if(m.roles.indexOf('killer')>=0) parts.push('🗡️ أكثر ضربة قاضية ('+m.lastHits+' مرة)');
+        parts.forEach(function(t){ me.appendChild(el('div','cb-l',t)); });
+        if(m.damage) me.appendChild(el('div','cb-l','💥 ضررك اليوم: '+N(m.damage)));
+        var tot=el('div','cb-l','💰 المجموع: '); tot.appendChild(el('b','','+'+N(m.money)+' مال')); me.appendChild(tot);
+        if(m.boxes) me.appendChild(el('div','cb-l','📦 +'+m.boxes+' صندوق SSS High'));
+        m.chars.forEach(function(c){ me.appendChild(el('div','cb-l',(c.rarity==='SSS'?'🌟 شخصية SSS: ':'👑 شخصية أسطورية: ')+c.name)); });
+        me.appendChild(el('div','cb-l','✅ أُضيفت لحسابك تلقائياً'));
+      }
+      box.appendChild(me);
+      var cbtn=el('button','btn purple','استلام والتالية'); cbtn.type='button';
+      cbtn.onclick=function(){ cbtn.disabled=true; ack(g.id); i++; render(); };
+      box.appendChild(cbtn); return;
+    }
     if(g.kind==='reward'){
       var rt=el('div','g-top'); rt.appendChild(el('span','',(i+1)+' / '+G.length)); rt.appendChild(el('span','','🏆 جائزة ترتيب '+g.period)); box.appendChild(rt);
       var rl=el('div','g-line','المركز '); rl.appendChild(el('b','',String(g.pos))); rl.appendChild(document.createTextNode(' بقروب ')); var gb=el('b','',g.group); gb.style.direction='ltr'; gb.style.display='inline-block'; rl.appendChild(gb); box.appendChild(rl);
@@ -3995,6 +4054,280 @@ ${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'top', viewer.name) : ''}
 }
 
 // =====================================================================
+// 💥 صفحة مساهمات الزعيم اليومية  /u/:code/contrib  (+ JSON: /u/:code/contrib/data)
+// نفس بيانات أمر .مساهمات (Player.dailyBossDamage / dailyBossHits / dailyLastHits)
+// تعرض أعلى 10 بالضرر وأعلى 10 بالضربات القاضية، أول 3 بمنصة متحركة، وتتحدّث كل 20 ثانية.
+// =====================================================================
+const CONTRIB_CSS = `.bc{--g:#f0c04a;--gd:#8a6d24;--t:#eef1f8;--d:#8891a3;--l:#222a42;--silver:#c9d3e6;--bronze:#e0905a;--red:#ff5a4d;max-width:720px;margin-inline:auto;padding:14px 16px 150px;position:relative;overflow-x:clip;color:var(--t);font-family:'Cairo',system-ui,sans-serif}
+.bc *{box-sizing:border-box}
+.bc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#0a0d16}
+.bc-bg i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;will-change:transform}
+.bc-bg i:nth-child(1){width:60vmax;height:60vmax;left:-20vmax;top:-22vmax;background:radial-gradient(circle,rgba(255,90,60,.36),transparent 65%);animation:bcD1 18s ease-in-out infinite alternate}
+.bc-bg i:nth-child(2){width:56vmax;height:56vmax;right:-22vmax;top:8vh;background:radial-gradient(circle,rgba(240,192,74,.30),transparent 65%);animation:bcD2 22s ease-in-out infinite alternate}
+.bc-bg i:nth-child(3){width:52vmax;height:52vmax;left:-10vmax;bottom:-24vmax;background:radial-gradient(circle,rgba(124,77,255,.28),transparent 65%);animation:bcD3 26s ease-in-out infinite alternate}
+.bc-bg canvas{position:absolute;inset:0;width:100%;height:100%}
+@keyframes bcD1{to{transform:translate(18vmax,12vmax) scale(1.15)}}
+@keyframes bcD2{to{transform:translate(-16vmax,10vmax) scale(.9)}}
+@keyframes bcD3{to{transform:translate(14vmax,-12vmax) scale(1.2)}}
+.bc .topbar{margin-bottom:6px}
+.bc-eb{text-align:center;font-family:'Oswald',sans-serif;letter-spacing:.45em;font-size:11px;color:var(--gd);text-transform:uppercase;margin-top:14px}
+.bc h1{text-align:center;margin:4px 0;font-size:clamp(34px,8vw,54px);font-weight:900;line-height:1.15;background:linear-gradient(110deg,#fff6d8 20%,#ffb347 38%,#fff 50%,#ff6a4d 62%,#f0c04a 80%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:bcShine 6s linear infinite}
+@keyframes bcShine{to{background-position:-250% 0}}
+.bc-sub0{text-align:center;color:var(--d);font-size:14px;margin:0 0 10px}
+.bc-orn{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--gd);margin:0 auto 12px;max-width:320px}
+.bc-orn::before,.bc-orn::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gd))}
+.bc-orn::after{transform:scaleX(-1)}
+.bc-cd{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 12px;margin:0 auto 12px;padding:10px 14px;max-width:440px;border-radius:16px;border:1px solid rgba(240,192,74,.35);background:linear-gradient(180deg,rgba(240,192,74,.10),rgba(15,20,34,.7))}
+.bc-cd small{color:var(--d);font-size:12px;font-weight:700}
+.bc-cdn{direction:ltr;display:flex;gap:6px;font-family:'Oswald',sans-serif}
+.bc-cdn span{min-width:42px;text-align:center;font-size:22px;font-weight:600;color:var(--g);background:#0b0e18;border:1px solid var(--l);border-radius:10px;padding:2px 6px;box-shadow:inset 0 0 12px rgba(240,192,74,.08)}
+.bc-cdn u{text-decoration:none;color:var(--gd);align-self:center;animation:bcBlink 1s steps(2) infinite}
+@keyframes bcBlink{50%{opacity:.25}}
+.bc-cd.go .bc-cdn{display:none}
+.bc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
+.bc-st{background:rgba(15,20,34,.78);border:1px solid var(--l);border-radius:14px;padding:9px 4px;text-align:center}
+.bc-st b{display:block;font:600 17px 'Oswald',sans-serif;color:var(--g);direction:ltr}
+.bc-st span{font-size:11px;color:var(--d)}
+.bc-tabs{display:flex;gap:6px;padding:5px;border-radius:16px;background:rgba(15,20,34,.82);border:1px solid var(--l);margin:0 auto 4px;max-width:440px}
+.bc-tab{flex:1;border:0;border-radius:12px;padding:10px 6px;font:800 14px 'Cairo',sans-serif;color:var(--d);background:transparent;cursor:pointer;transition:.25s}
+.bc-tab.on{color:#0a0d16;background:linear-gradient(90deg,var(--gd),var(--g));box-shadow:0 6px 20px -8px var(--g)}
+.bc-tab[data-t=kills].on{background:linear-gradient(90deg,#a3202f,#ff6a4d);color:#fff;box-shadow:0 6px 20px -8px #ff4d3a}
+.bc-podium{display:grid;grid-template-columns:1fr 1.18fr 1fr;gap:8px;align-items:end;direction:ltr;padding:40px 4px 6px;margin-inline:-4px;overflow:hidden}
+.bc-slot{--c:var(--g);position:relative;direction:rtl;min-width:0;grid-row:1;animation:bcRise .9s cubic-bezier(.2,.8,.2,1) both}
+.bc-slot.r1{grid-column:2;animation-delay:.25s}.bc-slot.r2{grid-column:1;--c:var(--silver);animation-delay:.05s}.bc-slot.r3{grid-column:3;--c:var(--bronze);animation-delay:.15s}
+@keyframes bcRise{from{opacity:0;transform:translateY(46px) scale(.92)}to{opacity:1;transform:none}}
+.bc-rays{position:absolute;left:50%;top:34%;width:240%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;background:repeating-conic-gradient(from 0deg,rgba(240,192,74,.22) 0 5deg,transparent 5deg 15deg);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 60%);mask-image:radial-gradient(circle,#000 0,transparent 60%);animation:bcSpin 24s linear infinite}
+@keyframes bcSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.bc-pc{position:relative;z-index:1;border-radius:18px 18px 6px 6px;border:2.5px solid transparent;padding:26px 5px 12px;text-align:center;overflow:hidden;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),var(--c),#fff,var(--c),color-mix(in srgb,var(--c) 30%,#000),var(--c)) border-box;animation:bcRot 5s linear infinite,bcGlow 3s ease-in-out infinite}
+.r1 .bc-pc{animation-duration:3.6s,2.6s;padding-top:32px}
+@keyframes bcRot{to{--a:360deg}}
+@keyframes bcGlow{0%,100%{box-shadow:0 8px 26px -10px var(--c)}50%{box-shadow:0 10px 44px -4px var(--c)}}
+.bc-pc::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%);transform:translateX(-130%);animation:bcSw 4.5s ease-in-out infinite}
+@keyframes bcSw{55%,100%{transform:translateX(130%)}}
+.bc-crown{position:absolute;top:3px;left:50%;transform:translateX(-50%);font-size:24px;z-index:2;filter:drop-shadow(0 0 8px #f0c04a);animation:bcCrown 2.2s ease-in-out infinite}
+@keyframes bcCrown{50%{transform:translateX(-50%) translateY(-5px) rotate(-6deg)}}
+.bc-av{width:56px;height:56px;margin:0 auto 8px;border-radius:50%;padding:3px;background:conic-gradient(from var(--a,0deg),var(--c),#fff,var(--c));animation:bcRot 4s linear infinite}
+.r1 .bc-av{width:70px;height:70px}
+.bc-av span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 30% 25%,#26305a,#0b0f1d);font:900 24px 'Cairo',sans-serif;color:var(--c)}
+.bc-nm{font-weight:900;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;unicode-bidi:plaintext;text-align:center}
+.bc-you{display:inline-block;font-style:normal;font-size:10px;font-weight:800;color:#0a0d16;background:var(--g);border-radius:20px;padding:0 7px;margin-inline-start:6px;vertical-align:middle}
+.bc-slot .bc-you{display:table;margin:3px auto 0}
+.bc-big{margin-top:6px;direction:ltr}
+.bc-big b{display:block;font:700 clamp(17px,5vw,24px) 'Oswald',sans-serif;color:var(--c);line-height:1.1;text-shadow:0 0 14px color-mix(in srgb,var(--c) 55%,transparent)}
+.r1 .bc-big b{font-size:clamp(20px,5.8vw,29px)}
+.bc-big small{display:block;font-size:10px;color:var(--d);font-family:'Oswald',sans-serif;margin-top:2px}
+.bc-lab{font-size:10.5px;color:var(--d);margin-top:1px}
+.bc-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:7px}
+.bc-chips span{font-size:10.5px;background:#0b0e18;border:1px solid var(--l);border-radius:20px;padding:1px 7px;color:var(--d);white-space:nowrap}
+.bc-ped{margin-top:-2px;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:center;font:700 32px 'Oswald',sans-serif;color:rgba(255,255,255,.92);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 50%,#0b0e18),#0b0e18);border:1px solid var(--l);border-top:0}
+.r1 .bc-ped{height:62px}.r2 .bc-ped{height:42px}.r3 .bc-ped{height:28px;font-size:24px}
+.bc-sec{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:14px;margin:18px 2px 8px}
+.bc-sec span{font-size:12px;color:var(--d);font-weight:600}
+.bc-row{display:flex;align-items:center;gap:10px;background:rgba(15,20,34,.84);border:1px solid var(--l);border-radius:16px;padding:10px 12px;margin-bottom:8px;animation:bcSlide .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*70ms + .5s)}
+@keyframes bcSlide{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+.bc-row.me{border-color:var(--g);box-shadow:0 0 22px -8px var(--g)}
+.bc-rk{font:700 20px 'Oswald',sans-serif;color:var(--gd);width:30px;text-align:center;flex:none}
+.bc-rav{width:38px;height:38px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 25%,#26305a,#0b0f1d);border:1.5px solid var(--gd);font-weight:900;color:var(--g)}
+.bc-mid{flex:1;min-width:0}
+.bc-mid b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;unicode-bidi:plaintext}
+.bc-bar{height:7px;border-radius:20px;background:#151b2e;overflow:hidden;margin:5px 0 3px}
+.bc-bar i{display:block;height:100%;width:var(--w);border-radius:20px;background:linear-gradient(90deg,var(--gd),var(--g),#fff6d8);transform-origin:right;animation:bcFill 1.1s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*70ms + .7s)}
+@keyframes bcFill{from{transform:scaleX(0)}}
+.kills .bc-bar i{background:linear-gradient(90deg,#a3202f,#ff6a4d,#ffd0b8)}
+.bc-subl{font-size:11.5px;color:var(--d)}
+.bc-sc{text-align:left;direction:ltr;white-space:nowrap}
+.bc-sc b{font:700 16px 'Oswald',sans-serif;color:var(--g)}
+.kills .bc-sc b{color:#ff8a6e}
+.bc-sc small{display:block;font-size:10px;color:var(--d)}
+.still .bc-slot,.still .bc-row,.still .bc-bar i{animation:none}
+.bc-empty{text-align:center;padding:46px 10px;color:var(--d);line-height:2}
+.bc-empty b{display:block;font-size:20px;color:var(--g)}
+.bc-empty a{display:inline-block;margin-top:10px;padding:10px 22px;border-radius:14px;font-weight:900;text-decoration:none;color:#0a0d16;background:linear-gradient(90deg,var(--gd),var(--g))}
+.bc-pzh{display:block;margin:20px 2px 8px;font-weight:900;font-size:14px}
+.bc-pz{display:grid;gap:8px}
+.bc-pzc{border:1px solid var(--l);border-radius:14px;padding:10px 12px;background:rgba(15,20,34,.82)}
+.bc-pzc h4{margin:0 0 4px;font-size:14px}
+.bc-pzc p{margin:2px 0;font-size:12.5px;color:var(--d)}
+.bc-me{--g:#f0c04a;--gd:#8a6d24;--t:#eef1f8;--d:#8891a3;--l:#222a42;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:30;max-width:696px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:18px;background:rgba(10,13,22,.93);border:1.5px solid var(--gd);box-shadow:0 10px 30px -10px #000;color:var(--t);font-family:'Cairo',system-ui,sans-serif}
+.bc-me .rk{font:700 24px 'Oswald',sans-serif;color:var(--g);min-width:50px;text-align:center;line-height:1}
+.bc-me .rk small{display:block;font:600 10px 'Cairo',sans-serif;color:var(--d);margin-top:3px}
+.bc-me .ms{flex:1;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:6px;text-align:center}
+.bc-me .ms div{background:#0b0e18;border:1px solid var(--l);border-radius:10px;padding:4px 2px}
+.bc-me .ms b{display:block;font:600 14px 'Oswald',sans-serif;color:var(--g);direction:ltr}
+.bc-me .ms span{font-size:10px;color:var(--d)}
+@media (prefers-reduced-motion:reduce){.bc *,.bc-bg i{animation:none!important}}
+`
+
+const CONTRIB_JS = `(function(){
+  var D=__D__, URL_=__U__, tab='dmg', anim=true, sig='';
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var off=(D.now||Date.now())-Date.now();
+  function $(i){return document.getElementById(i)}
+  function F(n){return Math.round(Number(n)||0).toLocaleString('en-US')}
+  function C(n){n=Number(n)||0; if(n>=1e9) return (n/1e9).toFixed(2)+'B'; if(n>=1e6) return (n/1e6).toFixed(2)+'M'; if(n>=1e4) return (n/1e3).toFixed(1)+'K'; return F(n)}
+  function el(t,c,x){var e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e}
+  function ini(s){s=String(s||'?').replace(/^@/,''); return Array.from(s)[0]||'?'}
+  function num(tag,v,fmt){var b=el(tag,'',''); b.setAttribute('data-n',String(v)); b.setAttribute('data-f',fmt); b.textContent=(fmt==='c'?C(v):F(v)); return b}
+  function youTag(){return el('em','bc-you',D.isOwner?'أنت':'صاحب الصفحة')}
+  function runCounts(root){
+    var list=root.querySelectorAll('[data-n]');
+    for(var k=0;k<list.length;k++){ count(list[k]); }
+  }
+  function count(n){
+    var to=+n.getAttribute('data-n')||0, fm=n.getAttribute('data-f')==='c'?C:F;
+    if(!anim||reduce){n.textContent=fm(to);return}
+    var t0=null,d=1500; n.textContent=fm(0);
+    function step(t){ if(t0===null) t0=t; var p=Math.min(1,(t-t0)/d); p=1-Math.pow(1-p,3); n.textContent=fm(Math.round(to*p)); if(p<1) requestAnimationFrame(step); else n.textContent=fm(to); }
+    setTimeout(function(){requestAnimationFrame(step)},450);
+  }
+  function metric(r){return tab==='dmg'?r.damage:r.lastHits}
+  function slot(r,i){
+    var s=el('div','bc-slot r'+(i+1));
+    if(i===0) s.appendChild(el('div','bc-rays'));
+    var pc=el('article','bc-pc');
+    if(i===0) pc.appendChild(el('span','bc-crown','👑'));
+    var av=el('div','bc-av'); av.appendChild(el('span','',ini(r.who))); pc.appendChild(av);
+    pc.appendChild(el('div','bc-nm',r.who));
+    if(r.isMe) pc.appendChild(youTag());
+    var big=el('div','bc-big');
+    big.appendChild(num('b',metric(r),tab==='dmg'?'c':'f'));
+    big.appendChild(el('small','',tab==='dmg'?'ضرر · '+F(r.damage):'ضربة قاضية'));
+    pc.appendChild(big);
+    var ch=el('div','bc-chips');
+    if(tab==='dmg'){ ch.appendChild(el('span','','⚔️ '+F(r.hits))); ch.appendChild(el('span','','🗡️ '+F(r.lastHits))); }
+    else { ch.appendChild(el('span','','💥 '+C(r.damage))); ch.appendChild(el('span','','⚔️ '+F(r.hits))); }
+    pc.appendChild(ch);
+    s.appendChild(pc);
+    var ped=el('div','bc-ped'); ped.appendChild(el('span','',String(i+1))); s.appendChild(ped);
+    return s;
+  }
+  function row(r,i,max){
+    var d=el('div','bc-row'+(r.isMe?' me':'')); d.style.setProperty('--i',String(i));
+    d.appendChild(el('div','bc-rk',String(r.rank)));
+    var av=el('div','bc-rav'); av.appendChild(el('span','',ini(r.who))); d.appendChild(av);
+    var mid=el('div','bc-mid'); var nm=el('b','',r.who); if(r.isMe) nm.appendChild(youTag()); mid.appendChild(nm);
+    var pct=max>0?Math.max(4,Math.round(metric(r)/max*100)):4;
+    var bar=el('div','bc-bar'); var fill=el('i'); fill.style.setProperty('--w',pct+'%'); bar.appendChild(fill); mid.appendChild(bar);
+    mid.appendChild(el('span','bc-subl',tab==='dmg'?('⚔️ '+F(r.hits)+' هجمة  ·  🗡️ '+F(r.lastHits)+' قاضية'):('💥 '+F(r.damage)+' ضرر  ·  ⚔️ '+F(r.hits)+' هجمة')));
+    d.appendChild(mid);
+    var sc=el('div','bc-sc'); sc.appendChild(num('b',metric(r),'f')); sc.appendChild(el('small','',tab==='dmg'?'ضرر':'ضربة قاضية')); d.appendChild(sc);
+    return d;
+  }
+  function render(){
+    var list=tab==='dmg'?D.damage:D.killers;
+    var root=$('bc-root'); root.className='bc-main'+(tab==='kills'?' kills':'')+(anim?'':' still');
+    var pod=$('bc-pod'), rows=$('bc-rows'), sec=$('bc-sec');
+    pod.innerHTML=''; rows.innerHTML=''; sec.innerHTML='';
+    // الإحصائيات العلوية
+    var st=$('bc-stats'); st.innerHTML='';
+    [['💥',D.totals.damage,'c','إجمالي الضرر'],['👥',D.totals.players,'f','مساهم اليوم'],['🗡️',D.totals.kills,'f','ضربة قاضية']].forEach(function(a){
+      var d=el('div','bc-st'); d.appendChild(num('b',a[1],a[2])); d.appendChild(el('span','',a[0]+' '+a[3])); st.appendChild(d);
+    });
+    if(!list.length){
+      var em=el('div','bc-empty');
+      if(tab==='dmg'){ em.appendChild(el('b','','😴 لا توجد مساهمات اليوم بعد')); em.appendChild(document.createTextNode('كن أول من يهاجم الزعيم!')); if(D.bossUrl){ var a=el('a','','⚔️ اذهب للزعيم'); a.href=D.bossUrl; em.appendChild(document.createElement('br')); em.appendChild(a); } }
+      else { em.appendChild(el('b','','🗡️ لا توجد ضربات قاضية اليوم')); em.appendChild(document.createTextNode('أول من يقتل الزعيم يتصدّر هنا')); }
+      rows.appendChild(em); runCounts(st); return;
+    }
+    var maxV=metric(list[0])||1;
+    list.slice(0,3).forEach(function(r,i){ pod.appendChild(slot(r,i)); });
+    if(list.length>3){
+      var h=el('div','bc-sec'); h.appendChild(document.createTextNode('الترتيب من 4 إلى '+list.length)); h.appendChild(el('span','',tab==='dmg'?'حسب الضرر':'حسب الضربات القاضية')); sec.appendChild(h);
+      list.slice(3).forEach(function(r,i){ rows.appendChild(row(r,i,maxV)); });
+    }
+    runCounts(root); runCounts(st);
+  }
+  function meBar(){
+    var m=D.me, box=$('bc-me'); box.innerHTML='';
+    var rk=el('div','rk',m.dmgRank?'#'+F(m.dmgRank):'—'); rk.appendChild(el('small','',D.isOwner?'ترتيبك':'ترتيبه')); box.appendChild(rk);
+    var ms=el('div','ms');
+    [[F(m.damage),'💥 الضرر'],[F(m.hits),'⚔️ هجمات'],[F(m.lastHits),'🗡️ قاضية']].forEach(function(a){ var d=el('div'); d.appendChild(el('b','',a[0])); d.appendChild(el('span','',a[1])); ms.appendChild(d); });
+    box.appendChild(ms);
+  }
+  function p2(n){return (n<10?'0':'')+n}
+  function tick(){
+    var left=Math.max(0,D.resetAt-(Date.now()+off)), box=$('bc-cd'), wrap=$('bc-cdw');
+    if(left<=0){ wrap.className='bc-cd go'; $('bc-cdl').textContent='🎁 جاري توزيع الجوائز…'; return }
+    wrap.className='bc-cd'; $('bc-cdl').textContent='⏳ التصفير وتوزيع الجوائز خلال';
+    var s=Math.floor(left/1000), h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+    var sp=box.querySelectorAll('span'); sp[0].textContent=p2(h); sp[1].textContent=p2(m); sp[2].textContent=p2(x);
+  }
+  function sigOf(j){return JSON.stringify([j.damage,j.killers,j.totals,j.me])}
+  function poll(){
+    if(document.hidden) return;
+    fetch(URL_,{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+      if(!j) return;
+      off=(j.now||Date.now())-Date.now(); D=j; $('bc-cd'); tick();
+      var s=sigOf(j); if(s===sig) return; sig=s; anim=false; render(); meBar();
+    }).catch(function(){});
+  }
+  var tabs=document.querySelectorAll('.bc-tab');
+  for(var i=0;i<tabs.length;i++){ tabs[i].addEventListener('click',function(){
+    tab=this.getAttribute('data-t');
+    for(var k=0;k<tabs.length;k++) tabs[k].classList.toggle('on',tabs[k]===this);
+    anim=true; render(); anim=false;
+  }); }
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(); });
+  sig=sigOf(D); render(); meBar(); tick(); anim=false;
+  setInterval(tick,1000); setInterval(poll,20000);
+
+  // جمرات تصعد بالخلفية
+  if(reduce) return;
+  var c=$('bc-fx'); if(!c) return; var x=c.getContext('2d'); if(!x) return;
+  var W=0,H=0,P=[],dpr=Math.min(2,devicePixelRatio||1);
+  function size(){W=c.clientWidth;H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}
+  function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+10,r:Math.random()*2.2+.6,v:Math.random()*.8+.3,s:Math.random()*6.28,a:Math.random()*.6+.25,k:Math.random()}}
+  size(); addEventListener('resize',size);
+  var N=Math.round(Math.min(80,Math.max(34,innerWidth/12)));
+  for(var q=0;q<N;q++) P.push(mk(true));
+  function loop(){
+    if(document.hidden){requestAnimationFrame(loop);return}
+    x.clearRect(0,0,W,H);
+    for(var j=0;j<P.length;j++){var p=P[j]; p.y-=p.v; p.s+=.02; p.x+=Math.sin(p.s)*.4;
+      if(p.y<-10){P[j]=mk(false);continue}
+      var al=p.a*Math.min(1,p.y/(H*.3)+.1);
+      var col=p.k<.5?'255,120,60':(p.k<.85?'240,192,74':'255,214,170');
+      x.beginPath(); x.fillStyle='rgba('+col+','+al+')'; x.shadowColor='rgb('+col+')'; x.shadowBlur=9; x.arc(p.x,p.y,p.r,0,6.283); x.fill(); }
+    requestAnimationFrame(loop)}
+  loop();
+})();
+`
+
+function contribPageHTML({ code, viewer, data }) {
+    const topbar = viewer.isOwner
+        ? `<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">💥 مساهمات الزعيم</span></span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+        : `<div class="topbar"><span class="who">وضع المشاهدة</span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
+    const script = CONTRIB_JS
+        .replace('__D__', () => jsonForScript(data))
+        .replace('__U__', () => jsonForScript(`/u/${code}/contrib/data`))
+    return `${shellHead('مساهمات الزعيم')}
+<body>
+<style>${CONTRIB_CSS}</style>
+<div class="bc-bg" aria-hidden="true"><i></i><i></i><i></i><canvas id="bc-fx"></canvas></div>
+<div class="bc">
+  ${topbar}
+  <div class="bc-eb">Daily Contribution</div>
+  <h1>مساهمات اليوم</h1>
+  <p class="bc-sub0">⚔️ ضد الزعيم العالمي — أعلى 10 لاعبين</p>
+  <div class="bc-orn">◆</div>
+  <div class="bc-cd" id="bc-cdw"><small id="bc-cdl">⏳ التصفير وتوزيع الجوائز خلال</small><div class="bc-cdn" id="bc-cd"><span>--</span><u>:</u><span>--</span><u>:</u><span>--</span></div></div>
+  <div class="bc-stats" id="bc-stats"></div>
+  <nav class="bc-tabs"><button class="bc-tab on" type="button" data-t="dmg">💥 الضرر</button><button class="bc-tab" type="button" data-t="kills">🗡️ الضربة القاضية</button></nav>
+  <div id="bc-root" class="bc-main"><section class="bc-podium" id="bc-pod"></section><div id="bc-sec"></div><section id="bc-rows"></section></div>
+  <span class="bc-pzh">🎁 جوائز اليوم (توزَّع 10 مساءً وتظهر لك هنا عند فتح الصفحة)</span>
+  <div class="bc-pz">
+    <div class="bc-pzc"><h4>🥇🥈🥉 أفضل 3 مساهمين</h4><p>💰 2,000,000 مال</p><p>🎲 1% فرصة شخصية SSS · 30% فرصة صندوق SSS High</p></div>
+    <div class="bc-pzc"><h4>👥 باقي المساهمين</h4><p>💰 500,000 مال</p><p>👑 شخصية أسطورية مجانية</p></div>
+    <div class="bc-pzc"><h4>🗡️ صاحب أكثر ضربة قاضية</h4><p>💰 500,000 مال</p><p>📦 صندوق SSS High</p></div>
+  </div>
+</div>
+<div class="bc-me" id="bc-me"></div>
+${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'contrib', viewer.name) : ''}
+<script>${script}</script>
+</body></html>`
+}
+
+// =====================================================================
 // 🚢 صفحة سفينتي  /u/:code/ship  (+ مشهد البحر المتحرك /u/:code/ship/scene)
 // قراءة فقط: بيانات السفينة والطاقم من نفس نماذج البوت (Ship / Player).
 // مظهر السفينة يتطور تلقائياً مع المستوى، وعند المستوى الأقصى (25) تصل لآخر شكل بتاج.
@@ -4761,6 +5094,16 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (e) { console.error('site codex book mount error:', e) }
     }
 
+    // 🏆 إنجازاتي — /u/:code/achievements (systems/siteAchievements.js)
+    if (opts.achievements) {
+        try {
+            opts.achievements.mount(app, {
+                auth, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN
+            })
+        } catch (e) { console.error('site achievements mount error:', e) }
+    }
+
     // صور .استبدال المحلية
     app.use('/custom_images', express.static(path.join(__dirname, '..', 'custom_images'), { maxAge: '1d' }))
     // صور الكتالوج المحلية (./characters/xxx.jpg) — تُعرض فقط بصفحة السحب للرتب تحت SSS
@@ -4869,6 +5212,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                     gifts: prepareGifts(player.giftInbox, catIdx)
                         .concat(await kingdom.getUnseenRewards(player.userId).then(prepareRewardGifts).catch(() => []))
                         .concat(prepareRewardGifts((player.giftInbox || []).filter(g => g && g.kind === 'reward' && !g.seen)))
+                        .concat(await contribResults.getUnseenPayloads(player.userId).catch(() => []))
                         .sort((a, b) => (a.at || 0) - (b.at || 0))
                 }
                 : { isOwner: false }
@@ -6422,6 +6766,106 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // ─────────────── 💥 مساهمات الزعيم اليومية  /u/:code/contrib ───────────────
+    // نفس مصدر أمر .مساهمات بالبوت. الترتيب يُخزَّن بالذاكرة 10 ثواني (كل اللاعبين يشاركونه)،
+    // وبيانات "أنت" تُقرأ طازجة. ما نرسل userId للمتصفح أبداً (فيه رقم الواتساب) — فقط isMe.
+    const CONTRIB_CACHE_MS = 10 * 1000
+    let contribCache = null
+    function nextContribResetAt() {
+        // التصفير 22:00 بتوقيت الرياض (UTC+3 ثابت) = 19:00 UTC
+        const now = Date.now(), d = new Date(now)
+        const reset = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 19, 0, 0)
+        return now < reset ? reset : reset + 24 * 60 * 60 * 1000
+    }
+    async function getContribBoard() {
+        const now = Date.now()
+        if (contribCache && now - contribCache.at < CONTRIB_CACHE_MS) return contribCache
+        const sel = 'userId name username dailyBossDamage dailyBossHits dailyLastHits'
+        const [byDmg, byKills, agg] = await Promise.all([
+            Player.find({ dailyBossDamage: { $gt: 0 } }).select(sel).sort({ dailyBossDamage: -1 }).limit(10).lean(),
+            Player.find({ dailyLastHits: { $gt: 0 } }).select(sel).sort({ dailyLastHits: -1, dailyBossDamage: -1 }).limit(10).lean(),
+            Player.aggregate([
+                { $match: { dailyBossDamage: { $gt: 0 } } },
+                { $group: { _id: null, damage: { $sum: '$dailyBossDamage' }, players: { $sum: 1 }, kills: { $sum: '$dailyLastHits' } } }
+            ])
+        ])
+        const toRow = d => ({
+            uid: d.userId,
+            who: d.username ? '@' + d.username : (d.name || 'لاعب'),
+            damage: Number(d.dailyBossDamage) || 0,
+            hits: Number(d.dailyBossHits) || 0,
+            lastHits: Number(d.dailyLastHits) || 0
+        })
+        const a = (agg && agg[0]) || {}
+        contribCache = {
+            at: now,
+            damage: byDmg.map(toRow),
+            killers: byKills.map(toRow),
+            totals: { damage: Number(a.damage) || 0, players: Number(a.players) || 0, kills: Number(a.kills) || 0 }
+        }
+        return contribCache
+    }
+    async function buildContribData(player, isOwner, code) {
+        const b = await getContribBoard()
+        const pub = rows => rows.map((r, i) => ({ rank: i + 1, who: r.who, damage: r.damage, hits: r.hits, lastHits: r.lastHits, isMe: r.uid === player.userId }))
+        const my = {
+            damage: Number(player.dailyBossDamage) || 0,
+            hits: Number(player.dailyBossHits) || 0,
+            lastHits: Number(player.dailyLastHits) || 0
+        }
+        const dmgRank = my.damage > 0 ? (await Player.countDocuments({ dailyBossDamage: { $gt: my.damage } })) + 1 : null
+        return {
+            now: Date.now(),
+            resetAt: nextContribResetAt(),
+            isOwner: !!isOwner,
+            bossUrl: isOwner ? `/u/${code}/boss` : null,
+            totals: b.totals,
+            damage: pub(b.damage),
+            killers: pub(b.killers),
+            me: { damage: my.damage, hits: my.hits, lastHits: my.lastHits, dmgRank }
+        }
+    }
+    async function contribViewer(req, res) {
+        securityHeaders(res)
+        const code = String(req.params.code || '')
+        if (!CODE_RE.test(code)) return null
+        const player = await Player.findOne({ siteCode: code })
+            .select('userId name username sessionVersion dailyBossDamage dailyBossHits dailyLastHits')
+            .lean()
+        if (!player) return null
+        const sess = ownerSession(req, player)
+        if (!sess && !auth.hasViewOnly(req)) return { code, redirect: true }
+        return { code, player, sess }
+    }
+
+    app.get('/u/:code/contrib', async (req, res) => {
+        try {
+            const v = await contribViewer(req, res)
+            if (!v) return html404(res)
+            if (v.redirect) return res.redirect(303, `/u/${v.code}`)
+            const data = await buildContribData(v.player, !!v.sess, v.code)
+            const viewer = v.sess
+                ? { isOwner: true, name: v.player.name || v.player.username || 'لاعب', csrf: auth.csrfForSession(v.sess) }
+                : { isOwner: false }
+            res.send(contribPageHTML({ code: v.code, viewer, data }))
+        } catch (err) {
+            console.error('contrib page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/u/:code/contrib/data', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            const v = await contribViewer(req, res)
+            if (!v || v.redirect) return res.status(403).json({ ok: false })
+            res.json(await buildContribData(v.player, !!v.sess, v.code))
+        } catch (err) {
+            console.error('contrib data error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
     // ─────────────── ⚔️ حرب الأعلام  /u/:code/war ───────────────
     // كل المنطق بـ systems/warSystem.js (حالة بالذاكرة، حرب واحدة). هنا: صفحة + مسارات آمنة.
     // الصفحة تستطلع /war/state كل ثانية؛ الإجراءات (إنشاء/انضمام/اذهب/إلغاء) POST بحماية CSRF ونفس أصل.
@@ -7267,6 +7711,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!/^[a-f0-9]{16}$/.test(id)) return res.status(400).json({ ok: false })
             await Player.updateOne({ userId: sess.u, 'giftInbox.id': id }, { $set: { 'giftInbox.$.seen': true } })
             await kingdom.markRewardSeen(sess.u, id) // إشعارات جوائز الترتيب
+            await contribResults.markSeen(sess.u, id).catch(() => {}) // نتيجة المساهمات اليومية
             res.json({ ok: true })
         } catch (err) {
             console.error('gift ack error:', err)
