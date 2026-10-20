@@ -1410,6 +1410,12 @@ PlayerSchema.post('save', function (doc) {
 // نفس تعريف الفهرس الذي ينشئه index.js (username_1 partial unique) — بدون تعارض
 PlayerSchema.index({ username: 1 }, { unique: true, partialFilterExpression: { username: { $type: 'string' } } })
 
+// ⚡ بحث الخصوم القريبين بالـMMR (.قتال pvp) — استعلام مدى mmr بدون فهرس يمسح كل اللاعبين (مستنداتهم ثقيلة)
+PlayerSchema.index({ mmr: -1 })
+
+// ⚡ حل هوية الرقم الحقيقي (resolveDmJid / الاستعلامات بـ $or على userId و phoneJid)
+PlayerSchema.index({ phoneJid: 1 })
+
 // ⚡ فهرس ترتيب الأرينا — بدونه كل فتح لصفحة تحدي ارينا يمسح كل مستندات اللاعبين (ثقيلة بسبب characters) ويسبب التأخير
 PlayerSchema.index({ 'arena.points': -1 })
 

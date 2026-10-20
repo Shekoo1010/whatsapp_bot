@@ -124,6 +124,11 @@ const pvpSchema = new mongoose.Schema({
 
 })
 
+// ⚡ الاستعلامات كلها بالشكل { active: true, $or: [{ player1: id }, { player2: id }] }
+// ومونجو يحتاج فهرساً لكل فرع من فروع $or، فنفصل فهرسين مركبين بدل فهرس واحد على الثلاثة
+pvpSchema.index({ active: 1, player1: 1 })
+pvpSchema.index({ active: 1, player2: 1 })
+
 module.exports =
     mongoose.models.PvP ||
     mongoose.model('PvP', pvpSchema)

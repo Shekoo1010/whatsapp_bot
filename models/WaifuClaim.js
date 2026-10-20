@@ -44,6 +44,12 @@ waifuClaimSchema.index(
     { userId: 1, groupId: 1 }
 )
 
+// ⚡ استعلامات القروب كامل ({ groupId } و aggregate $match: { groupId })
+// — الفهرس (userId, groupId) ما يخدمها لأن groupId ليس أول حقل فيه
+waifuClaimSchema.index(
+    { groupId: 1, userId: 1 }
+)
+
 module.exports =
 mongoose.model(
     'WaifuClaim',
