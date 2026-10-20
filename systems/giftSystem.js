@@ -71,7 +71,12 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
 
                 result = null // إعادة ضبط لو أُعيدت المحاولة
 
-                const sender = await Player.findOne({ userId: senderId }).session(session)
+                // ⚡ قراءة خفيفة (lean + الحقول اللي نحتاجها فقط) بدل تحميل المستندين كاملين
+                // (إيكوز/صناديق/سجلات...) وتحويلهم لمستندات Mongoose
+                const sender = await Player.findOne({ userId: senderId })
+                    .select('characters giftOpKeys money name username weaponsInventory giftLog')
+                    .session(session)
+                    .lean()
                 if (!sender) throw new GiftError('NO_SENDER')
 
                 // ♻️ طلب مكرر بنفس الرقم (ضغطتان / إعادة إرسال) → نفس النتيجة بلا تنفيذ
@@ -80,7 +85,10 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     return
                 }
 
-                const target = await Player.findOne({ userId: targetId }).session(session)
+                const target = await Player.findOne({ userId: targetId })
+                    .select('characters giftInbox giftLog name username')
+                    .session(session)
+                    .lean()
                 if (!target) throw new GiftError('NO_TARGET')
 
                 const chars = sender.characters || []
@@ -93,11 +101,13 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                         throw new GiftError('BAD_INDEX')
                     }
                 } else {
+                    // ⚡ نحسب hash كل شخصية مرة وحدة (كان يُعاد حسابه لكل شخصية مطلوبة × كل قائمة اللاعب)
+                    const hashes = chars.map(c => charHash(c))
                     const used = new Set()
                     for (const h of picks.hashes) {
                         let found = -1
                         for (let i = 0; i < chars.length; i++) {
-                            if (!used.has(i) && charHash(chars[i]) === h) { found = i; break }
+                            if (!used.has(i) && hashes[i] === h) { found = i; break }
                         }
                         if (found === -1) throw new GiftError('STALE')
                         used.add(found)
@@ -120,24 +130,27 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                 // نحذف من الأكبر للأصغر
                 const removedNames = new Set(selected.map(c => c.name))
                 for (const i of [...indices].sort((a, b) => b - a)) chars.splice(i, 1)
-                sender.markModified('characters')
 
                 // ⚔️ السلاح مربوط بالاسم: لو ما بقي عند المُهدي نسخة بنفس الاسم نفكّ ربطه
+                let weaponsChanged = false
                 if (Array.isArray(sender.weaponsInventory)) {
-                    let weaponsChanged = false
                     for (const name of removedNames) {
                         if (chars.some(c => c && c.name === name)) continue
                         for (const w of sender.weaponsInventory) {
                             if (w && w.equippedTo === name) { w.equippedTo = null; weaponsChanged = true }
                         }
                     }
-                    if (weaponsChanged) sender.markModified('weaponsInventory')
                 }
 
-                for (const c of selected) target.characters.push(c)
-                resortPlayerCharacters(target)
+                // نفس الترتيب القديم بالضبط (resortPlayerCharacters) لكن على مصفوفة عادية بدل مستند Mongoose
+                const targetHolder = {
+                    characters: (target.characters || []).concat(selected),
+                    markModified() {}
+                }
+                resortPlayerCharacters(targetHolder)
+                const targetChars = targetHolder.characters
 
-                if (cost) sender.money = (sender.money || 0) - cost
+                const newSenderMoney = (sender.money || 0) - cost
 
                 // 📬 صندوق الهدايا (آخر 50) — بنفس الـ transaction
                 const now = Date.now()
@@ -160,16 +173,6 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                         source
                     })
                 })
-                target.giftInbox = inbox.slice(-INBOX_LIMIT)
-                target.markModified('giftInbox')
-
-                // 🔑 تسجيل رقم العملية عند المُهدي
-                if (opKey) {
-                    const keys = Array.isArray(sender.giftOpKeys) ? sender.giftOpKeys.slice() : []
-                    keys.push(opKey)
-                    sender.giftOpKeys = keys.slice(-OPKEY_LIMIT)
-                    sender.markModified('giftOpKeys')
-                }
 
                 // 📜 سجل الإهداءات الدائم (للمُهدي والمستلم)
                 const logChars = selected.map(c => ({
@@ -179,15 +182,35 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                 const toName = target.name || target.username || 'لاعب'
                 const sLog = Array.isArray(sender.giftLog) ? sender.giftLog.slice() : []
                 sLog.push({ id: logId, dir: 'out', at: now, source, cost, otherName: toName, otherUsername: target.username || null, chars: logChars })
-                sender.giftLog = sLog.slice(-LOG_LIMIT)
-                sender.markModified('giftLog')
                 const tLog = Array.isArray(target.giftLog) ? target.giftLog.slice() : []
                 tLog.push({ id: logId, dir: 'in', at: now, source, cost: 0, otherName: fromName, otherUsername: sender.username || null, chars: logChars })
-                target.giftLog = tLog.slice(-LOG_LIMIT)
-                target.markModified('giftLog')
 
-                await sender.save({ session })
-                await target.save({ session })
+                // ⚡ كتابة ذرية مستهدفة للحقول المتغيّرة فقط (بدل save() للمستندين كاملين) داخل نفس الـ transaction
+                const senderSet = {
+                    characters: chars,
+                    giftLog: sLog.slice(-LOG_LIMIT)
+                }
+                if (weaponsChanged) senderSet.weaponsInventory = sender.weaponsInventory
+                if (cost) senderSet.money = newSenderMoney
+                if (opKey) {
+                    const keys = Array.isArray(sender.giftOpKeys) ? sender.giftOpKeys.slice() : []
+                    keys.push(opKey)
+                    senderSet.giftOpKeys = keys.slice(-OPKEY_LIMIT)
+                }
+
+                await Player.updateOne({ userId: senderId }, { $set: senderSet }, { session })
+
+                await Player.updateOne(
+                    { userId: targetId },
+                    {
+                        $set: {
+                            characters: targetChars,
+                            giftInbox: inbox.slice(-INBOX_LIMIT),
+                            giftLog: tLog.slice(-LOG_LIMIT)
+                        }
+                    },
+                    { session }
+                )
 
                 result = {
                     ok: true,
@@ -200,7 +223,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     targetName: target.name || target.username || 'لاعب',
                     targetUsername: target.username || null,
                     senderUsername: sender.username || null,
-                    senderBalance: sender.money || 0
+                    senderBalance: newSenderMoney
                 }
             })
 
