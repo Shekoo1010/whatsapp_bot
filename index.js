@@ -5233,6 +5233,19 @@ if (typeof Player.setMissionNotifier === 'function') {
     console.log('⚠️ models/Player.js قديم: استبدله بالنسخة المعدّلة لتفعيل إشعارات إكمال المهام')
 }
 
+// 🏆 فاحص الإنجازات عند أي حفظ للاعب (systems/achievementSweeper.js) — يمنح ويُشعر حتى لو المصدر ما يستدعي checkAndGrantAchievement
+const achievementSweeper = require('./systems/achievementSweeper').create({
+    Player,
+    checkAndGrantAchievement,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+if (typeof Player.setAchievementSweeper === 'function') {
+    Player.setAchievementSweeper(achievementSweeper.onSave)
+} else {
+    console.log('⚠️ models/Player.js قديم: استبدله بالنسخة المعدّلة لتفعيل فاحص الإنجازات')
+}
+
 // 🥊 المضاربة من الموقع (systems/siteBrawl.js) — نفس منطق startBrawl، ونفس brawlLocks مع البوت
 const siteBrawl = require('./systems/siteBrawl').create({
     Player,
