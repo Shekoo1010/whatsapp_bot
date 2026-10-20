@@ -5255,7 +5255,11 @@ const siteBrawl = require('./systems/siteBrawl').create({
     notifyDm: siteNotifyDm
 })
 
+// 🏆 إنجازاتي من الموقع (systems/siteAchievements.js) — نفس منطق .انجازاتي، والإشعار يأتي من checkAndGrantAchievement → siteNotify
+const siteAchievements = require('./systems/siteAchievements').create({ Player })
+
 registerCharacterSite(app, Player, {
+    achievements: siteAchievements,
     missions: siteMissions,
     codexBook: siteCodexBook,
     sssList: siteSssList,
@@ -6627,6 +6631,14 @@ const GROUP_IDS = [
 // الحل: نحفظ التاريخ بمستند BotState بقاعدة البيانات (مستقل عن السيرفر
 // نفسه)، ونقرأه عند بدء الجدولة بدل ما نبدأ من null دايمًا.
 const BotState = require('./models/BotState')
+const DailyContribResults = require('./systems/dailyContribResults') // 🌐 نتيجة المساهمات اليومية تظهر بالموقع
+
+// 📴 إرسال رسالة جوائز المساهمات للواتساب (القروب) — معطّل: النتيجة تظهر الآن بالموقع عند فتح الصفحة.
+// لإعادتها للواتساب غيّرها إلى true.
+const SEND_CONTRIB_TO_WHATSAPP = false
+
+// 📴 أمر .مساهمات بالواتساب — معطّل: صار بالموقع (صفحة مساهمات الزعيم). true = يرجع يشتغل بالواتساب.
+const CONTRIB_CMD_ON_WHATSAPP = false
 
 async function readLastContribRewardDate() {
     try {
@@ -6783,6 +6795,23 @@ async function distributeDailyContributionRewards(sock) {
     const topThree = contributors.slice(0, 3)
     const rest = contributors.slice(3)
 
+    // 🌐 بيانات النتيجة اللي تنحفظ للموقع (قائمة + هدية كل لاعب)
+    const nameOf = p => p.username || p.name || String(p.userId).split('@')[0]
+    const entries = new Map()
+    const entOf = p => {
+        if (!entries.has(p.userId)) {
+            entries.set(p.userId, {
+                userId: p.userId, roles: [], rank: 0,
+                damage: p.dailyBossDamage || 0, lastHits: 0,
+                money: 0, boxes: 0, chars: []
+            })
+        }
+        return entries.get(p.userId)
+    }
+    const siteTop = []
+    let siteRest = { count: 0, money: 0 }
+    let siteKillers = { hits: 0, names: [], money: 0, boxes: 0 }
+
     let resultText =
 `🏆 ═════〔 جوائز المساهمات اليومية 〕═════ 🏆
 
@@ -6810,6 +6839,12 @@ async function distributeDailyContributionRewards(sock) {
             (player.totalEarnedMoney || 0) + topThreeMoney
 
         let extras = ''
+        let siteBoxes = 0
+        let siteCharName = ''
+        const ent = entOf(player)
+        ent.roles.push('top')
+        ent.rank = i + 1
+        ent.money += topThreeMoney
 
         // 🎲 1% فرصة شخصية SSS مباشرة
         if (Math.random() < 0.01) {
@@ -6830,6 +6865,8 @@ async function distributeDailyContributionRewards(sock) {
                 player.characters.push(sssChar)
 
                 extras += `\n🌟 شخصية SSS: ${sssChar.name}`
+                siteCharName = sssChar.name
+                ent.chars.push({ name: sssChar.name, rarity: 'SSS' })
             }
         }
 
@@ -6842,9 +6879,20 @@ async function distributeDailyContributionRewards(sock) {
                 (player.boxes.sss_high || 0) + 1
 
             extras += `\n📦 +1 صندوق SSS High`
+            siteBoxes = 1
+            ent.boxes += 1
         }
 
         await player.save()
+
+        siteTop.push({
+            userId: player.userId,
+            name: nameOf(player),
+            damage: player.dailyBossDamage || 0,
+            money: topThreeMoney,
+            boxes: siteBoxes,
+            charName: siteCharName
+        })
 
         resultText +=
 `${medal} @${player.userId.split('@')[0]}
@@ -6871,6 +6919,10 @@ async function distributeDailyContributionRewards(sock) {
         player.totalEarnedMoney =
             (player.totalEarnedMoney || 0) + restMoney
 
+        const ent = entOf(player)
+        ent.roles.push('rest')
+        ent.money += restMoney
+
         const legendChar =
             getRandomCharacterByBox('legendary')
 
@@ -6880,12 +6932,16 @@ async function distributeDailyContributionRewards(sock) {
                 player.characters || []
 
             player.characters.push(legendChar)
+
+            ent.chars.push({ name: legendChar.name, rarity: 'legendary' })
         }
 
         await player.save()
     }
 
     if (rest.length) {
+
+        siteRest = { count: rest.length, money: 500000 }
 
         resultText +=
 `👥 باقي المساهمين (${rest.length})
@@ -6902,9 +6958,15 @@ async function distributeDailyContributionRewards(sock) {
     // 🗡️ جائزة أكثر ضربة قاضية (آخر ضربة تقتل الزعيم)
     // =========================
 
-    const killers =
+    const killersRaw =
         await Player.find({ dailyLastHits: { $gt: 0 } })
             .sort({ dailyLastHits: -1 })
+
+    // 🔧 إصلاح: لو القاتل نفسه من المساهمين (مثلاً المركز الثاني) نستخدم نفس نسخة
+    // الـdocument اللي حفظنا عليها جوائزه فوق. قبل كذا كانت نسخة ثانية قديمة
+    // (money/boxes قبل الجوائز) تنحفظ فوقها فتضيع جائزة المركز (2,000,000 مال).
+    const contribById = new Map(contributors.map(p => [p.userId, p]))
+    const killers = killersRaw.map(k => contribById.get(k.userId) || k)
 
     let topKillers = []
 
@@ -6932,7 +6994,20 @@ async function distributeDailyContributionRewards(sock) {
             player.boxes.sss_high =
                 (player.boxes.sss_high || 0) + 1
 
+            const ent = entOf(player)
+            ent.roles.push('killer')
+            ent.lastHits = player.dailyLastHits || 0
+            ent.money += killerMoney
+            ent.boxes += 1
+
             await player.save()
+        }
+
+        siteKillers = {
+            hits: maxHits,
+            names: topKillers.map(nameOf),
+            money: 500000,
+            boxes: 1
         }
 
         resultText +=
@@ -6960,28 +7035,47 @@ ${topKillers.map(p => `@${p.userId.split('@')[0]}`).join('\n')}
 
     resultText += `✅ تم تصفير المساهمات، بالتوفيق غداً!`
 
-    const allMentioned = [
-        ...topThree.map(p => p.userId),
-        ...rest.map(p => p.userId),
-        ...topKillers.map(p => p.userId)
-    ]
-
-    if (sock.user && (contributors.length || killers.length)) {
-
-        // 📍 ترسل فقط بقروب الهجوم ع الزعيم نفسه، مو كل القروبات
+    // 🌐 حفظ النتيجة للموقع (تظهر للاعب بنافذة الهدايا عند فتح صفحته)
+    if (contributors.length || killers.length) {
         try {
-
-            await sock.sendMessage(BOSS_ATTACK_GROUP, {
-                text: resultText,
-                mentions: [...new Set(allMentioned)]
+            await DailyContribResults.saveResult({
+                date: getSaudiDate(),
+                top: siteTop,
+                rest: siteRest,
+                killers: siteKillers,
+                entries: [...entries.values()]
             })
-
         } catch (err) {
+            console.log('⚠️ خطأ حفظ نتيجة المساهمات للموقع:', err)
+        }
+    }
 
-            console.log(
-                '⚠️ خطأ غير متوقع أثناء إرسال رسالة المساهمات:',
-                err
-            )
+    // 📴 رسالة الواتساب معطّلة (SEND_CONTRIB_TO_WHATSAPP = false أعلاه)
+    if (SEND_CONTRIB_TO_WHATSAPP) {
+
+        const allMentioned = [
+            ...topThree.map(p => p.userId),
+            ...rest.map(p => p.userId),
+            ...topKillers.map(p => p.userId)
+        ]
+
+        if (sock && sock.user && (contributors.length || killers.length)) {
+
+            // 📍 ترسل فقط بقروب الهجوم ع الزعيم نفسه، مو كل القروبات
+            try {
+
+                await sock.sendMessage(BOSS_ATTACK_GROUP, {
+                    text: resultText,
+                    mentions: [...new Set(allMentioned)]
+                })
+
+            } catch (err) {
+
+                console.log(
+                    '⚠️ خطأ غير متوقع أثناء إرسال رسالة المساهمات:',
+                    err
+                )
+            }
         }
     }
 
@@ -18207,6 +18301,12 @@ ${currentBoss.ability.description}
         }
 
 // ─── .مساهمات ───
+// 📴 الأمر انتقل للموقع (صفحة /u/<كود>/contrib). لإعادته للواتساب غيّر CONTRIB_CMD_ON_WHATSAPP إلى true.
+if (text === '.مساهمات' && !CONTRIB_CMD_ON_WHATSAPP) {
+    return safeSend(msg.key.remoteJid, {
+        text: '💥 المساهمات انتقلت للموقع!\n\n🌐 اكتب .رابط لفتح صفحتك، ثم اختر «مساهمات الزعيم» من القائمة.'
+    })
+}
 
 if (text === '.مساهمات') {
 
