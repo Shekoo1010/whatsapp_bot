@@ -1350,6 +1350,8 @@ function xpForLevel(level) {
 const levelHooks = { handler: null, notifier: null }
 // 🎯 إشعار إكمال المهام (systems/siteMissions.js) — يُستدعى بعد أي حفظ للاعب (بوت أو موقع)
 const missionHooks = { notifier: null }
+// 🏆 فاحص الإنجازات (systems/achievementSweeper.js) — يمنح أي إنجاز وصل هدفه ولم يُستلم بعد أي حفظ
+const achHooks = { sweeper: null }
 
 PlayerSchema.pre('save', async function () {
 
@@ -1386,6 +1388,10 @@ PlayerSchema.post('save', function (doc) {
 
     try {
         if (missionHooks.notifier) missionHooks.notifier(doc)
+    } catch (err) { /* ما يوقف الحفظ */ }
+
+    try {
+        if (achHooks.sweeper) achHooks.sweeper(doc)
     } catch (err) { /* ما يوقف الحفظ */ }
 
     try {
@@ -1426,5 +1432,6 @@ PlayerModel.xpForLevel = xpForLevel
 PlayerModel.setLevelUpHandler = fn => { levelHooks.handler = fn }
 PlayerModel.setLevelUpNotifier = fn => { levelHooks.notifier = fn }
 PlayerModel.setMissionNotifier = fn => { missionHooks.notifier = fn }
+PlayerModel.setAchievementSweeper = fn => { achHooks.sweeper = fn }
 
 module.exports = PlayerModel
