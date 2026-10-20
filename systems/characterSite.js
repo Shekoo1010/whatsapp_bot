@@ -738,10 +738,11 @@ function navDrawerHTML(code, csrf, current, name) {
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
         ['achievements', '🏆', 'إنجازاتي', `/u/${c}/achievements`],
+        ['notifications', '🔔', 'الإشعارات', `/u/${c}/notifications`],
         ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
     ]
     const list = items.map(([k, ic, label, href]) =>
-        `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}</a>`
+        `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}${k === 'notifications' ? '<small class="nvcd" id="nv-nb" hidden></small>' : ''}</a>`
     ).join('')
     const showCd = current !== 'boss'
     const bn = [['home', '🏠', 'مجموعتي', `/u/${c}`], ['pull', '✨', 'سحب', `/u/${c}/pull`], ['boss', '⚔️', 'الزعيم', `/u/${c}/boss`], ['top', '🏆', 'الأقوى', `/u/${c}/top`], ['gift', '🎁', 'إهداء', `/u/${c}/gift`], ['sell', '💰', 'بيع', `/u/${c}/sell`]]
@@ -5011,7 +5012,7 @@ function registerCharacterSite(app, Player, opts = {}) {
 
     // 📲 تثبيت كتطبيق — manifest + أيقونات (systems/sitePwa.js) بدون Service Worker وبدون أي تغيير بالمنطق
     try { PWA.mount(app, { CODE_RE }) } catch (e) { console.error('site pwa mount error:', e) }
-    try { NOTIFY.mount(app, { Player, auth }) } catch (e) { console.error('site notify mount error:', e) }
+    try { NOTIFY.mount(app, { Player, auth, securityHeaders, CODE_RE, html404, ownerSession, esc, shellHead, navDrawerHTML, NAV_BTN }) } catch (e) { console.error('site notify mount error:', e) }
 
     // ⚔️ التحدي المباشر (PvP) — الدعوات اللحظية + الساحة (systems/siteChallenge.js)
     // يُسجَّل مبكراً عشان يحقن سكربت الدعوات بكل صفحات /u/:code
