@@ -393,6 +393,22 @@ return await sock.sendMessage(jid, {
     }
 })
 }
+// ⚡ فحص سريع بدون إنشاء غرفة (getRoom ينشئ غرفة جديدة لكل قروب يكتب فيه أحد حتى لو ما فيه فعالية).
+// نفس شروط الرجوع المبكر (false) داخل checkHeartAnswer بالضبط: لو رجعت false هنا فالدالة كانت سترجع false.
+function isAcceptingAnswers(jid, userId) {
+
+    const room = heartRooms[jid]
+
+    return !!(
+        room &&
+        room.started &&
+        room.currentQuestion &&
+        !room.questionSolved &&
+        room.players.includes(userId)
+    )
+
+}
+
 async function checkHeartAnswer(sock, msg, jid, userId, answer) {
 
     const room = getRoom(jid)
@@ -672,6 +688,7 @@ module.exports = {
   startHeartEvent,
 sendHeartQuestion,
   checkHeartAnswer,
+  isAcceptingAnswers,
   showHearts,
   damagePlayer,
     MIN_PLAYERS
