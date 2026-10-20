@@ -1,6 +1,8 @@
 // 🖼️ صور الكتالوج العامة (للمطور فقط)
 //  .ص            → يرسل نص مرقّم (رسائل واتساب)؛ اللي انوضع لها صورة تبقى برقمها مع ✅
 //  .ص جديد       → قائمة جديدة بدون المنتهية
+//  .ص كل         → كل الشخصيات (اللي عندها صورة ✅) — تقدر تغيّر أي صورة بـ .ص رقم
+//  .ص كل <كلمة>  → نفس الشي لكن فقط الشخصيات اللي اسمها/أنمي/فورمها يحتوي الكلمة
 //  .ص <رقم>      → ككابشن على صورة: يضع الصورة للشخصية لكل اللاعبين
 //
 // كيف تشتغل:
@@ -30,7 +32,7 @@ async function loadAndApply(characters) {
         const map = new Map(docs.map(d => [d.key, d.url]))
         let n = 0
         for (const c of characters) {
-            if (isEmpty(c) && map.has(keyOf(c))) { c.image = map.get(keyOf(c)); n++ }
+            if (map.has(keyOf(c))) { c.image = map.get(keyOf(c)); n++ }
         }
         console.log(`🖼️ catalog images applied: ${n}`)
     } catch (err) {
@@ -60,17 +62,30 @@ async function handleCatalogImageCommand(msg, ctx) {
             const byKey = new Map(characters.map(c => [keyOf(c), c]))
             const missingNow = characters.filter(isEmpty)
 
-            // ".ص جديد" → قائمة جديدة فقط بالشخصيات اللي بدون صورة (ترقيم من 1)
-            if (parts[1] === 'جديد') lastList = []
+            const isAll = parts[1] === 'كل'
 
-            // القائمة السابقة تبقى بنفس أرقامها (اللي انوضع لها صورة تظهر ✅)،
-            // وأي شخصية بدون صورة وما كانت بالقائمة تنضاف بآخرها
-            const known = new Set(lastList)
-            for (const c of missingNow) {
-                if (!known.has(keyOf(c))) lastList.push(keyOf(c))
+            if (isAll) {
+                // ".ص كل [كلمة]" → كل الشخصيات (أو المفلترة) بأرقام جديدة
+                const q = parts.slice(2).join(' ').trim()
+                const match = c => !q || [c.name, c.anime, c.form].some(v => String(v || '').includes(q))
+                lastList = [...new Set(characters.filter(match).map(keyOf))]
+                if (!lastList.length) {
+                    await safeSend(jid, { text: '❌ ما لقيت شخصية بهذا الاسم' })
+                    return true
+                }
+            } else {
+                // ".ص جديد" → قائمة جديدة فقط بالشخصيات اللي بدون صورة (ترقيم من 1)
+                if (parts[1] === 'جديد') lastList = []
+
+                // القائمة السابقة تبقى بنفس أرقامها (اللي انوضع لها صورة تظهر ✅)،
+                // وأي شخصية بدون صورة وما كانت بالقائمة تنضاف بآخرها
+                const known = new Set(lastList)
+                for (const c of missingNow) {
+                    if (!known.has(keyOf(c))) lastList.push(keyOf(c))
+                }
+                // نشيل الشخصيات اللي انحذفت من الكتالوج (نحافظ على الترتيب)
+                lastList = lastList.filter(k => byKey.has(k))
             }
-            // نشيل الشخصيات اللي انحذفت من الكتالوج (نحافظ على الترتيب)
-            lastList = lastList.filter(k => byKey.has(k))
 
             if (!missingNow.length && !lastList.length) {
                 await safeSend(jid, { text: '✅ كل الشخصيات عندها صور' })
@@ -81,7 +96,7 @@ async function handleCatalogImageCommand(msg, ctx) {
             const lines = lastList.map((k, i) => {
                 const c = byKey.get(k)
                 const done = !isEmpty(c)
-                return `${i + 1}. ${c.name} | ${c.form || '-'} | ${c.anime || '-'} | ${c.rarity} | ${c.power ?? '-'}${done ? ' ✅ تم وضع صورة' : ''}`
+                return `${i + 1}. ${c.name} | ${c.form || '-'} | ${c.anime || '-'} | ${c.rarity} | ${c.power ?? '-'}${done ? (isAll ? ' ✅' : ' ✅ تم وضع صورة') : ''}`
             })
 
             // نص واتساب عادي (مرقّم) — نقسمه لرسائل عشان ما يتجاوز حد الطول
@@ -97,7 +112,10 @@ async function handleCatalogImageCommand(msg, ctx) {
             }
             if (cur) chunks.push(cur)
 
-            await safeSend(jid, { text: `📋 ${missingNow.length} شخصية بدون صورة (تم وضع صورة لـ ${doneCount})\nأرسل صورة بكابشن: .ص رقم\n(.ص جديد لقائمة جديدة بدون المنتهية)` })
+            const header = isAll
+                ? `📋 ${lastList.length} شخصية (✅ ${doneCount} عندها صورة)\nأرسل صورة بكابشن: .ص رقم لوضع أو تغيير الصورة\n(.ص كل <كلمة> للبحث — .ص جديد للعودة لقائمة بدون صور)`
+                : `📋 ${missingNow.length} شخصية بدون صورة (تم وضع صورة لـ ${doneCount})\nأرسل صورة بكابشن: .ص رقم\n(.ص جديد لقائمة جديدة بدون المنتهية — .ص كل لعرض الكل وتغيير أي صورة)`
+            await safeSend(jid, { text: header })
             for (const chunk of chunks) {
                 await safeSend(jid, { text: chunk })
             }
@@ -121,6 +139,7 @@ async function handleCatalogImageCommand(msg, ctx) {
             return true
         }
 
+        const hadImage = !isEmpty(c)
         const buffer = await downloadMediaMessage(
             { message: m }, 'buffer', {},
             { logger: console, reuploadRequest: sock.updateMediaMessage }
@@ -131,7 +150,7 @@ async function handleCatalogImageCommand(msg, ctx) {
         c.image = url   // كائن الكتالوج المشترك → يظهر فوراً بالبوت والموقع
 
         await safeSend(jid, {
-            text: `✅ تم وضع صورة ${c.name} (${c.rarity}) للجميع\n\nالأرقام لم تتغير — كمّل بنفس القائمة، أو .ص لعرضها وبجانب كل منتهية ✅ (.ص جديد لقائمة جديدة)`
+            text: `✅ تم ${hadImage ? 'تغيير' : 'وضع'} صورة ${c.name} (${c.rarity}) للجميع\n\nالأرقام لم تتغير — كمّل بنفس القائمة، أو .ص لعرضها وبجانب كل منتهية ✅ (.ص جديد لقائمة جديدة)`
         })
         return true
     } catch (err) {
