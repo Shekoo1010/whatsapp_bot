@@ -65,6 +65,40 @@ function createBossAttackSystem(deps) {
         return ev
     }
 
+    // 💾 كتابة الزعيم للقاعدة مجمّعة (مرة كل ~0.8ث) بدل كل ضربة
+    let _pTimer = null
+    function persistBossSoon() {
+        if (_pTimer) return
+        const ref = getBoss()
+        _pTimer = setTimeout(async () => {
+            _pTimer = null
+            const b = getBoss()
+            if (!b || b !== ref) return // تغيّر الزعيم (رسبن) — لا نكتب فوق الجديد
+            try {
+                await Boss.updateOne({}, { $set: {
+                    hp: b.hp, attack: b.attack, enraged: b.enraged,
+                    activeFollowers: b.activeFollowers, followersDefeated: !!b.followersDefeated,
+                    groupAttackCount: b.groupAttackCount, killer: b.killer, finished: b.finished
+                } })
+            } catch (e) { console.log('boss persist error:', e?.message || e) }
+        }, 800)
+    }
+
+    // 📡 بث دم الزعيم والأتباع مباشرة لكل المتصفحات (بحد أقصى مرة كل 0.7ث) بدل ما كل متصفح يستطلع
+    let _hpLast = 0, _hpTimer = null
+    function broadcastHp() {
+        if (_hpTimer) return
+        _hpTimer = setTimeout(() => {
+            _hpTimer = null; _hpLast = Date.now()
+            const b = getBoss(); if (!b) return
+            notifySubs({
+                type: 'hp', hp: Math.max(0, Number(b.hp) || 0), maxHp: Number(b.maxHp) || 0,
+                enraged: !!b.enraged,
+                followers: followersView(b).map(f => ({ name: f.name, hp: f.hp, image: f.image }))
+            })
+        }, Math.max(0, 700 - (Date.now() - _hpLast)))
+    }
+
     function getFeed(sinceId = 0) {
         return feed.concat(hitFeed).filter(e => e.id > sinceId).sort((a, b) => a.id - b.id)
     }
@@ -119,7 +153,7 @@ function createBossAttackSystem(deps) {
     // ويُصفَّر فوراً عند أي هجوم من الموقع عشان ضرر المهاجم يظهر بدون تأخير.
     const BOARD_LIMIT = 10
     const BOARD_ACTIVE_MS = 90 * 1000
-    const BOARD_TTL_MS = 1500
+    const BOARD_TTL_MS = 3000   // كانت 1500
     let _boardCache = { at: 0, top: [], online: 0, crowd: [] }
 
     function invalidateBoard() { _boardCache.at = 0 }
@@ -340,7 +374,10 @@ function createBossAttackSystem(deps) {
             events.push(ev)
             return ev
         }
-        const fail = (code, message, extra = {}) => ({ ok: false, code, message, ...extra })
+        const fail = (code, message, extra = {}) => {
+            if (code !== 'COOLDOWN') fastCd.delete(userId) // الفشل لا يستهلك الكولداون
+            return { ok: false, code, message, ...extra }
+        }
 
         try {
             if (isBanned && isBanned(userId)) return fail('BANNED', '❌ حسابك محظور.')
@@ -355,19 +392,22 @@ function createBossAttackSystem(deps) {
             }
 
             // 🤫 كولداون 30 ثانية (كاش بالذاكرة مشترك مع الواتس)
-            {
-                const fastLast = fastCd.get(userId) || 0
-                if (Date.now() - fastLast < COOLDOWN_MS) {
-                    return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS - (Date.now() - fastLast) })
-                }
+            const nowT = Date.now()
+            const lastFast = fastCd.get(userId) || 0
+            if (nowT - lastFast < COOLDOWN_MS) {
+                return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS - (nowT - lastFast) })
             }
+            fastCd.set(userId, nowT) // حجز فوري قبل أي await (يمنع الضغطتين المتزامنتين)
 
             const boss = getBoss()
 
             if (!boss) return fail('NO_BOSS', '❌ لا يوجد زعيم حالياً')
             if (boss.hp <= 0) return fail('BOSS_DEAD', '❌ تم هزيمة الزعيم بالفعل')
 
+            // ⚡ جلب أخف: نستبعد فقط الحقول الثقيلة التي لا يلمسها الهجوم ولا دوال المستوى/الإنجازات/المهام
+            // (صندوق وسجل الهدايا، لايكات/معرض، فرق الدومين، حقيبة الإيكو). باقي الحقول كما هي، والحفظ يكتب المتغيّر فقط.
             const me = await Player.findOne({ userId })
+                .select('-giftInbox -giftLog -giftOpKeys -galleryLikes -gallery -domainTeams -inventory')
             if (!me) return fail('NO_ACCOUNT', '❌ لا تملك حساباً، أنشئ حساب أولاً')
             if (!me.characters.length) return fail('NO_CHARS', '❌ لا تملك شخصيات')
 
@@ -390,21 +430,6 @@ function createBossAttackSystem(deps) {
             if (me.lastBossAttack && bossNow - me.lastBossAttack < COOLDOWN_MS) {
                 return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS - (bossNow - me.lastBossAttack) })
             }
-
-            // 🔒 حجز الكول داون بشكل ذري (نفس الواتس)
-            const cooldownClaim = await Player.findOneAndUpdate(
-                {
-                    userId,
-                    $or: [
-                        { lastBossAttack: { $exists: false } },
-                        { lastBossAttack: null },
-                        { lastBossAttack: { $lte: bossNow - COOLDOWN_MS } }
-                    ]
-                },
-                { $set: { lastBossAttack: bossNow } },
-                { strict: false }
-            )
-            if (!cooldownClaim) return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS })
 
             fastCd.set(userId, bossNow)
             me.lastBossAttack = bossNow
@@ -803,13 +828,8 @@ function createBossAttackSystem(deps) {
 
                 await me.save()
 
-                await Boss.updateOne({}, {
-                    $set: {
-                        hp: boss.hp,
-                        activeFollowers: boss.activeFollowers,
-                        followersDefeated: !!boss.followersDefeated
-                    }
-                })
+                persistBossSoon()
+                broadcastHp()
 
                 return {
                     ok: true,
@@ -828,18 +848,7 @@ function createBossAttackSystem(deps) {
             if (!boss.firstHitAt && damage > 0 && (Number(boss.hp) || 0) >= (Number(boss.maxHp) || 0)) boss.firstHitAt = Date.now()
             boss.hp = Math.max(0, (boss.hp || 0) - damage)
 
-            await Boss.updateOne({}, {
-                $set: {
-                    hp: boss.hp,
-                    attack: boss.attack,
-                    enraged: boss.enraged,
-                    activeFollowers: boss.activeFollowers,
-                    followersDefeated: !!boss.followersDefeated,
-                    groupAttackCount: boss.groupAttackCount,
-                    killer: boss.killer,
-                    finished: boss.finished
-                }
-            })
+            persistBossSoon()
 
             // 😡 الغضب عند نصف الصحة
             if (!boss.enraged && boss.hp <= boss.maxHp / 2) {
@@ -891,7 +900,7 @@ function createBossAttackSystem(deps) {
             bumpWeekly(me, 'bossHits', 1)
 
             await me.save()
-            invalidateBoard()
+            if (Date.now() - _boardCache.at > 1000) invalidateBoard()
 
             // الإشعارات الجانبية (إنجاز/نقاط عالم) تروح لخاص اللاعب — ولا شيء للقروب
             const notifyJid = null // 🔕 لا إرسال للواتساب — لا حاجة لاستعلام رقم اللاعب
@@ -1071,6 +1080,7 @@ function createBossAttackSystem(deps) {
                         emit({ type: 'results', results }, true)
                     }
 
+                    broadcastHp()
                     return {
                         ok: true, kind: 'kill',
                         report: buildReport('kill', { worldPoints: worldPointsText || '' }),
@@ -1084,6 +1094,7 @@ function createBossAttackSystem(deps) {
                 }
             }
 
+            broadcastHp()
             return {
                 ok: true,
                 kind: 'boss',

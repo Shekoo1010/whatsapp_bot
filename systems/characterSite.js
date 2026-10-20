@@ -3642,10 +3642,10 @@ function setTheme(i){
     else if(ev.anim==='counter'){ var b=bossStrike($('fme')); await wait(380); flash(); hurtAv($('fme')); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff6b86',22); await b.finished; }
     else if(ev.anim==='player_dead'){ $('fme').animate([{opacity:1,filter:'grayscale(0)'},{opacity:.4,filter:'grayscale(1)'}],{duration:800,fill:'forwards'}); }
     else if(ev.anim==='boss_dead'){ bossDeadShown=true; toast('سقط الزعيم!'); await $('fboss').animate([{transform:'scale(1)',opacity:1},{transform:'scale(1.2)',opacity:.7,offset:.4},{transform:'scale(.6) rotate(8deg)',opacity:0}],{duration:1400,fill:'forwards'}).finished; }
-    await wait(450);
+    if(ev.anim!=='kill' && ev.anim!=='drop' && ev.anim!=='info') await wait(450);
   }
 
-  async function playAttack(j){
+  async function playAttack(j,preFly){
     var ev=j.events||[], pre=[], post=[];
     ev.forEach(function(e){ (e.type==='ability'||e.type==='fx'?pre:post).push(e); });
     for(var i=0;i<pre.length;i++){ await playEvent(pre[i]); }
@@ -3653,8 +3653,10 @@ function setTheme(i){
     var r=j.report, crit=!!r.crit;
     var isFol=(r.kind==='follower'), fnode=null;
     if(isFol){ var fk=folKeys(S.boss.followers||[])[0]; fnode=folNode(fk); }
-    var l=fly($('fme'),fnode||$('fboss'));
-    await wait(240);
+    if(isFol && !fnode){ var _ks=Object.keys(fmap); if(_ks.length) fnode=fmap[_ks[0]].fg; }
+    var l=preFly||fly($('fme'),fnode||$('fboss'));
+    if(!preFly) await wait(240);
+    else { var _el=Date.now()-(preFly._t0||0); if(_el<240) await wait(240-_el); }
     if(isFol){
       shake($('arena'),crit?5:3);
       hitFollower(fnode,r.damage,crit);
@@ -3667,8 +3669,14 @@ function setTheme(i){
     $('bhp').style.width=pct(st.bossHp,st.bossMax)+'%';
     $('bhpt').textContent=fmt(st.bossHp)+' / '+fmt(st.bossMax);
     addTo($('log'),reportNode(r),10);
-    await l.finished;
-    await wait(300);
+    if(isFol){
+      // الدم/الموت يظهر لحظة الضربة بدل آخر الأنيميشن
+      S.boss.hp=st.bossHp; S.boss.maxHp=st.bossMax; S.boss.enraged=st.enraged; S.boss.followers=st.followers;
+      renderBoss(S.boss);
+    } else {
+      await l.finished;
+      await wait(300);
+    }
 
     for(var k=0;k<post.length;k++){ await playEvent(post[k]); }
 
@@ -3676,34 +3684,37 @@ function setTheme(i){
     S.me.hp=st.myHp; S.me.maxHp=st.myMax;
     S.boss.respawnInMs=(st.respawnInMs!=null?st.respawnInMs:null); setResp(S.boss);
     renderBoss(S.boss); renderMe(S.me);
-    await wait(isFol?700:0);
+    await wait(isFol?120:0);
   }
 
   // ───── الإرسال ─────
   $('go').addEventListener('click',function(){
     if(busy) return;
     vOnAttackClick();
-    busy=true; $('go').disabled=true; $('lbl').textContent='جارٍ الهجوم…'; show(null);
+    busy=true; atkSeq++; $('go').disabled=true; $('lbl').textContent='⚔️'; show(null);
+    cdEnd=Date.now()+30000;   // كولداون فوري (تفاؤلي)
+    // شحن في المكان (بدون هجوم) حتى يرد السيرفر؛ الهجوم والضرر يظهران معاً بعد الرد
+    var chg=null;
+    try{ chg=$('fme').animate([{transform:'scale(1)',filter:'brightness(1)'},{transform:'scale(1.1)',filter:'brightness(1.5)'},{transform:'scale(1)',filter:'brightness(1)'}],{duration:650,iterations:Infinity}); }catch(e){}
+    var stopChg=function(){ try{ if(chg) chg.cancel(); }catch(e){} chg=null; };
     var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
     fetch('/boss/attack',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
       body:JSON.stringify({csrf:CSRF,code:CODE,index:Number($('sel').value)||1})})
     .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
     .then(async function(x){
-      clearTimeout(tm);
+      clearTimeout(tm); stopChg();
       if(x.s===401){ location.href='/login?code='+CODE; return; }
       var j=x.j;
       if(j.ok){
-        cdEnd=Date.now()+${'30000'};
         await playAttack(j);
       } else {
         if(j.code==='COOLDOWN'){ cdEnd=Date.now()+(j.retryInMs||${'30000'}); }
-        else if(j.code==='DEAD'){ S.me.dead=true; S.me.deadLeftMs=j.retryInMs||0; show('bad',j.message); }
-        else { show('bad',j.message||'فشل الهجوم'); }
+        else { cdEnd=0; if(j.code==='DEAD'){ S.me.dead=true; S.me.deadLeftMs=j.retryInMs||0; } show('bad',j.message||'فشل الهجوم'); }
       }
-      busy=false; tick(); setTimeout(poll,900);
+      busy=false; atkSeq++; tick(); setTimeout(poll,900);
     })
     .catch(function(){
-      clearTimeout(tm); busy=false;
+      clearTimeout(tm); stopChg(); busy=false; atkSeq++; cdEnd=0;
       show('warn','لم يصلنا رد من السيرفر — قد يكون الهجوم تم. حدّث الصفحة للتأكد.');
       tick();
     });
@@ -3742,17 +3753,17 @@ function setTheme(i){
   }
 
   // ───── متابعة أحداث الزعيم العامة (Polling) ─────
-  var lastPollAt=0, sseOk=false, stTimer=null;
+  var lastPollAt=0, sseOk=false, stTimer=null, atkSeq=0;
   function poll(){
     if(document.hidden) return;
     lastPollAt=Date.now();
-    var wasBusy=busy;
+    var wasBusy=busy, seq0=atkSeq;
     fetch('/boss/state?lite=1&since='+lastId,{credentials:'same-origin'})
     .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
     .then(function(j){
       if(!j||!j.ok) return;
       // أثناء أنيميشن هجومي: نحدّث لوحة الضرر فقط (بدون المساس بالزعيم/الدم المعروض)
-      if(wasBusy||busy){ if(j.state&&j.state.board) renderBoard(j.state.board); return; }
+      if(wasBusy||busy||seq0!==atkSeq){ if(j.state&&j.state.board) renderBoard(j.state.board); return; }   // رد استطلاع قديم (قبل/أثناء هجومي) لا يطغى على الحالة الأحدث
       var keepChars=S.characters, hpBefore=(S.me&&S.me.hp)||0;
       applyState(j.state); S.characters=keepChars;
       handleFeed(j.feed, Math.max(0,hpBefore-((S.me&&S.me.hp)||0)));
@@ -3773,7 +3784,7 @@ function setTheme(i){
   // ───── 📡 بث مباشر (SSE): الأحداث تصل لحظة حدوثها، والاستطلاع يبقى احتياطاً ─────
   function schedState(){
     if(stTimer) return;
-    var wait=Math.max(0,1200-(Date.now()-lastPollAt));
+    var wait=Math.max(0,4000-(Date.now()-lastPollAt));
     stTimer=setTimeout(function(){ stTimer=null; poll(); },wait);
   }
   function startStream(){
@@ -3785,6 +3796,13 @@ function setTheme(i){
       es.onmessage=function(m){
         if(document.hidden) return;
         var ev; try{ ev=JSON.parse(m.data); }catch(e){ return; }
+        if(ev.type==='hp'){
+          if(!busy && S.boss && !S.boss.finished){
+            S.boss.hp=ev.hp; S.boss.maxHp=ev.maxHp; S.boss.enraged=ev.enraged; S.boss.followers=ev.followers;
+            renderBoss(S.boss);
+          }
+          return;
+        }
         // الضربة الجماعية/النتائج تحتاج الدم قبل/بعد → نتركها للاستطلاع الفوري
         if(ev.anim==='raid'||ev.type==='results'){ poll(); return; }
         // أثناء أنيميشن هجومي: لا نمسّ العرض، والحدث يُجلب بالاستطلاع التالي
@@ -5807,6 +5825,10 @@ function registerCharacterSite(app, Player, opts = {}) {
                 out.dead = !!e.dead
                 out.mine = !!viewerId && e.by === viewerId
             }
+            if (e.type === 'hp') {
+                out.hp = e.hp; out.maxHp = e.maxHp; out.enraged = !!e.enraged
+                out.followers = (e.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
+            }
             if (e.targets) out.targets = e.targets.map(t => ({ name: String(t.name || '') }))
             if (e.results) out.results = { ...e.results, bossImage: safeImageUrl(e.results.bossImage) }
             return out
@@ -5943,15 +5965,12 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!bossAttack || !auth.authEnabled()) return fail(503, 'DISABLED', 'هجوم الزعيم من الموقع غير مفعّل حالياً.')
             if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
 
-            const sess = auth.readSession(req)
+            const sess = await bossSession(req)   // نسخة مخزنة 60 ثانية بدل استعلام لكل ضربة
             if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             const b = req.body || {}
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!bossRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
-
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
-            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             const r = await bossAttack.attack({ userId: sess.u, charIndex: b.index })
 
