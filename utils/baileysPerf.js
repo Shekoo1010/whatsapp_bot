@@ -283,7 +283,7 @@ function installImageUrlCache(sock, {
 // اللي يبطّئ الأوامر لما عدة لاعبين يرسلون نفس الصورة (صورة الزعيم/شخصية).
 // الكاش نفسه صغير (بروتوباف ~ كيلوبايتات لكل صورة، مو الصورة نفسها).
 // يعمل فقط مع { url } — لو الصورة Buffer ما يُستخدم (سلوك Baileys الأصلي).
-function createMediaCache({ ttlMs = 30 * 60 * 1000, maxEntries = 500 } = {}) {
+function createMediaCache({ ttlMs = 6 * 60 * 60 * 1000, maxEntries = 500 } = {}) {
 
     const store = new Map()   // key -> { value, at }
 
