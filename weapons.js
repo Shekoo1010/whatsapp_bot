@@ -22,7 +22,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critDamage',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/FzHtpRwG/IMG-20261021-WA0005.jpg'
     },
     {
         id: 'stringmaster',
@@ -33,7 +33,7 @@ const weapons = [
         baseAtk: 500,
         subStatType: 'critRate',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/wxwYvXmx/file-00000000ca7082119996c5d76bf96ef2.png'
     },
     {
         id: 'agesOfHarvest',
@@ -44,7 +44,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'attackPercent',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/3xDsnzfb/Weapon-Card-Ages-of-Harvest-1.webp'
     },
     {
         id: 'blazingBrilliance',
@@ -55,7 +55,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critDamage',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/cJRVNwS7/IMG-20261021-WA0004.jpg'
     },
     {
         id: 'rimeDrapedSprouts',
@@ -66,7 +66,7 @@ const weapons = [
         baseAtk: 500,
         subStatType: 'bossDamage',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/NMQZGFG9/Weapon-Card-Rime-Draped-Sprouts-1.webp'
     },
     {
         id: 'veritysHandle',
@@ -77,7 +77,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critRate',
         subStatValue: 24.3,
-        image: ''
+        image: 'https://i.postimg.cc/Y0sPxx6G/Weapon-Card-Verity-s-Handle-1.webp'
     },
     {
         id: 'redSpring',
@@ -88,7 +88,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critRate',
         subStatValue: 24.3,
-        image: ''
+        image: 'https://i.postimg.cc/kX2zgkC6/Weapon-Card-Red-Spring-1.webp'
     },
     {
         id: 'stellarSymphony',
@@ -99,7 +99,7 @@ const weapons = [
         baseAtk: 412,
         subStatType: 'hpPercent',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/g2R7v8rC/file-00000000c658821180db4e8788ea0a85.png'
     },
     {
         id: 'defiersThorn',
@@ -110,7 +110,7 @@ const weapons = [
         baseAtk: 413,
         subStatType: 'hpPercent',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/6QXmzqvC/file-0000000013748211a3b041166abe6175.png'
     },
     {
         id: 'thunderflareDominion',
@@ -121,7 +121,7 @@ const weapons = [
         baseAtk: 675,
         subStatType: 'dodge',
         subStatValue: 20,
-        image: ''
+        image: 'https://i.postimg.cc/KzcsSWQ4/file-000000003af08211bc4c79e212fd45b9.png'
     },
     {
         id: 'letheanElegy',
@@ -132,7 +132,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'reflect',
         subStatValue: 24,
-        image: ''
+        image: 'https://i.postimg.cc/j2LgCJpR/file-000000002ac0820781366abd2809f797.png'
     },
     {
         id: 'azureOath',
@@ -143,7 +143,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'defense',
         subStatValue: 18,
-        image: ''
+        image: 'https://i.postimg.cc/wxG4Z0Nz/file-00000000dfc082118762182f7dae4390.png'
     },
     {
         id: 'freezeFrame',
@@ -154,7 +154,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critRate',
         subStatValue: 24.2,
-        image: ''
+        image: 'https://i.postimg.cc/YqLDHYNN/file-0000000061b8821182bee10afab89045.png'
     },
     {
         id: 'whispersOfSirens',
@@ -165,7 +165,7 @@ const weapons = [
         baseAtk: 500,
         subStatType: 'lifesteal',
         subStatValue: 22,
-        image: ''
+        image: 'https://i.postimg.cc/YCcnq0bM/file-00000000744082119fdcf44cb3564d48.png'
     },
     {
         id: 'luxAndUmbra',
@@ -176,7 +176,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'accuracy',
         subStatValue: 22,
-        image: ''
+        image: 'https://i.postimg.cc/3Rw9bvJ0/file-00000000889082119ab6afbb22c1d4d2.png'
     },
     {
         id: 'unflickeringValor',
@@ -187,7 +187,7 @@ const weapons = [
         baseAtk: 415,
         subStatType: 'bossDamage',
         subStatValue: 20,
-        image: ''
+        image: 'https://i.postimg.cc/3wtzR7kf/file-00000000f3488211910d0cda4c3841c9.png'
     },
     {
         id: 'woodlandAria',
@@ -198,7 +198,7 @@ const weapons = [
         baseAtk: 500,
         subStatType: 'critRate',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/76cc3VMG/file-000000004ef482119436e5bb379d3c87.png'
     },
     {
         id: 'emeraldSentence',
@@ -209,7 +209,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'attackPercent',
         subStatValue: 24.3,
-        image: ''
+        image: 'https://i.postimg.cc/FFdw9MNm/file-00000000dc74821186485df327198801.png'
     },
     {
         id: 'blazingJustice',
@@ -220,7 +220,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critDamage',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/2ysw69d9/file-00000000686c82118444f0bb6cacfa80.png'
     },
     {
         id: 'wildfireMark',
@@ -231,7 +231,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critDamage',
         subStatValue: 25,
-        image: ''
+        image: 'https://i.postimg.cc/7Pj80xm0/file-0000000088b88211aee6d0f31ef8fe93.png'
     },
     {
         id: 'frostburn',
@@ -242,7 +242,7 @@ const weapons = [
         baseAtk: 587,
         subStatType: 'critRate',
         subStatValue: 24.3,
-        image: ''
+        image: 'https://i.postimg.cc/NfThxWnM/file-00000000a0e082119afe0584ec2e21b6.png'
     },
     {
         id: 'moongazersSigil',
@@ -253,7 +253,7 @@ const weapons = [
         baseAtk: 500,
         subStatType: 'dodge',
         subStatValue: 22,
-        image: ''
+        image: 'https://i.postimg.cc/2SFPsnmt/file-0000000034b8821197961664d2639a7e.png'
     }
 
 ]
