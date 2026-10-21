@@ -140,33 +140,103 @@ function getCachedAnswerMatchers(question) {
     return { uniqueAnswers, regexes }
 }
 
-// ⚡ تحسين أداء: أسئلة الصور كانت تُرسل دايماً برابط خارجي (url)،
-// وهذا يخلي Baileys يحمّل الصورة من الإنترنت من جديد بكل مرة تُرسل
-// فيها، حتى لو نفس الصورة انبعثت من قبل (شائع هنا لأن مخزون الصور
-// يتصفّر ويتكرر مع تقدّم الجولات). نخزّن بايتات الصورة (Buffer) أول
-// مرة تُرسل، وبعدها أي إرسال ثاني لنفس الرابط يستخدم النسخة المخزّنة
-// فوراً بدون تحميل من جديد — نفس الصورة بالضبط تصل للمستلم، بس أسرع
-// بالتكرار. لو فشل التحميل لأي سبب، نرجع لنفس الأسلوب القديم (إرسال
-// بالرابط مباشرة) بدون أي تغيير بالسلوك.
-const _imageBufferCache = new Map()
+// ⚡ إرسال صور المسابقة — الإصلاح الجذري لبطء الصور:
+// النسخة السابقة كانت تحمّل الصورة وتحوّلها إلى Buffer ثم ترسلها. المشكلة إن
+// إرسال Buffer *يتجاوز* كاش الرفع الرسمي لـ Baileys (mediaCache) وكاش الصور
+// بالرابط (installImageUrlCache) المفعّلين في index.js — فكانت كل صورة تُشفَّر
+// وتُرفع لواتساب من جديد في كل مرة حتى لو أُرسلت قبل قليل (وهذا سبب التأخر).
+// الآن نرسل { image: { url } } مباشرة: أول مرة تُرفع الصورة، وكل مرة بعدها
+// تُرسل فوراً من الكاش بدون تحميل/رفع. لو فشل الإرسال بالرابط لأي سبب
+// نرجع للـ Buffer كخطة بديلة.
+const _imageBufferFallback = new Map()
 
-async function resolveImageForSend(url) {
+async function sendQuizImage(sock, jid, url) {
 
-    if (_imageBufferCache.has(url)) {
-        return _imageBufferCache.get(url)
-    }
+    const t0 = Date.now()
 
     try {
-        const res = await fetch(url)
-        const arrayBuffer = await res.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
 
-        _imageBufferCache.set(url, buffer)
+        const sent = await sock.sendMessage(jid, { image: { url } })
 
-        return buffer
+        if (process.env.DEBUG) {
+            console.log(`🖼️ quiz image sent in ${Date.now() - t0}ms`)
+        }
+
+        return sent
+
     } catch (err) {
-        return null
+
+        console.log('⚠️ quiz image url-send failed, falling back to buffer:', err?.message)
+
+        let buffer = _imageBufferFallback.get(url)
+
+        if (!buffer) {
+            const res = await fetch(url)
+            buffer = Buffer.from(await res.arrayBuffer())
+            _imageBufferFallback.set(url, buffer)
+
+            // حد أقصى للذاكرة: نحتفظ بآخر 20 صورة فقط
+            if (_imageBufferFallback.size > 20) {
+                _imageBufferFallback.delete(
+                    _imageBufferFallback.keys().next().value
+                )
+            }
+        }
+
+        return sock.sendMessage(jid, { image: buffer })
     }
+}
+
+// 🔥 تسخين مسبق (Prewarm): نرفع الصور القادمة لواتساب بالخلفية أثناء ما
+// اللاعبون يفكرون بالسؤال الحالي، بحيث لما يجي دورها تكون جاهزة بالكاش
+// وتنرسل فوراً (بدونه، أول ظهور لكل صورة يكون بطيء لأنه يتضمن الرفع).
+// الطريقة: نرسل الصورة لمحادثة رقم البوت نفسه (ما يشوفها أحد) فتدخل كاش
+// الرفع بنفس مفتاح الرابط. للإيقاف: QUIZ_PREWARM=0
+const PREWARM_ENABLED = process.env.QUIZ_PREWARM !== '0'
+const PREWARM_AHEAD = 3
+// url -> وقت التسخين. ينتهي بعد 25 دقيقة لأن كاش الرفع يحذف المدخلات بعد 30 دقيقة
+const PREWARM_TTL_MS = 25 * 60 * 1000
+const _prewarmedUrls = new Map()
+let _prewarmChain = Promise.resolve()
+
+function prewarmUpcomingImages(sock, room) {
+
+    if (!PREWARM_ENABLED) return
+
+    const selfJid =
+        String(sock?.user?.id || '').replace(/:\d+@/, '@')
+
+    if (!selfJid) return
+
+    const queue = room.imageQueue || []
+
+    // الطابور يُسحب من آخره (pop) فالقادم هو آخر العناصر
+    const upcoming =
+        queue.slice(-PREWARM_AHEAD).reverse()
+            .map(i => imageQuestions[i]?.image)
+            .filter(Boolean)
+
+    for (const url of upcoming) {
+
+        const doneAt = _prewarmedUrls.get(url)
+
+        if (doneAt && Date.now() - doneAt < PREWARM_TTL_MS) continue
+
+        _prewarmedUrls.set(url, Date.now())
+
+        _prewarmChain = _prewarmChain.then(async () => {
+            try {
+                await sock.sendMessage(selfJid, { image: { url } })
+            } catch (err) {
+                _prewarmedUrls.delete(url)
+            }
+        })
+    }
+}
+
+function schedulePrewarm(sock, room) {
+    // بعد 3 ثواني من بداية السؤال حتى لا ننافس إرسال السؤال الحالي على النت
+    setTimeout(() => prewarmUpcomingImages(sock, room), 3000)
 }
 
 // 🔀 خلط عشوائي (Fisher–Yates) — يُستخدم لبناء طوابير السحب أدناه
@@ -310,6 +380,9 @@ async function startQuestion(sock, jid) {
 
     const room = module.exports.quizData.getQuizRoom(jid)
 
+    room.questionId = (room.questionId || 0) + 1
+    schedulePrewarm(sock, room)
+
     const maxRounds = room.maxRounds || DEFAULT_MAX_ROUNDS
 
 if (room.roundsCount >= maxRounds) {
@@ -442,13 +515,7 @@ return
         answers: imageQuestion.answers
     }
 
-    const sent = await sock.sendMessage(
-    jid,
-    {
-        image: (await resolveImageForSend(imageQuestion.image)) ||
-            { url: imageQuestion.image }
-    }
-)
+    const sent = await sendQuizImage(sock, jid, imageQuestion.image)
 
 stampQuestionStart(room, sent) // ⏱️ يسجل الوقت المحلي + طابع واتساب لحظة تأكد إرسال السؤال
 
@@ -458,6 +525,9 @@ return
 async function startCustomQuestion(sock, jid) {
 
     const room = module.exports.quizData.getQuizRoom(jid)
+
+    room.questionId = (room.questionId || 0) + 1
+    schedulePrewarm(sock, room)
 
     room.answeredUsers.clear()
     room.playerProgress = {}
@@ -529,10 +599,7 @@ ${answers.map(a => `*${a}*`).join(" - ")}`
             answers: imageQuestion.answers
         }
 
-        const sent = await sock.sendMessage(jid, {
-            image: (await resolveImageForSend(imageQuestion.image)) ||
-                { url: imageQuestion.image }
-        })
+        const sent = await sendQuizImage(sock, jid, imageQuestion.image)
 
         stampQuestionStart(room, sent) // ⏱️ يسجل الوقت المحلي + طابع واتساب لحظة تأكد إرسال السؤال
 
@@ -883,6 +950,59 @@ console.log("==================================");
 
     return false
 }
+// ⏭️ .سكب — يعرض إجابة السؤال الحالي وينتقل فوراً للسؤال التالي (يعمل بكل
+// أنواع المسابقات: عادية / صور / سس / كت). لا يعطي أي نقطة لأحد.
+async function skipQuestion(sock, jid) {
+
+    const room = module.exports.quizData.getQuizRoom(jid)
+
+    if (!room.quizActive || !room.currentQuestion) {
+        return 'NO_QUIZ'
+    }
+
+    // السؤال انحلّ للتو (أو فيه إجابة صحيحة قيد الاحتساب) — لا نتدخل
+    if (room.questionSolved || room.pendingTimer) {
+        return 'ALREADY_SOLVED'
+    }
+
+    const question = room.currentQuestion
+
+    const answers = [
+        ...new Set((question.answers || []).map(a => String(a).trim()))
+    ]
+
+    // اكتب التالي: كل الكلمات مطلوبة — غيرها: أي إجابة من البدائل تكفي
+    const answerText =
+        question.type === 'repeat'
+            ? answers.join(' - ')
+            : answers.slice(0, 4).join(' / ')
+
+    room.questionSolved = true
+    room.playerProgress = {}
+    room.pendingAnswers = []
+
+    const myId = room.questionId
+
+    await sock.sendMessage(jid, {
+        text: `⏭️ تم تخطي السؤال\n\n✅ الإجابة: *${answerText}*`
+    })
+
+    setTimeout(async () => {
+
+        if (!room.quizActive) return
+        if (room.questionId !== myId) return // انتهى/بدأ شيء آخر بالفعل
+
+        if (room.quizMode === 'mixed') {
+            await startQuestion(sock, jid)
+        } else {
+            await startCustomQuestion(sock, jid)
+        }
+
+    }, 1000)
+
+    return 'SKIPPED'
+}
+
 module.exports = {
     getRandomQuestion,
     getRandomRepeatQuestion,
@@ -892,6 +1012,7 @@ module.exports = {
     startCustomQuestion,
 
     checkAnswer,
+    skipQuestion,
 
     quizData: {
         getQuizRoom(jid) {
@@ -922,6 +1043,7 @@ module.exports = {
     targetScore: null,
     maxRounds: DEFAULT_MAX_ROUNDS,
 
+    questionId: 0,
     pendingAnswers: [],
     pendingTimer: null,
     lastAnswerTimestamp: 0

@@ -1269,6 +1269,7 @@ const {
     startQuestion,
     startCustomQuestion,
     checkAnswer,
+    skipQuestion,
     quizData
 } = require('./quiz')
 const path = require('path')
@@ -8749,6 +8750,7 @@ const commandExplanations = {
         '.بدا_مسابقة_سس': 'يبدأ مسابقة أسئلة خاصة بشخصيات رتبة SSS.',
         '.بدا_مسابقة_صور': 'يبدأ مسابقة تخمين شخصيات بالصور.',
         '.بدا_مسابقة_كت': 'يبدأ مسابقة أسئلة بنمط "كت" (أسماء أنمي).',
+        '.سكب': 'يعرض إجابة السؤال الحالي في المسابقة وينتقل للسؤال التالي (للمطور).',
         '.انهاء_مسابقة': 'ينهي المسابقة الجماعية النشطة بالقروب.',
         '.النقاط': 'يعرض نقاطك الحالية بالمسابقة الجماعية النشطة.',
         '.ثلاث': 'أمر خاص ضمن إحدى ألعاب الأسئلة/التخمين الجماعية بالقروب.',
@@ -9437,6 +9439,25 @@ if (!text) return;
                 text: `✅ تم إبلاغ ${_sentCount}/${_announceGroups.length} قروب`
             }).catch(() => {})
         }
+    }
+
+    // =========================
+    // ⏭️ .سكب — يعرض الإجابة وينتقل للسؤال التالي (لكل أنواع المسابقات)
+    // مقصور على المطور. لفتحه لكل اللاعبين غيّر QUIZ_SKIP_OWNER_ONLY إلى false
+    // =========================
+    const QUIZ_SKIP_OWNER_ONLY = true
+
+    if (text.trim() === '.سكب' && (!QUIZ_SKIP_OWNER_ONLY || isOwner(msg))) {
+
+        const result = await skipQuestion(sock, msg.key.remoteJid)
+
+        if (result === 'NO_QUIZ') {
+            return sock.sendMessage(msg.key.remoteJid, {
+                text: '❌ لا توجد مسابقة شغالة حالياً'
+            })
+        }
+
+        return
     }
 
     // =========================
