@@ -5271,7 +5271,22 @@ const siteBrawl = require('./systems/siteBrawl').create({
 // 🏆 إنجازاتي من الموقع (systems/siteAchievements.js) — نفس منطق .انجازاتي، والإشعار يأتي من checkAndGrantAchievement → siteNotify
 const siteAchievements = require('./systems/siteAchievements').create({ Player })
 
+// ⚔️ بنر الأسلحة من الموقع (systems/siteWeaponBanner.js) — نفس منطق .سحب_سلاح بالضبط
+// يشارك weaponPullLocks + weaponPulls + weaponPity مع أمر الواتساب (نفس الرصيد ونفس العداد)
+const siteWeaponBanner = require('./systems/siteWeaponBanner').createSiteWeaponBanner({
+    Player,
+    weaponsList,
+    weaponPullLocks,
+    dailyPulls: WEAPON_DAILY_PULLS,
+    pityCap: WEAPON_PITY_CAP,
+    successChance: WEAPON_PULL_SUCCESS_CHANCE,
+    addCommandXp,
+    commandXp: COMMAND_XP.weaponPull,
+    isBanned
+})
+
 registerCharacterSite(app, Player, {
+    weaponBanner: siteWeaponBanner,
     achievements: siteAchievements,
     missions: siteMissions,
     codexBook: siteCodexBook,
