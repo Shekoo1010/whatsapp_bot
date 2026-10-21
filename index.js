@@ -432,6 +432,7 @@ const Player = require('./models/Player')
 // بريستارت/إعادة نشر البوت) — ما عاد نحتاج نسخة احتياطية base64 جوا
 // مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
 const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage } = require('./utils/cloudinary')
+const { handleMigrateCommand } = require('./utils/migrateImages')
 
 // 🏟️ نظام الأرينا (ملف خارجي كامل — راجع systems/arenaCommands.js و systems/arenaSystem.js)
 const { handleArenaCommand, ARENA_HELP } = require('./systems/arenaCommands')
@@ -9346,6 +9347,26 @@ if (!text) return;
         text !== '.تشغيل' &&
         !isOwner(msg)
     ) {
+        return
+    }
+
+    // =========================
+    // 🚚 .نقل_الصور — للمطور فقط: نقل صور الكتالوج إلى Cloudinary (شوف utils/migrateImages.js)
+    // =========================
+    if (text.trim() === '.نقل_الصور' || text.trim().startsWith('.نقل_الصور ')) {
+        if (!isOwner(msg)) return
+        const _migJid = msg.key.remoteJid
+        const _migArgs = text.trim().slice('.نقل_الصور'.length)
+        // بدون await عشان ما يعطّل باقي الرسائل أثناء النقل الطويل
+        handleMigrateCommand(
+            t => sock.sendMessage(_migJid, { text: t }).catch(() => {}),
+            _migArgs,
+            (filePath, fileName) => sock.sendMessage(_migJid, {
+                document: require('fs').readFileSync(filePath),
+                mimetype: fileName.endsWith('.json') ? 'application/json' : 'text/plain',
+                fileName
+            })
+        ).catch(() => {})
         return
     }
 
