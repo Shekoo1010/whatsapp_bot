@@ -701,6 +701,36 @@ function loginHTML({ code, csrf, error, disabled }) {
 </div></div></body></html>`
 }
 
+// 📲 تطبيق Nami — دخول باليوزر وكلمة المرور بدون رابط (يفتح تلقائياً على صفحة اللاعب)
+function appShellHead(title) {
+    return shellHead(title).replace('</head>', '<link rel="manifest" href="/app.webmanifest"></head>')
+}
+function appLoginHTML({ csrf, error, disabled }) {
+    return `${appShellHead('Nami')}
+<body><div class="shell"><div class="panel">
+  <h2>Nami</h2>
+  ${error ? `<p class="err">${esc(error)}</p>` : ''}
+  ${disabled ? '' : `<form method="post" action="/app/login" autocomplete="on">
+    <input type="hidden" name="csrf" value="${esc(csrf)}">
+    <input class="fld" name="username" placeholder="اليوزر" autocomplete="username" maxlength="20" required>
+    <input class="fld" name="password" type="password" placeholder="كلمة المرور" autocomplete="current-password" maxlength="200" required>
+    <button class="btn gold" type="submit">دخول</button>
+  </form>`}
+  <div class="hint">أول مرة أو نسيت كلمة المرور؟<br>اكتب للبوت في الخاص:<br><code>.كلمة_السر</code></div>
+</div></div></body></html>`
+}
+function downloadHTML({ hasApk }) {
+    return `${appShellHead('تحميل Nami')}
+<body><div class="shell"><div class="panel">
+  <h2>📲 تحميل Nami</h2>
+  ${hasApk
+        ? '<a class="btn gold" href="/app.apk">⬇️ تحميل للأندرويد (APK)</a><div class="hint">بعد التحميل افتح الملف واسمح بالتثبيت من هذا المصدر إذا طلب الجهاز.</div>'
+        : '<p class="err">رابط التحميل غير جاهز بعد.</p>'}
+  <a class="btn line" href="/app">🍎 آيفون / فتح من المتصفح</a>
+  <div class="hint">على الآيفون: افتح <code>/app</code> في Safari ثم زر المشاركة ← «إضافة إلى الشاشة الرئيسية».</div>
+</div></div></body></html>`
+}
+
 // ☰ زر القائمة الجانبية (يوضع داخل .topbar) + القائمة نفسها (navDrawerHTML)
 const NAV_BTN = `<button class="nvbtn" id="nv-open" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="nv-dr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`
 
@@ -4951,6 +4981,15 @@ function registerCharacterSite(app, Player, opts = {}) {
     const loginUser = auth.createLimiter({ max: 5, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 })
     const giftPw = auth.createLimiter({ max: 5, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 })
 
+    // 🔄 تجديد الجلسة تلقائياً (مرة باليوم كحد أقصى): اللاعب النشط يبقى مسجّل دخول بدون إعادة تسجيل
+    app.use((req, res, next) => {
+        try {
+            const p = req.path
+            if (!/^\/(characters|custom_images|pwa|boss-voice)(\/|$)/.test(p)) auth.renewSession(req, res)
+        } catch (e) { /* لا نكسر الطلب بسبب التجديد */ }
+        next()
+    })
+
     // حد عدد الطلبات للإهداء: 12 بالدقيقة لكل لاعب
     const giftHits = new Map()
     function giftRate(userId) {
@@ -5328,6 +5367,108 @@ function registerCharacterSite(app, Player, opts = {}) {
             auth.clearSessionCookie(res)
         }
         res.redirect(303, CODE_RE.test(code) ? `/u/${code}` : '/')
+    })
+
+    // ─────────────── 📲 تطبيق Nami: دخول باليوزر بدون رابط + صفحة التحميل ───────────────
+    app.get('/app.webmanifest', (req, res) => {
+        res.set({ 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' })
+        res.send(JSON.stringify({
+            id: '/app', name: 'Nami', short_name: 'Nami', lang: 'ar', dir: 'rtl',
+            start_url: '/app', scope: '/', display: 'standalone',
+            background_color: '#0a0d16', theme_color: '#0a0d16',
+            icons: [
+                { src: '/pwa/nami-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+                { src: '/pwa/nami-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
+            ]
+        }))
+    })
+
+    // رابط التحميل الثابت: يحوّل لملف الـ APK (APK_URL = رابط GitHub Releases الثابت)
+    app.get('/app.apk', (req, res) => {
+        const url = String(process.env.APK_URL || '')
+        if (!/^https:\/\//.test(url)) return res.status(404).send('رابط التحميل غير مضبوط')
+        res.redirect(302, url)
+    })
+    app.get('/download', (req, res) => {
+        securityHeaders(res)
+        res.send(downloadHTML({ hasApk: /^https:\/\//.test(String(process.env.APK_URL || '')) }))
+    })
+
+    app.get('/app', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const sess = auth.readSession(req)
+            if (sess) {
+                const me = await Player.findOne({ userId: sess.u }).select('siteCode sessionVersion').lean()
+                if (me && me.siteCode && (me.sessionVersion || 0) === sess.v) return res.redirect(303, `/u/${me.siteCode}`)
+            }
+            if (!auth.authEnabled()) return res.send(appLoginHTML({ disabled: true, error: 'تسجيل الدخول غير مفعّل حالياً.' }))
+            res.send(appLoginHTML({ csrf: auth.makeLoginCsrf() }))
+        } catch (err) {
+            console.error('app page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/app/login', urlenc, async (req, res) => {
+        const back = (error, status = 200) => {
+            securityHeaders(res)
+            return res.status(status).send(appLoginHTML({ csrf: auth.makeLoginCsrf(), error }))
+        }
+        try {
+            if (!auth.authEnabled()) return back('تسجيل الدخول غير مفعّل حالياً.', 503)
+            if (!auth.sameOrigin(req)) return back('طلب غير مسموح.', 403)
+            if (!auth.verifyLoginCsrf(req.body?.csrf)) return back('انتهت صلاحية الصفحة، حاول مرة ثانية.', 403)
+
+            const ip = auth.clientIp(req)
+            const username = String(req.body?.username || '').trim().toLowerCase().slice(0, 30)
+            const password = String(req.body?.password || '').slice(0, 200)
+            const userKey = `app|${username}`
+
+            const lim = loginIp.check(ip)
+            const limU = loginUser.check(userKey)
+            if (lim.blocked || limU.blocked) {
+                const mins = Math.ceil(Math.max(lim.retryAfter, limU.retryAfter) / 60)
+                return back(`محاولات كثيرة. حاول بعد ${mins} دقيقة.`, 429)
+            }
+
+            const player = username
+                ? await Player.findOne({ username }).select('+passwordHash +passwordSalt userId username sessionVersion siteCode').lean()
+                : null
+
+            let ok = false
+            if (player && player.passwordHash) {
+                ok = await auth.verifyPassword(password, player.passwordHash, player.passwordSalt)
+            } else {
+                await auth.dummyVerify(password)
+            }
+            if (!ok) {
+                loginIp.fail(ip); loginUser.fail(userKey)
+                return back('اليوزر أو كلمة المرور غير صحيحة.', 401)
+            }
+            loginUser.reset(userKey)
+
+            // لاعب ما عنده كود صفحة (ما استعمل .رابط قبل) → ننشئ له واحد تلقائياً
+            let code = player.siteCode
+            if (!code) {
+                for (let i = 0; i < 5 && !code; i++) {
+                    const c = crypto.randomBytes(5).toString('hex')
+                    try {
+                        await Player.updateOne({ userId: player.userId, $or: [{ siteCode: null }, { siteCode: { $exists: false } }] }, { $set: { siteCode: c } })
+                        const fresh = await Player.findOne({ userId: player.userId }).select('siteCode').lean()
+                        code = fresh && fresh.siteCode
+                    } catch (e) { if (!(e && e.code === 11000)) throw e }
+                }
+            }
+            if (!code || !CODE_RE.test(code)) return back('تعذّر تجهيز صفحتك، حاول مرة ثانية.', 500)
+
+            auth.setSessionCookie(res, player.userId, player.sessionVersion || 0)
+            securityHeaders(res)
+            res.redirect(303, `/u/${code}`)
+        } catch (err) {
+            console.error('app login error:', err)
+            return back('صار خطأ بالخادم، حاول مرة ثانية.', 500)
+        }
     })
 
     // ─────────────── وضع الإهداء ───────────────

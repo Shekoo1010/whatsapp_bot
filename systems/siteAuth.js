@@ -12,7 +12,9 @@ const crypto = require('crypto')
 const { promisify } = require('util')
 const scrypt = promisify(crypto.scrypt)
 
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000       // مدة الجلسة: 30 يوم من آخر نشاط (تتجدد تلقائياً)
+const SESSION_RENEW_AFTER_MS = 24 * 60 * 60 * 1000   // نجدّد الكوكي مرة باليوم كحد أقصى
+const SESSION_ABS_MAX_MS = 90 * 24 * 60 * 60 * 1000  // سقف مطلق: بعد 90 يوم من الدخول الأصلي لازم دخول جديد
 const COOKIE_SESSION = 'cs'
 const COOKIE_VIEW = 'vo'
 const MIN_PASSWORD = 6
@@ -96,11 +98,12 @@ function appendCookie(res, str) {
 // ---------------------------------------------------------------
 // الجلسة (موقّعة، بدون تخزين)
 // ---------------------------------------------------------------
-function createSessionToken(userId, version) {
+function createSessionToken(userId, version, iat) {
     const payload = {
         u: userId,
         v: version || 0,
         n: crypto.randomBytes(12).toString('hex'),
+        iat: iat || Date.now(),
         exp: Date.now() + SESSION_TTL_MS
     }
     const body = b64u(JSON.stringify(payload))
@@ -120,8 +123,19 @@ function readSession(req) {
     } catch (e) { return null }
 }
 
-function setSessionCookie(res, userId, version) {
-    appendCookie(res, cookieString(COOKIE_SESSION, createSessionToken(userId, version), Math.floor(SESSION_TTL_MS / 1000)))
+function setSessionCookie(res, userId, version, iat) {
+    appendCookie(res, cookieString(COOKIE_SESSION, createSessionToken(userId, version, iat), Math.floor(SESSION_TTL_MS / 1000)))
+}
+// 🔄 تجديد منزلق: لو الجلسة صالحة ومضى عليها أكثر من يوم نعيد إصدار الكوكي بمدة جديدة
+// (نفس اللاعب ونفس النسخة). السقف المطلق يمنع بقاء جلسة مسروقة للأبد.
+function renewSession(req, res) {
+    const s = readSession(req)
+    if (!s) return null
+    const iat = s.iat || Date.now()
+    if (Date.now() - iat > SESSION_ABS_MAX_MS) return null
+    if (s.exp - Date.now() > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return s
+    setSessionCookie(res, s.u, s.v, iat)
+    return s
 }
 function clearSessionCookie(res) { appendCookie(res, cookieString(COOKIE_SESSION, '', 0)) }
 
@@ -192,7 +206,7 @@ function clientIp(req) {
 
 module.exports = {
     authEnabled, hashPassword, verifyPassword, dummyVerify, validatePasswordFormat,
-    readSession, setSessionCookie, clearSessionCookie,
+    readSession, renewSession, setSessionCookie, clearSessionCookie,
     setViewOnlyCookie, hasViewOnly, clearViewOnlyCookie,
     csrfForSession, verifyCsrf, makeLoginCsrf, verifyLoginCsrf, sameOrigin,
     createLimiter, clientIp, parseCookies, MIN_PASSWORD, MAX_PASSWORD
