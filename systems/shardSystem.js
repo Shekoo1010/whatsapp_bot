@@ -15,6 +15,53 @@ const normKey = n => String(n).replace(/\./g, '．')
 const byName = (a, b) => a[0].localeCompare(b[0], 'en', { sensitivity: 'base' })
 const fmt = n => Number(n).toLocaleString()
 
+
+// ───────────── 🔄 منطق .حول / .حول الكل (منقول من index.js بنفس الشروط والترتيب) ─────────────
+// فحص تحويل نسخة واحدة — نفس ترتيب فحوصات .حول رقم بالضبط
+function checkConvertOne(chars, index) {
+    const char = chars[index]
+    if (!char) return { ok: false, code: 'NO_CHAR', message: '❌ الشخصية غير موجودة' }
+    if (char.rarity !== 'SSS') return { ok: false, code: 'NOT_SSS', message: '❌ فقط شخصيات SSS يمكن تحويلها' }
+    if ((char.evolutionLevel || 0) > 0) return { ok: false, code: 'EVOLVED', message: '❌ لا يمكن تحويل الشخصيات المطورة.' }
+    const normalCopies = chars.filter(c =>
+        c.name === char.name &&
+        c.power === char.power &&
+        (c.form || '') === (char.form || '') &&
+        c.rarity === 'SSS' &&
+        (c.evolutionLevel || 0) === 0)
+    const hasEvolved = chars.some(c =>
+        c.name === char.name &&
+        (c.form || '') === (char.form || '') &&
+        (c.evolutionLevel || 0) > 0)
+    if (!hasEvolved && normalCopies.length <= 1) {
+        return { ok: false, code: 'LAST_COPY', message: `❌ لا يمكن تحويل آخر نسخة\n\n👑 ${char.name}` }
+    }
+    return { ok: true, copies: normalCopies.length }
+}
+
+// خطة .حول الكل — نفس الحلقة بالضبط (بدون تعديل أي شيء، فقط تحسب ما يبقى وما يتحول)
+function planConvertAll(chars) {
+    const keep = []
+    const convert = []
+    const count = {}
+    const evolved = new Set()
+    for (const char of chars) {
+        if (char.rarity === 'SSS' && (char.evolutionLevel || 0) > 0) {
+            evolved.add(`${char.name}|${char.form || ''}`)
+        }
+    }
+    for (const char of chars) {
+        if (char.rarity !== 'SSS') { keep.push(char); continue }
+        if ((char.evolutionLevel || 0) > 0) { keep.push(char); continue }
+        const shardKey = normKey(char.name)
+        if (evolved.has(`${char.name}|${char.form || ''}`)) { convert.push(char); continue }
+        count[shardKey] = (count[shardKey] || 0) + 1
+        if (count[shardKey] === 1) keep.push(char)
+        else convert.push(char)
+    }
+    return { keep, convert }
+}
+
 function createShardSystem(d) {
     const { Player, giftLocks, pullLocks, getCatalog, resortPlayerCharacters,
         urAbilities, omegaAbilities, checkAndGrantAchievement, worlds, getSock, getNotifyJid } = d
@@ -75,9 +122,17 @@ function createShardSystem(d) {
                 omegaLimit: level === 6 && (p.omegaEvolutions || 0) >= MAX_OMEGA
             })
         })
+        // 🔄 الشخصيات القابلة للتحويل (نفس شروط .حول رقم) + معاينة .حول الكل
+        const conv = []
+        chars.forEach((c, index) => {
+            const r = checkConvertOne(chars, index)
+            if (r.ok) conv.push({ index, char: c, copies: r.copies })
+        })
+        const convAll = planConvertAll(chars).convert
         return {
             ok: true, sessionVersion: p.sessionVersion || 0, money: Number(p.money) || 0,
-            omegaUsed: p.omegaEvolutions || 0, maxOmega: MAX_OMEGA, shards, evo
+            omegaUsed: p.omegaEvolutions || 0, maxOmega: MAX_OMEGA, shards, evo,
+            conv, convAll, maxCharacters: p.maxCharacters || 30, charCount: chars.length
         }
     }
 
@@ -247,7 +302,74 @@ function createShardSystem(d) {
         })
     }
 
-    return { getState, restoreShard, evolveCharacter, MAX_OMEGA }
+
+    // ───────────── 🔄 .حول رقم ─────────────
+    // index = رقم الشخصية بمصفوفة player.characters + name للتحقق (نفس evolveCharacter)
+    function convertCharacter({ userId, index, name }) {
+        return guard(userId, async () => {
+            const player = await Player.findOne({ userId })
+            if (!player) return fail('NO_ACCOUNT', '❌ لا يوجد حساب')
+            if (!player.shards) player.shards = new Map()
+            if (!Number.isInteger(index) || index < 0) return fail('BAD_INDEX', '❌ الاستخدام الصحيح\n\n.حول 1')
+
+            const char = player.characters[index]
+            if (!char) return fail('NO_CHAR', '❌ الشخصية غير موجودة')
+            if (name != null && String(name) !== char.name) return fail('STALE', '❌ تغيّر ترتيب شخصياتك، حدّث الصفحة وأعد المحاولة.')
+
+            const chk = checkConvertOne(player.characters, index)
+            if (!chk.ok) return fail(chk.code, chk.message)
+
+            player.characters.splice(index, 1)
+
+            const shardKey = normKey(char.name)
+            const currentShards = player.shards.get(shardKey) || 0
+            player.shards.set(shardKey, currentShards + 1)
+
+            player.markModified('shards')
+            player.markModified('characters')
+            await player.save()
+
+            return {
+                ok: true, name: char.name, shards: currentShards + 1, target: 2,
+                message: `💎 تم التحويل إلى شظية\n\n👑 ${char.name}\n\n🧩 الشظايا الحالية:\n${currentShards + 1}/2\n\n♻️ يمكنك استرجاع الشخصية عبر:\n\n.استرجاع`
+            }
+        })
+    }
+
+    // ───────────── 🔄 .حول الكل ─────────────
+    function convertAll({ userId }) {
+        return guard(userId, async () => {
+            const player = await Player.findOne({ userId })
+            if (!player) return fail('NO_ACCOUNT', '❌ لا يوجد حساب')
+            if (!player.shards) player.shards = new Map()
+
+            const plan = planConvertAll(player.characters)
+            const converted = []
+            let totalShards = 0
+            for (const char of plan.convert) {
+                const shardKey = normKey(char.name)
+                const current = player.shards.get(shardKey) || 0
+                player.shards.set(shardKey, current + 1)
+                converted.push(`👑 ${char.name} +1`)
+                totalShards++
+            }
+
+            if (!totalShards) return fail('NOTHING', '❌ لا توجد شخصيات مكررة قابلة للتحويل')
+
+            player.characters = plan.keep
+            player.markModified('characters')
+            player.markModified('shards')
+            await player.save()
+
+            return {
+                ok: true, total: totalShards, names: plan.convert.map(c => c.name),
+                used: player.characters.length, max: player.maxCharacters || 30,
+                message: `💎 ═══════〔 تحويل المكررات 〕═══════ 💎\n\n${converted.join('\n')}\n\n━━━━━━━━━━━━━━━\n\n🔄 عدد الشخصيات المحولة:\n${totalShards}\n\n🧩 إجمالي الشظايا:\n${totalShards}\n\n📦 السعة المستخدمة:\n${player.characters.length}/${player.maxCharacters || 30}\n\n🏆 تم تنظيف جميع النسخ المكررة بنجاح`
+            }
+        })
+    }
+
+    return { getState, restoreShard, evolveCharacter, convertCharacter, convertAll, MAX_OMEGA }
 }
 
 module.exports = { createShardSystem }

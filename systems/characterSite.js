@@ -5723,7 +5723,20 @@ function registerCharacterSite(app, Player, opts = {}) {
                 blocked: !!e.blocked,
                 omegaLimit: !!e.omegaLimit,
                 img: shardImg(e.char, req)
-            }))
+            })),
+            // 🔄 تبويب حول: القابلة للتحويل فقط (نفس شروط .حول رقم) + معاينة .حول الكل
+            conv: (st.conv || []).map(e => ({
+                index: Number(e.index),
+                name: String(e.char.name),
+                anime: animeOf(e.char),
+                rarity: String(e.char.rarity || 'SSS'),
+                power: Number(e.char.power) || 0,
+                copies: Number(e.copies) || 0,
+                img: shardImg(e.char, req)
+            })),
+            convAll: (st.convAll || []).map(c => ({ name: String(c.name), anime: animeOf(c), img: shardImg(c, req) })),
+            charCount: Number(st.charCount) || 0,
+            maxCharacters: Number(st.maxCharacters) || 30
         }
     }
 
@@ -5825,6 +5838,51 @@ function registerCharacterSite(app, Player, opts = {}) {
             })
         } catch (err) {
             console.error('shards restore route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // 🔄 .حول رقم (الخادم يعيد كل الفحوصات بنفس شروط البوت؛ الواجهة ترسل index + name فقط)
+    app.post('/shards/convert', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, shardSystem && shardSystem.convertCharacter)
+        if (!g || !g.sess) return
+        try {
+            const idx = Number(g.body.index)
+            const name = typeof g.body.name === 'string' ? g.body.name.slice(0, 120) : ''
+            if (!Number.isInteger(idx) || idx < 0 || idx > 100000 || !name) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+
+            const r = await shardSystem.convertCharacter({ userId: g.sess.u, index: idx, name })
+            if (!r.ok) return g.fail(shardStatus(r.code), r.code, String(r.message || '❌ تعذّر التحويل'))
+            res.json({
+                ok: true,
+                name: String(r.name),
+                shards: Number(r.shards) || 0,
+                target: Number(r.target) || 2,
+                message: String(r.message || '')
+            })
+        } catch (err) {
+            console.error('shards convert route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // 🔄 .حول الكل
+    app.post('/shards/convert-all', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, shardSystem && shardSystem.convertAll)
+        if (!g || !g.sess) return
+        try {
+            const r = await shardSystem.convertAll({ userId: g.sess.u })
+            if (!r.ok) return g.fail(shardStatus(r.code), r.code, String(r.message || '❌ تعذّر التحويل'))
+            res.json({
+                ok: true,
+                total: Number(r.total) || 0,
+                names: (r.names || []).map(n => String(n)),
+                used: Number(r.used) || 0,
+                max: Number(r.max) || 30,
+                message: String(r.message || '')
+            })
+        } catch (err) {
+            console.error('shards convert-all route error:', err)
             return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
         }
     })

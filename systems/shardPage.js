@@ -34,10 +34,11 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 .stats{display:flex;gap:8px;justify-content:center;margin:10px 0}
 .pill{font-family:'Oswald';font-size:14px;padding:5px 14px;border-radius:20px;border:1px solid rgba(240,192,74,.4);background:rgba(240,192,74,.08);color:var(--gold);direction:ltr}
 .tabs{display:flex;background:var(--bg2);border:1px solid #1d2438;border-radius:16px;padding:4px;position:relative}
-.tabs button{flex:1;z-index:1;background:none;border:0;color:var(--dim);font:700 15px 'Cairo';padding:10px;cursor:pointer;transition:.3s}
+.tabs button{flex:1;z-index:1;background:none;border:0;color:var(--dim);font:700 14px 'Cairo';padding:10px 2px;cursor:pointer;transition:.3s}
 .tabs button.on{color:#0a0d16}
-.tabs .glider{position:absolute;top:4px;bottom:4px;width:calc(50% - 4px);border-radius:12px;background:linear-gradient(135deg,#f6d26b,#c8921e);box-shadow:0 0 20px rgba(240,192,74,.5);transition:.4s cubic-bezier(.7,0,.2,1);right:4px}
-.tabs.t2 .glider{right:50%}
+.tabs .glider{position:absolute;top:4px;bottom:4px;width:calc((100% - 8px) / 3);border-radius:12px;background:linear-gradient(135deg,#f6d26b,#c8921e);box-shadow:0 0 20px rgba(240,192,74,.5);transition:.4s cubic-bezier(.7,0,.2,1);right:4px}
+.tabs.t2 .glider{transform:translateX(-100%)}
+.tabs.t3 .glider{transform:translateX(-200%)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-top:16px}
 .card{--t:#ff3860;position:relative;background:linear-gradient(180deg,#141b30,var(--card));border:1px solid color-mix(in srgb,var(--t) 45%,#1d2438);border-radius:20px;overflow:hidden;animation:in .7s both;box-shadow:0 0 0 0 var(--t);transition:transform .3s,box-shadow .3s}
 .card:hover{transform:translateY(-6px);box-shadow:0 12px 40px color-mix(in srgb,var(--t) 35%,transparent)}
@@ -138,6 +139,31 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 .tx .btn{margin-top:16px;width:210px}
 .tx.skip *{animation-duration:.01s!important;animation-delay:0s!important}
 .skip-h{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:var(--dim);font-size:12px;pointer-events:none}
+.cvsub{display:flex;gap:8px;margin-top:16px}
+.cvsub button{flex:1;padding:10px 4px;border-radius:14px;border:1.5px solid var(--gold-dim);background:var(--bg2);color:var(--gold);font:800 13px 'Cairo';cursor:pointer;transition:.2s}
+.cvsub button.on{background:linear-gradient(135deg,#f6d26b,#c8921e);color:#0a0d16;border-color:var(--gold)}
+.cvnote{margin-top:12px;padding:10px 13px;border:1px dashed var(--gold-dim);border-radius:14px;color:var(--dim);font-size:12.5px;line-height:1.9}
+.cvnote b{color:var(--gold)}
+.cp{position:absolute;top:10px;left:10px;z-index:2;font:700 13px 'Oswald';padding:2px 10px;border-radius:12px;background:rgba(0,0,0,.65);border:1px solid var(--gold-dim);color:var(--gold);direction:ltr}
+.cvpanel{margin-top:16px;border:1.5px solid var(--gold-dim);border-radius:22px;background:linear-gradient(160deg,rgba(240,192,74,.08),var(--bg2));padding:16px}
+.cvpanel h2{color:var(--gold);font-size:18px;font-weight:900;text-align:center;margin-bottom:6px}
+.pv{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.pv .r{display:flex;align-items:center;gap:10px;background:#0c1120;border:1px solid #1d2438;border-radius:14px;padding:8px 12px}
+.pv .r i{width:38px;height:38px;border-radius:50%;flex:none;background-size:cover;background-position:center;border:1.5px solid var(--gold-dim)}
+.pv .r b{flex:1;font:700 16px 'Oswald';direction:ltr;text-align:right}
+.pv .r em{font-style:normal;color:var(--gold);font:700 14px 'Oswald';direction:ltr}
+.sum{display:flex;justify-content:space-around;text-align:center;border-top:1px dashed #2a3350;border-bottom:1px dashed #2a3350;padding:10px 0;margin:10px 0 14px}
+.sum b{display:block;font:700 24px 'Oswald';color:var(--gold)}
+.sum small{color:var(--dim);font-size:12px}
+.cm{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;animation:ovin .25s both}
+.cmc{position:relative;width:100%;max-width:400px;max-height:85vh;overflow:auto;background:linear-gradient(180deg,#141b30,#0b0f1d);border:1.5px solid var(--gold);border-radius:22px;padding:20px;text-align:center;animation:in .3s both}
+.cmc h3{color:var(--gold);font-size:19px;font-weight:900;margin-bottom:8px}
+.cmc p{color:#cfd6e6;font-size:14px;line-height:1.9;white-space:pre-line}
+.cmc .row{display:flex;gap:10px;margin-top:16px}
+.cmc .row .btn{flex:1}
+.cmc .row .btn.ln{background:#1a2136;color:var(--text);box-shadow:none}
+.card.gone{animation:cgone .45s ease-in forwards}
+@keyframes cgone{to{transform:scale(.7) translateY(-20px);opacity:0;filter:brightness(2)}}
 .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#2a1218;border:1px solid #ff6b6b;color:#ffb3b3;padding:10px 18px;border-radius:14px;z-index:200;font-size:14px;animation:in .3s;max-width:92%;text-align:center;white-space:pre-line}
 @media (prefers-reduced-motion:reduce){.card,.card::after,h1,.stars i,.rays{animation:none!important}}
 `
@@ -146,7 +172,7 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 function clientMain(INIT, CODE, CSRF) {
     const RANKS = ['SSS', 'SSS+', 'SSS++', 'UR I', 'UR II', 'UR III', 'EX', 'Ω']
     const COL = ['#ff3860', '#ff6b3d', '#ff2f92', '#b83fff', '#7c4dff', '#4d7cff', '#00e5ff', '#ffc933']
-    const S = { tab: 1, money: 0, omegaUsed: 0, maxOmega: 10, shards: [], evo: [] }
+    const S = { tab: 1, money: 0, omegaUsed: 0, maxOmega: 10, shards: [], evo: [], conv: [], convAll: [], charCount: 0, maxCharacters: 30, cvMode: 'single' }
     let busy = false
     const $ = id => document.getElementById(id)
     const f = n => Number(n).toLocaleString('en-US')
@@ -201,10 +227,37 @@ function clientMain(INIT, CODE, CSRF) {
         }).join('') + '</div>'
     }
 
+
+    // ───────── 🔄 حول (.حول رقم / .حول الكل) — القائمة والفحوصات من الخادم فقط ─────────
+    function convView() {
+        const sub = '<div class="cvsub"><button class="' + (S.cvMode === 'single' ? 'on' : '') + '" onclick="window.__sx.cvMode(\'single\')">💎 تحويل فردي</button>' +
+            '<button class="' + (S.cvMode === 'all' ? 'on' : '') + '" onclick="window.__sx.cvMode(\'all\')">📦 تحويل جماعي</button></div>'
+        if (S.cvMode === 'single') {
+            const note = '<div class="cvnote">تظهر هنا فقط الشخصيات اللي <b>تقدر تحوّلها فعلًا</b> (SSS غير مطورة ولها نسخة ثانية على الأقل، أو لها نسخة مطورة). كل تحويل = <b>+1 شظية</b>.</div>'
+            if (!S.conv.length) return sub + note + '<div class="empty">📭 لا توجد شخصيات قابلة للتحويل</div>'
+            return sub + note + '<div class="grid">' + S.conv.map((c, i) =>
+                '<div class="card" style="--t:' + COL[0] + ';animation-delay:' + (i * .07) + 's">' +
+                '<div class="pic" style="background-image:' + pic(c, COL[0]) + '"></div>' +
+                '<span class="tag">' + esc(c.rarity || 'SSS') + '</span><span class="cp">×' + c.copies + '</span>' +
+                '<div class="bd"><h3>' + esc(c.name) + '</h3><small>' + esc(c.anime) + '</small>' +
+                '<div class="st ok">✅ قابلة للتحويل</div>' +
+                '<button class="rbtn" onclick="window.__sx.cvAsk(' + i + ')">💎 حوّل إلى شظية</button></div></div>'
+            ).join('') + '</div>'
+        }
+        const n = S.convAll.length
+        const body = !n
+            ? '<div class="empty">❌ لا توجد شخصيات مكررة قابلة للتحويل</div>'
+            : '<div class="pv">' + S.convAll.map(c => '<div class="r"><i style="background-image:' + pic(c, COL[0]) + '"></i><b>👑 ' + esc(c.name) + '</b><em>+1 🧩</em></div>').join('') + '</div>' +
+              '<div class="sum"><div><b>' + n + '</b><small>ستتحول</small></div><div><b>' + n + '</b><small>شظايا</small></div><div><b>' + (S.charCount - n) + '/' + S.maxCharacters + '</b><small>السعة بعد التحويل</small></div></div>'
+        return sub + '<div class="cvpanel"><h2>📦 تحويل المكررات دفعة وحدة</h2>' +
+            '<div class="cvnote" style="margin-top:6px">يحتفظ بأول نسخة من كل شخصية SSS ويحوّل باقي المكررات لشظايا. الشخصيات المطورة وغير SSS ما تُمَس.</div>' +
+            body + '<button class="btn" ' + (n ? '' : 'disabled') + ' onclick="window.__sx.cvAskAll()">🔄 حوّل كل المكررات</button></div>'
+    }
+
     function render() {
         head()
         const m = $('main')
-        m.innerHTML = S.tab === 1 ? shardsView() : evoView()
+        m.innerHTML = S.tab === 1 ? shardsView() : S.tab === 2 ? evoView() : convView()
         requestAnimationFrame(() => setTimeout(() => m.querySelectorAll('.bar i').forEach(e => { e.style.width = e.dataset.w + '%' }), 50))
     }
 
@@ -214,6 +267,10 @@ function clientMain(INIT, CODE, CSRF) {
         S.maxOmega = Number(j.maxOmega) || 10
         S.shards = j.shards || []
         S.evo = j.evo || []
+        S.conv = j.conv || []
+        S.convAll = j.convAll || []
+        S.charCount = Number(j.charCount) || 0
+        S.maxCharacters = Number(j.maxCharacters) || 30
     }
 
     function toast(t) {
@@ -249,7 +306,7 @@ function clientMain(INIT, CODE, CSRF) {
         const b = e.target.closest('button')
         if (!b) return
         S.tab = +b.dataset.t
-        $('tabs').className = 'tabs' + (S.tab === 2 ? ' t2' : '')
+        $('tabs').className = 'tabs' + (S.tab > 1 ? ' t' + S.tab : '')
         document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b))
         render()
     }
@@ -369,7 +426,74 @@ function clientMain(INIT, CODE, CSRF) {
         setTimeout(() => d.remove(), 3200)
     }
 
-    window.__sx = { evolve: evolve, restore: restore, closeOv: closeOv }
+
+    // ───────── 🔄 عمليات التحويل (تأكيد ← الخادم يعيد كل الفحوصات ← إعادة قراءة الحالة) ─────────
+    let CV = null
+    function cvModal(html) {
+        const old = $('cm'); if (old) old.remove()
+        const d = document.createElement('div')
+        d.className = 'cm'; d.id = 'cm'
+        d.innerHTML = '<div class="cmc">' + html + '</div>'
+        d.onclick = e => { if (e.target === d) cvClose() }
+        document.body.appendChild(d)
+    }
+    function cvClose() { const d = $('cm'); if (d) d.remove(); CV = null }
+    function cvMode(m) { if (busy) return; S.cvMode = m; render() }
+
+    function cvAsk(i) {
+        const c = S.conv[i]
+        if (!c || busy) return
+        CV = { index: c.index, name: c.name, i: i }
+        cvModal('<h3>💎 تحويل إلى شظية</h3><p>👑 ' + esc(c.name) + '\n\nسيتم حذف هذه النسخة وإضافة شظية واحدة.\n♻️ تقدر ترجعها لاحقًا من تبويب الشظايا.</p>' +
+            '<div class="row"><button class="btn ln" onclick="window.__sx.cvClose()">إلغاء</button><button class="btn" onclick="window.__sx.cvDo()">تأكيد</button></div>')
+    }
+    async function cvDo() {
+        if (!CV || busy) return
+        const t = CV; cvClose()
+        busy = true
+        const res = await post('/shards/convert', { index: t.index, name: t.name })
+        if (!res.ok) {
+            busy = false
+            if (res.message) toast(res.message)
+            load(true)
+            return
+        }
+        const cards = document.querySelectorAll('#main .card')
+        if (cards[t.i]) cards[t.i].classList.add('gone')
+        setTimeout(() => {
+            busy = false
+            cvResult('<h3>💎 تم التحويل إلى شظية</h3><p>👑 ' + esc(res.name) + '\n\n🧩 الشظايا الحالية: ' + res.shards + '/' + res.target + '\n♻️ تقدر ترجعها من تبويب الشظايا</p>')
+            load(true)
+        }, 450)
+    }
+
+    function cvAskAll() {
+        if (busy || !S.convAll.length) return
+        CV = { all: true }
+        cvModal('<h3>🔄 تحويل المكررات</h3><p>سيتم تحويل <b style="color:var(--gold)">' + S.convAll.length + '</b> شخصية إلى شظايا.\nهل أنت متأكد؟</p>' +
+            '<div class="row"><button class="btn ln" onclick="window.__sx.cvClose()">إلغاء</button><button class="btn" onclick="window.__sx.cvDoAll()">تأكيد</button></div>')
+    }
+    async function cvDoAll() {
+        if (!CV || !CV.all || busy) return
+        cvClose()
+        busy = true
+        const res = await post('/shards/convert-all', {})
+        busy = false
+        if (!res.ok) {
+            if (res.message) toast(res.message)
+            load(true)
+            return
+        }
+        cvResult('<h3>💎 تحويل المكررات</h3><p>' + esc(res.message) + '</p>')
+        load(true)
+    }
+    function cvResult(html) {
+        cvModal(html + '<div class="row"><button class="btn" onclick="window.__sx.cvClose()">تمام 👑</button></div>')
+        const c = document.querySelector('#cm .cmc')
+        if (c) burst(c, 36, 'o', '#ffc933')
+    }
+
+    window.__sx = { evolve: evolve, restore: restore, closeOv: closeOv, cvMode: cvMode, cvAsk: cvAsk, cvDo: cvDo, cvAskAll: cvAskAll, cvDoAll: cvDoAll, cvClose: cvClose }
 
     const st = $('stars')
     for (let i = 0; i < 30; i++) {
@@ -405,7 +529,7 @@ ${navDrawerHTML(code, viewer.csrf, 'shards', viewer.name)}
   <div class="eye">SHARDS &amp; ASCENSION</div>
   <h1>مختبر الشظايا والتطوير</h1>
   <div class="stats"><span class="pill" id="money"></span><span class="pill" id="omg"></span></div>
-  <div class="tabs" id="tabs"><span class="glider"></span><button class="on" data-t="1">🧩 شظاياي</button><button data-t="2">🌌 التطوير</button></div>
+  <div class="tabs" id="tabs"><span class="glider"></span><button class="on" data-t="1">🧩 شظاياي</button><button data-t="2">🌌 التطوير</button><button data-t="3">🔄 حول</button></div>
 </header>
 <main id="main"></main>
 </div>
