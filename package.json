@@ -14,7 +14,7 @@
 
   "dependencies": {
     "@google/genai": "^1.10.0",
-    "@whiskeysockets/baileys": "latest",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "axios": "^1.11.0",
     "cheerio": "^1.1.2",
     "cloudinary": "^2.5.1",
