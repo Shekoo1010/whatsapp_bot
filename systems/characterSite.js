@@ -712,6 +712,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
         ['wheel', '🎡', 'عجلة الحظ', `/u/${c}/wheel`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
+        ['weapons', '⚔️', 'بنر الأسلحة', `/u/${c}/weapons`],
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['market', '🛍️', 'السوق (المزاد)', `/u/${c}/market`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
@@ -5103,6 +5104,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN
             })
         } catch (e) { console.error('site achievements mount error:', e) }
+    }
+
+    // ⚔️ بنر الأسلحة — /u/:code/weapons (systems/siteWeaponBanner.js) — نفس .سحب_سلاح
+    if (opts.weaponBanner) {
+        try {
+            opts.weaponBanner.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead
+            })
+        } catch (e) { console.error('site weapon banner mount error:', e) }
     }
 
     // صور .استبدال المحلية
