@@ -24,7 +24,7 @@ const SOURCES = {
     boss: p => p.totalBossDamage || 0,
     beasts: p => p.beastEggsOpened || 0,
     brawl: p => p.brawlWins || 0,
-    tower: p => p.towerFloor || 0,
+    tower: p => p.towerTotalFloors || 0,
     kingdom: p => p.kingdomTotalStages || 0,
     omega: p => p.omegaEvolutions || 0,
     pulls: p => p.totalPulls || 0,
@@ -37,11 +37,11 @@ const SOURCES = {
 
 const PROJECT = {
     userId: 1, name: 1, username: 1, sessionVersion: 1, achievementBaseline: 1,
-    wins: 1, totalBossDamage: 1, beastEggsOpened: 1, brawlWins: 1, towerFloor: 1,
+    wins: 1, totalBossDamage: 1, beastEggsOpened: 1, brawlWins: 1, towerTotalFloors: 1,
     kingdomTotalStages: 1, omegaEvolutions: 1, totalPulls: 1, boxesOpened: 1,
     dailyStreak: 1, totalEarnedMoney: 1, totalMerges: 1,
-    // عدد الشخصيات بدون جلب المصفوفة كاملة
-    charCount: { $cond: [{ $isArray: '$characters' }, { $size: '$characters' }, 0] }
+    // عدد شخصيات SSS فقط بدون جلب المصفوفة كاملة
+    charCount: { $cond: [{ $isArray: '$characters' }, { $size: { $filter: { input: '$characters', as: 'c', cond: { $eq: ['$$c.rarity', 'SSS'] } } } }, 0] }
 }
 
 function jsonForScript(o) {

@@ -92,7 +92,7 @@ const ACHIEVEMENTS = {
         name: 'برج التحدي',
         tiers: tierSet(
             { title5: '🗼 فاتح البرج' },
-            [5, 15, 30, 45, 60]
+            [60, 120, 150, 200, 250]
         )
     },
 
@@ -152,7 +152,7 @@ const ACHIEVEMENTS = {
 
     collection: {
         icon: '🧿',
-        name: 'جمع الشخصيات',
+        name: 'جمع شخصيات SSS',
         tiers: tierSet(
             { title5: '🧿 جامع الأساطير' },
             [10, 30, 60, 100, 150]

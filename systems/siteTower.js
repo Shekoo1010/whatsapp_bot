@@ -80,6 +80,7 @@ module.exports = function createSiteTower(deps) {
         }
 
         player.towerFloor++
+        player.towerTotalFloors = (player.towerTotalFloors || 0) + 1 // 🗼 عدّاد تراكمي للإنجاز (ما يتصفّر مع ريست البرج الأسبوعي)
 
         if (reward.money) await player.addMoney(reward.money)
 
@@ -154,7 +155,7 @@ module.exports = function createSiteTower(deps) {
             if (done.length) {
                 try {
                     const sock = typeof getSock === 'function' ? getSock() : null
-                    await checkAndGrantAchievement(player, 'tower', player.towerFloor, sock, player.userId)
+                    await checkAndGrantAchievement(player, 'tower', player.towerTotalFloors || 0, sock, player.userId)
                 } catch (e) { console.error('site tower achievement error:', e?.message || e) }
             }
 

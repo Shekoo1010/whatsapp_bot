@@ -18,14 +18,14 @@ const RAW = {
     boss: p => p.totalBossDamage || 0,
     beasts: p => p.beastEggsOpened || 0,
     brawl: p => p.brawlWins || 0,
-    tower: p => p.towerFloor || 0,
+    tower: p => p.towerTotalFloors || 0,
     kingdom: p => p.kingdomTotalStages || 0,
     omega: p => p.omegaEvolutions || 0,
     pulls: p => p.totalPulls || 0,
     boxes: p => p.boxesOpened || 0,
     daily: p => p.dailyStreak || 0,
     wealth: p => p.totalEarnedMoney || 0,
-    collection: p => (p.characters && p.characters.length) || 0,
+    collection: p => ((p.characters || []).filter(c => c && c.rarity === 'SSS').length),
     fusion: p => p.totalMerges || 0
 }
 
