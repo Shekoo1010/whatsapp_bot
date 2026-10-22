@@ -2021,6 +2021,11 @@ require('./systems/achievements')
 // يتحقق من الإنجازات، يمنح الجوائز تلقائياً، ويرسل إشعاراً فورياً
 const siteNotify = require('./systems/siteNotify') // 🔔 إشعارات الموقع (نفس ما يُرسل للواتساب)
 
+// 🧿 جمع الشخصيات = عدد شخصيات SSS فقط (المكررات تُحسب)
+function countSSS(p) {
+    return ((p && p.characters) || []).filter(c => c && c.rarity === 'SSS').length
+}
+
 async function checkAndGrantAchievement(
     player,
     categoryKey,
@@ -10408,7 +10413,7 @@ addCommandXp(player, COMMAND_XP.pull)
 await player.save()
 
 await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, msg.key.remoteJid)
-await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, msg.key.remoteJid)
+await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
 
 // ⚡ دمج رسالة "+نقطة عالم" برسالة نتيجة السحب بدل رسالة واتساب مستقلة
 const worldPointsText = await worlds.awardPullPoints(
@@ -18864,6 +18869,7 @@ ${floor.power}`
         }
 
         player.towerFloor++
+        player.towerTotalFloors = (player.towerTotalFloors || 0) + 1 // 🗼 عدّاد تراكمي للإنجاز (ما يتصفّر مع ريست البرج الأسبوعي)
 
         if (reward.money)
             await player.addMoney(reward.money)
@@ -18972,7 +18978,7 @@ ${floor.power}`
 
         const { floor, character, finalPower, reward } = result
 
-        await checkAndGrantAchievement(player, 'tower', player.towerFloor, sock, msg.key.remoteJid)
+        await checkAndGrantAchievement(player, 'tower', player.towerTotalFloors || 0, sock, msg.key.remoteJid)
 
         const rewardText = buildRewardText(floor, reward)
 
@@ -19062,7 +19068,7 @@ ${player.towerFloor}`
         )
     }
 
-    await checkAndGrantAchievement(player, 'tower', player.towerFloor, sock, msg.key.remoteJid)
+    await checkAndGrantAchievement(player, 'tower', player.towerTotalFloors || 0, sock, msg.key.remoteJid)
 
     const firstFloor = passed[0].floor
     const lastFloor = passed[passed.length - 1].floor
@@ -22395,7 +22401,7 @@ if (text === '.بيع_رفيق') {
     player = _updated
 
     await checkAndGrantAchievement(player, 'boxes', player.boxesOpened, sock, msg.key.remoteJid)
-    await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, msg.key.remoteJid)
+    await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
 
     return sock.sendMessage(
         msg.key.remoteJid,
@@ -22603,7 +22609,7 @@ ${character.anime}
     player = _updatedPack
 
     await checkAndGrantAchievement(player, 'boxes', player.boxesOpened, sock, msg.key.remoteJid)
-    await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, msg.key.remoteJid)
+    await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
 
     const imagePath =
         path.join(
@@ -25892,7 +25898,7 @@ ${borrowedToday}
     player = _updatedAll
 
     await checkAndGrantAchievement(player, 'boxes', player.boxesOpened, sock, msg.key.remoteJid)
-    await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, msg.key.remoteJid)
+    await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
 
     let textResult =
 `🎁 ═════〔 فتح جميع الصناديق 〕═════
@@ -26269,6 +26275,42 @@ if (text === ".اسبون_بوس") {
     })
 }
 
+if (text === ".تصفير_البرج_والجمع") {
+
+    if (!isOwner(msg)) return
+
+    const allPlayers = await Player.find({})
+
+    for (const p of allPlayers) {
+
+        // 🔄 يبدأ إنجازا البرج وجمع الشخصيات من جديد (الواتس والموقع نفس البيانات)
+        p.achievements = {
+            ...(p.achievements || {}),
+            tower: { claimedTiers: [] },
+            collection: { claimedTiers: [] }
+        }
+
+        p.achievementBaseline = {
+            ...(p.achievementBaseline || {}),
+            tower: p.towerTotalFloors || 0,
+            collection: countSSS(p)
+        }
+
+        p.markModified('achievements')
+        p.markModified('achievementBaseline')
+
+        await p.save()
+    }
+
+    return safeSend(msg.key.remoteJid, {
+        text:
+`✅ تم تصفير إنجازي 🗼 برج التحدي و🧿 جمع شخصيات SSS (${allPlayers.length} لاعب).
+
+📊 يبدأ العدّاد من 0 للواتس والموقع.
+🗼 البرج الآن تراكمي: 60 / 120 / 150 / 200 / 250 طابق (ما يتصفّر مع ريست البرج الأسبوعي).`
+    })
+}
+
 if (text === ".تصفير_الانجازات") {
 
     if (!isOwner(msg)) return
@@ -26286,14 +26328,14 @@ if (text === ".تصفير_الانجازات") {
             boss: p.totalBossDamage || 0,
             beasts: p.beastEggsOpened || 0,
             brawl: p.brawlWins || 0,
-            tower: p.towerFloor || 0,
+            tower: p.towerTotalFloors || 0,
             kingdom: p.kingdomTotalStages || 0,
             omega: p.omegaEvolutions || 0,
             pulls: p.totalPulls || 0,
             boxes: p.boxesOpened || 0,
             daily: p.dailyStreak || 0,
             wealth: p.totalEarnedMoney || 0,
-            collection: (p.characters && p.characters.length) || 0,
+            collection: countSSS(p),
             fusion: p.totalMerges || 0
         }
 
@@ -29896,7 +29938,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
             await bannerMgr.savePullState(userId, rolled, bannerState.bannerName)
 
         await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, bpJid)
-        await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, bpJid)
+        await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, bpJid)
 
         // ⚡ نقاط العوالم تندمج بكابشن النتيجة
         const bpWorldTexts = []
@@ -34523,14 +34565,14 @@ ${shardData.amount - 1}/2`
         boss: player.totalBossDamage || 0,
         beasts: player.beastEggsOpened || 0,
         brawl: player.brawlWins || 0,
-        tower: player.towerFloor || 0,
+        tower: player.towerTotalFloors || 0,
         kingdom: player.kingdomTotalStages || 0,
         omega: player.omegaEvolutions || 0,
         pulls: player.totalPulls || 0,
         boxes: player.boxesOpened || 0,
         daily: player.dailyStreak || 0,
         wealth: player.totalEarnedMoney || 0,
-        collection: (player.characters && player.characters.length) || 0,
+        collection: countSSS(player),
         fusion: player.totalMerges || 0
     }
 
