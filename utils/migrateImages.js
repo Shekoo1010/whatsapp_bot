@@ -4,7 +4,7 @@
 // =========================
 const fs = require('fs')
 const path = require('path')
-const { uploadCatalogImage } = require('./cloudinary')
+const { uploadCatalogImage, uploadCatalogImageFromUrl } = require('./cloudinary')
 
 const ROOT = path.join(__dirname, '..')
 const CHARS_PATH = path.join(ROOT, 'characters.json')
@@ -56,8 +56,13 @@ async function runMigration(reply, onlyRarity, sendFile) {
             const old = c.image
             try {
                 if (!state[old]) {
-                    const buf = await download(old)
-                    const { url } = await uploadCatalogImage(buf, keyOf(c))
+                    let url
+                    try {
+                        const buf = await download(old)
+                        ;({ url } = await uploadCatalogImage(buf, keyOf(c)))
+                    } catch (e1) {
+                        ;({ url } = await uploadCatalogImageFromUrl(old, keyOf(c)))
+                    }
                     state[old] = url
                 }
                 c.image = state[old]

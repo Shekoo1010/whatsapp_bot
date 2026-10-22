@@ -70,8 +70,21 @@ function uploadCatalogImage(buffer, key) {
     })
 }
 
+// 🌐 بديل: يخلي Cloudinary نفسه يجلب الصورة من الرابط (يتجاوز حجب سيرفر Render)
+function uploadCatalogImageFromUrl(url, key) {
+    const id = require('crypto').createHash('sha1').update(String(key)).digest('hex').slice(0, 24)
+    return cloudinary.uploader.upload(url, {
+        folder: 'catalog_images',
+        public_id: id,
+        overwrite: true,
+        invalidate: true,
+        resource_type: 'image'
+    }).then(result => ({ url: result.secure_url, publicId: result.public_id }))
+}
+
 module.exports = {
     uploadCustomCharacterImage,
     deleteCustomCharacterImage,
-    uploadCatalogImage
+    uploadCatalogImage,
+    uploadCatalogImageFromUrl
 }
