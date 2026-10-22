@@ -64,7 +64,7 @@ const pullLocks = new Set();
 // weaponPulls بدل pulls (رصيد منفصل تماماً، فقفل منفصل تماماً)
 const weaponPullLocks = new Set();
 // 🔒 قفل لأمر .طابق يمنع تنفيذ أكثر من عملية برج بنفس الوقت لنفس اللاعب
-const towerLocks = new Set();
+const towerLocks = (global.__towerLocks = global.__towerLocks || new Set());
 // 🔒 قفل لأوامر .اسبوعي و .استلام_الاسبوعية (يمنع الاستلام المزدوج من رسائل متزامنة)
 const weeklyLocks = new Set();
 // 🔒 قفل لأمر .يومي يمنع الاستلام المزدوج من رسائل متزامنة لنفس اللاعب
@@ -5288,10 +5288,19 @@ const siteWeaponBanner = require('./systems/siteWeaponBanner').createSiteWeaponB
     isBanned
 })
 
+// 🗼 برج الأبطال بالموقع (/u/:code/tower) — نفس منطق .طابق (systems/siteTower.js + systems/towerPage.html)
+const siteTower = require('./systems/siteTower')({
+    Player, towerFloors, getTowerReward, addCommandXp,
+    createTowerReward: () => require('./tower/towerReward').createTowerReward(),
+    checkAndGrantAchievement,
+    getSock: () => siteSockRef.current
+})
+
 registerCharacterSite(app, Player, {
     weaponBanner: siteWeaponBanner,
     achievements: siteAchievements,
     missions: siteMissions,
+    tower: siteTower,
     codexBook: siteCodexBook,
     sssList: siteSssList,
     wheel: siteWheel,
@@ -18858,6 +18867,10 @@ ${floor.power}`
 
         if (reward.money)
             await player.addMoney(reward.money)
+
+        // ⭐ الخبرة تُضاف فعلياً (والرقم المعروض = المضاف بعد بونص الكلب/الكتاب)
+        if (reward.xp)
+            reward.xp = addCommandXp(player, reward.xp)
 
         if (reward.draws)
             player.towerTickets =
