@@ -580,6 +580,9 @@ beastChoiceCycle: {
     // =========================
     towerFloor: { type: Number, default: 1 },
 
+    // 🗼 عدّاد تراكمي لإنجاز برج التحدي (ما يتصفّر مع ريست البرج الأسبوعي)
+    towerTotalFloors: { type: Number, default: 0 },
+
     usedCharacters: {
         type: Array,
         default: []
