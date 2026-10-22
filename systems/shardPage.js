@@ -74,6 +74,10 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 .btn[disabled]{background:#222a40;color:#667;box-shadow:none;cursor:not-allowed}
 .btn.om{background:linear-gradient(135deg,#fff3b0,#ffc933,#ff8a00);animation:pu 1.4s infinite}
 .empty{text-align:center;color:var(--dim);padding:50px 0}
+.pager{display:flex;align-items:center;justify-content:center;gap:10px;margin:20px 0 8px}
+.pager button{min-width:92px;padding:10px 12px;border-radius:14px;border:1.5px solid var(--gold-dim);background:var(--bg2);color:var(--gold);font:800 13px 'Cairo';cursor:pointer;transition:.2s}
+.pager button:disabled{opacity:.35;cursor:default}
+.pager span{font:800 13px 'Cairo';color:var(--dim);min-width:70px;text-align:center}
 .rbtn{width:100%;margin-top:10px;border:1px solid color-mix(in srgb,var(--t) 60%,transparent);background:color-mix(in srgb,var(--t) 12%,transparent);color:var(--text);border-radius:12px;padding:8px;font:700 14px 'Cairo';cursor:pointer;transition:.2s}
 .rbtn:active{transform:scale(.96)}.rbtn[disabled]{opacity:.5}
 .card.rs{animation:rsf .7s ease-out}
@@ -172,7 +176,8 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 function clientMain(INIT, CODE, CSRF) {
     const RANKS = ['SSS', 'SSS+', 'SSS++', 'UR I', 'UR II', 'UR III', 'EX', 'Ω']
     const COL = ['#ff3860', '#ff6b3d', '#ff2f92', '#b83fff', '#7c4dff', '#4d7cff', '#00e5ff', '#ffc933']
-    const S = { tab: 1, money: 0, omegaUsed: 0, maxOmega: 10, shards: [], evo: [], conv: [], convAll: [], charCount: 0, maxCharacters: 30, cvMode: 'single' }
+    const S = { tab: 1, money: 0, omegaUsed: 0, maxOmega: 10, shards: [], evo: [], conv: [], convAll: [], charCount: 0, maxCharacters: 30, cvMode: 'single', pg: { 1: 0, 2: 0, 3: 0 } }
+    const PER = 12
     let busy = false
     const $ = id => document.getElementById(id)
     const f = n => Number(n).toLocaleString('en-US')
@@ -188,6 +193,28 @@ function clientMain(INIT, CODE, CSRF) {
 
     const gems = (a, t) => Array.from({ length: t }, (_, i) => '<span class="gem ' + (i < a ? 'f' : '') + '" style="animation-delay:' + (i * .18) + 's"></span>').join('')
 
+    // ───────── صفحات: 12 بطاقة بالصفحة (الأرقام الأصلية off+i محفوظة للتطوير/التحويل) ─────────
+    function pageOf(list, tab) {
+        const pages = Math.max(1, Math.ceil(list.length / PER))
+        if (S.pg[tab] > pages - 1) S.pg[tab] = pages - 1
+        if (S.pg[tab] < 0) S.pg[tab] = 0
+        const off = S.pg[tab] * PER
+        return { items: list.slice(off, off + PER), off: off, pages: pages, tab: tab }
+    }
+    function pagerHTML(p) {
+        if (p.pages <= 1) return ''
+        const cur = S.pg[p.tab]
+        return '<div class="pager"><button ' + (cur >= p.pages - 1 ? 'disabled' : '') + ' onclick="window.__sx.pg(' + p.tab + ',1)">التالي ›</button>' +
+            '<span>' + (cur + 1) + ' / ' + p.pages + '</span>' +
+            '<button ' + (cur <= 0 ? 'disabled' : '') + ' onclick="window.__sx.pg(' + p.tab + ',-1)">‹ السابق</button></div>'
+    }
+    function pg(tab, d) {
+        if (busy) return
+        S.pg[tab] = (S.pg[tab] || 0) + d
+        render()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
     function head() {
         $('money').textContent = '💰 ' + f(S.money)
         $('omg').textContent = 'Ω ' + S.omegaUsed + '/' + S.maxOmega
@@ -195,7 +222,8 @@ function clientMain(INIT, CODE, CSRF) {
 
     function shardsView() {
         if (!S.shards.length) return '<div class="empty">📭 لا تملك أي شظايا</div>'
-        return '<div class="grid">' + S.shards.map((c, i) => {
+        const P = pageOf(S.shards, 1)
+        return '<div class="grid">' + P.items.map((c, i) => {
             const t = c.target, ok = c.amount >= t, lv = c.lv
             return '<div class="card" data-k="' + esc(c.key) + '" style="--t:' + COL[lv] + ';animation-delay:' + (i * .09) + 's">' +
                 '<div class="pic" style="background-image:' + pic(c, COL[lv]) + '"></div>' +
@@ -205,17 +233,19 @@ function clientMain(INIT, CODE, CSRF) {
                 '<div class="bar"><i data-w="' + Math.min(100, c.amount / t * 100) + '"></i></div>' +
                 '<div class="st ' + (ok ? 'ok' : '') + '">' + c.amount + '/' + t + (ok ? ' ✔ READY' : '') + '</div>' +
                 '<button class="rbtn" data-k="' + esc(c.key) + '" onclick="window.__sx.restore(this)">♻️ استرجاع نسخة</button></div></div>'
-        }).join('') + '</div>'
+        }).join('') + '</div>' + pagerHTML(P)
     }
 
     function evoView() {
         if (!S.evo.length) return '<div class="empty">📭 لا توجد شخصيات SSS قابلة للتطوير</div>'
-        return '<div class="grid">' + S.evo.map((c, i) => {
+        const P = pageOf(S.evo, 2)
+        return '<div class="grid">' + P.items.map((c, k) => {
+            const i = P.off + k
             const om = c.level === 6
             const okS = c.have >= c.need, okM = S.money >= c.cost
             const can = okS && okM && !c.omegaLimit && !c.blocked
             const label = c.blocked ? '👑 توجد نسخة مطورة' : c.omegaLimit ? '🚫 وصلت الحد' : can ? (om ? '🌌 تطوير أوميقا' : '✨ تطوير') : '🔒 غير جاهز'
-            return '<div class="card" style="--t:' + COL[c.level + 1] + ';animation-delay:' + (i * .09) + 's">' +
+            return '<div class="card" style="--t:' + COL[c.level + 1] + ';animation-delay:' + (k * .09) + 's">' +
                 '<div class="pic" style="background-image:' + pic(c, COL[c.level]) + '"></div>' +
                 '<span class="tag">' + RANKS[c.level] + ' ➜ ' + RANKS[c.level + 1] + '</span>' +
                 '<div class="bd"><h3>' + esc(c.name) + '</h3><small>' + esc(c.anime) + '</small>' +
@@ -224,7 +254,7 @@ function clientMain(INIT, CODE, CSRF) {
                 '<div><span>💰 التكلفة</span><span class="' + (okM ? 'yes' : 'no') + '">' + f(c.cost) + '</span></div>' +
                 '<div><span>⚔️ القوة</span><span>' + f(c.power) + ' ➜ ' + f(c.nextPower) + '</span></div></div>' +
                 '<button class="btn ' + (om ? 'om' : '') + '" ' + (can ? '' : 'disabled') + ' onclick="window.__sx.evolve(' + i + ')">' + label + '</button></div></div>'
-        }).join('') + '</div>'
+        }).join('') + '</div>' + pagerHTML(P)
     }
 
 
@@ -235,14 +265,15 @@ function clientMain(INIT, CODE, CSRF) {
         if (S.cvMode === 'single') {
             const note = '<div class="cvnote">تظهر هنا فقط الشخصيات اللي <b>تقدر تحوّلها فعلًا</b> (SSS غير مطورة ولها نسخة ثانية على الأقل، أو لها نسخة مطورة). كل تحويل = <b>+1 شظية</b>.</div>'
             if (!S.conv.length) return sub + note + '<div class="empty">📭 لا توجد شخصيات قابلة للتحويل</div>'
-            return sub + note + '<div class="grid">' + S.conv.map((c, i) =>
-                '<div class="card" style="--t:' + COL[0] + ';animation-delay:' + (i * .07) + 's">' +
+            const P = pageOf(S.conv, 3)
+            return sub + note + '<div class="grid">' + P.items.map((c, k) =>
+                '<div class="card" style="--t:' + COL[0] + ';animation-delay:' + (k * .07) + 's">' +
                 '<div class="pic" style="background-image:' + pic(c, COL[0]) + '"></div>' +
                 '<span class="tag">' + esc(c.rarity || 'SSS') + '</span><span class="cp">×' + c.copies + '</span>' +
                 '<div class="bd"><h3>' + esc(c.name) + '</h3><small>' + esc(c.anime) + '</small>' +
                 '<div class="st ok">✅ قابلة للتحويل</div>' +
-                '<button class="rbtn" onclick="window.__sx.cvAsk(' + i + ')">💎 حوّل إلى شظية</button></div></div>'
-            ).join('') + '</div>'
+                '<button class="rbtn" onclick="window.__sx.cvAsk(' + (P.off + k) + ')">💎 حوّل إلى شظية</button></div></div>'
+            ).join('') + '</div>' + pagerHTML(P)
         }
         const n = S.convAll.length
         const body = !n
@@ -493,7 +524,7 @@ function clientMain(INIT, CODE, CSRF) {
         if (c) burst(c, 36, 'o', '#ffc933')
     }
 
-    window.__sx = { evolve: evolve, restore: restore, closeOv: closeOv, cvMode: cvMode, cvAsk: cvAsk, cvDo: cvDo, cvAskAll: cvAskAll, cvDoAll: cvDoAll, cvClose: cvClose }
+    window.__sx = { evolve: evolve, restore: restore, closeOv: closeOv, cvMode: cvMode, cvAsk: cvAsk, cvDo: cvDo, cvAskAll: cvAskAll, cvDoAll: cvDoAll, cvClose: cvClose, pg: pg }
 
     const st = $('stars')
     for (let i = 0; i < 30; i++) {

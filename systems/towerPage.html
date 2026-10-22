@@ -217,7 +217,7 @@ function fight(f,d,ok){
     var s=$('#tw-stamp');s.textContent=ok?'تم الاجتياز':'فشل';s.className='in '+(ok?'ok':'bad');
     if(ok){
       var r=d.r,a=[];
-      if(r.money)a.push('💰 +'+L(r.money));if(r.xp)a.push('⭐ +'+L(r.xp));if(r.draws)a.push('🎫 +'+r.draws);if(r.box)a.push('🎁 '+esc(r.box));if(f===60)a.push('🌟 شخصية SSS');
+      if(r.money)a.push('💰 +'+L(r.money));if(r.xp)a.push('⭐ +'+L(r.xp));if(r.draws)a.push('🎫 +'+r.draws);if(r.box)a.push('🎁 '+esc(r.box));if(f===60)a.push('🌟 شخصية SSS');if(f===60)a.push('📦 +5 سعة المخزون');if(f===60)a.push('⚔️ +10% هجوم');
       $('#tw-chips').innerHTML=a.map(function(t,i){return '<span style="animation-delay:'+(i*.12)+'s">'+t+'</span>'}).join('');
     }
     return z(1400);
@@ -232,6 +232,7 @@ function showRes(done,stop,win){
   var tot=[];
   if(T.money)tot.push('💰 '+L(T.money));if(T.xp)tot.push('⭐ '+L(T.xp));if(T.draws)tot.push('🎫 '+T.draws);
   T.boxes.forEach(function(b){tot.push('🎁 '+esc(b))});
+  if(done.some(function(d){return d.f===60}))tot.push('📦 +5 سعة المخزون','⚔️ +10% هجوم');
   if(win)tot.push('⚜️ سيد العروش');
   $('#tw-resIn').innerHTML='<h2>'+(win?'👑 سيد العروش':done.length?'اكتمل الصعود':'تعذّر الصعود')+'</h2>'+
    '<p>'+(done.length?'اجتزت '+done.length+' '+word(done.length)+(win?'':' · الطابق التالي '+Math.min(S.floor,60)):'لم يُجتز أي طابق')+'</p>'+
@@ -256,7 +257,7 @@ function climb(){
     var chain=Promise.resolve();
     r.done.forEach(function(d){
       chain=chain.then(function(){return fight(d.f,d,true)}).then(function(){
-        S.used[d.rn]=1;S.floor=d.f+1;if(d.f<=30)S.atk+=5;S.t+=d.r.draws;draw();return z(1200);
+        S.used[d.rn]=1;S.floor=d.f+1;if(d.f<=30)S.atk+=5;if(d.f===60)S.atk+=10;S.t+=d.r.draws;draw();return z(1200);
       });
     });
     if(r.fail)chain=chain.then(function(){return fight(r.fail.f,{n:r.fail.n,p:r.fail.p,need:r.fail.need},false)});
