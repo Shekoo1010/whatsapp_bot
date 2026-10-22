@@ -32,6 +32,7 @@ const WEEKLY_META = {
 const DAILY_REWARD = { money: 2500000, xp: 5000, legendary: 1, sssChance: 1 }
 const WEEKLY_REWARD = { money: 8000000, xp: 20000, legendary: 2, sssChance: 2 }
 const DAILY_BONUS = { money: 250000, xp: 500 }
+const WEEKLY_BONUS = { money: 1000000 } // نفس .اسبوعي بالبوت
 
 const NOOP_SOCK = { sendMessage: async () => {} }
 
@@ -69,7 +70,7 @@ function createSiteMissions(d) {
     // ───────── الحالة ─────────
     async function getState(userId) {
         // ⚡ الصفحة تسأل كل 5 ثوانٍ: نجلب الحقول اللازمة فقط (بدل المستند كاملاً ~100KB)
-        const player = await Player.findOne({ userId }).select('userId dailyMissions weeklyMissions dailyReward')
+        const player = await Player.findOne({ userId }).select('userId siteCode dailyMissions weeklyMissions dailyReward weeklyReward')
         if (!player) return null
 
         await resetDailyMissions(player)
@@ -91,6 +92,7 @@ function createSiteMissions(d) {
         return {
             ok: true,
             now: Date.now(),
+            code: player.siteCode || null,
             dailyResetAt: Date.parse(today + 'T00:00:00+03:00') + 86400000,
             weeklyResetAt: Date.parse(weekKey + 'T00:00:00+03:00') + 7 * 86400000,
             daily: {
@@ -104,7 +106,9 @@ function createSiteMissions(d) {
                 items: wItems,
                 claimed: !!w.claimed,
                 banned: !!isWeeklyBanned(userId),
-                reward: WEEKLY_REWARD
+                bonusClaimed: !!(player.weeklyReward && player.weeklyReward.lastClaim === weekKey),
+                reward: WEEKLY_REWARD,
+                bonus: WEEKLY_BONUS
             }
         }
     }
@@ -193,6 +197,27 @@ function createSiteMissions(d) {
     }
 
     // ───────── .استلام_الاسبوعية ─────────
+    // ───────── .اسبوعي (مكافأة الأسبوع — مليون) — نفس منطق البوت وقفله ─────────
+    function claimWeeklyBonus(userId) {
+        if (isWeeklyBanned(userId)) return Promise.resolve(fail('أنت ممنوع من المهام الأسبوعية'))
+        return withLock(weeklyLocks, userId, async () => {
+            const player = await Player.findOne({ userId })
+            if (!player) return fail('لا يوجد حساب')
+
+            const weekKey = getSaudiWeekKey()
+            if (player.weeklyReward && player.weeklyReward.lastClaim === weekKey) return fail('استلمت الاسبوعي بالفعل')
+
+            await player.addMoney(WEEKLY_BONUS.money)
+            player.weeklyReward = { lastClaim: weekKey }
+            await player.save()
+
+            const { sock, jid } = await notifyCtx(userId)
+            try { await checkAndGrantAchievement(player, 'wealth', player.totalEarnedMoney, sock, jid) } catch (e) {}
+
+            return { ok: true, msg: 'تم استلام المكافأة الأسبوعية' }
+        })
+    }
+
     function claimWeekly(userId) {
         if (isWeeklyBanned(userId)) return Promise.resolve(fail('أنت ممنوع من المهام الأسبوعية'))
         return withLock(weeklyLocks, userId, async () => {
@@ -328,7 +353,7 @@ function createSiteMissions(d) {
             }
         })
 
-        const claimers = { bonus: claimDailyBonus, daily: claimDaily, weekly: claimWeekly }
+        const claimers = { bonus: claimDailyBonus, daily: claimDaily, weekly: claimWeekly, weeklyBonus: claimWeeklyBonus }
         app.post('/missions/api/claim/:which', async (req, res) => {
             res.set({ 'Cache-Control': 'no-store' })
             try {
@@ -405,6 +430,19 @@ body{margin:0;background:#0a0e1a;color:#e8ecf8;font-family:Tahoma,"Segoe UI",sys
 .bonus .btn{margin:0;width:auto;padding:11px 16px;font-size:14px;white-space:nowrap}
 .bonus .tx{flex:1;font-size:14px}.bonus .tx small{display:block;color:#8b95bd;font-size:12px;margin-top:3px}
 .msg{text-align:center;color:#8b95bd;padding:40px 10px;font-size:15px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.top .tt{font-size:17px;font-weight:700;flex:1;text-align:center}
+.nvb,.back{height:40px;border-radius:12px;border:1px solid #8a6d24;background:#0f1422;color:#f0c04a;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font:inherit;font-size:14px;text-decoration:none;padding:0 14px}
+.nvb{width:40px;padding:0;font-size:20px}
+#nvbd{position:fixed;inset:0;background:rgba(3,4,9,.7);z-index:60;opacity:0;visibility:hidden;transition:opacity .2s}
+#nvbd.on{opacity:1;visibility:visible}
+#nvd{position:fixed;top:0;bottom:0;right:0;width:min(82vw,320px);z-index:61;background:#0f1422;border-left:1px solid #1f2740;transform:translateX(100%);transition:transform .25s;visibility:hidden;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#nvd.on{transform:none;visibility:visible}
+#nvd .h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #1f2740;font-weight:700}
+#nvd .l{overflow-y:auto;padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px))}
+#nvd a{display:flex;align-items:center;gap:12px;padding:12px 16px;color:#e8ecf8;text-decoration:none;font-size:15px}
+#nvd a.on{color:#f0c04a;background:#16203a}
+#nvd a:active{background:#16203a}
 #pt{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-160%);background:#151b2e;color:#f1f3f9;border:1.5px solid #e2b64b;border-radius:16px;padding:11px 16px;font-size:14px;transition:transform .45s cubic-bezier(.2,.9,.3,1.15);z-index:2147483600;max-width:calc(100% - 20px);text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.55)}
 #pt.show{transform:translate(-50%,0)}
 @keyframes in{to{opacity:1;transform:none}}
@@ -417,6 +455,7 @@ body{margin:0;background:#0a0e1a;color:#e8ecf8;font-family:Tahoma,"Segoe UI",sys
 </head>
 <body>
 <div class="app">
+  <div class="top"><button class="nvb" id="nvo" type="button" aria-label="القائمة">☰</button><span class="tt">🎯 المهام</span><a class="back" id="back" href="/">← رجوع</a></div>
   <div class="tabs" id="tabs" data-t="daily">
     <div class="pill"></div>
     <button class="tab on" data-t="daily">اليومية</button>
@@ -424,6 +463,8 @@ body{margin:0;background:#0a0e1a;color:#e8ecf8;font-family:Tahoma,"Segoe UI",sys
   </div>
   <div id="box"><div class="msg">جاري التحميل…</div></div>
 </div>
+<div id="nvbd"></div>
+<nav id="nvd" aria-label="القائمة"><div class="h"><span>القائمة</span><button class="nvb" id="nvx" type="button" aria-label="إغلاق">✕</button></div><div class="l" id="nvl"></div></nav>
 <div id="pt" role="status"></div>
 <script>
 (function(){
@@ -437,6 +478,21 @@ function api(p,post){
   if(post)o.method='POST';
   return fetch('/missions/api'+p,o).then(function(r){return r.json().then(function(j){j.__s=r.status;return j},function(){return{ok:false,__s:r.status}})});
 }
+var NAV=[['','🏠','العرض الرئيسي'],['/pull','🎴','سحب شخصية'],['/wheel','🎡','عجلة الحظ'],['/banner','🌌','بنر الأسبوع'],['/weapons','⚔️','بنر الأسلحة'],['/shop','🏪','متجر الشخصيات'],['/market','🛍️','السوق (المزاد)'],['/boss','👑','هجوم الزعيم'],['/contrib','💥','مساهمات الزعيم'],['/challenge','⚔️','التحدي (PvP)'],['/pvp','🏟️','الأرينا PvP'],['/arena-challenge','⚔️','تحدي ارينا'],['/brawl','🥊','المضاربة'],['/xo','❌','XO أونلاين'],['/kingdom','🏰','غزو المملكة'],['/raid','🐉','الغزو العالمي (رايد)'],['/tower','🗼','برج الأبطال'],['/chat','💬','الدردشة'],['/top','🏆','أقوى اللاعبين'],['/gallery','🖼️','المعارض'],['/ship','🚢','سفينتي'],['/gift','🎁','وضع الإهداء'],['/sell','💰','بيع شخصيات'],['/shards','🧩','الشظايا والتطوير'],['/players','👥','اللاعبون'],['/war','⚔️','حرب الأعلام'],['/log','📜','سجل الإهداءات'],['/book','📖','كتاب المجموعة'],['/sss','🌟','قائمة SSS'],['/titles','🏅','الألقاب'],['/rewards','🎁','سجل الجوائز'],['/achievements','🏆','إنجازاتي'],['/notifications','🔔','الإشعارات']];
+var navCode=null;
+function setNav(code){
+  if(!code||code===navCode)return;
+  navCode=code;
+  $('back').href='/u/'+code;
+  var h='';
+  NAV.forEach(function(n){h+='<a href="/u/'+code+n[0]+'"><span>'+n[1]+'</span>'+n[2]+'</a>'});
+  h+='<a class="on" href="/missions"><span>🎯</span>المهام اليومية والأسبوعية</a>';
+  $('nvl').innerHTML=h;
+}
+function nav(on){$('nvd').classList.toggle('on',on);$('nvbd').classList.toggle('on',on)}
+$('nvo').onclick=function(){nav(true)};
+$('nvx').onclick=function(){nav(false)};
+$('nvbd').onclick=function(){nav(false)};
 function sec(){return S?S[cur]:null}
 function rewardChips(d){
   var r=d.reward,a=['💰 '+fmt(r.money),'📚 '+fmt(r.xp)+' XP','📦 Legendary ×'+r.legendary,'📦 SSS Chance ×'+r.sssChance];
@@ -453,6 +509,9 @@ function build(){
    +'<circle class="fg" id="fg" cx="48" cy="48" r="40" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/></svg><b id="cnt"></b></div></div></div>';
   if(cur==='daily'){
     h+='<div class="card bonus"><div class="tx">استلام اليومي<small>💰 '+fmt(S.daily.bonus.money)+' · 📚 '+fmt(S.daily.bonus.xp)+' XP · يحسب مهمة تسجيل الدخول</small></div><button class="btn" id="bb"></button></div>';
+  }
+  if(cur==='weekly'){
+    h+='<div class="card bonus"><div class="tx">الاسبوعي<small>💰 '+fmt(S.weekly.bonus.money)+' · يتجدد كل جمعة</small></div><button class="btn" id="bb"></button></div>';
   }
   d.items.forEach(function(it,k){
     h+='<div class="m" data-k="'+it.k+'" style="animation-delay:'+(k*80)+'ms"><div class="row"><div class="ic">'+it.i+'</div><div class="mid"><div class="t"><span>'+it.n+'</span><span class="n"></span></div><div class="bar"><div class="fill"></div></div></div></div></div>';
@@ -486,7 +545,7 @@ function update(first){
   b.className='btn'+(d.claimed?' got':(all&&!banned)?' rdy':'');
   b.textContent=banned?'ممنوع من المهام الأسبوعية':d.claimed?'تم الاستلام ✓':all?'استلام الجائزة 🎁':'أكمل جميع المهام';
   var bb=$('bb');
-  if(bb){bb.className='btn'+(d.bonusClaimed?' got':' rdy');bb.textContent=d.bonusClaimed?'تم ✓':'استلام 🎁'}
+  if(bb){bb.className='btn'+(d.bonusClaimed?' got':(banned?'':' rdy'));bb.textContent=banned?'ممنوع':d.bonusClaimed?'تم ✓':'استلام 🎁'}
 }
 function tick(){
   var d=sec();if(!d||!$('tm'))return;
@@ -500,6 +559,7 @@ function load(){
     if(j.__s===401){$('box').innerHTML='<div class="msg">سجّل دخولك بالموقع أولاً لعرض مهامك.<br><br><a href="/" style="color:#6ea8ff">الصفحة الرئيسية</a></div>';S=null;return}
     if(!j.ok){return}
     off=j.now-Date.now();S=j;
+    setNav(j.code);
     if(built!==cur||!$('cb'))build();else update(false);
     tick();
   }).catch(function(){});
@@ -518,8 +578,9 @@ function claim(){
 }
 function claimBonus(){
   var d=sec();if(!d||d.bonusClaimed)return;
+  if(cur==='weekly'&&d.banned){toast('❌ ممنوع من المهام الأسبوعية');return}
   $('bb').textContent='…';
-  api('/claim/bonus',true).then(function(j){
+  api('/claim/'+(cur==='daily'?'bonus':'weeklyBonus'),true).then(function(j){
     toast(j.ok?('🎁 '+j.msg+(j.streak?' — سلسلة '+j.streak+' يوم':'')):('❌ '+(j.msg||'تعذّر الاستلام')));
     load();
   }).catch(function(){toast('❌ تعذّر الاتصال');load()});

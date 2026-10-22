@@ -754,6 +754,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['xo', '❌', 'XO أونلاين', `/u/${c}/xo`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
         ['raid', '🐉', 'الغزو العالمي (رايد)', `/u/${c}/raid`],
+        ['tower', '🗼', 'برج الأبطال', `/u/${c}/tower`],
         ['chat', '💬', 'الدردشة', `/u/${c}/chat`],
         ['top', '🏆', 'أقوى اللاعبين', `/u/${c}/top`],
         ['gallery', '🖼️', 'المعارض', `/u/${c}/gallery`],
@@ -5143,6 +5144,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN
             })
         } catch (e) { console.error('site achievements mount error:', e) }
+    }
+
+    // 🗼 برج الأبطال — /u/:code/tower + POST /tower/climb (systems/siteTower.js) — نفس .طابق بالبوت
+    if (opts.tower) {
+        try {
+            opts.tower.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead, charView: siteCharView
+            })
+        } catch (e) { console.error('site tower mount error:', e) }
     }
 
     // ⚔️ بنر الأسلحة — /u/:code/weapons (systems/siteWeaponBanner.js) — نفس .سحب_سلاح
