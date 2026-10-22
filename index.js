@@ -433,6 +433,7 @@ const Player = require('./models/Player')
 // مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
 const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage } = require('./utils/cloudinary')
 const { handleMigrateCommand } = require('./utils/migrateImages')
+const { handleMigrateQuestionsCommand } = require('./utils/migrateQuestions')
 
 // 🏟️ نظام الأرينا (ملف خارجي كامل — راجع systems/arenaCommands.js و systems/arenaSystem.js)
 const { handleArenaCommand, ARENA_HELP } = require('./systems/arenaCommands')
@@ -9362,6 +9363,25 @@ if (!text) return;
             t => sock.sendMessage(_migJid, { text: t }).catch(() => {}),
             _migArgs,
             (filePath, fileName) => sock.sendMessage(_migJid, {
+                document: require('fs').readFileSync(filePath),
+                mimetype: fileName.endsWith('.json') ? 'application/json' : 'text/plain',
+                fileName
+            })
+        ).catch(() => {})
+        return
+    }
+
+    // =========================
+    // ❓ .نقل_الاسئلة — للمطور فقط: نقل صور أسئلة التخمين إلى Cloudinary (شوف utils/migrateQuestions.js)
+    // =========================
+    if (text.trim() === '.نقل_الاسئلة' || text.trim().startsWith('.نقل_الاسئلة ')) {
+        if (!isOwner(msg)) return
+        const _migQJid = msg.key.remoteJid
+        const _migQArgs = text.trim().slice('.نقل_الاسئلة'.length)
+        handleMigrateQuestionsCommand(
+            t => sock.sendMessage(_migQJid, { text: t }).catch(() => {}),
+            _migQArgs,
+            (filePath, fileName) => sock.sendMessage(_migQJid, {
                 document: require('fs').readFileSync(filePath),
                 mimetype: fileName.endsWith('.json') ? 'application/json' : 'text/plain',
                 fileName
