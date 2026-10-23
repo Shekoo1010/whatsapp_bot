@@ -17188,5 +17188,86 @@
     "rarity": "SSS",
     "ability": "استنتاج هادئ",
     "image": ""
+  },
+  {
+    "name": "Elaina",
+    "form": "الساحرة الرحّالة",
+    "anime": "Majo no Tabitabi",
+    "power": 6745,
+    "rarity": "SSS",
+    "ability": "سحر الساحرة الرمادية",
+    "image": ""
+  },
+  {
+    "name": "Flan",
+    "form": "تلميذة السحر الطموحة",
+    "anime": "Majo no Tabitabi",
+    "power": 6674,
+    "rarity": "SSS",
+    "ability": "سحر الطبيعة الأخضر",
+    "image": ""
+  },
+  {
+    "name": "Hitori Gotou",
+    "form": "عازفة الجيتار الخجولة",
+    "anime": "Bocchi the Rock!",
+    "power": 6846,
+    "rarity": "SSS",
+    "ability": "عزف الجيتار الخارق",
+    "image": ""
+  },
+  {
+    "name": "Ryou Yamada",
+    "form": "عازفة الباص الغامضة",
+    "anime": "Bocchi the Rock!",
+    "power": 6713,
+    "rarity": "SSS",
+    "ability": "إيقاع الباص العميق",
+    "image": ""
+  },
+  {
+    "name": "Chisato Nishikigi",
+    "form": "الجندية المبتسمة",
+    "anime": "Lycoris Recoil",
+    "power": 6611,
+    "rarity": "SSS",
+    "ability": "مهارة المسدس المطاطي",
+    "image": ""
+  },
+  {
+    "name": "Takina Inoue",
+    "form": "القناصة الهادئة",
+    "anime": "Lycoris Recoil",
+    "power": 6854,
+    "rarity": "SSS",
+    "ability": "دقة الرماية القاتلة",
+    "image": ""
+  },
+  {
+    "name": "Ladybug",
+    "form": "بطلة باريس المرقطة",
+    "anime": "Miraculous Ladybug",
+    "power": 6689,
+    "rarity": "SSS",
+    "ability": "الحظ السعيد",
+    "image": ""
+  },
+  {
+    "name": "Cat Noir",
+    "form": "القط الأسود المغامر",
+    "anime": "Miraculous Ladybug",
+    "power": 6649,
+    "rarity": "SSS",
+    "ability": "قوة التدمير",
+    "image": ""
+  },
+  {
+    "name": "Takt Asahina",
+    "form": "قائد معزوفة القدر",
+    "anime": "Takt Op. Destiny",
+    "power": 6958,
+    "rarity": "SSS",
+    "ability": "قيادة الألحان القتالية",
+    "image": ""
   }
 ]
