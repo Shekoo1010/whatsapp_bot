@@ -17118,15 +17118,6 @@
     "image": ""
   },
   {
-    "name": "Hiromitsu Morofushi",
-    "form": "العميل الخفي",
-    "ability": "لحن الوفاء",
-    "anime": "Detective Conan",
-    "rarity": "SSS",
-    "power": 6862,
-    "image": ""
-  },
-  {
     "name": "Calvados",
     "form": "المتخفي القاسي",
     "ability": "رماد الشك",
@@ -17187,6 +17178,15 @@
     "anime": "D.Gray-man",
     "rarity": "SSS",
     "power": 6815,
+    "image": ""
+  },
+  {
+    "name": "Takaaki Morofushi",
+    "form": "المحقق الصامت",
+    "anime": "Detective Conan",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "استنتاج هادئ",
     "image": ""
   }
 ]
