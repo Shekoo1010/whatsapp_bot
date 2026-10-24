@@ -26564,7 +26564,11 @@ if (text === '.نقل_حساب' || text.startsWith('.نقل_حساب ')) {
             // 🔐 بيانات دخول الموقع مرتبطة برقم الواتساب نفسه (لا تنتقل)
             'passwordHash',
             'passwordSalt',
-            'sessionVersion'
+            'sessionVersion',
+            // 🔗 كود رابط الصفحة (unique) يبقى مع رقم الواتساب ولا ينتقل
+            'siteCode',
+            // 👤 اليوزرنيم (unique) يبقى مع الحساب نفسه ولا ينتقل
+            'username'
         ])
 
         const transferObjA = playerA.toObject()
