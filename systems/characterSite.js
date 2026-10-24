@@ -689,6 +689,7 @@ function loginHTML({ code, csrf, error, disabled }) {
 <body><div class="shell"><div class="panel">
   <h2>تسجيل الدخول</h2>
   ${error ? `<p class="err">${esc(error)}</p>` : ''}
+  ${disabled ? '' : acctSavedHTML()}
   ${disabled ? '' : `<form method="post" action="/login" autocomplete="on">
     <input type="hidden" name="csrf" value="${esc(csrf)}">
     <input type="hidden" name="code" value="${esc(code)}">
@@ -705,14 +706,15 @@ function loginHTML({ code, csrf, error, disabled }) {
 function appShellHead(title) {
     return shellHead(title).replace('</head>', '<link rel="manifest" href="/app.webmanifest"></head>')
 }
-function appLoginHTML({ csrf, error, disabled }) {
+function appLoginHTML({ csrf, error, disabled, prefill }) {
     return `${appShellHead('Nami')}
 <body><div class="shell"><div class="panel">
   <h2>Nami</h2>
   ${error ? `<p class="err">${esc(error)}</p>` : ''}
+  ${disabled ? '' : acctSavedHTML()}
   ${disabled ? '' : `<form method="post" action="/app/login" autocomplete="on">
     <input type="hidden" name="csrf" value="${esc(csrf)}">
-    <input class="fld" name="username" placeholder="اليوزر" autocomplete="username" maxlength="20" required>
+    <input class="fld" name="username" placeholder="اليوزر" autocomplete="username" maxlength="20" value="${esc(prefill || '')}" required>
     <input class="fld" name="password" type="password" placeholder="كلمة المرور" autocomplete="current-password" maxlength="200" required>
     <button class="btn gold" type="submit">دخول</button>
   </form>`}
@@ -729,6 +731,142 @@ function downloadHTML({ hasApk }) {
   <a class="btn line" href="/app">🍎 آيفون / فتح من المتصفح</a>
   <div class="hint">على الآيفون: افتح <code>/app</code> في Safari ثم زر المشاركة ← «إضافة إلى الشاشة الرئيسية».</div>
 </div></div></body></html>`
+}
+
+// 👥 تبديل الحساب (مثل ألعاب القاتشا): الحسابات المحفوظة على هذا الجهاز تظهر بأيقونة + مستوى + يوزر
+const ACCT_CSS = `<style>
+.acchip{display:flex;align-items:center;gap:12px;width:calc(100% - 24px);margin:10px 12px 2px;padding:10px 12px;border-radius:14px;border:1px solid var(--gold-dim,#6b5522);background:linear-gradient(160deg,#18204a,#0d1224 70%);color:var(--text,#eee);font-family:'Cairo',sans-serif;cursor:pointer;text-align:start}
+.acchip:active{transform:scale(.98)}
+.acav{width:44px;height:44px;border-radius:50%;flex:none;background:#222a45 center/cover no-repeat;border:2px solid var(--gold,#f0c04a);display:inline-flex;align-items:center;justify-content:center;font-weight:900;color:var(--gold,#f0c04a);font-size:18px}
+.acmeta{display:flex;flex-direction:column;min-width:0;flex:1}
+.acmeta b{font-size:15px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acmeta small{font-size:12px;color:var(--text-dim,#9aa3bd);font-weight:700}
+.acsw{font-size:20px;color:var(--gold,#f0c04a);flex:none}
+.acbtn{margin-top:8px;padding:6px 12px;border-radius:10px;border:1px solid var(--gold-dim,#6b5522);background:rgba(0,0,0,.25);color:var(--gold,#f0c04a);font:800 12px 'Cairo',sans-serif;cursor:pointer;position:relative;z-index:2}
+.acbd{position:fixed;inset:0;z-index:70;background:rgba(3,4,9,.72);opacity:0;transition:opacity .2s}
+.acbd.on{opacity:1}
+.acsh{position:fixed;left:0;right:0;bottom:0;z-index:71;max-width:520px;margin:0 auto;background:#0f1422;border:1px solid #1f2740;border-bottom:0;border-radius:20px 20px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .25s;max-height:82vh;overflow-y:auto;color:var(--text,#eee);font-family:'Cairo',sans-serif}
+.acsh.on{transform:none}
+.achd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.achd b{font-size:17px;font-weight:900;color:var(--gold,#f0c04a)}
+.achd button{width:34px;height:34px;border-radius:10px;border:1px solid #1f2740;background:transparent;color:var(--text-dim,#9aa3bd);cursor:pointer;font-size:16px}
+.acrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;margin:0 0 8px;border-radius:14px;border:1px solid #1f2740;background:#121a30;color:inherit;font-family:inherit;cursor:pointer;text-align:start}
+.acrow.cur{border-color:var(--gold,#f0c04a);background:linear-gradient(160deg,#1d2650,#10172c)}
+.acrow .acmeta b{color:var(--text,#eee)}
+.acrow .tag{font-size:12px;font-weight:900;color:var(--gold,#f0c04a);flex:none}
+.acrow .tag.lock{color:#ff9a6b}
+.acrow .fg{width:30px;height:30px;border-radius:9px;border:1px solid #2a3350;background:transparent;color:#ff6b86;cursor:pointer;flex:none;font-size:13px}
+.acadd{display:block;text-align:center;padding:12px;border-radius:14px;border:1px dashed var(--gold-dim,#6b5522);color:var(--gold,#f0c04a);font-weight:900;text-decoration:none;margin-top:4px}
+.achint{margin-top:10px;font-size:12px;color:var(--text-dim,#9aa3bd);text-align:center}
+.acsaved{margin:0 0 14px}
+.acsaved .acttl{font-size:13px;font-weight:800;color:var(--text-dim,#9aa3bd);margin-bottom:8px}
+</style>`
+
+const ACCT_JS = `<script>
+(function(){
+  if(window.__acct) return;
+  var A=window.__acct={rows:[],csrf:''};
+  function mk(t,c,x){ var e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e; }
+  A.load=function(){
+    return fetch('/api/accounts',{credentials:'same-origin',cache:'no-store'})
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(j){ if(!j||!j.ok) return null; A.rows=j.accounts||[]; A.csrf=j.csrf||''; return j; })
+      .catch(function(){ return null; });
+  };
+  A.setAv=function(e,a){
+    if(a.img){ e.style.backgroundImage='url("'+String(a.img).replace(/"/g,'%22')+'")'; e.textContent=''; }
+    else { e.style.backgroundImage=''; e.textContent=(Array.from(a.username||'?')[0]||'?').toUpperCase(); }
+  };
+  A.post=function(path,body){
+    body.csrf=A.csrf;
+    return fetch(path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false}; }).then(function(j){ j.status=r.status; return j; }); })
+      .catch(function(){ return {ok:false,error:'net'}; });
+  };
+  A.addUrl=function(a){ return '/app?add=1'+(a&&a.username?'&u='+encodeURIComponent(a.username):''); };
+  A.pick=function(a,row){
+    if(a.current){ if(A.closeSheet) A.closeSheet(); else location.href='/app'; return; }
+    if(!a.valid){ location.href=A.addUrl(a); return; }
+    row.disabled=true;
+    A.post('/switch',{id:a.id}).then(function(j){
+      if(j&&j.ok&&j.url){ location.href=j.url; return; }
+      if(j&&j.error==='expired'){ location.href=A.addUrl(a); return; }
+      row.disabled=false; alert('تعذّر تبديل الحساب، حاول مرة ثانية.');
+    });
+  };
+  A.forget=function(a,box,opts){
+    if(!confirm('نسيان حساب '+a.username+' من هذا الجهاز؟')) return;
+    A.post('/accounts/forget',{id:a.id}).then(function(j){ if(j&&j.ok) A.load().then(function(){ A.render(box,opts); }); });
+  };
+  A.render=function(box,opts){
+    opts=opts||{}; box.textContent='';
+    A.rows.forEach(function(a){
+      var row=mk('button','acrow'+(a.current?' cur':'')); row.type='button';
+      var av=mk('span','acav'); A.setAv(av,a);
+      var meta=mk('span','acmeta'); meta.appendChild(mk('b',null,a.username||a.name||'لاعب')); meta.appendChild(mk('small',null,'المستوى '+(a.level||1)));
+      row.appendChild(av); row.appendChild(meta);
+      row.appendChild(mk('span','tag'+((!a.current&&!a.valid)?' lock':''),a.current?'✓ الحالي':(a.valid?'دخول':'🔒 أدخل كلمة المرور')));
+      if(!a.current){
+        var fg=mk('span','fg','✕'); fg.title='نسيان الحساب';
+        fg.addEventListener('click',function(ev){ ev.stopPropagation(); A.forget(a,box,opts); });
+        row.appendChild(fg);
+      }
+      row.addEventListener('click',function(){ A.pick(a,row); });
+      box.appendChild(row);
+    });
+  };
+  A.refreshChip=function(){
+    A.load().then(function(j){
+      if(!j) return;
+      var cur=A.rows.filter(function(a){ return a.current; })[0]; if(!cur) return;
+      document.querySelectorAll('.acchip').forEach(function(c){
+        var av=c.querySelector('.acav'), un=c.querySelector('b'), lv=c.querySelector('small');
+        if(av) A.setAv(av,cur); if(un) un.textContent=cur.username||cur.name||''; if(lv) lv.textContent='المستوى '+(cur.level||1)+' · تبديل الحساب';
+      });
+    });
+  };
+  var bd=document.getElementById('ac-bd'), sh=document.getElementById('ac-sh'), list=document.getElementById('ac-list');
+  if(bd&&sh&&list){
+    A.openSheet=function(){
+      A.load().then(function(j){
+        if(j) A.render(list,{});
+        bd.hidden=false; sh.hidden=false; void sh.offsetWidth; bd.classList.add('on'); sh.classList.add('on');
+      });
+    };
+    A.closeSheet=function(){
+      bd.classList.remove('on'); sh.classList.remove('on');
+      setTimeout(function(){ if(!sh.classList.contains('on')){ bd.hidden=true; sh.hidden=true; } },250);
+    };
+    document.querySelectorAll('[data-acct-open]').forEach(function(b){ b.addEventListener('click',A.openSheet); });
+    var x=document.getElementById('ac-x'); if(x) x.addEventListener('click',A.closeSheet);
+    bd.addEventListener('click',A.closeSheet);
+    var nv=document.getElementById('nv-open'); if(nv) nv.addEventListener('click',A.refreshChip);
+  }
+  var saved=document.getElementById('ac-saved'), slist=document.getElementById('ac-list2');
+  if(saved&&slist){
+    A.load().then(function(j){ if(j&&A.rows.length){ A.render(slist,{}); saved.hidden=false; } });
+  }
+})();
+</script>`
+
+function acctChipHTML(name) {
+    const n = esc(name || 'لاعب')
+    const ini = esc((Array.from(String(name || '?'))[0] || '?').toUpperCase())
+    return `<button class="acchip" data-acct-open type="button" aria-label="تبديل الحساب"><span class="acav">${ini}</span><span class="acmeta"><b>${n}</b><small>تبديل الحساب</small></span><span class="acsw">⇄</span></button>`
+}
+function acctSheetHTML() {
+    return `${ACCT_CSS}
+<div class="acbd" id="ac-bd" hidden></div>
+<div class="acsh" id="ac-sh" hidden role="dialog" aria-label="تبديل الحساب">
+  <div class="achd"><b>⇄ تبديل الحساب</b><button id="ac-x" type="button" aria-label="إغلاق">✕</button></div>
+  <div id="ac-list"></div>
+  <a class="acadd" href="/app?add=1">➕ إضافة حساب (يوزر + كلمة مرور)</a>
+  <div class="achint">الحسابات محفوظة على هذا الجهاز فقط، والدخول لها بدون كتابة كلمة المرور.</div>
+</div>
+${ACCT_JS}`
+}
+function acctSavedHTML() {
+    return `${ACCT_CSS}<div class="acsaved" id="ac-saved" hidden><div class="acttl">حساباتك المحفوظة — اضغط للدخول</div><div id="ac-list2"></div></div>${ACCT_JS}`
 }
 
 // ☰ زر القائمة الجانبية (يوضع داخل .topbar) + القائمة نفسها (navDrawerHTML)
@@ -785,11 +923,13 @@ function navDrawerHTML(code, csrf, current, name) {
     <span class="nvwho">${name ? `مسجّل كـ <b>${esc(name)}</b>` : 'القائمة'}</span>
     <button class="nvx" id="nv-close" type="button" aria-label="إغلاق">✕</button>
   </div>
+  ${acctChipHTML(name)}
   <div class="nvls">${list}
     <div class="nvsep"></div>
     <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="code" value="${c}"><button class="nvit nvout" type="submit"><span class="nvic">🚪</span>خروج</button></form>
   </div>
 </nav>
+${acctSheetHTML()}
 <style>
 .nvbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--gold-dim);background:#0f1422;color:var(--gold);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;vertical-align:middle;flex:none}
 .nvbtn:active{transform:scale(.95)}
@@ -2230,7 +2370,7 @@ ${HOME_CSS}
   ${backTo ? `<div class="vbar">👁 تشاهد مجموعة <b>${esc(title)}</b> — مشاهدة فقط</div>` : ''}
   <div class="hero"><div class="hero-in">
     <div class="av"${avStyle}>${h.img ? '' : initial}</div>
-    <div class="who"><b>${esc(title)}</b>${TITLES.wrap(h.t)}<span>المستوى ${esc(h.level || 1)}</span><div class="xp"><i style="width:${Number(h.xpPct) || 0}%"></i></div></div>
+    <div class="who"><b>${esc(title)}</b>${TITLES.wrap(h.t)}<span>المستوى ${esc(h.level || 1)}</span><div class="xp"><i style="width:${Number(h.xpPct) || 0}%"></i></div>${isOwner ? '<button class="acbtn" data-acct-open type="button">⇄ تبديل الحساب</button>' : ''}</div>
   </div></div>
   <div class="stats">${statsHTML}</div>
   ${isOwner ? `<a class="plbtn" href="/u/${esc(code)}/players"><span>👥 شخصيات اللاعبين<small>تصفّح مجموعات الآخرين بيوزرهم — بدون رابط</small></span><span class="ar">‹</span></a>` : ''}
@@ -4971,6 +5111,37 @@ function registerCharacterSite(app, Player, opts = {}) {
     const path = require('path')
     const auth = require('./siteAuth')
 
+    // 👥 الحسابات المحفوظة على الجهاز: كوكي موقّعة (HMAC) فيها قائمة {u: userId, v: sessionVersion} — تبديل بدون كلمة مرور
+    const ACCT_COOKIE = 'nami_accts'
+    const ACCT_MAX = 6
+    const acctKey = () => { const k = String(process.env.SESSION_SECRET || ''); return k.length >= 16 ? k + '|accts' : null }
+    const acctSign = b => crypto.createHmac('sha256', acctKey()).update(b).digest('base64url')
+    const acctId = u => crypto.createHmac('sha256', acctKey()).update('id|' + String(u)).digest('base64url').slice(0, 14)
+    function acctRead(req) {
+        try {
+            if (!acctKey()) return []
+            const part = String(req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(ACCT_COOKIE + '='))
+            if (!part) return []
+            const [b, sig] = part.slice(ACCT_COOKIE.length + 1).split('.')
+            if (!b || !sig) return []
+            const a = Buffer.from(sig), e = Buffer.from(acctSign(b))
+            if (a.length !== e.length || !crypto.timingSafeEqual(a, e)) return []
+            const arr = JSON.parse(Buffer.from(b, 'base64url').toString('utf8'))
+            return Array.isArray(arr) ? arr.filter(x => x && x.u != null && Number.isFinite(Number(x.v))).slice(-ACCT_MAX) : []
+        } catch (e) { return [] }
+    }
+    function acctWrite(req, res, list) {
+        if (!acctKey()) return
+        const b = Buffer.from(JSON.stringify(list.slice(-ACCT_MAX).map(x => ({ u: x.u, v: Number(x.v) || 0 })))).toString('base64url')
+        const https = req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https'
+        res.append('Set-Cookie', `${ACCT_COOKIE}=${b}.${acctSign(b)}; Path=/; Max-Age=${400 * 24 * 3600}; HttpOnly; SameSite=Lax${https ? '; Secure' : ''}`)
+    }
+    function acctAdd(req, res, userId, ver) {
+        const list = acctRead(req).filter(x => String(x.u) !== String(userId))
+        list.push({ u: userId, v: Number(ver) || 0 })
+        acctWrite(req, res, list)
+    }
+
     const urlenc = express.urlencoded({ extended: false, limit: '4kb' })
     const jsonBody = express.json({ limit: '8kb' })
 
@@ -5360,6 +5531,7 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             loginUser.reset(userKey)
             auth.setSessionCookie(res, player.userId, player.sessionVersion || 0)
+            acctAdd(req, res, player.userId, player.sessionVersion || 0)
             securityHeaders(res)
             res.redirect(303, `/u/${code}`)
 
@@ -5367,6 +5539,97 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('login error:', err)
             return back('صار خطأ بالخادم، حاول مرة ثانية.', 500)
+        }
+    })
+
+    // ─────────────── 👥 تبديل الحساب ───────────────
+    app.get('/api/accounts', async (req, res) => {
+        try {
+            securityHeaders(res)
+            res.set('Cache-Control', 'no-store')
+            if (!acctKey()) return res.json({ ok: true, accounts: [], csrf: '' })
+            const sess = auth.readSession(req)
+            let curId = null
+            if (sess) {
+                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                if (me && (me.sessionVersion || 0) === sess.v) curId = sess.u
+            }
+            let list = acctRead(req)
+            // مسجّل دخول من قبل بدون قائمة؟ نضيف حسابه الحالي تلقائياً
+            if (curId != null && !list.some(x => String(x.u) === String(curId))) {
+                list.push({ u: curId, v: sess.v }); list = list.slice(-ACCT_MAX); acctWrite(req, res, list)
+            }
+            const csrf = curId != null ? auth.csrfForSession(sess) : auth.makeLoginCsrf()
+            if (!list.length) return res.json({ ok: true, accounts: [], csrf })
+            const players = await Player.find({ userId: { $in: list.map(x => x.u) } })
+                .select('userId name username level characters sessionVersion').lean()
+            const byId = new Map(players.map(p => [String(p.userId), p]))
+            const catIdx = getCatalogIndex(getCatalog)
+            const out = []
+            for (const e of list) {
+                const p = byId.get(String(e.u))
+                if (!p || !p.username) continue
+                const first = sortChars(p.characters || [])[0]
+                let img = null
+                try { img = first ? safeImageUrl(resolveDisplayChar(first, catIdx).image) : null } catch (_) { img = null }
+                out.push({
+                    id: acctId(e.u),
+                    username: p.username,
+                    name: p.name || p.username,
+                    level: Number(p.level) || 1,
+                    img: img || null,
+                    current: curId != null && String(curId) === String(e.u),
+                    valid: (p.sessionVersion || 0) === Number(e.v)
+                })
+            }
+            res.json({ ok: true, accounts: out, csrf })
+        } catch (err) {
+            console.error('accounts list error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    function acctGuard(req, res) {
+        securityHeaders(res)
+        if (!auth.authEnabled() || !acctKey()) { res.status(503).json({ ok: false }); return null }
+        if (!auth.sameOrigin(req)) { res.status(403).json({ ok: false }); return null }
+        const tok = req.body?.csrf
+        const sess = auth.readSession(req)
+        if (!((sess && auth.verifyCsrf(sess, tok)) || auth.verifyLoginCsrf(tok))) { res.status(403).json({ ok: false, error: 'csrf' }); return null }
+        return acctRead(req)
+    }
+
+    app.post('/switch', jsonBody, async (req, res) => {
+        try {
+            const list = acctGuard(req, res)
+            if (!list) return
+            const id = String(req.body?.id || '')
+            const entry = list.find(x => acctId(x.u) === id)
+            if (!entry) return res.status(404).json({ ok: false, error: 'unknown' })
+            const p = await Player.findOne({ userId: entry.u }).select('userId username sessionVersion siteCode').lean()
+            if (!p || (p.sessionVersion || 0) !== Number(entry.v)) {
+                // الجلسة انتهت (تغيّرت كلمة المرور): نطلب كلمة المرور من جديد
+                acctWrite(req, res, list.filter(x => String(x.u) !== String(entry.u)))
+                return res.status(401).json({ ok: false, error: 'expired' })
+            }
+            auth.setSessionCookie(res, p.userId, p.sessionVersion || 0)
+            acctAdd(req, res, p.userId, p.sessionVersion || 0)
+            res.json({ ok: true, url: (p.siteCode && CODE_RE.test(p.siteCode)) ? `/u/${p.siteCode}` : '/app' })
+        } catch (err) {
+            console.error('switch error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/accounts/forget', jsonBody, (req, res) => {
+        try {
+            const list = acctGuard(req, res)
+            if (!list) return
+            const id = String(req.body?.id || '')
+            acctWrite(req, res, list.filter(x => acctId(x.u) !== id))
+            res.json({ ok: true })
+        } catch (err) {
+            res.status(500).json({ ok: false })
         }
     })
 
@@ -5409,12 +5672,12 @@ function registerCharacterSite(app, Player, opts = {}) {
         try {
             securityHeaders(res)
             const sess = auth.readSession(req)
-            if (sess) {
+            if (sess && !req.query.add) {
                 const me = await Player.findOne({ userId: sess.u }).select('siteCode sessionVersion').lean()
                 if (me && me.siteCode && (me.sessionVersion || 0) === sess.v) return res.redirect(303, `/u/${me.siteCode}`)
             }
             if (!auth.authEnabled()) return res.send(appLoginHTML({ disabled: true, error: 'تسجيل الدخول غير مفعّل حالياً.' }))
-            res.send(appLoginHTML({ csrf: auth.makeLoginCsrf() }))
+            res.send(appLoginHTML({ csrf: auth.makeLoginCsrf(), prefill: String(req.query.u || '').trim().slice(0, 20) }))
         } catch (err) {
             console.error('app page error:', err)
             res.status(500).send('خطأ بالخادم')
@@ -5474,6 +5737,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!code || !CODE_RE.test(code)) return back('تعذّر تجهيز صفحتك، حاول مرة ثانية.', 500)
 
             auth.setSessionCookie(res, player.userId, player.sessionVersion || 0)
+            acctAdd(req, res, player.userId, player.sessionVersion || 0)
             securityHeaders(res)
             res.redirect(303, `/u/${code}`)
         } catch (err) {
