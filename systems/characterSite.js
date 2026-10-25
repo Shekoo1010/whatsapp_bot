@@ -909,6 +909,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
         ['achievements', '🏆', 'إنجازاتي', `/u/${c}/achievements`],
         ['worlds', '🌌', 'عوالم الأنمي', `/u/${c}/worlds`],
+        ['worldhall', '🏛️', 'قاعة التصنيف', `/u/${c}/worlds/hall`],
         ['notifications', '🔔', 'الإشعارات', `/u/${c}/notifications`],
         ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
     ]
