@@ -7525,21 +7525,15 @@ const _stickerLocks = new Set() // قفل لكل مستخدم: ستيكر واح
 
 // 🎬 تجهيز المقطع مرة واحدة: قص مربع 512 + أول 10 ثواني + معدل الإطارات المختار
 // (فك ضغط الفيديو الأصلي وتصغيره يتم هنا مرة واحدة فقط، وكل محاولات الجودة بعده تشتغل على ملف صغير وسريع)
-// نمط رفع الفريمات للمقاطع البطيئة (15 فأقل): 'blend' سريع وخفيف | 'mci' أنعم لكن ثقيل | 'dup' تكرار فقط
-const STICKER_INTERP_MODE = 'blend'
-function prepClip(input, out, fps, job, interp = false) {
+function prepClip(input, out, fps, job) {
     return new Promise((resolve, reject) => {
         if (job && job.aborted) return reject(new Error('ABORTED'))
-        const _scale = 'scale=512:512:force_original_aspect_ratio=increase:flags=lanczos,crop=512:512'
-        const _vf = interp && STICKER_INTERP_MODE !== 'dup'
-            ? `${_scale},minterpolate=fps=${fps}:mi_mode=${STICKER_INTERP_MODE}`
-            : `fps=${fps},${_scale}`
         const _cmd = ffmpeg(input)
             .renice(15)
             .duration(10)
             .outputOptions([
                 '-threads', '2',
-                '-vf', _vf,
+                '-vf', `fps=${fps},scale=512:512:force_original_aspect_ratio=increase:flags=lanczos,crop=512:512`,
                 '-an',
                 '-c:v', 'mpeg4',
                 '-q:v', '2',
@@ -7607,33 +7601,22 @@ function probeVideoFps(input) {
 // الجودة أولاً، ثم عدد الإطارات، ثم الدقة. وبأقل عدد ممكن من المحاولات (سرعة)
 async function fitVideoSticker(input, output, maxBytes, job, inBytes = 0) {
     const src = await probeVideoFps(input)
+    // 📏 مقطع حجمه 800KB فما فوق: يبدأ بـ 25 فريم ثم يثبت على 20، والجودة تنزل قليلاً ليصير الستيكر ~1MB ويُرسل
+    const big = inBytes >= 800 * 1000
+    const f1 = big ? 25 : Math.round(src > 32 ? (src / 2 <= 32 ? src / 2 : 30) : src) // لا يتجاوز 30
     const prep = output.replace(/\.webp$/, '_p.mp4')
 
-    // 📏 مقطع حجمه قريب من 1 ميجا (0.7 – 1.6MB): نقلل الفريمات (20 أو 25) والجودة قليلاً حتى لا يفشل الإرسال
-    const nearMB = inBytes >= 700 * 1000 && inBytes <= 1600 * 1000
-    // 🐢 مقطع بطيء (15 فأقل) وليس قريباً من 1 ميجا: نرفعه إلى 20/25/30 بجودة أعلى
-    const boost = !nearMB && src <= 15
-
-    let f1
-    if (boost) f1 = src >= 13 ? 30 : src >= 10 ? 25 : 20
-    else f1 = Math.round(src > 32 ? (src / 2 <= 32 ? src / 2 : 30) : src) // لا يتجاوز 30
-    if (nearMB) f1 = Math.min(f1, inBytes >= 900 * 1000 ? 20 : 25)
-
-    const topQ = boost ? 94 : nearMB ? 78 : 88   // جودة البداية
-    const loAdd = boost ? 4 : 0                  // رفع أدنى جودة مسموحة للمقاطع المحسّنة
-
     try {
-        try {
-            await prepClip(input, prep, f1, job, boost && f1 > src + 1)
-        } catch (e) {
-            if (!(boost && f1 > src + 1) || (job && job.aborted)) throw e
-            console.log('INTERP FAILED, falling back to plain fps:', e?.message || e)
-            await prepClip(input, prep, f1, job, false) // احتياط: رفع بسيط بدون minterpolate
-        }
+        await prepClip(input, prep, f1, job)
 
-        const tiers = [
-            { fps: f1,                                   size: 512, lo: 48 + loAdd },
-            { fps: Math.max(10, Math.round(f1 * 2 / 3)), size: 512, lo: 42 + loAdd },
+        const tiers = big ? [
+            { fps: 25, size: 512, lo: 40 },
+            { fps: 20, size: 512, lo: 34 },
+            { fps: 20, size: 480, lo: 30 },
+            { fps: 20, size: 400, lo: 26 }
+        ] : [
+            { fps: f1,                                   size: 512, lo: 48 },
+            { fps: Math.max(10, Math.round(f1 * 2 / 3)), size: 512, lo: 42 },
             { fps: Math.max(10, Math.round(f1 / 2)),     size: 480, lo: 36 },
             { fps: Math.max(8,  Math.round(f1 / 2)),     size: 400, lo: 28 }
         ]
@@ -7647,7 +7630,7 @@ async function fitVideoSticker(input, output, maxBytes, job, inBytes = 0) {
         let lastBuf = null
         for (const t of tiers) {
             // 1) أعلى جودة مباشرة (أغلب الـ GIF القصيرة تنجح من أول محاولة)
-            let hi = topQ
+            let hi = big ? 80 : 88
             const top = await read({ fps: t.fps, size: t.size, q: hi })
             lastBuf = top
             if (top.length <= maxBytes) return top
@@ -34384,8 +34367,7 @@ if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
             // واتساب يرفض الستيكر المتحرك لو تجاوز ~1MB، فنختار أعلى جودة وأسلس حركة تدخل تحت الحد
             // تعثر الإرسال → نصغّر بخطوات خفيفة (950 ← 800 ← 650 كيلوبايت) بدل القفز لحجم صغير جداً
             let _lastSize = Infinity
-            const _near = _inBytes >= 700 * 1000 && _inBytes <= 1600 * 1000
-            for (const limit of (_near ? [880 * 1000, 750 * 1000, 650 * 1000] : [950 * 1000, 800 * 1000, 650 * 1000])) {
+            for (const limit of [950 * 1000, 800 * 1000, 650 * 1000]) {
                 if (_lastSize <= limit) continue // الملف السابق أصغر أصلاً، إعادة المحاولة بنفس الحجم بلا فائدة
                 const w = await _convertVideo(limit)
                 _lastSize = w.length
