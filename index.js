@@ -451,6 +451,8 @@ for (const _wFn of [
     'awardBattlePoints',
     'awardAttackPoints',
     'awardEvolutionPoints',
+    'awardDuel',
+    'awardCounter',
     'endWorldSeason'
 ]) {
     try {
@@ -5097,6 +5099,7 @@ const bossPush = createBossPush({ Player })
 // 🏰 غزو المملكة من الموقع — نفس منطق .غزو (يشارك raidLocks + بونص شادو)
 const kingdomRaidSystem = createKingdomRaidSystem({
     Player,
+    worlds,
     companionsData,
     raidLocks,
     addCommandXp,
@@ -5150,6 +5153,7 @@ const warSystem = createWarSystem({ Player, applyDogBonus })
 // ⚔️ التحدي المباشر من الموقع (نفس نظام .تحدي / .قبول_تحدي / .هجوم الخصم / .مهارة / .ألتميت)
 const siteChallenge = require('./systems/siteChallenge')({
     Player,
+    worlds,
     PvP,
     mongoose,
     equipmentSystem,
@@ -5181,6 +5185,7 @@ const siteXO = require('./systems/siteXO')({ Player })
 // 🏟️ أرينا PvP (النسخة 3) على الموقع — نفس منطق .قتال pvp بالضبط (systems/siteArena.js + systems/pvpBattle.js)
 const siteArena = require('./systems/siteArena')({
     Player,
+    worlds,
     getTotalStats,
     equipmentSystem,
     getWeaponBonus: getWeaponBonusForCharacter,
@@ -5198,6 +5203,7 @@ const siteArena = require('./systems/siteArena')({
 // 🏟️ تحدي ارينا على الموقع — نفس بيانات أرينا البوت (arenaSystem/arenaData/player.arena) بمعركة فريق 3 ضد 3 بنمط BBS (systems/siteArenaChallenge.js)
 const siteArenaChallenge = require('./systems/siteArenaChallenge')({
     Player,
+    worlds,
     getSock: () => siteSockRef.current,
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid),
     orbs
@@ -5283,6 +5289,7 @@ const siteAchievements = require('./systems/siteAchievements').create({ Player }
 // يشارك weaponPullLocks + weaponPulls + weaponPity مع أمر الواتساب (نفس الرصيد ونفس العداد)
 const siteWeaponBanner = require('./systems/siteWeaponBanner').createSiteWeaponBanner({
     Player,
+    worlds,
     weaponsList,
     weaponPullLocks,
     dailyPulls: WEAPON_DAILY_PULLS,
@@ -5301,7 +5308,11 @@ const siteTower = require('./systems/siteTower')({
     getSock: () => siteSockRef.current
 })
 
+// 🌌 صفحة عوالم الأنمي (systems/siteWorlds.js) — /u/:code/worlds
+const siteWorldsPage = require('./systems/siteWorlds').createSiteWorlds({ Player, worlds })
+
 registerCharacterSite(app, Player, {
+    worldsPage: siteWorldsPage,
     weaponBanner: siteWeaponBanner,
     achievements: siteAchievements,
     missions: siteMissions,
@@ -6509,24 +6520,20 @@ if (winner) {
     await orbs.trackMission(winner.userId, 'brawlWins', { sock, jid })
 }
 
-// 🌍 نقاط العوالم: تُمنح للفائز بس إذا كان الخصم من عالم مختلف عن عالمه
+// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (player1) يُخصم منه 1
 const brawlLoser =
     winner === player1 ? player2 : player1
 
-// ⚡ دمج رسالة "+نقطة عالم" برسالة نتيجة المضاربة بدل رسالة واتساب مستقلة
 let brawlWorldPointsText = null
 
-if (
-    winner &&
-    winner.world &&
-    brawlLoser.world &&
-    winner.world !== brawlLoser.world
-) {
-    brawlWorldPointsText = await worlds.awardBattlePoints(
+if (winner) {
+    brawlWorldPointsText = await worlds.awardDuel('brawl', {
         winner,
+        loser: brawlLoser,
+        attacker: player1,
         sock,
         jid
-    )
+    })
 }
 
 const brawlWorldPointsSuffix = brawlWorldPointsText ? `\n\n${brawlWorldPointsText}` : ''
@@ -8780,8 +8787,11 @@ const commandExplanations = {
         '.ديني': 'أمر تفاعلي ضمن أسئلة لعبة القلوب الجماعية.',
     },
     'العوالم': {
-        '.تفاصيل_العوالم': 'يعرض تفاصيل موسم العوالم الحالي وحالتك فيه.',
-        '.ترتيب_العوالم': 'يعرض ترتيب اللاعبين/العشائر بموسم العوالم الحالي.',
+        '.العوالم': 'يعرض قائمة عوالم الأنمي (100 عالم) المتاحة والمحجوزة. مثال: .العوالم 2',
+        '.انضم': 'ينضم لعالم أنمي واحد (لاعب واحد لكل عالم) ويتنافس أسبوعياً. مثال: .انضم ناروتو أو .انضم 3',
+        '.عالمي': 'يعرض عالمك ونقاطك وترتيبك وأنظمة النقاط المحتسبة هذا الأسبوع.',
+        '.تفاصيل_العوالم': 'للمطور — يعرض كل العوالم المحجوزة ونقاط أصحابها هذا الأسبوع.',
+        '.ترتيب_العوالم': 'يعرض ترتيب أفضل العوالم هذا الأسبوع والأنظمة المحتسبة (أول 5 يربحون جوائز كبيرة).',
     },
     'الانتقالات': {
         '.انتقال': 'ينشئ عرض انتقال (نقل) شخصية للاعب آخر مقابل سعر. مثال: .انتقال "اسم_الشخصية" السعر',
@@ -16541,6 +16551,16 @@ await winnerData.save()
 await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })
 await loserData.save()
 
+// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (صاحب .تحدي = player1) يُخصم منه 1
+const challengeWorldTextA = await worlds.awardDuel('challenge', {
+    winner: winnerData,
+    loser: loserData,
+    attacker: fight.player1 === winnerData.userId ? winnerData : loserData,
+    sock,
+    jid: msg.key.remoteJid
+})
+const challengeWorldSuffixA = challengeWorldTextA ? `\n\n${challengeWorldTextA}` : ''
+
 await PvP.deleteOne({
     _id: fight._id
 })
@@ -16563,7 +16583,7 @@ return safeSend(msg.key.remoteJid, {
 
 ${boxReward}
 
-${rankUpMessage}${newRankBlock3}`,
+${rankUpMessage}${newRankBlock3}${challengeWorldSuffixA}`,
 mentions: [winner]
 })
     }
@@ -16991,6 +17011,16 @@ await winnerData.save()
 await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })  
 await loserData.save()  
 
+// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (صاحب .تحدي = player1) يُخصم منه 1
+const challengeWorldTextB = await worlds.awardDuel('challenge', {
+    winner: winnerData,
+    loser: loserData,
+    attacker: fight.player1 === winnerData.userId ? winnerData : loserData,
+    sock,
+    jid: msg.key.remoteJid
+})
+const challengeWorldSuffixB = challengeWorldTextB ? `\n\n${challengeWorldTextB}` : ''
+
 await PvP.deleteOne({  
     _id: fight._id  
 })  
@@ -17014,7 +17044,7 @@ return safeSend(msg.key.remoteJid, {
 
 ${boxReward}
 
-${rankUpMessage}${newRankBlock1}`,
+${rankUpMessage}${newRankBlock1}${challengeWorldSuffixB}`,
 mentions: [winner]
 })
 }
@@ -17501,6 +17531,16 @@ await winnerData.save()
 await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: msg.key.remoteJid })  
 await loserData.save()  
 
+// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (صاحب .تحدي = player1) يُخصم منه 1
+const challengeWorldTextC = await worlds.awardDuel('challenge', {
+    winner: winnerData,
+    loser: loserData,
+    attacker: fight.player1 === winnerData.userId ? winnerData : loserData,
+    sock,
+    jid: msg.key.remoteJid
+})
+const challengeWorldSuffixC = challengeWorldTextC ? `\n\n${challengeWorldTextC}` : ''
+
 await PvP.deleteOne({  
     _id: fight._id  
 })  
@@ -17524,7 +17564,7 @@ return safeSend(msg.key.remoteJid, {
 
 ${boxReward}
 
-${rankUpMessage}${newRankBlock2}`,
+${rankUpMessage}${newRankBlock2}${challengeWorldSuffixC}`,
 mentions: [winner]
 })
 }
@@ -19452,6 +19492,10 @@ ${stage.power}
 
     await checkAndGrantAchievement(player, 'kingdom', player.kingdomTotalStages, sock, msg.key.remoteJid)
 
+    // 🌍 نقاط العوالم (أسبوعية): كل طابقين = نقطة
+    const kingdomWorldText = await worlds.awardCounter(player, sock, msg.key.remoteJid, 'kingdom', 1)
+    const kingdomWorldSuffix = kingdomWorldText ? `\n\n${kingdomWorldText}` : ''
+
     if (
         player.kingdomRaid.stage >= 10
     ) {
@@ -19468,7 +19512,7 @@ ${stage.power}
 💰 إجمالي الأرباح:
 ${(player.kingdomRaid.totalEarned || 2000000).toLocaleString()}
 
-⏳ يتجدد عند 12:00 ليلاً`
+⏳ يتجدد عند 12:00 ليلاً${kingdomWorldSuffix}`
             }
         )
     }
@@ -19489,7 +19533,7 @@ ${(player.kingdomRaid.totalEarned || 2000000).toLocaleString()}
 🔒 تم استنزاف الشخصية
 
 📍 التقدم:
-${player.kingdomRaid.stage}/10${shadowBonusText}`
+${player.kingdomRaid.stage}/10${shadowBonusText}${kingdomWorldSuffix}`
         }
     )
 
@@ -19869,6 +19913,12 @@ ${damage.toLocaleString()}
 
 ❤️ المتبقي:
 ${target.hp.toLocaleString()}/${target.maxHp.toLocaleString()}`
+// 🌍 نقاط العوالم (أسبوعية): كل 3 ضربات على كوراما/الجوبي = نقطة
+{
+    const beastWorldText = await worlds.awardCounter(player, sock, msg.key.remoteJid, 'beast_hits', 1)
+    if (beastWorldText) result += `\n\n${beastWorldText}`
+}
+
 if (target.attackCounter >= 3) {
 
     target.attackCounter = 0
@@ -20533,6 +20583,12 @@ ${damage.toLocaleString()}
 
 ❤️ المتبقي:
 ${target.hp.toLocaleString()}/${target.maxHp.toLocaleString()}`
+
+// 🌍 نقاط العوالم (أسبوعية): كل 3 ضربات على كوراما/الجوبي = نقطة
+{
+    const beastWorldText = await worlds.awardCounter(player, sock, msg.key.remoteJid, 'beast_hits', 1)
+    if (beastWorldText) result += `\n\n${beastWorldText}`
+}
 
 if (target.attackCounter >= 3) {
 
@@ -30121,6 +30177,10 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         addCommandXp(player, COMMAND_XP.weaponPull)
         await player.save()
 
+        // 🌍 نقاط العوالم (أسبوعية): كل 5 سحبات سلاح = نقطة
+        const weaponWorldText = await worlds.awardCounter(player, sock, msg.key.remoteJid, 'weapon_pull', 1)
+        const weaponWorldSuffix = weaponWorldText ? `\n\n${weaponWorldText}` : ''
+
         const pityLeft = WEAPON_PITY_CAP - player.weaponPity
 
         if (!won) {
@@ -30134,7 +30194,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
 🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${WEAPON_DAILY_PULLS}
 🎯 عداد الضمان ➤ ${player.weaponPity}/${WEAPON_PITY_CAP}
-📌 المتبقي للضمان ➤ ${pityLeft} سحبة
+📌 المتبقي للضمان ➤ ${pityLeft} سحبة${weaponWorldSuffix}
 
 ⚔️═══════════════════⚔️`
             })
@@ -30156,7 +30216,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${WEAPON_DAILY_PULLS}
 🎯 عداد الضمان ➤ ${player.weaponPity}/${WEAPON_PITY_CAP}
 
-${guaranteed ? "🎯 حصلت عليه من ضمان الأسلحة!\n\n" : ""}💡 استخدم .تركيب_سلاح لتركيبه على إحدى شخصياتك
+${guaranteed ? "🎯 حصلت عليه من ضمان الأسلحة!\n\n" : ""}💡 استخدم .تركيب_سلاح لتركيبه على إحدى شخصياتك${weaponWorldSuffix}
 
 ⚔️═══════════════════⚔️`
 
@@ -38074,6 +38134,16 @@ ${rosterText(teamB)}
                 await attacker.save()
                 await defender.save()
 
+                // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم يُخصم منه 1
+                const pvpWorldText = await worlds.awardDuel('pvp', {
+                    winner,
+                    loser: winner === attacker ? defender : attacker,
+                    attacker,
+                    sock,
+                    jid: msg.key.remoteJid
+                })
+                const pvpWorldSuffix = pvpWorldText ? `\n\n${pvpWorldText}` : ''
+
                 // 🔮 مهمة الأورب: الفوز في PvP
                 await orbs.trackMission(winner.userId, 'pvpWins', { sock, jid: msg.key.remoteJid })
 
@@ -38142,7 +38212,7 @@ ${attacker.rank} (${attacker.mmr}) ${attackerDelta}
 ${defender.rank} (${defender.mmr}) ${defenderDelta}
 
 🎟️ قتالاتك المتبقية اليوم:
-${attacker.pvpFights}/20${teamA.auto ? '\n\n💡 فريقك تلقائي (أقوى 3 شخصيات). حدده بـ: .pvp 1 2 3' : ''}${rankMessages}${pvpViaUsername ? `\n\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}`,
+${attacker.pvpFights}/20${teamA.auto ? '\n\n💡 فريقك تلقائي (أقوى 3 شخصيات). حدده بـ: .pvp 1 2 3' : ''}${rankMessages}${pvpWorldSuffix}${pvpViaUsername ? `\n\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}`,
 
                     mentions: [
                         attacker.userId,
@@ -39061,21 +39131,14 @@ if (winnerId === userId) {
     await orbs.trackMission(userId, 'groupWins', { sock, jid: msg.key.remoteJid })
 }
 
-// 🌍 نقاط العوالم: تُمنح للفائز بس إذا كان الخصم من عالم مختلف عن عالمه
-// ⚡ دمج رسالة "+نقطة عالم" برسالة نتيجة القتال بدل رسالة واتساب مستقلة
-let groupBattleWorldPointsText = null
-
-if (
-    me.world &&
-    enemy.world &&
-    me.world !== enemy.world
-) {
-    groupBattleWorldPointsText = await worlds.awardBattlePoints(
-        winnerId === userId ? me : enemy,
-        sock,
-        msg.key.remoteJid
-    );
-}
+// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (me) يُخصم منه 1
+let groupBattleWorldPointsText = await worlds.awardDuel('group_battle', {
+    winner: winnerId === userId ? me : enemy,
+    loser: winnerId === userId ? enemy : me,
+    attacker: me,
+    sock,
+    jid: msg.key.remoteJid
+})
 
 const groupBattleWorldPointsSuffix = groupBattleWorldPointsText ? `\n\n${groupBattleWorldPointsText}` : ''
 
@@ -39586,6 +39649,17 @@ if (text === '.قتال' || text.startsWith('.قتال ')) {
         // الرسالة النهائية
         // =====================
 
+        // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (me) يُخصم منه 1
+        const fightNormalIWon = finalMyAttack >= finalEnemyAttack
+        const fightWorldText = await worlds.awardDuel('fight_normal', {
+            winner: fightNormalIWon ? me : enemy,
+            loser: fightNormalIWon ? enemy : me,
+            attacker: me,
+            sock,
+            jid: msg.key.remoteJid
+        })
+        const fightWorldSuffix = fightWorldText ? `\n\n${fightWorldText}` : ''
+
         const battleMessage = `
 ╔══════════════════════╗
         ⚔️ 𝐄𝐏𝐈𝐂 𝐁𝐀𝐓𝐓𝐋𝐄 ⚔️
@@ -39625,7 +39699,7 @@ ${reward}
 🎟️ القتالات المتبقية:
 ${me.normalFights}/${NORMAL_FIGHTS_MAX}
 
-━━━━━━━━━━━━━━━━━━${normalFightViaUsername ? `\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)\n━━━━━━━━━━━━━━━━━━` : ''}
+━━━━━━━━━━━━━━━━━━${normalFightViaUsername ? `\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)\n━━━━━━━━━━━━━━━━━━` : ''}${fightWorldSuffix}
 🔥 نهاية القتال
 `
 
