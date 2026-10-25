@@ -7490,76 +7490,71 @@ ${juubi.maxHp.toLocaleString()}
 
        
 
- async function videoToSticker(
-    input,
-    output
-) {
+const _stickerLocks = new Set() // قفل لكل مستخدم: ستيكر واحد في نفس الوقت (يحمي السيرفر من ضغط ffmpeg)
 
-    return new Promise(
-        (
-            resolve,
-            reject
-        ) => {
+// 🎞️ تحويل فيديو/GIF لستيكر متحرك (قص مربع من المنتصف) — opts: { fps, q, size }
+async function videoToSticker(input, output, opts = {}) {
+    const fps = opts.fps || 20
+    const q = opts.q || 70
+    const size = opts.size || 512
 
-            ffmpeg(input)
-
+    return new Promise((resolve, reject) => {
+        ffmpeg(input)
             .duration(10)
-
             .outputOptions([
-    '-vcodec',
-    'libwebp',
-
-    '-vf',
-    'fps=20,scale=512:512:force_original_aspect_ratio=increase,crop=512:512',
-
-    '-loop',
-    '0',
-
-    '-an',
-
-    '-pix_fmt',
-'yuv420p',
-
-    '-q:v',
-    '35',
-
-    '-compression_level',
-    '6'
-])
-
+                '-vcodec', 'libwebp',
+                '-vf', `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=increase,crop=${size}:${size}`,
+                '-loop', '0',
+                '-an',
+                '-vsync', '0',
+                '-pix_fmt', 'yuv420p',
+                '-q:v', String(q),
+                '-compression_level', '6'
+            ])
             .toFormat('webp')
-
             .save(output)
+            .on('end', () => resolve())
+            .on('error', (err) => {
+                console.log('FFMPEG ERROR FULL:')
+                console.error(err)
+                reject(err)
+            })
+    })
+}
 
-            .on(
-                'end',
-                () => {
-
-                    console.log(
-                        '✅ WEBP CREATED'
-                    )
-
-                    resolve()
-                }
-            )
-
-            .on(
-                'error',
-                (err) => {
-
-                    console.log(
-                        'FFMPEG ERROR FULL:'
-                    )
-
-                    console.error(
-                        err
-                    )
-
-                    reject(err)
-                }
-            )
+// 🏷️ كتابة الحقوق (اسم الحزمة + الكاتب) داخل ملف ستيكر webp (ثابت أو متحرك)
+// الطريقة 1: حقن EXIF مباشرة بدون إعادة ترميز (جودة كاملة) عبر node-webpmux
+// الطريقة 2 (احتياط): مكتبة wa-sticker-formatter
+async function setStickerRights(webpBuf, pack, author) {
+    try {
+        const WebP = require('node-webpmux')
+        const img = new WebP.Image()
+        await img.load(webpBuf)
+        const json = {
+            'sticker-pack-id': require('crypto').randomBytes(16).toString('hex'),
+            'sticker-pack-name': pack,
+            'sticker-pack-publisher': author,
+            emojis: []
         }
-    )
+        const exifAttr = Buffer.from([
+            0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57,
+            0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00
+        ])
+        const jsonBuf = Buffer.from(JSON.stringify(json), 'utf8')
+        const exif = Buffer.concat([exifAttr, jsonBuf])
+        exif.writeUIntLE(jsonBuf.length, 14, 4)
+        img.exif = exif
+        const out = await img.save(null)
+        if (out && out.length) return out
+    } catch (e) {
+        console.log('EXIF DIRECT SKIPPED:', e?.message || e)
+    }
+    return await new Sticker(webpBuf, {
+        pack,
+        author,
+        type: StickerTypes.FULL,
+        quality: 100
+    }).toBuffer()
 }
 
     
@@ -8802,7 +8797,7 @@ const commandExplanations = {
         '.دخول_زون': 'يدخل منطقة/زون معيّنة ضمن أحد أنظمة اللعبة.',
     },
     'العاب_متفرقة': {
-        '.س': 'يحوّل صورة أو GIF أو فيديو (بالرد عليه) إلى ستيكر.',
+        '.س': 'يحوّل صورة أو GIF أو فيديو (بالرد عليه) إلى ستيكر. وبالرد على ستيكر يغيّر حقوقه: .س اسم_الحزمة اسم_الكاتب',
         '.كت': 'يرسل قائمة أسماء أنمي عشوائية (تستخدم بألعاب مثل التخمين).',
         '.xo': 'يبدأ مباراة إكس-أو (XO/Tic-Tac-Toe) مع لاعب آخر بالمنشن.',
         '.موافق': 'يوافق على دعوة مباراة (مثل XO) مرسلة لك.',
@@ -34069,218 +34064,176 @@ ${fixed}`
 
     
     
-if (text === '.س') {
+if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
+
+    // 🏷️ الحقوق: .س ← الحقوق العادية | .س اسم ← الحزمة فقط (الكاتب فارغ) | .س اسم كاتب ← الاثنين
+    // لأسماء فيها مسافات استخدم | مثل: .س اسم الحزمة | اسم الكاتب
+    const _DEF_PACK = '❖ 𝑵𝒂𝒎𝒊𝒊 𝑺𝒘𝒂𝒏 ❖'
+    const _EMPTY = '\u2800' // فراغ غير مرئي (بدون نقطة)
+    let _stPack = _DEF_PACK
+    let _stAuthor = '.'
+    const _stArgs = text.slice(2).trim()
+    if (_stArgs) {
+        let _p1, _p2
+        if (_stArgs.includes('|')) {
+            const _i = _stArgs.indexOf('|')
+            _p1 = _stArgs.slice(0, _i).trim()
+            _p2 = _stArgs.slice(_i + 1).trim()
+        } else {
+            const _m = _stArgs.match(/^(\S+)\s+([\s\S]+)$/)
+            _p1 = _m ? _m[1] : _stArgs
+            _p2 = _m ? _m[2].trim() : ''
+        }
+        _stPack = Array.from(_p1).slice(0, 64).join('') || _EMPTY
+        _stAuthor = Array.from(_p2).slice(0, 64).join('') || _EMPTY
+    }
+
+    const _stKey = userId || msg.key.remoteJid
+
+    if (_stickerLocks.has(_stKey)) {
+        return safeSend(msg.key.remoteJid, { text: '⏳ انتظر، ستيكرك السابق ما زال قيد التحويل.' })
+    }
+    _stickerLocks.add(_stKey)
+
+    // 🧹 ملفات الفيديو المؤقتة (تُحذف دائماً: نجاح أو فشل)
+    let input = null, output = null
+    const _cleanupTmp = () => Promise.all([
+        input && fs.promises.unlink(input).catch(() => {}),
+        output && fs.promises.unlink(output).catch(() => {})
+    ])
+    const _react = emoji => sock.sendMessage(msg.key.remoteJid, { react: { text: emoji, key: msg.key } }).catch(() => {})
 
     try {
 
-        const quoted =
-            msg.message
-            ?.extendedTextMessage
-            ?.contextInfo
+        const quoted = msg.message?.extendedTextMessage?.contextInfo
 
-        if (
-            !quoted ||
-            !quoted.quotedMessage
-        ) {
-            return safeSend(
-                msg.key.remoteJid,
-                {
-                    text:
-'❌ قم بالرد على صورة أو GIF أو فيديو'
-                }
-            )
+        if (!quoted || !quoted.quotedMessage) {
+            return safeSend(msg.key.remoteJid, {
+                text:
+`❌ قم بالرد على صورة أو GIF أو فيديو أو ستيكر
+
+🖼️ .س ← يحوّل الصورة/الفيديو لستيكر
+🏷️ .س اسم ← بالرد على ستيكر يغيّر حقوقه
+🏷️ .س اسم كاتب ← الحزمة والكاتب`
+            })
         }
 
-        const quotedMsg =
-            quoted.quotedMessage
+        // فك الأغلفة (عرض مرة واحدة / رسائل مؤقتة) + دعم الملفات المرسلة كمستند
+        let quotedMsg = quoted.quotedMessage
+        quotedMsg = quotedMsg.ephemeralMessage?.message
+            || quotedMsg.viewOnceMessage?.message
+            || quotedMsg.viewOnceMessageV2?.message
+            || quotedMsg.viewOnceMessageV2Extension?.message
+            || quotedMsg
+        const _doc = quotedMsg.documentMessage
+        const _isSticker = !!quotedMsg.stickerMessage
+        const _isImg = !!quotedMsg.imageMessage || (_doc && /^image\//.test(_doc.mimetype || ''))
+        const _isVid = !!quotedMsg.videoMessage || (_doc && /^video\//.test(_doc.mimetype || ''))
+
+        if (!_isSticker && !_isImg && !_isVid) {
+            return safeSend(msg.key.remoteJid, { text: '❌ الوسائط غير مدعومة، ارد على صورة أو GIF أو فيديو أو ستيكر.' })
+        }
+
+        _react('⏳')
 
         let buffer
-
-try {
-
-    buffer = await downloadMediaMessage(
-        {
-            message: quotedMsg
-        },
-        'buffer',
-        {},
-        {
-            logger: console,
-            reuploadRequest: sock.updateMediaMessage
-        }
-    )
-
-} catch (err) {
-
-    console.log('DOWNLOAD MEDIA ERROR:')
-    console.error(err)
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text: '❌ تعذر تحميل الوسائط، أعد إرسال الصورة ثم حاول مرة أخرى.'
-        }
-    )
-
-}
-
-        // صورة
-        if (
-            quotedMsg.imageMessage
-        ) {
-
-            const sticker =
-    new Sticker(
-        buffer,
-        {
-            pack:
-'❖ 𝑵𝒂𝒎𝒊𝒊 𝑺𝒘𝒂𝒏 ❖',
-
-            author: '.',
-
-            type:
-            StickerTypes.CROPPED,
-
-            quality: 100
-        }
-    )
-            const webp =
-                await sticker.toBuffer()
-
-            return sock.sendMessage(
-                msg.key.remoteJid,
-                {
-                    sticker:
-                    webp
-                }
+        try {
+            buffer = await downloadMediaMessage(
+                { message: quotedMsg },
+                'buffer',
+                {},
+                { logger: console, reuploadRequest: sock.updateMediaMessage }
             )
+        } catch (err) {
+            console.log('DOWNLOAD MEDIA ERROR:')
+            console.error(err)
+            _react('❌')
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ تعذر تحميل الوسائط، أعد إرسال الستيكر/الصورة ثم حاول مرة أخرى.'
+            })
         }
 
-        // فيديو / GIF
-if (quotedMsg.videoMessage) {
-if (quotedMsg.videoMessage.seconds > 10) {
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text: '❌ الحد الأقصى 10 ثواني'
+        // ───────── ستيكر موجود (من شخص أو مني): تغيير الحقوق فقط ─────────
+        if (_isSticker) {
+            const webp = await setStickerRights(buffer, _stPack, _stAuthor)
+            await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
+            _react('✅')
+            return
         }
-    )
-}
 
-console.log(
-    'MIMETYPE:',
-    quotedMsg.videoMessage.mimetype
-)
-    console.log(
-        'GIF PLAYBACK:',
-        quotedMsg.videoMessage?.gifPlayback
-    )
-
-    console.log(
-        'VIDEO SECONDS:',
-        quotedMsg.videoMessage?.seconds
-    )
-
-    const _tmpStamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-
-    const input =
-        `./tmp_${_tmpStamp}.mp4`
-
-    const output =
-        `./tmp_${_tmpStamp}.webp`
-
-    // 🧹 حذف الملفات المؤقتة دائماً (نجاح أو فشل ffmpeg أو فشل الإرسال)
-    const _cleanupTmp = () => Promise.all([
-        fs.promises.unlink(input).catch(() => {}),
-        fs.promises.unlink(output).catch(() => {})
-    ])
-
-    try {
-
-    await fs.promises.writeFile(
-        input,
-        buffer
-    )
-
-    try {
-
-    await videoToSticker(
-        input,
-        output
-    )
-
-} catch (err) {
-
-    console.log(
-        'VIDEO CONVERT ERROR:'
-    )
-
-    console.error(err)
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-'❌ فشل ffmpeg أثناء التحويل'
+        // ───────── صورة ─────────
+        if (_isImg) {
+            const sticker = new Sticker(buffer, {
+                pack: _stPack,
+                author: _stAuthor,
+                type: StickerTypes.CROPPED,
+                quality: 100
+            })
+            const webp = await sticker.toBuffer()
+            await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
+            _react('✅')
+            return
         }
-    )
-}
-const stat =
-    await fs.promises.stat(
-        output
-    )
 
-console.log(
-    'WEBP SIZE:',
-    stat.size
-)
-    
+        // ───────── فيديو / GIF (أول 10 ثواني تلقائياً) ─────────
+        const _stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        input = `./tmp_${_stamp}.mp4`
+        output = `./tmp_${_stamp}.webp`
+        await fs.promises.writeFile(input, buffer)
 
-const webp =
-    await fs.promises.readFile(
-        output
-    )
-
-await sock.sendMessage(
-    msg.key.remoteJid,
-    {
-        sticker: webp
-    }
-)
-
-return
-
-} finally {
-    await _cleanupTmp()
-}
-}
-
-        return safeSend(
-            msg.key.remoteJid,
-            {
-                text:
-'❌ الوسائط غير مدعومة'
+        // أعلى جودة ممكنة، وواتساب يرفض المتحرك لو تجاوز ~1MB، فننزّل الجودة تدريجياً فقط عند الحاجة
+        const MAX_BYTES = 900 * 1000
+        const attempts = [
+            { fps: 20, q: 80, size: 512 },
+            { fps: 20, q: 65, size: 512 },
+            { fps: 15, q: 52, size: 512 },
+            { fps: 15, q: 42, size: 512 },
+            { fps: 12, q: 33, size: 512 },
+            { fps: 10, q: 26, size: 448 },
+            { fps: 8,  q: 20, size: 384 }
+        ]
+        let webp = null
+        for (const a of attempts) {
+            try {
+                await videoToSticker(input, output, a)
+            } catch (err) {
+                console.log('VIDEO CONVERT ERROR:')
+                console.error(err)
+                _react('❌')
+                return safeSend(msg.key.remoteJid, { text: '❌ فشل ffmpeg أثناء التحويل' })
             }
-        )
+            webp = await fs.promises.readFile(output)
+            console.log('WEBP SIZE:', webp.length, JSON.stringify(a))
+            if (webp.length <= MAX_BYTES) break
+        }
+
+        if (webp.length > MAX_BYTES * 1.1) {
+            _react('❌')
+            return safeSend(msg.key.remoteJid, { text: '❌ الفيديو ثقيل جداً حتى بعد الضغط، جرّب مقطعاً أقصر أو أبسط.' })
+        }
+
+        // 🏷️ الحقوق على الستيكر المتحرك (لو فشلت الإضافة نرسله بدونها)
+        try {
+            const tagged = await setStickerRights(webp, _stPack, _stAuthor)
+            if (tagged && tagged.length && tagged.length <= MAX_BYTES * 1.15) webp = tagged
+        } catch (e) {
+            console.log('STICKER RIGHTS SKIPPED:', e?.message || e)
+        }
+
+        await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
+        _react('✅')
+        return
 
     } catch (err) {
-
-    console.log('STICKER ERROR FULL:')
-    console.error(err)
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text:
-'❌ فشل إنشاء الستيكر'
-        }
-    )
+        console.log('STICKER ERROR FULL:')
+        console.error(err)
+        return safeSend(msg.key.remoteJid, { text: '❌ فشل إنشاء الستيكر' })
+    } finally {
+        _stickerLocks.delete(_stKey)
+        await _cleanupTmp()
+    }
 }
-}
-                    
-    
 
-    
 if (text === '.مضارباتي') {
 
     const player =
