@@ -14,6 +14,29 @@
 // 🔒 اجعلها false لإخفاء وسط الأرقام (مثال: 96655•••12) لو بغيت تحمي خصوصية اللاعبين
 const SHOW_FULL_NUMBERS = true
 const PER_PAGE = 15
+
+// 🙈 مستبعدون من القائمة (الصفحة فقط — اللاعبون يبقون بالبوت عادي)
+// بالرقم (مع رمز الدولة بدون +)، ولو ما انعرف رقم اللاعب (هوية @lid بدون phoneJid) نستبعده بالاسم.
+const HIDDEN_NUMBERS = new Set([
+    '9647510504445',  // Da
+    '966588280000',   // I Don't Care
+    '966572672667',   // Lucas
+    '967736761191',   // Mo7amed Albokari
+    '4915212234495',  // Reem
+    '967736106851',   // Reem Bot
+    '966562862696',   // Vv
+    '12627166078',    // Zhao (رقم)
+    '966550373024',   // عساف
+    '821043192545'    // هلهل
+])
+const HIDDEN_NAMES = ['da', "i don't care", 'lucas', 'mo7amed albokari', 'reem', 'reem bot', 'vv', 'zhao', 'عساف', 'هلهل']
+const HIDDEN_USERNAMES = new Set(['1zhao'])
+
+// توحيد الاسم للمقارنة: بدون ~ ولا تشكيل ولا تطويل، أحرف صغيرة
+function normName(n) {
+    return String(n || '').toLowerCase().replace(/[~\u0640\u064B-\u065F]/g, '').replace(/\s+/g, ' ').trim()
+}
+const HIDDEN_NAME_SET = new Set(HIDDEN_NAMES.map(normName))
 const CACHE_MS = 60 * 1000 // القائمة الخفيفة (بدون الشخصيات) تُحمَّل مرة بالدقيقة كحد أقصى
 
 function createSiteIds({ Player, avatarOf }) {
@@ -46,7 +69,11 @@ function createSiteIds({ Player, avatarOf }) {
                 name: String(r.name || '').trim() || 'بدون اسم',
                 username: r.username ? String(r.username) : '',
                 num: numberOf(r)
-            }))
+            })).filter(p =>
+                !(p.num && HIDDEN_NUMBERS.has(p.num)) &&
+                !(p.username && HIDDEN_USERNAMES.has(p.username.toLowerCase())) &&
+                !(!p.num && HIDDEN_NAME_SET.has(normName(p.name)))
+            )
             cache = { at: Date.now(), list }
             return list
         })()
