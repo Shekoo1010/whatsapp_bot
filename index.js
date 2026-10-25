@@ -7630,7 +7630,7 @@ async function fitVideoSticker(input, output, maxBytes, job, inBytes = 0) {
         let lastBuf = null
         for (const t of tiers) {
             // 1) أعلى جودة مباشرة (أغلب الـ GIF القصيرة تنجح من أول محاولة)
-            let hi = big ? 55 : 88
+            let hi = big ? 40 : 88 // الجودة تبدأ من 40 وتنزل حتى 35 فقط
             const top = await read({ fps: t.fps, size: t.size, q: hi })
             lastBuf = top
             if (top.length <= maxBytes) return top
