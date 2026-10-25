@@ -1504,6 +1504,9 @@ function runPerUser(m, task) {
 
     if (!txt || txt.charCodeAt(0) !== 46 /* '.' */) return task()
 
+    // 🎞️ .س (ستيكر) لا يدخل الطابور: له قفل خاص، فأوامر نفس اللاعب الأخرى ما تنتظر تحويل الفيديو
+    if (txt === '.س' || txt.startsWith('.س ') || txt.startsWith('.س\n')) return task()
+
     const uid = m.key?.participant || m.key?.remoteJid
     if (!uid) return task()
 
@@ -7490,15 +7493,46 @@ ${juubi.maxHp.toLocaleString()}
 
        
 
+let _stickerActive = 0
+const _stickerWait = []
+const STICKER_MAX_PARALLEL = 2 // أقصى عدد تحويلات فيديو بنفس الوقت؛ الباقي ينتظر دوره
+function acquireStickerSlot() {
+    if (_stickerActive < STICKER_MAX_PARALLEL) { _stickerActive++; return Promise.resolve() }
+    return new Promise(resolve => _stickerWait.push(resolve))
+}
+function releaseStickerSlot() {
+    const next = _stickerWait.shift()
+    if (next) next()
+    else _stickerActive--
+}
+// 📤 إرسال ستيكر بحماية: مهلة زمنية + التقاط أي خطأ (لا يرمي أبداً، يرجع true/false)
+async function sendStickerSafe(sockRef, jid, webp, ms = 60000) {
+    let timer
+    try {
+        await Promise.race([
+            sockRef.sendMessage(jid, { sticker: webp }),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('SEND_TIMEOUT')), ms) })
+        ])
+        return true
+    } catch (e) {
+        console.log('STICKER SEND FAILED:', e?.message || e)
+        return false
+    } finally {
+        clearTimeout(timer)
+    }
+}
 const _stickerLocks = new Set() // قفل لكل مستخدم: ستيكر واحد في نفس الوقت (يحمي السيرفر من ضغط ffmpeg)
 
 // 🎬 تجهيز المقطع مرة واحدة: قص مربع 512 + أول 10 ثواني + معدل الإطارات المختار
 // (فك ضغط الفيديو الأصلي وتصغيره يتم هنا مرة واحدة فقط، وكل محاولات الجودة بعده تشتغل على ملف صغير وسريع)
-function prepClip(input, out, fps) {
+function prepClip(input, out, fps, job) {
     return new Promise((resolve, reject) => {
-        ffmpeg(input)
+        if (job && job.aborted) return reject(new Error('ABORTED'))
+        const _cmd = ffmpeg(input)
+            .renice(15)
             .duration(10)
             .outputOptions([
+                '-threads', '2',
                 '-vf', `fps=${fps},scale=512:512:force_original_aspect_ratio=increase:flags=lanczos,crop=512:512`,
                 '-an',
                 '-c:v', 'mpeg4',
@@ -7509,6 +7543,7 @@ function prepClip(input, out, fps) {
             .save(out)
             .on('end', () => resolve())
             .on('error', (err) => { console.log('PREP CLIP ERROR:'); console.error(err); reject(err) })
+        if (job) job.cmds.add(_cmd)
     })
 }
 
@@ -7520,8 +7555,11 @@ async function videoToSticker(input, output, opts = {}) {
     const vf = `fps=${fps}` + (size !== 512 ? `,scale=${size}:${size}:flags=lanczos` : '')
 
     return new Promise((resolve, reject) => {
-        ffmpeg(input)
+        if (opts.job && opts.job.aborted) return reject(new Error('ABORTED'))
+        const _cmd = ffmpeg(input)
+            .renice(15)
             .outputOptions([
+                '-threads', '2',
                 '-vcodec', 'libwebp',
                 '-vf', vf,
                 '-loop', '0',
@@ -7540,6 +7578,7 @@ async function videoToSticker(input, output, opts = {}) {
                 console.error(err)
                 reject(err)
             })
+        if (opts.job) opts.job.cmds.add(_cmd)
     })
 }
 
@@ -7560,13 +7599,13 @@ function probeVideoFps(input) {
 
 // 🏆 يبحث عن أعلى جودة تدخل تحت حد الحجم مع الحفاظ على سلاسة الحركة:
 // الجودة أولاً، ثم عدد الإطارات، ثم الدقة. وبأقل عدد ممكن من المحاولات (سرعة)
-async function fitVideoSticker(input, output, maxBytes) {
+async function fitVideoSticker(input, output, maxBytes, job) {
     const src = await probeVideoFps(input)
     const f1 = Math.round(src > 32 ? (src / 2 <= 32 ? src / 2 : 30) : src) // لا يتجاوز 30
     const prep = output.replace(/\.webp$/, '_p.mp4')
 
     try {
-        await prepClip(input, prep, f1)
+        await prepClip(input, prep, f1, job)
 
         const tiers = [
             { fps: f1,                                   size: 512, lo: 48 },
@@ -7575,7 +7614,7 @@ async function fitVideoSticker(input, output, maxBytes) {
             { fps: Math.max(8,  Math.round(f1 / 2)),     size: 400, lo: 28 }
         ]
         const read = async o => {
-            await videoToSticker(prep, output, o)
+            await videoToSticker(prep, output, { ...o, job })
             const b = await fs.promises.readFile(output)
             console.log('WEBP TRY:', b.length, JSON.stringify(o))
             return b
@@ -34193,6 +34232,11 @@ if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
         output && fs.promises.unlink(output).catch(() => {})
     ])
     const _react = emoji => sock.sendMessage(msg.key.remoteJid, { react: { text: emoji, key: msg.key } }).catch(() => {})
+    // ⚠️ عند أي تعثر: نكتب "تعثر" ونكمل (البوت لا يتوقف ولا يعلّق)
+    const _stumble = async (why) => {
+        _react('⚠️')
+        try { await safeSend(msg.key.remoteJid, { text: `⚠️ تعثر ${why}` }) } catch (_) {}
+    }
 
     try {
 
@@ -34246,23 +34290,32 @@ if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
 
         // ───────── ستيكر موجود (من شخص أو مني): تغيير الحقوق فقط ─────────
         if (_isSticker) {
-            const webp = await setStickerRights(buffer, _stPack, _stAuthor)
-            await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
-            _react('✅')
+            let ok = false
+            try {
+                const webp = await setStickerRights(buffer, _stPack, _stAuthor)
+                ok = await sendStickerSafe(sock, msg.key.remoteJid, webp)
+            } catch (e) { console.log('STICKER RIGHTS ERROR:', e?.message || e) }
+            if (ok) _react('✅'); else await _stumble('تغيير حقوق الستيكر، حاول مرة أخرى.')
             return
         }
 
         // ───────── صورة ─────────
         if (_isImg) {
-            const sticker = new Sticker(buffer, {
-                pack: _stPack,
-                author: _stAuthor,
-                type: StickerTypes.CROPPED,
-                quality: 100
-            })
-            const webp = await sticker.toBuffer()
-            await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
-            _react('✅')
+            let ok = false
+            // لو تعثر الإرسال بأعلى جودة نعيد المحاولة بجودة أقل (حجم أصغر)
+            for (const q of [100, 75, 50]) {
+                try {
+                    const webp = await new Sticker(buffer, {
+                        pack: _stPack,
+                        author: _stAuthor,
+                        type: StickerTypes.CROPPED,
+                        quality: q
+                    }).toBuffer()
+                    ok = await sendStickerSafe(sock, msg.key.remoteJid, webp)
+                    if (ok) break
+                } catch (e) { console.log('IMAGE STICKER ERROR (q=' + q + '):', e?.message || e) }
+            }
+            if (ok) _react('✅'); else await _stumble('إنشاء الستيكر (الصورة ثقيلة أو الجودة عالية)، جرّب صورة أخرى.')
             return
         }
 
@@ -34272,39 +34325,57 @@ if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
         output = `./tmp_${_stamp}.webp`
         await fs.promises.writeFile(input, buffer)
 
-        // واتساب يرفض الستيكر المتحرك لو تجاوز ~1MB، فنختار أعلى جودة وأسلس حركة تدخل تحت الحد
-        const MAX_BYTES = 950 * 1000
-        let webp
+        // تحويل كامل (ضغط + حقوق) بحماية: مهلة 3 دقائق توقف ffmpeg نفسه، ولا يعلّق البوت أبداً
+        const _convertVideo = async (maxBytes) => {
+            const job = { cmds: new Set(), aborted: false }
+            let to
+            await acquireStickerSlot()
+            try {
+                let w = await Promise.race([
+                    fitVideoSticker(input, output, maxBytes, job),
+                    new Promise((_, reject) => {
+                        to = setTimeout(() => {
+                            job.aborted = true
+                            for (const c of job.cmds) { try { c.kill('SIGKILL') } catch (_) {} }
+                            reject(new Error('CONVERT_TIMEOUT'))
+                        }, 180000)
+                    })
+                ])
+                if (!w || w.length > maxBytes * 1.1) throw new Error('TOO_BIG')
+                // 🏷️ الحقوق (لو فشلت الإضافة نرسله بدونها)
+                try {
+                    const tagged = await setStickerRights(w, _stPack, _stAuthor)
+                    if (tagged && tagged.length && tagged.length <= maxBytes * 1.15) w = tagged
+                } catch (e) { console.log('STICKER RIGHTS SKIPPED:', e?.message || e) }
+                return w
+            } finally {
+                clearTimeout(to)
+                releaseStickerSlot()
+            }
+        }
+
+        let ok = false
         try {
-            webp = await fitVideoSticker(input, output, MAX_BYTES)
+            // واتساب يرفض الستيكر المتحرك لو تجاوز ~1MB، فنختار أعلى جودة وأسلس حركة تدخل تحت الحد
+            // تعثر الإرسال → نصغّر بخطوات خفيفة (950 ← 800 ← 650 كيلوبايت) بدل القفز لحجم صغير جداً
+            let _lastSize = Infinity
+            for (const limit of [950 * 1000, 800 * 1000, 650 * 1000]) {
+                if (_lastSize <= limit) continue // الملف السابق أصغر أصلاً، إعادة المحاولة بنفس الحجم بلا فائدة
+                const w = await _convertVideo(limit)
+                _lastSize = w.length
+                ok = await sendStickerSafe(sock, msg.key.remoteJid, w)
+                if (ok) break
+            }
         } catch (err) {
-            console.log('VIDEO CONVERT ERROR:')
-            console.error(err)
-            _react('❌')
-            return safeSend(msg.key.remoteJid, { text: '❌ فشل ffmpeg أثناء التحويل' })
+            console.log('VIDEO STICKER FAILED:', err?.message || err)
         }
-
-        if (!webp || webp.length > MAX_BYTES * 1.1) {
-            _react('❌')
-            return safeSend(msg.key.remoteJid, { text: '❌ الفيديو ثقيل جداً حتى بعد الضغط، جرّب مقطعاً أقصر أو أبسط.' })
-        }
-
-        // 🏷️ الحقوق على الستيكر المتحرك (لو فشلت الإضافة نرسله بدونها)
-        try {
-            const tagged = await setStickerRights(webp, _stPack, _stAuthor)
-            if (tagged && tagged.length && tagged.length <= MAX_BYTES * 1.15) webp = tagged
-        } catch (e) {
-            console.log('STICKER RIGHTS SKIPPED:', e?.message || e)
-        }
-
-        await sock.sendMessage(msg.key.remoteJid, { sticker: webp })
-        _react('✅')
+        if (ok) _react('✅'); else await _stumble('إنشاء الستيكر (الحجم أو الجودة عالية أو المقطع ثقيل)، جرّب مقطعاً أقصر.')
         return
 
     } catch (err) {
         console.log('STICKER ERROR FULL:')
         console.error(err)
-        return safeSend(msg.key.remoteJid, { text: '❌ فشل إنشاء الستيكر' })
+        await _stumble('إنشاء الستيكر، حاول مرة أخرى.')
     } finally {
         _stickerLocks.delete(_stKey)
         await _cleanupTmp()
