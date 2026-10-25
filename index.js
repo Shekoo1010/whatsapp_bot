@@ -5311,8 +5311,12 @@ const siteTower = require('./systems/siteTower')({
 // 🌌 صفحة عوالم الأنمي (systems/siteWorlds.js) — /u/:code/worlds
 const siteWorldsPage = require('./systems/siteWorlds').createSiteWorlds({ Player, worlds })
 
+// 🪪 صفحة آيديات اللاعبين (systems/siteIds.js) — /u/:code/ids
+const siteIdsPage = require('./systems/siteIds').createSiteIds({ Player })
+
 registerCharacterSite(app, Player, {
     worldsPage: siteWorldsPage,
+    idsPage: siteIdsPage,
     weaponBanner: siteWeaponBanner,
     achievements: siteAchievements,
     missions: siteMissions,
