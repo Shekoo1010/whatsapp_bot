@@ -901,6 +901,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
         ['players', '👥', 'اللاعبون', `/u/${c}/players`],
+        ['ids', '🪪', 'آيديات اللاعبين', `/u/${c}/ids`],
         ['war', '⚔️', 'حرب الأعلام', `/u/${c}/war`],
         ['log', '📜', 'سجل الإهداءات', `/u/${c}/log`],
         ['book', '📖', 'كتاب المجموعة', `/u/${c}/book`],
@@ -5324,6 +5325,22 @@ function registerCharacterSite(app, Player, opts = {}) {
                 }
             })
         } catch (e) { console.error('site worlds mount error:', e) }
+    }
+
+    // 🪪 آيديات اللاعبين — /u/:code/ids (systems/siteIds.js) — بديل أمر .ايديات_اللاعبين بالواتس
+    if (opts.idsPage) {
+        try {
+            opts.idsPage.mount(app, {
+                auth, securityHeaders, CODE_RE, html404, ownerSession,
+                avatarOf: d => {
+                    try {
+                        const f = d && Array.isArray(d.characters) && d.characters[0]
+                            ? resolveDisplayChar(d.characters[0], getCatalogIndex(getCatalog)) : null
+                        return f ? safeImageUrl(f.image) : null
+                    } catch (e) { return null }
+                }
+            })
+        } catch (e) { console.error('site ids mount error:', e) }
     }
 
     // 🏆 إنجازاتي — /u/:code/achievements (systems/siteAchievements.js)
