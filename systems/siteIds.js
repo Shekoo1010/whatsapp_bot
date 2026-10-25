@@ -1,5 +1,6 @@
 // 🪪 صفحة «آيديات اللاعبين» بالموقع — systems/siteIds.js
 // بديل أمر .ايديات_اللاعبين بالواتس (كان يرسل الكل برسالة وحدة وثقيل).
+// تعرض فقط من سجّل يوزر بالبوت.
 // الصفحة: رقم الواتس + اسم الواتس + يوزر البوت + صورة البروفايل، بصفحات (15 لكل صفحة).
 //
 // الاستخدام:
@@ -38,8 +39,9 @@ function createSiteIds({ Player, avatarOf }) {
         if (cache && Date.now() - cache.at < CACHE_MS) return cache.list
         if (loading) return loading
         loading = (async () => {
-            const rows = await Player.find({}).select({ userId: 1, name: 1, username: 1, phoneJid: 1 }).lean()
-            const list = rows.filter(r => r.userId).map(r => ({
+            // فقط اللاعبين اللي سجّلوا يوزر بالبوت
+            const rows = await Player.find({ username: { $type: 'string', $ne: '' } }).select({ userId: 1, name: 1, username: 1, phoneJid: 1 }).lean()
+            const list = rows.filter(r => r.userId && String(r.username || '').trim()).map(r => ({
                 id: r.userId,
                 name: String(r.name || '').trim() || 'بدون اسم',
                 username: r.username ? String(r.username) : '',
@@ -213,7 +215,7 @@ h1{margin:10px 0 2px;text-align:center;font-size:24px;background:linear-gradient
   <a class="back" id="back" href="#">‹ رجوع</a>
   <h1>🪪 آيديات اللاعبين</h1>
   <div class="sub">الاسم بالواتس • اليوزر بالبوت • الرقم</div>
-  <div class="stat"><div><b id="cAll">0</b>كل اللاعبين</div><div><b id="cRes">0</b>نتيجة البحث</div></div>
+  <div class="stat"><div><b id="cAll">0</b>اللاعبين المسجّلين</div><div><b id="cRes">0</b>نتيجة البحث</div></div>
   <div class="bar">
     <input class="search" id="q" placeholder="🔎 ابحث بالاسم أو اليوزر أو الرقم..." autocomplete="off">
     <select class="sort" id="sort"><option value="name">الاسم أ-ي</option><option value="user">اليوزر</option><option value="num">الرقم</option></select>
