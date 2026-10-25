@@ -39746,7 +39746,7 @@ async function distributeBossRewards(sock, groupId) {
 
 if (first) {
 
-    var firstMoneyReward = applyCatBonus(first, 10000)
+    var firstMoneyReward = applyCatBonus(first, 1000000)
 
     first.money =
         (first.money || 0) + firstMoneyReward
@@ -39769,7 +39769,7 @@ if (first) {
 
 if (second) {
 
-    var secondMoneyReward = applyCatBonus(second, 5000)
+    var secondMoneyReward = applyCatBonus(second, 700000)
 
     second.money =
         (second.money || 0) + secondMoneyReward
@@ -39792,7 +39792,7 @@ if (second) {
 
 if (third) {
 
-    var thirdMoneyReward = applyCatBonus(third, 2500)
+    var thirdMoneyReward = applyCatBonus(third, 500000)
 
     third.money =
         (third.money || 0) + thirdMoneyReward
@@ -39819,7 +39819,7 @@ for (let i = 3; i < players.length; i++) {
 
     const player = players[i]
 
-    _siteRestMoney[i] = applyCatBonus(player, 2500)
+    _siteRestMoney[i] = applyCatBonus(player, 300000)
 
     player.money =
         (player.money || 0) + _siteRestMoney[i]
@@ -39928,7 +39928,7 @@ await sendMessageWithRetry(sock, groupId, {
 
 👑 @${players[0]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(firstMoneyReward || 10000).toLocaleString()} مال
+💰 ${(firstMoneyReward || 1000000).toLocaleString()} مال
 ⭐ 1000 XP
 
 📦 1 SSS Chance Box
@@ -39940,7 +39940,7 @@ await sendMessageWithRetry(sock, groupId, {
 
 ⚔️ @${players[1]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(secondMoneyReward || 5000).toLocaleString()} مال
+💰 ${(secondMoneyReward || 700000).toLocaleString()} مال
 ⭐ 500 XP
 
 📦 1 SSS High Box
@@ -39952,7 +39952,7 @@ await sendMessageWithRetry(sock, groupId, {
 
 🔥 @${players[2]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(thirdMoneyReward || 2500).toLocaleString()} مال
+💰 ${(thirdMoneyReward || 500000).toLocaleString()} مال
 ⭐ 500 XP
 
 📦 1 Legendary Box
@@ -39962,7 +39962,7 @@ await sendMessageWithRetry(sock, groupId, {
 
 🎖️ بقية المشاركين
 
-💰 2500 مال
+💰 300,000 مال
 ⭐ 500 XP
 
 📦 2 Epic Boxes
