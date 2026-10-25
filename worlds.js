@@ -184,6 +184,7 @@ async function resetAllWorldsAndPlayers() {
         {},
         { $set: { owner: null, points: 0, joinedAt: null, lastPointAt: null, rewardedUsers: [] } }
     )
+    bumpRank()
 }
 
 // أول تشغيل للنظام الجديد: نصفّر العوالم القديمة (كانت 4 عوالم × 10 أعضاء) ونبدأ أسبوع 1
@@ -347,6 +348,7 @@ async function joinWorldByKey(userId, worldKey) {
         return { ok: false, reason: 'error' }
     }
 
+    bumpRank()
     return { ok: true, world: info }
 }
 
@@ -371,6 +373,7 @@ async function applyPoints(player, delta, role) {
     if (delta > 0) set.lastPointAt = new Date()
 
     await World.updateOne({ key: player.world }, { $set: set })
+    bumpRank()
 
     const name = worldName(player.world)
     const icon = (WORLDS[player.world] && WORLDS[player.world].icon) || '🌍'
@@ -550,6 +553,26 @@ async function ownersMap(userIds) {
     return map
 }
 
+// 🔢 نسخة الترتيب: تزيد فقط لما تتغيّر نقطة/انضمام/تصفير — الموقع يسألها (من الذاكرة بدون قاعدة بيانات)
+// ولا يحمّل الترتيب إلا إذا تغيّرت. (ريندر المجاني = نسخة واحدة من البوت، فالذاكرة كافية)
+let rankVersion = 1
+let rankCache = null // { v, at, ranked, owners }
+const RANK_CACHE_MAX_AGE_MS = 5 * 60 * 1000 // أمان: لو تغيّر شي خارج الدوال هنا يتجدد كل 5 دقايق على الأكثر
+
+function bumpRank() { rankVersion++; rankCache = null }
+function getRankVersion() { return rankVersion }
+
+async function rankedCached() {
+    const now = Date.now()
+    if (rankCache && rankCache.v === rankVersion && now - rankCache.at < RANK_CACHE_MAX_AGE_MS) return rankCache
+    const v = rankVersion
+    const ranked = await rankedWorlds()
+    const owners = await ownersMap(ranked.map(w => w.owner))
+    const c = { v, at: now, ranked, owners }
+    if (v === rankVersion) rankCache = c // لو تغيّرت النسخة أثناء التحميل لا نخزّن نتيجة قديمة
+    return c
+}
+
 async function rankedWorlds() {
     return await World.find({ owner: { $ne: null } })
         .sort({ points: -1, lastPointAt: 1, joinedAt: 1 })
@@ -623,8 +646,13 @@ ${describeSystems(meta.systems)}
 
 // أمر الانضمام والأوامر المرتبطة — نادِ هذي أول شي بمعالج الرسائل
 // ترجع true لو الأمر كان للعوالم وتم التعامل معه
+// 🔌 أوامر الواتساب (.العوالم / .انضم / .عالمي / .ترتيب_العوالم) — معطّلة لتخفيف الحمل (القائمة 100 عالم).
+// الموقع يشتغل عادي، والنقاط تُحتسب عادي. للتفعيل من جديد: غيّرها إلى true.
+const WHATSAPP_COMMANDS_ENABLED = false
+
 async function handleJoinCommand(sock, jid, userId, text) {
 
+    if (!WHATSAPP_COMMANDS_ENABLED) return false
     if (!text || text.charCodeAt(0) !== 46 /* '.' */) return false
 
     // ─── قائمة العوالم ───
@@ -1072,11 +1100,12 @@ function startWorldSeasonScheduler(sock, jid = WORLD_SEASON_GROUP_JID) {
 // 🌐 واجهة الموقع (تستخدمها صفحة العوالم بالموقع: systems/siteWorlds.js)
 // =====================================================================
 
-async function getOverview(userId) {
+async function getOverview(userId, opts) {
+    // عدد أصحاب الترتيب المُرسَلين (الافتراضي 20 — صفحة القاعة تطلب 100 لتقسيمها لصفحات)
+    const topLimit = opts && Number.isInteger(opts.topLimit) && opts.topLimit >= 0 ? opts.topLimit : 20
 
     const meta = await getMeta()
-    const ranked = await rankedWorlds()
-    const owners = await ownersMap(ranked.map(w => w.owner))
+    const { ranked, owners } = await rankedCached()
 
     const takenByKey = {}
     ranked.forEach((w, i) => {
@@ -1119,7 +1148,7 @@ async function getOverview(userId) {
         participants: ranked.length,
         total: WORLD_CATALOG.length,
         me,
-        top: ranked.slice(0, 20).map((w, i) => ({
+        top: ranked.slice(0, topLimit).map((w, i) => ({
             rank: i + 1,
             key: w.key,
             name: WORLD_BY_KEY[w.key] ? WORLD_BY_KEY[w.key].name : w.key,
@@ -1176,7 +1205,9 @@ module.exports = {
     awardCounter,
     isActive,
     getActiveSystems,
+    WHATSAPP_COMMANDS_ENABLED,
     getOverview,
+    getRankVersion,
     joinFromSite,
     joinWorldByKey,
     findWorldByQuery,
