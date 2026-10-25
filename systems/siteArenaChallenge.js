@@ -413,6 +413,7 @@ module.exports = function createSiteArenaChallenge(deps) {
     const getSock = deps.getSock || (() => null)
     const getNotifyJid = deps.getNotifyJid || (async () => null)
     const orbs = deps.orbs || null
+    const worlds = deps.worlds || null
 
     const rate = new Map()
     function rateOk(uid) {
@@ -677,6 +678,21 @@ ${PAGE_BODY}
                 await attacker.save()
                 await defender.save()
 
+                // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم يُخصم منه 1
+                let worldText = null
+                if (worlds && typeof worlds.awardDuel === 'function') {
+                    try {
+                        worldText = await worlds.awardDuel('arena', {
+                            winner: sim.attackerWon ? attacker : defender,
+                            loser: sim.attackerWon ? defender : attacker,
+                            attacker,
+                            sock: getSock(),
+                            jid: null
+                        })
+                        if (worldText) worldText = String(worldText).replace(/@\d+/g, '').trim()
+                    } catch (e) { console.error('arena challenge world points:', e && e.message ? e.message : e) }
+                }
+
                 if (sim.attackerWon && orbs && typeof orbs.trackMission === 'function') {
                     try { await orbs.trackMission(uid, 'arenaWins', { sock: getSock(), jid: await getNotifyJid(uid) }) } catch (e) { /* مهمة الأورب اختيارية */ }
                 }
@@ -686,7 +702,7 @@ ${PAGE_BODY}
                     ok: true,
                     a: pack(fa, aChars), b: pack(fb, dChars), events: sim.events,
                     result: {
-                        won: sim.attackerWon, survA: sim.survA, survB: sim.survB,
+                        won: sim.attackerWon, survA: sim.survA, survB: sim.survB, worldText,
                         dMe: attacker.arena.points - before.me, dOpp: defender.arena.points - before.opp, dMed: (attacker.arena.medals || 0) - before.med,
                         zoneBefore, zoneAfter: zoneInfo(attacker.arena.points).zone
                     }

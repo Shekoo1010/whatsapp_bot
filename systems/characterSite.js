@@ -908,6 +908,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['titles', '🏅', 'الألقاب', `/u/${c}/titles`],
         ['rewards', '🎁', 'سجل الجوائز', `/u/${c}/rewards`],
         ['achievements', '🏆', 'إنجازاتي', `/u/${c}/achievements`],
+        ['worlds', '🌌', 'عوالم الأنمي', `/u/${c}/worlds`],
         ['notifications', '🔔', 'الإشعارات', `/u/${c}/notifications`],
         ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
     ]
@@ -5305,6 +5306,23 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, shellHead
             })
         } catch (e) { console.error('site codex book mount error:', e) }
+    }
+
+    // 🌌 عوالم الأنمي — /u/:code/worlds (systems/siteWorlds.js) — نفس .العوالم / .انضم / .عالمي
+    if (opts.worldsPage) {
+        try {
+            opts.worldsPage.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession,
+                // 🖼️ صورة اللاعب = شخصية البروفايل (أول شخصية) — نفس صورة المعارض
+                avatarOf: d => {
+                    try {
+                        const f = d && Array.isArray(d.characters) && d.characters[0]
+                            ? resolveDisplayChar(d.characters[0], getCatalogIndex(getCatalog)) : null
+                        return f ? safeImageUrl(f.image) : null
+                    } catch (e) { return null }
+                }
+            })
+        } catch (e) { console.error('site worlds mount error:', e) }
     }
 
     // 🏆 إنجازاتي — /u/:code/achievements (systems/siteAchievements.js)

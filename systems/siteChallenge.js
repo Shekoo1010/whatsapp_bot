@@ -21,7 +21,7 @@ module.exports = function createSiteChallenge(deps) {
     const {
         Player, PvP, mongoose, equipmentSystem, getTotalStats, calculateDamageAdvanced,
         getRank, getRankTier, applyRankTierPromotion, applyDogBonus, addCommandXp, COMMAND_XP,
-        checkAndGrantAchievement, orbs, getPeriod, getSock, trackWin,
+        checkAndGrantAchievement, orbs, getPeriod, getSock, trackWin, worlds,
         resolveChallengeTeam, getChallengeSaved, getChallengeSlots, isChallengeTeamValid,
         describeChallengeRule, getChallengeKind, CHALLENGE_TEAM_SIZE
     } = deps
@@ -250,6 +250,20 @@ module.exports = function createSiteChallenge(deps) {
         try { await orbs.trackMission(winnerData.userId, 'challengeWins', { sock, jid: winner }) } catch (e) { console.error('site challenge orb:', e.message) }
         await loserData.save()
 
+        // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (صاحب الدعوة = player1) يُخصم منه 1
+        let worldText = null
+        if (worlds && typeof worlds.awardDuel === 'function') {
+            try {
+                worldText = await worlds.awardDuel('challenge', {
+                    winner: winnerData,
+                    loser: loserData,
+                    attacker: fight.player1 === winnerData.userId ? winnerData : loserData,
+                    sock,
+                    jid: null
+                })
+            } catch (e) { console.error('site challenge world points:', e.message) }
+        }
+
         await PvP.deleteOne({ _id: fight._id })
         fightMeta.delete(String(fight._id))
 
@@ -257,6 +271,7 @@ module.exports = function createSiteChallenge(deps) {
         const tierUp = wOldTier && wOldTier !== winnerData.rankTier ? `${wOldTier} ⬅️ ${winnerData.rankTier}` : ''
         return {
             winner, loser,
+            worldText: worldText ? String(worldText).replace(/@\d+/g, '').trim() : null,
             win: { money: moneyReward, xp: xpReward, mmr: 20, box: boxReward, rankUp, tierUp },
             lose: { xp: loseXp || COMMAND_XP.challengeLose, mmr: -10 }
         }

@@ -50,7 +50,7 @@ function safeImg(u) {
 function createSiteWeaponBanner({
     Player, weaponsList, weaponPullLocks,
     dailyPulls, pityCap, successChance,
-    addCommandXp, commandXp, isBanned
+    addCommandXp, commandXp, isBanned, worlds
 }) {
 
     const hits = new Map()
@@ -148,8 +148,18 @@ function createSiteWeaponBanner({
             addCommandXp(player, commandXp)
             await player.save()
 
+            // 🌍 نقاط العوالم (أسبوعية): كل 5 سحبات سلاح = نقطة
+            let worldText = null
+            if (worlds && typeof worlds.awardCounter === 'function') {
+                try {
+                    worldText = await worlds.awardCounter(player, null, null, 'weapon_pull', 1)
+                    if (worldText) worldText = String(worldText).replace(/@\d+/g, '').trim()
+                } catch (e) { console.error('weapon world points error:', e) }
+            }
+
             return {
                 ok: true,
+                worldText,
                 won,
                 guaranteed: won && guaranteed,
                 weapon: resultWeapon ? publicWeapon(resultWeapon) : null,
@@ -462,7 +472,7 @@ function createSiteWeaponBanner({
                     const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
                     return fail(status, r.code, ERRORS[r.code] || ERRORS.SERVER, r.state ? { state: r.state } : {})
                 }
-                res.json({ ok: true, won: r.won, guaranteed: r.guaranteed, weapon: r.weapon, state: r.state })
+                res.json({ ok: true, won: r.won, guaranteed: r.guaranteed, weapon: r.weapon, state: r.state, worldText: r.worldText || null })
             } catch (err) {
                 console.error('weapon pull route error:', err)
                 return fail(500, 'SERVER', ERRORS.SERVER)

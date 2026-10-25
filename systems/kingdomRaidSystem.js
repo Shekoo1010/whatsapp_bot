@@ -17,7 +17,7 @@ const KINGDOM_STAGES = [
 ]
 
 function createKingdomRaidSystem(deps) {
-    const { Player, companionsData, raidLocks, addCommandXp, xpPerStage, checkAndGrantAchievement, getSock, getNotifyJid } = deps
+    const { Player, worlds, companionsData, raidLocks, addCommandXp, xpPerStage, checkAndGrantAchievement, getSock, getNotifyJid } = deps
 
     const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
 
@@ -126,8 +126,19 @@ function createKingdomRaidSystem(deps) {
                 if (sock && jid) await checkAndGrantAchievement(player, 'kingdom', player.kingdomTotalStages, sock, jid)
             } catch (e) { console.error('kingdom achievement error:', e) }
 
+            // 🌍 نقاط العوالم (أسبوعية): كل طابقين = نقطة
+            let worldText = null
+            if (worlds && typeof worlds.awardCounter === 'function') {
+                try {
+                    const sock2 = getSock && getSock()
+                    worldText = await worlds.awardCounter(player, sock2, null, 'kingdom', 1)
+                    if (worldText) worldText = String(worldText).replace(/@\d+/g, '').trim()
+                } catch (e) { console.error('kingdom world points error:', e) }
+            }
+
             return {
                 ok: true,
+                worldText,
                 name: char.name,
                 reward: stage.reward,
                 extra,

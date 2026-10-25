@@ -37,7 +37,7 @@ module.exports = function createSiteArena(deps) {
     const {
         Player, getTotalStats, equipmentSystem, getWeaponBonus, companionsData,
         getRank, applyDogBonus, getSaudiDate, orbs, checkAndGrantAchievement,
-        getSock, getNotifyJid, trackWin
+        getSock, getNotifyJid, trackWin, worlds
     } = deps
 
     // ── جدول الرتب: يُستخرج من getRank نفسها فلا يخرج عن rank.js لو تغيّرت الحدود ──
@@ -561,6 +561,15 @@ module.exports = function createSiteArena(deps) {
                 await attacker.save()
                 await defender.save()
 
+                // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم يُخصم منه 1
+                let worldText = null
+                if (worlds && typeof worlds.awardDuel === 'function') {
+                    try {
+                        worldText = await worlds.awardDuel('pvp', { winner, loser, attacker, sock: getSock ? getSock() : null, jid: null })
+                        if (worldText) worldText = String(worldText).replace(/@\d+/g, '').trim()
+                    } catch (e) { console.error('arena world points:', e && e.message ? e.message : e) }
+                }
+
                 // 🎁 سجل الجوائز بالموقع (الفائز)
                 require('./rewardLog').logReward(winner.userId, {
                     src: 'الأرينا PvP — فوز', icon: '🏟️',
@@ -620,6 +629,7 @@ module.exports = function createSiteArena(deps) {
                             ? { money: moneyReward, xp: xpReward, box: boxInfo.label }
                             : null,
                         fights: attacker.pvpFights,
+                        worldText,
                         max: DAILY_FIGHTS,
                         auto: teamA.auto
                     }

@@ -293,8 +293,9 @@ function create(deps) {
             try { await orbs.trackMission(winner.userId, 'brawlWins', { sock, jid: null }) } catch (e) { console.error('brawl mission error:', e) }
 
             const loser = winner === player1 ? player2 : player1
-            if (winner.world && loser.world && winner.world !== loser.world) {
-                try { worldText = await worlds.awardBattlePoints(winner, sock, null) } catch (e) { console.error('brawl world points error:', e) }
+            // 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (player1 = صاحب الطلب) يُخصم منه 1
+            if (worlds && typeof worlds.awardDuel === 'function') {
+                try { worldText = await worlds.awardDuel('brawl', { winner, loser, attacker: player1, sock, jid: null }) } catch (e) { console.error('brawl world points error:', e) }
             }
         }
 
