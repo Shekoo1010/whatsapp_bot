@@ -7492,24 +7492,45 @@ ${juubi.maxHp.toLocaleString()}
 
 const _stickerLocks = new Set() // قفل لكل مستخدم: ستيكر واحد في نفس الوقت (يحمي السيرفر من ضغط ffmpeg)
 
-// 🎞️ تحويل فيديو/GIF لستيكر متحرك (قص مربع من المنتصف) — opts: { fps, q, size }
-async function videoToSticker(input, output, opts = {}) {
-    const fps = opts.fps || 20
-    const q = opts.q || 70
-    const size = opts.size || 512
-
+// 🎬 تجهيز المقطع مرة واحدة: قص مربع 512 + أول 10 ثواني + معدل الإطارات المختار
+// (فك ضغط الفيديو الأصلي وتصغيره يتم هنا مرة واحدة فقط، وكل محاولات الجودة بعده تشتغل على ملف صغير وسريع)
+function prepClip(input, out, fps) {
     return new Promise((resolve, reject) => {
         ffmpeg(input)
             .duration(10)
             .outputOptions([
+                '-vf', `fps=${fps},scale=512:512:force_original_aspect_ratio=increase:flags=lanczos,crop=512:512`,
+                '-an',
+                '-c:v', 'mpeg4',
+                '-q:v', '2',
+                '-pix_fmt', 'yuv420p'
+            ])
+            .toFormat('mp4')
+            .save(out)
+            .on('end', () => resolve())
+            .on('error', (err) => { console.log('PREP CLIP ERROR:'); console.error(err); reject(err) })
+    })
+}
+
+// 🎞️ ترميز المقطع المجهّز إلى webp متحرك — opts: { fps, q, size }
+async function videoToSticker(input, output, opts = {}) {
+    const fps = opts.fps || 24
+    const q = opts.q || 75
+    const size = opts.size || 512
+    const vf = `fps=${fps}` + (size !== 512 ? `,scale=${size}:${size}:flags=lanczos` : '')
+
+    return new Promise((resolve, reject) => {
+        ffmpeg(input)
+            .outputOptions([
                 '-vcodec', 'libwebp',
-                '-vf', `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=increase,crop=${size}:${size}`,
+                '-vf', vf,
                 '-loop', '0',
                 '-an',
-                '-vsync', '0',
+                '-lossless', '0',
+                '-preset', 'default',
                 '-pix_fmt', 'yuv420p',
                 '-q:v', String(q),
-                '-compression_level', '6'
+                '-compression_level', '4'
             ])
             .toFormat('webp')
             .save(output)
@@ -7520,6 +7541,76 @@ async function videoToSticker(input, output, opts = {}) {
                 reject(err)
             })
     })
+}
+
+// 🔎 قراءة معدل إطارات الفيديو الأصلي (لنحافظ على السلاسة ولا نحذف إطارات بشكل غير منتظم)
+function probeVideoFps(input) {
+    return new Promise(resolve => {
+        try {
+            require('child_process').execFile(ffmpegPath, ['-hide_banner', '-i', input], { timeout: 15000 }, (_err, _out, stderr) => {
+                const m = String(stderr || '').match(/(\d+(?:\.\d+)?)\s*fps/)
+                const v = m ? parseFloat(m[1]) : 0
+                resolve(v >= 5 && v <= 120 ? v : 30)
+            })
+        } catch (e) {
+            resolve(30)
+        }
+    })
+}
+
+// 🏆 يبحث عن أعلى جودة تدخل تحت حد الحجم مع الحفاظ على سلاسة الحركة:
+// الجودة أولاً، ثم عدد الإطارات، ثم الدقة. وبأقل عدد ممكن من المحاولات (سرعة)
+async function fitVideoSticker(input, output, maxBytes) {
+    const src = await probeVideoFps(input)
+    const f1 = Math.round(src > 32 ? (src / 2 <= 32 ? src / 2 : 30) : src) // لا يتجاوز 30
+    const prep = output.replace(/\.webp$/, '_p.mp4')
+
+    try {
+        await prepClip(input, prep, f1)
+
+        const tiers = [
+            { fps: f1,                                   size: 512, lo: 48 },
+            { fps: Math.max(10, Math.round(f1 * 2 / 3)), size: 512, lo: 42 },
+            { fps: Math.max(10, Math.round(f1 / 2)),     size: 480, lo: 36 },
+            { fps: Math.max(8,  Math.round(f1 / 2)),     size: 400, lo: 28 }
+        ]
+        const read = async o => {
+            await videoToSticker(prep, output, o)
+            const b = await fs.promises.readFile(output)
+            console.log('WEBP TRY:', b.length, JSON.stringify(o))
+            return b
+        }
+
+        let lastBuf = null
+        for (const t of tiers) {
+            // 1) أعلى جودة مباشرة (أغلب الـ GIF القصيرة تنجح من أول محاولة)
+            let hi = 88
+            const top = await read({ fps: t.fps, size: t.size, q: hi })
+            lastBuf = top
+            if (top.length <= maxBytes) return top
+
+            // لو الحجم أكبر بكثير من الحد فلن تكفي هذه المرحلة حتى بأقل جودة → انتقل فوراً (يوفر وقت)
+            if (top.length > maxBytes * 3.5) continue
+
+            // 2) بحث ثنائي سريع (3 خطوات تقريباً) عن أعلى جودة تدخل تحت الحد
+            let lo = t.lo, best = null
+            while (hi - lo > 6) {
+                const mid = Math.round((hi + lo) / 2)
+                const b = await read({ fps: t.fps, size: t.size, q: mid })
+                lastBuf = b
+                if (b.length <= maxBytes) { best = b; lo = mid } else { hi = mid }
+            }
+            if (best) return best
+
+            // 3) لم تنجح أي خطوة: جرّب أدنى جودة مقبولة لهذه المرحلة قبل الانتقال لما بعدها
+            const low = await read({ fps: t.fps, size: t.size, q: t.lo })
+            lastBuf = low
+            if (low.length <= maxBytes) return low
+        }
+        return lastBuf
+    } finally {
+        fs.promises.unlink(prep).catch(() => {})
+    }
 }
 
 // 🏷️ كتابة الحقوق (اسم الحزمة + الكاتب) داخل ملف ستيكر webp (ثابت أو متحرك)
@@ -34181,33 +34272,19 @@ if (text === '.س' || text.startsWith('.س ') || text.startsWith('.س\n')) {
         output = `./tmp_${_stamp}.webp`
         await fs.promises.writeFile(input, buffer)
 
-        // أعلى جودة ممكنة، وواتساب يرفض المتحرك لو تجاوز ~1MB، فننزّل الجودة تدريجياً فقط عند الحاجة
-        const MAX_BYTES = 900 * 1000
-        const attempts = [
-            { fps: 20, q: 80, size: 512 },
-            { fps: 20, q: 65, size: 512 },
-            { fps: 15, q: 52, size: 512 },
-            { fps: 15, q: 42, size: 512 },
-            { fps: 12, q: 33, size: 512 },
-            { fps: 10, q: 26, size: 448 },
-            { fps: 8,  q: 20, size: 384 }
-        ]
-        let webp = null
-        for (const a of attempts) {
-            try {
-                await videoToSticker(input, output, a)
-            } catch (err) {
-                console.log('VIDEO CONVERT ERROR:')
-                console.error(err)
-                _react('❌')
-                return safeSend(msg.key.remoteJid, { text: '❌ فشل ffmpeg أثناء التحويل' })
-            }
-            webp = await fs.promises.readFile(output)
-            console.log('WEBP SIZE:', webp.length, JSON.stringify(a))
-            if (webp.length <= MAX_BYTES) break
+        // واتساب يرفض الستيكر المتحرك لو تجاوز ~1MB، فنختار أعلى جودة وأسلس حركة تدخل تحت الحد
+        const MAX_BYTES = 950 * 1000
+        let webp
+        try {
+            webp = await fitVideoSticker(input, output, MAX_BYTES)
+        } catch (err) {
+            console.log('VIDEO CONVERT ERROR:')
+            console.error(err)
+            _react('❌')
+            return safeSend(msg.key.remoteJid, { text: '❌ فشل ffmpeg أثناء التحويل' })
         }
 
-        if (webp.length > MAX_BYTES * 1.1) {
+        if (!webp || webp.length > MAX_BYTES * 1.1) {
             _react('❌')
             return safeSend(msg.key.remoteJid, { text: '❌ الفيديو ثقيل جداً حتى بعد الضغط، جرّب مقطعاً أقصر أو أبسط.' })
         }
