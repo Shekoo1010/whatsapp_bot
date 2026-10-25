@@ -17,6 +17,77 @@ const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة �
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
 const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
+
+// 🔄 سحب للتحديث (Pull-to-Refresh) — يعمل في كل الصفحات والتطبيق (مثل كروم): اسحب للأسفل من أعلى الصفحة ثم اترك
+const PTR = {
+    HEAD: `<style>
+#ptr-ind{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;width:40px;height:40px;margin-left:-20px;border-radius:50%;background:rgba(10,13,22,.96);border:1.5px solid #f0c04a;color:#f0c04a;display:flex;align-items:center;justify-content:center;font:900 22px/1 sans-serif;z-index:2147483000;pointer-events:none;opacity:0;transform:translateY(-70px);box-shadow:0 6px 20px rgba(0,0,0,.55);transition:transform .22s ease,opacity .22s ease}
+#ptr-ind.drag{transition:none}
+#ptr-ind.go{border-color:#fff3c4;color:#fff3c4}
+#ptr-ind.spin span{animation:ptrspin .8s linear infinite}
+#ptr-ind span{display:block}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+</style>
+<script>
+(function(){
+if(window.__ptr)return;window.__ptr=1;
+var TH=64,MAX=110,sy=0,sx=0,pull=0,act=false,busy=false,ind=null;
+function mk(){
+  if(ind&&ind.parentNode)return ind;
+  ind=document.createElement('div');ind.id='ptr-ind';ind.innerHTML='<span>\\u21BB</span>';
+  (document.body||document.documentElement).appendChild(ind);return ind;
+}
+function canStart(t){
+  if(!t||!t.closest)return false;
+  if(t.closest('input,textarea,select,canvas,iframe,[contenteditable],.no-ptr'))return false;
+  var se=document.scrollingElement||document.documentElement;
+  if(se.scrollTop>0)return false;
+  var el=t;
+  while(el&&el!==document.body&&el!==document.documentElement){
+    var cs=getComputedStyle(el);
+    if(cs.position==='fixed')return false;
+    var oy=cs.overflowY;
+    if((oy==='auto'||oy==='scroll')&&el.scrollHeight>el.clientHeight+1&&el.scrollTop>0)return false;
+    el=el.parentElement;
+  }
+  return true;
+}
+function reset(){
+  act=false;pull=0;
+  if(ind){ind.classList.remove('drag','go');ind.style.opacity='0';ind.style.transform='translateY(-70px)';}
+}
+document.addEventListener('touchstart',function(e){
+  if(busy||e.touches.length!==1){act=false;return;}
+  if(!canStart(e.target)){act=false;return;}
+  sy=e.touches[0].clientY;sx=e.touches[0].clientX;pull=0;act=true;
+},{passive:true});
+document.addEventListener('touchmove',function(e){
+  if(!act||busy)return;
+  var t=e.touches[0],dy=t.clientY-sy,dx=Math.abs(t.clientX-sx);
+  if(dy<=0||dx>dy){ if(pull===0){act=false;} return; }
+  var se=document.scrollingElement||document.documentElement;
+  if(se.scrollTop>0){reset();return;}
+  pull=Math.min(MAX,dy*0.5);
+  if(e.cancelable)e.preventDefault();
+  var i=mk();i.classList.add('drag');
+  i.style.opacity=String(Math.min(1,pull/(TH*0.7)));
+  i.style.transform='translateY('+(pull-46)+'px) rotate('+(pull*4)+'deg)';
+  if(pull>=TH)i.classList.add('go');else i.classList.remove('go');
+},{passive:false});
+function end(){
+  if(!act)return;
+  if(pull>=TH&&!busy){
+    busy=true;var i=mk();i.classList.remove('drag');i.classList.add('spin');
+    i.style.opacity='1';i.style.transform='translateY(18px)';
+    setTimeout(function(){location.reload();},180);
+  }else reset();
+  act=false;
+}
+document.addEventListener('touchend',end,{passive:true});
+document.addEventListener('touchcancel',function(){if(!busy)reset();},{passive:true});
+})();
+</script>`
+}
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
 const contribResults = require('./dailyContribResults') // 🏆 نتيجة جوائز المساهمات اليومية (تظهر بنافذة الهدايا)
 const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
@@ -644,7 +715,7 @@ function shellHead(title) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2353,7 +2424,7 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2505,7 +2576,7 @@ function playersPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2758,7 +2829,7 @@ function galleryPageHTML({ code, viewer }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -3300,7 +3371,7 @@ function bossPageHTML({ viewer, code, data }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -5048,7 +5119,7 @@ function chatPageHTML({ viewer, code }) {
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}
+${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -6215,7 +6286,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
                 code,
                 state: shardOut(st, req),
-                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD
+                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD + PTR.HEAD
             }))
         } catch (err) {
             console.error('shards page error:', err)
@@ -7442,7 +7513,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             res.send(warPageHTML({
                 code,
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
-                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD
+                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD + PTR.HEAD
             }))
         } catch (err) {
             console.error('war page error:', err)
