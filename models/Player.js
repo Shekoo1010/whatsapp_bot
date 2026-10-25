@@ -1037,6 +1037,11 @@ worldPoints: {
     default: 0
 },
 
+// عدّادات أنظمة العوالم الأسبوعية (تُصفَّر كل أسبوع)
+worldCtrBeast: { type: Number, default: 0 },   // ضربات كوراما/الجوبي (كل 3 = نقطة)
+worldCtrWeapon: { type: Number, default: 0 },  // سحبات الأسلحة (كل 5 = نقطة)
+worldCtrKingdom: { type: Number, default: 0 }, // طوابق غزو المملكة (كل 2 = نقطة)
+
 // =========================
 // 🌌 OMEGA EVOLUTION SYSTEM (تطوير أوميقا Ω)
 // =========================
