@@ -7601,8 +7601,8 @@ function probeVideoFps(input) {
 // الجودة أولاً، ثم عدد الإطارات، ثم الدقة. وبأقل عدد ممكن من المحاولات (سرعة)
 async function fitVideoSticker(input, output, maxBytes, job, inBytes = 0) {
     const src = await probeVideoFps(input)
-    // 📏 مقطع حجمه 800KB فما فوق: يبدأ بـ 25 فريم ثم يثبت على 20، والجودة تنزل قليلاً ليصير الستيكر ~1MB ويُرسل
-    const big = inBytes >= 800 * 1000
+    // 📏 لكل المقاطع بدون تحديد حجم: يبدأ بـ 25 فريم ثم يثبت على 20، والجودة تبدأ من 60 وتنزل ليصير الستيكر ~1MB ويُرسل
+    const big = true
     const f1 = big ? 25 : Math.round(src > 32 ? (src / 2 <= 32 ? src / 2 : 30) : src) // لا يتجاوز 30
     const prep = output.replace(/\.webp$/, '_p.mp4')
 
@@ -7630,7 +7630,7 @@ async function fitVideoSticker(input, output, maxBytes, job, inBytes = 0) {
         let lastBuf = null
         for (const t of tiers) {
             // 1) أعلى جودة مباشرة (أغلب الـ GIF القصيرة تنجح من أول محاولة)
-            let hi = big ? 80 : 88
+            let hi = big ? 60 : 88
             const top = await read({ fps: t.fps, size: t.size, q: hi })
             lastBuf = top
             if (top.length <= maxBytes) return top

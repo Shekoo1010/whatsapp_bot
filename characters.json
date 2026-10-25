@@ -17269,5 +17269,14 @@
     "rarity": "SSS",
     "ability": "قيادة الألحان القتالية",
     "image": ""
+  },
+  {
+    "name": "Lain Iwakura",
+    "form": "الواعية المتصلة بالشبكة",
+    "anime": "Serial Experiments Lain",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "التحكم بالواقع الرقمي",
+    "image": ""
   }
 ]
