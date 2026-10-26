@@ -1100,13 +1100,7 @@ const WEEKLY_GOALS = {
 
 const allowedGroups = [
 
-'120363020823525909@g.us',
-
-'120363400448225715@g.us',
-
-'120363116482407260@g.us',
-
-'120363362807326585@g.us'
+'120363428933463078@g.us'
 
 ]
 const {
@@ -3124,9 +3118,7 @@ async function saveNamiMemory(
 }
 
 const BEAST_GROUPS = [
-    '120363400448225715@g.us',
-    '120363020823525909@g.us',
-    '120363362807326585@g.us'
+    '120363428933463078@g.us'
 ]
 const guessCharacters =
     require('./guessCharacters')
@@ -5148,6 +5140,11 @@ const shardSystem = createShardSystem({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+// 🎐 الإيكوز + 🌀 الدومين من الموقع — نفس منطق .ايكو / .لبس / .ازالة / .تطوير_ايكو / .بيع_ايكو / .فريق_دومين / .دخول_دومين بالضبط
+// (systems/echoSiteSystem.js يستدعي equipmentSystem و domainSystem نفسهم). يشارك أقفال giftLocks/pullLocks (موقع + واتساب)
+const { createEchoSystem } = require('./systems/echoSiteSystem')
+const echoSystem = createEchoSystem({ Player, giftLocks, pullLocks })
+
 // ⚔️ حرب الأعلام من الموقع (systems/warSystem.js): الفوز بعدد الأعلام، استحواذ 15ث، انتظار 30ث بين التحركات.
 // حالتها بالذاكرة وحرب واحدة، منفصلة عن .حرب القديمة بالواتس (battleSystem.js) — ما تتعارضان.
 const { createWarSystem } = require('./systems/warSystem')
@@ -5335,6 +5332,7 @@ registerCharacterSite(app, Player, {
     shopSystem: characterShopSystem,
     marketSystem,
     shardSystem,
+    echoSystem,
     warSystem,
     kingdomRaid: kingdomRaidSystem,
     bossPush,
@@ -6669,10 +6667,7 @@ let eventParticipants = []
 let eventStartedBy = null
 
 const GROUP_IDS = [
-    "120363020823525909@g.us",
-    "120363409897316453@g.us",
-    "120363116482407260@g.us",
-    "120363362807326585@g.us"
+    "120363428933463078@g.us"
 ]
 
 // =========================
@@ -8554,7 +8549,7 @@ const COLLAGE_DEBOUNCE_MS = 4000
 // 🎯 أمر .صمم (وكاش الصور المرافق له) مقيّد بهذا القروب فقط — أي صورة
 // تُرسل بأي قروب ثاني ما تُخزَّن بالذاكرة إطلاقاً (الشرط بالأسفل يوقفها
 // قبل أي تخزين).
-const COLLAGE_ALLOWED_GROUP = '120363409897316453@g.us'
+const COLLAGE_ALLOWED_GROUP = '120363428933463078@g.us'
 
 // 🧹 تنظيف دوري لـ recentImagesForCollage — بدون هذا، أي شخص يرسل
 // صورة بقروب بدون ما يكتب .صمم أبداً (الحالة الطبيعية لأغلب الصور)
@@ -9613,7 +9608,7 @@ if (!text) return;
             const _announceGroups = [...new Set([
                 ...allowedGroups,
                 ...EVENT_GROUPS,
-                '120363409897316453@g.us',
+                '120363428933463078@g.us',
                 BOSS_ATTACK_GROUP,
                 BOSS_ATTACK_GROUP_ALWAYS
             ])].filter(g => g && !disabledGroups.has(g))
@@ -23978,9 +23973,7 @@ for (
 const group of
 currentAuction.auctionGroups ||
 [
-'120363020823525909@g.us',
-'120363409897316453@g.us',
-'120363362807326585@g.us'
+'120363428933463078@g.us'
 ]
 ) {
 
