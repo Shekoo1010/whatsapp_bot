@@ -7807,7 +7807,7 @@ async function setStickerRights(webpBuf, pack, author) {
    
 
 siteSockRef.current = sock
-kingdom.startScheduler(() => siteSockRef.current) // يبدأ مرة واحدة فقط (محمي داخلياً من التكرار عند إعادة الاتصال)
+// kingdom.startScheduler(() => siteSockRef.current) // 🛑 معطّل: البوت خرج من قروبات المملكة (أزل // لإعادة التفعيل) // يبدأ مرة واحدة فقط (محمي داخلياً من التكرار عند إعادة الاتصال)
 require('./systems/galleryRewards').startScheduler(siteNotifyOwner) // 🖼️ جوائز لايكات المعارض أسبوعياً (الخميس 1:00 ص)
 
 console.log("BEFORE CONNECTION UPDATE")
