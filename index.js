@@ -8961,6 +8961,7 @@ const commandExplanations = {
         '.جوائز_الترتيب': 'أمر للمطور فقط - يوزّع جوائز الترتيب/المساهمات على اللاعبين يدوياً.',
         '.اسبون_بوس': 'أمر للمطور فقط - يستدعي (يُظهر) الزعيم العالمي يدوياً بالقروب.',
         '.قتل_البوس': 'أمر للمطور فقط - ينهي الزعيم العالمي الحالي يدوياً ويوزّع جوائزه.',
+        '.حذف_كيكونوجو': 'أمر للمطور فقط - يحذف شخصية Kikunojo (One Piece) نهائياً من كل اللاعبين (عادية ومطورة + شظايا + عروض السوق) — هي فقط.',
         '.رسبن_رايد': 'أمر للمطور فقط - يعيد ظهور (Respawn) وحش/هدف الرايد الجماعي يدوياً.',
         '.تصفير_العشائر': 'أمر للمطور فقط - يصفّر بيانات كل العشائر.',
         '.حذف_العشائر_الفارغة': 'أمر للمطور فقط - يحذف كل العشائر اللي ما فيها أعضاء.',
@@ -26574,6 +26575,49 @@ if (text === ".قتل_البوس") {
     })
 }
     
+    // 🗑️ .حذف_كيكونوجو — للمطور فقط: يحذف شخصية Kikunojo (One Piece) نهائياً من كل اللاعبين
+    // (عادية ومطورة) + شظاياها + المعرض + تشكيلة التحدي + تطويرها (charDev) ويفك السلاح المركّب عليها.
+    // مطابقة حرفية على الاسم Kikunojo فقط — ما تمس أي شخصية ثانية.
+    if (text === ".حذف_كيكونوجو") {
+
+        if (!isOwner(msg)) return
+
+        const charName = 'Kikunojo'
+        const shardKey = charName.replace(/\./g, '．')
+
+        try {
+            const r1 = await Player.collection.updateMany(
+                { $or: [
+                    { 'characters.name': charName },
+                    { [`shards.${shardKey}`]: { $exists: true } },
+                    { gallery: charName },
+                    { challengeTeam: charName },
+                    { [`charDev.${shardKey}`]: { $exists: true } }
+                ] },
+                {
+                    $pull: { characters: { name: charName }, gallery: charName, challengeTeam: charName },
+                    $unset: { [`shards.${shardKey}`]: '', [`charDev.${shardKey}`]: '' }
+                }
+            )
+            const r2 = await Player.collection.updateMany(
+                { 'weaponsInventory.equippedTo': charName },
+                { $set: { 'weaponsInventory.$[w].equippedTo': null } },
+                { arrayFilters: [{ 'w.equippedTo': charName }] }
+            )
+
+            // 🏪 عروض السوق: الشخصية المعروضة تنشال من اللاعب وتنحفظ بالسوق — نحذفها هناك بعد
+            const r3 = await Market.deleteMany({ 'character.name': charName })
+
+            return safeSend(msg.key.remoteJid, {
+                text: `✅ تم حذف ${charName} (One Piece) من كل اللاعبين.\n\n👥 لاعبين تعدّلوا: ${r1.modifiedCount}\n🗡️ أسلحة فُكّت عند: ${r2.modifiedCount} لاعب\n🏪 عروض سوق حُذفت: ${r3.deletedCount}`
+            })
+
+        } catch (err) {
+            console.log('حذف_كيكونوجو error:', err)
+            return safeSend(msg.key.remoteJid, { text: '❌ صار خطأ أثناء الحذف.' })
+        }
+    }
+
     if (text === ".بيع_الكل") {
 
     const player = await Player.findOne({ userId })
