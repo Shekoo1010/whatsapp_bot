@@ -29,6 +29,16 @@ function choose(list) {
 
 }
 
+let sockRef = null
+
+function setSock(sock) {
+    if (sock) sockRef = sock
+}
+
+function getSock() {
+    return sockRef
+}
+
 // =========================
 // Configuration
 // =========================
@@ -37,17 +47,19 @@ const CONFIG = {
 
     spawnEvery: 4 * 60 * 60 * 1000,
 
-    joinTime: 60 * 1000,
+    // لا يوجد وقت تسجيل: الكو اوب مفتوح حتى ينضم 5 لاعبين
+    startDelay: 5000,
 
-    startDelay: 10000,
+    // يظهر زر "استعداد" عند وصول هذا العدد، وإذا ضغطه الجميع يبدأ القتال فوراً
+    readyMin: 8,
 
     maxPlayers: {
 
-        A: 5,
+        A: 15,
 
-        SS: 5,
+        SS: 15,
 
-        RAID: 8
+        RAID: 15
 
     },
 
@@ -92,7 +104,11 @@ async function createCoOp() {
 
     coop.rewardsClaimed = []
 
-    coop.joinEnd = Date.now() + CONFIG.joinTime
+    coop.joinEnd = 0
+
+    coop.startAt = 0
+
+    coop.ready = []
 
     coop.turnEnd = 0
 
@@ -115,6 +131,8 @@ async function createCoOp() {
         shield: 0,
 
         phase: 1,
+
+        rage: false,
 
         skills: boss.skills,
 
@@ -159,13 +177,10 @@ async function announceCoOp(sock) {
 
 ━━━━━━━━━━━━━━
 
-⏳ التسجيل مفتوح لمدة دقيقة.
+⏳ التسجيل مفتوح حتى يكتمل الفريق (${maxPlayers} لاعبين)،
+أو يبدأ فوراً إذا ضغط الجميع «استعداد» (من 8 لاعبين).
 
-💬 اكتب
-
-*.co-op*
-
-للانضمام.
+🌐 الانضمام والقتال من الموقع فقط (صفحة الكو اوب).
 
 ━━━━━━━━━━━━━━
 
@@ -233,24 +248,6 @@ async function joinPlayer(userId, name) {
             success: false,
 
             message: "لا يوجد Co-Op حالياً."
-
-        }
-
-    }
-
-    if (
-
-        Date.now() >
-
-        coop.joinEnd
-
-    ) {
-
-        return {
-
-            success: false,
-
-            message: "انتهى التسجيل."
 
         }
 
@@ -340,37 +337,47 @@ async function joinPlayer(userId, name) {
 
     const characters =
 
-        [...player.characters]
+        player.characters
+
+        .map((character, index) => ({ character, index }))
 
         .sort(
-
             (a, b) =>
-
-            (b.power || 0) -
-
-            (a.power || 0)
-
+            (b.character.power || 0) -
+            (a.character.power || 0)
         )
 
         .slice(0, 3)
 
-        .map(character => ({
+        .map(({ character, index }) => {
 
-            ...character,
+            const c = character.toObject
+                ? character.toObject()
+                : character
 
-            hp: character.power,
+            return {
 
-            maxHp: character.power,
+                ...c,
 
-            shield: 0,
+                charIndex: index,
 
-            alive: true,
+                image: c.customImage || c.image || "",
 
-            buffs: [],
+                hp: c.power,
 
-            debuffs: []
+                maxHp: c.power,
 
-        }))
+                shield: 0,
+
+                alive: true,
+
+                buffs: [],
+
+                debuffs: []
+
+            }
+
+        })
 
     coop.players.push({
 
@@ -390,7 +397,15 @@ async function joinPlayer(userId, name) {
 
     })
 
+    const full = coop.players.length >= limit
+
+    if (full) {
+        coop.startAt = Date.now() + CONFIG.startDelay
+    }
+
     await coop.save()
+
+    if (full) scheduleStart(sockRef)
 
     return {
 
@@ -411,6 +426,78 @@ async function joinPlayer(userId, name) {
     }
 
 }
+// =========================
+// Ready (استعداد) — يظهر عند 8 لاعبين
+// =========================
+
+async function setReady(userId) {
+
+    const coop = await CoOp.findOne()
+
+    if (!coop || !coop.active || coop.status !== "waiting") {
+        return { success: false, message: "لا يوجد Co-Op بانتظار اللاعبين." }
+    }
+
+    if (!coop.players.find(p => p.userId === userId)) {
+        return { success: false, message: "لم تنضم لهذا الـ Co-Op." }
+    }
+
+    if (coop.players.length < CONFIG.readyMin) {
+        return {
+            success: false,
+            message: `يتفعل الاستعداد عند ${CONFIG.readyMin} لاعبين.`
+        }
+    }
+
+    const ready = new Set(coop.ready || [])
+
+    if (ready.has(userId)) ready.delete(userId)
+    else ready.add(userId)
+
+    coop.ready = [...ready]
+
+    const everyone = coop.players.every(p => ready.has(p.userId))
+
+    if (everyone) coop.startAt = Date.now()
+
+    await coop.save()
+
+    if (everyone) scheduleStart(sockRef, 0)
+
+    return {
+        success: true,
+        ready: ready.has(userId),
+        readyCount: coop.ready.length,
+        players: coop.players.length,
+        started: everyone
+    }
+
+}
+
+// =========================
+// Auto Start (بعد اكتمال الفريق بـ 5 ثوانٍ)
+// =========================
+
+let startTimer = null
+
+function scheduleStart(sock, delay = CONFIG.startDelay) {
+
+    if (startTimer) return
+
+    startTimer = setTimeout(async () => {
+
+        startTimer = null
+
+        try {
+            await startBattle(sock || sockRef)
+        } catch (err) {
+            console.log('Co-Op startBattle Error:', err)
+        }
+
+    }, delay)
+
+}
+
 // =========================
 // Start Battle
 // =========================
@@ -476,6 +563,8 @@ async function finishCoOp(sock) {
     coop.boss = {}
     coop.turnEnd = 0
     coop.joinEnd = 0
+    coop.startAt = 0
+    coop.ready = []
 
     await coop.save()
 
@@ -521,6 +610,15 @@ async function scheduleNextCoOp(sock) {
     // إذا كان هناك Co-Op نشط فلا ننشئ واحداً جديداً
     if (coop.active) {
 
+        // البوت أُعيد تشغيله والفريق مكتمل: نكمل البدء التلقائي
+        if (
+            coop.status === "waiting" &&
+            coop.players.length >=
+                (CONFIG.maxPlayers[coop.boss.rank] || 5)
+        ) {
+            scheduleStart(sock, Math.max(0, (coop.startAt || 0) - Date.now()))
+        }
+
         coopTimer = setTimeout(() => {
             scheduleNextCoOp(sock).catch(console.log)
         }, 30000) // يفحص كل 30 ثانية
@@ -541,18 +639,6 @@ updated.nextSpawn = now + CONFIG.spawnEvery
 
 await updated.save()
 
-setTimeout(async () => {
-
-    try {
-        await startBattle(sock)
-    } catch (err) {
-        console.log('Co-Op startBattle Error:', err)
-    }
-
-    scheduleNextCoOp(sock).catch(console.log)
-
-}, CONFIG.joinTime)
-
 return
     }
 
@@ -567,6 +653,7 @@ return
 
 }
 function startLoop(sock) {
+    setSock(sock)
     scheduleNextCoOp(sock).catch(console.log)
 }
 // =========================
@@ -574,6 +661,8 @@ function startLoop(sock) {
 // =========================
 
 async function forceSpawn(sock) {
+
+    setSock(sock)
 
     const coop = await CoOp.findOne()
 
@@ -596,18 +685,6 @@ current.nextSpawn = Date.now() + CONFIG.spawnEvery
 
 await current.save()
 
-    setTimeout(
-
-        () => {
-
-            startBattle(sock).catch(console.log)
-
-        },
-
-        CONFIG.joinTime
-
-    )
-
     return true
 
 }
@@ -618,5 +695,9 @@ module.exports = {
     startBattle,
     finishCoOp,
     startLoop,
-    forceSpawn
+    forceSpawn,
+    setSock,
+    getSock,
+    setReady,
+    CONFIG
 }

@@ -165,29 +165,36 @@ async function giveRewards(coop) {
         // Give Rewards
         // =========================
 
-        player.money += reward.gold
+        // مفاتيح الصناديق عند اللاعب (player.boxes): sss_chance / sss_high
+        const BOX_KEYS = {
+            sssChance: "sss_chance",
+            sssHigh: "sss_high"
+        }
 
-        player.exp += reward.exp
+        player.money = (player.money || 0) + reward.gold
+
+        // الخبرة: الحقل xp (والرفع التلقائي يتم عند save)
+        player.xp = (player.xp || 0) + reward.exp
 
         player.coopCoins =
             (player.coopCoins || 0)
             + reward.coins
 
-        if (!player.items) {
-
-            player.items = {}
-
+        if (!player.boxes) {
+            player.boxes = {}
         }
 
         for (const box of reward.boxes) {
 
-            player.items[box.id] =
+            const key = BOX_KEYS[box.id] || box.id
 
-                (player.items[box.id] || 0)
-
+            player.boxes[key] =
+                (player.boxes[key] || 0)
                 + box.amount
 
         }
+
+        if (player.markModified) player.markModified('boxes')
 
         await player.save()
 

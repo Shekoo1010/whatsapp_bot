@@ -5,6 +5,41 @@ const coopSkills = require('./coopSkills')
 
 const coopRewards = require('./coopRewards')
 
+const coopGear = require('./coopGear')
+
+// قروبات الإعلان (نفس قروبات coopManager)
+// ⏱️ مهلة كل لاعب بالدور: 10 ثواني، وبعدها يهاجم تلقائياً
+const TURN_MS = 10000
+const TURN_SECONDS = TURN_MS / 1000
+
+// 📵 رسائل القتال بالواتس معطلة (القتال بالموقع فقط). الإعلان والنتيجة النهائية تبقى
+const WA_BATTLE_MESSAGES = false
+
+const GROUPS = [
+    "120363409897316453@g.us",
+    "120363020823525909@g.us"
+]
+
+async function broadcast(sock, text, mentions = []) {
+
+    if (!sock || !WA_BATTLE_MESSAGES) return
+
+    for (const group of GROUPS) {
+
+        try {
+
+            await sock.sendMessage(group, { text, mentions })
+
+        } catch (err) {
+
+            console.log("Co-Op Broadcast:", err.message)
+
+        }
+
+    }
+
+}
+
 // =========================
 // Helpers
 // =========================
@@ -72,7 +107,7 @@ coop.boss.shield = 0
 coop.boss.phase = 1
     coop.turnEnd =
 
-        Date.now() + 60000
+        Date.now() + TURN_MS
 
     await coop.save()
 
@@ -91,53 +126,22 @@ coop.boss.phase = 1
 
 async function nextTurn(sock, coop) {
 
-    if (
+    if (!bossAlive(coop)) {
 
-        !bossAlive(coop)
-
-    ) {
-
-        return endBattle(
-
-            sock,
-
-            true
-
-        )
+        return endBattle(sock, true)
 
     }
 
-    const players =
+    const players = alivePlayers(coop)
 
-        alivePlayers(
+    if (!players.length) {
 
-            coop
-
-        )
-
-    if (
-
-        !players.length
-
-    ) {
-
-        return endBattle(
-
-            sock,
-
-            false
-
-        )
+        return endBattle(sock, false)
 
     }
 
-    if (
-
-        coop.currentTurn >=
-
-        players.length
-
-    ) {
+    // نهاية الجولة: نرجع لأول لاعب ونزيد رقم الجولة
+    if (coop.currentTurn >= players.length) {
 
         coop.currentTurn = 0
 
@@ -145,22 +149,14 @@ async function nextTurn(sock, coop) {
 
     }
 
-    coop.turnEnd =
-
-        Date.now() + 60000
+    coop.turnEnd = Date.now() + TURN_MS
 
     await coop.save()
 
-return showTurn(
-
-    sock,
-
-    coop
-
-)
+    return showTurn(sock, coop)
 
 }
-// =========================
+
 // Show Turn
 // =========================
 
@@ -202,20 +198,14 @@ ${coop.boss.name}
 
 ❤️ ${coop.boss.hp.toLocaleString()} / ${coop.boss.maxHp.toLocaleString()}
 
-⏳ لديك 60 ثانية.
+⏳ لديك ${TURN_SECONDS} ثواني.
 
 اكتب
 
 *.مقاتلة*
 `
 
-    for (const group of [
-
-        "120363409897316453@g.us",
-
-        "120363020823525909@g.us"
-
-    ]) {
+    for (const group of (WA_BATTLE_MESSAGES ? GROUPS : [])) {
 
         try {
 
@@ -259,9 +249,7 @@ ${coop.boss.name}
 
             if (
 
-                latest.currentTurn !==
-
-                coop.currentTurn
+                latest.turnEnd !== coop.turnEnd
 
             ) return
 
@@ -273,7 +261,7 @@ ${coop.boss.name}
 
         },
 
-        60000
+        TURN_MS
 
     )
 
@@ -362,49 +350,32 @@ async function playerAttack(sock, userId) {
     // Damage
     // =========================
 
-    let damage =
-
-        character.power
-
-    // Critical
-
+    // نفس منطق الهجوم على الزعيم: المعدات/الإيكوز + السلاح + الرفيق + EX + البونصات
+    let damage = character.power
     let critical = false
 
-    const critRate =
+    const hit = await coopGear.calcHit(userId, character)
 
-        character.critRate || 5
+    if (hit) {
 
-    const critDamage =
+        damage = hit.damage
+        critical = hit.critical
 
-        character.critDamage || 50
+        if (hit.heal > 0) {
+            character.hp = Math.min(character.maxHp || character.hp, character.hp + hit.heal)
+        }
 
-    if (
+    } else {
 
-        crit(
-
-            critRate
-
-        )
-
-    ) {
-
-        critical = true
-
-        damage += Math.floor(
-
-            damage *
-
-            (critDamage / 100)
-
-        )
+        // احتياط: لو الاعتمادات غير محقونة نستخدم القوة الخام + حرج بسيط
+        if (crit(character.critRate || 5)) {
+            critical = true
+            damage += Math.floor(damage * ((character.critDamage || 50) / 100))
+        }
 
     }
 
-    damage = Math.floor(
-
-        damage
-
-    )
+    damage = Math.floor(damage)
 
     // =========================
 // Boss Shield
@@ -499,104 +470,23 @@ return {
 // Boss Attack
 // =========================
 
-async function bossAttack(sock) {
+const SKILL_CHANCE = 0.3
 
-    const coop = await CoOp.findOne()
+// ضربة الزعيم العادية: 18% – 30% من HP الشخصية
+function normalStrike(coop, player) {
 
-    if (
+    const character = currentCharacter(player)
 
-        !coop ||
-
-        coop.status !== "battle"
-
-    ) return
-
-    // نفذ المرحلة إذا لزم
-    await checkBossPhase(coop)
-
-    const players = alivePlayers(coop)
-
-    if (!players.length) {
-
-        return endBattle(
-
-            sock,
-
-            false
-
-        )
-
-    }
-
-    const player = players[
-        coop.currentTurn
-    ]
-
-    const character = currentCharacter(
-        player
+    let damage = random(
+        Math.floor(character.maxHp * 0.18),
+        Math.floor(character.maxHp * 0.30)
     )
 
-    if (
+    if (coop.boss.rage) damage = Math.floor(damage * 1.5)
 
-        !character ||
+    if (character.shield > 0) {
 
-        !character.alive
-
-    ) {
-
-        return nextTurn(
-
-            sock,
-
-            coop
-
-        )
-
-    }
-
-    // =========================
-    // Boss Damage
-    // =========================
-
-    let damage =
-
-        random(
-
-            Math.floor(character.maxHp * 0.18),
-
-            Math.floor(character.maxHp * 0.30)
-
-        )
-
-    // Rage
-    if (
-
-        coop.boss.rage
-
-    ) {
-
-        damage = Math.floor(
-
-            damage * 1.5
-
-        )
-
-    }
-
-    // Shield
-    if (
-
-        character.shield > 0
-
-    ) {
-
-        const absorbed = Math.min(
-
-            damage,
-
-            character.shield
-
-        )
+        const absorbed = Math.min(damage, character.shield)
 
         character.shield -= absorbed
 
@@ -606,11 +496,7 @@ async function bossAttack(sock) {
 
     character.hp -= damage
 
-    if (
-
-        character.hp <= 0
-
-    ) {
+    if (character.hp <= 0) {
 
         character.hp = 0
 
@@ -620,32 +506,111 @@ async function bossAttack(sock) {
 
     }
 
-    await coop.save()
+}
 
-    return nextTurn(
+// يحدد دور اللاعب التالي حسب ترتيب الجولة (حتى لو سقط لاعبون أثناء الهجوم)
+function advanceTurn(coop, orderIds, actingId) {
 
-        sock,
+    const alive = alivePlayers(coop)
 
-        coop
+    for (let k = orderIds.indexOf(actingId) + 1; k < orderIds.length; k++) {
 
-    )
+        const i = alive.findIndex(p => p.userId === orderIds[k])
+
+        if (i !== -1) {
+
+            coop.currentTurn = i
+
+            return
+
+        }
+
+    }
+
+    // انتهت الجولة: nextTurn يرجّعها 0 ويزيد رقم الجولة
+    coop.currentTurn = alive.length
 
 }
+
+async function bossAttack(sock) {
+
+    const coop = await CoOp.findOne()
+
+    if (!coop || coop.status !== "battle") return
+
+    // الزعيم مات بضربة اللاعب → ننهي القتال بدون ما يرد
+    if (!bossAlive(coop)) return nextTurn(sock, coop)
+
+    const orderIds = alivePlayers(coop).map(p => p.userId)
+
+    const actingId = orderIds[coop.currentTurn]
+
+    await checkBossPhase(coop, sock)
+
+    if (!alivePlayers(coop).length) {
+
+        return endBattle(sock, false)
+
+    }
+
+    const player = coop.players.find(
+        p => p.userId === actingId && !p.finished
+    )
+
+    if (player) {
+
+        const character = currentCharacter(player)
+
+        if (character && character.alive) {
+
+            let result = null
+
+            if (Math.random() < SKILL_CHANCE) {
+
+                result = coopSkills.cast(
+                    coop,
+                    coopSkills.rollSkill(coop),
+                    player
+                )
+
+            }
+
+            if (result) {
+
+                coop.battleLog.push(result.message)
+
+                await broadcast(
+                    sock,
+                    `👹 *${coop.boss.name}*\n${result.message}`
+                )
+
+            } else {
+
+                normalStrike(coop, player)
+
+            }
+
+        }
+
+    }
+
+    advanceTurn(coop, orderIds, actingId)
+
+    await coop.save()
+
+    return nextTurn(sock, coop)
+
+}
+
 // =========================
 // Next Character
 // =========================
 
 function nextCharacter(player) {
 
-    player.currentCharacter++
+    const next = player.characters.findIndex(c => c.alive)
 
-    if (
-
-        player.currentCharacter >=
-
-        player.characters.length
-
-    ) {
+    if (next === -1) {
 
         player.finished = true
 
@@ -653,97 +618,61 @@ function nextCharacter(player) {
 
     }
 
-    const character =
-
-        player.characters[
-            player.currentCharacter
-        ]
-
-    character.alive = true
+    player.currentCharacter = next
 
 }
+
 // =========================
 // Boss Phase
 // =========================
 
-async function checkBossPhase(coop) {
+async function checkBossPhase(coop, sock) {
 
-    const percent =
+    const percent = (coop.boss.hp / coop.boss.maxHp) * 100
 
-        (coop.boss.hp / coop.boss.maxHp) * 100
+    const messages = []
 
-    // =========================
-    // Phase 2 (70%)
-    // =========================
-
-    if (
-
-        percent <= 70 &&
-
-        coop.boss.phase === 1
-
-    ) {
+    // الطور 2 (70%): درع
+    if (percent <= 70 && coop.boss.phase === 1) {
 
         coop.boss.phase = 2
 
-        coop.boss.shield += 300000
+        const r = coopSkills.useSkill(coop, "shield")
 
-        return
+        messages.push(`⚠️ الطور 2!\n${r.message}`)
 
     }
 
-    // =========================
-    // Phase 3 (40%)
-    // =========================
-
-    if (
-
-        percent <= 40 &&
-
-        coop.boss.phase === 2
-
-    ) {
+    // الطور 3 (40%): هجوم جماعي
+    else if (percent <= 40 && coop.boss.phase === 2) {
 
         coop.boss.phase = 3
 
-        await coopSkills.useSkill(
+        const r = coopSkills.useSkill(coop, "aoe")
 
-            coop,
-
-            "aoe"
-
-        )
-
-        return
+        messages.push(`🔥 الطور 3!\n${r.message}`)
 
     }
 
-    // =========================
     // Rage (15%)
-    // =========================
+    if (percent <= 15 && !coop.boss.rage) {
 
-    if (
+        const r = coopSkills.useSkill(coop, "rage")
 
-        percent <= 15 &&
+        messages.push(r.message)
 
-        !coop.boss.rage
+    }
 
-    ) {
+    for (const text of messages) {
 
-        coop.boss.rage = true
+        coop.battleLog.push(text)
 
-        await coopSkills.useSkill(
-
-            coop,
-
-            "rage"
-
-        )
+        await broadcast(sock, `👹 *${coop.boss.name}*\n${text}`)
 
     }
 
 }
-// =========================
+
 // Auto Attack
 // =========================
 
@@ -789,11 +718,11 @@ async function autoAttack(sock) {
 
     }
 
-    let damage = Math.floor(
+    let damage = Math.floor(character.power * 0.7)
 
-        character.power * 0.7
+    const autoHit = await coopGear.calcHit(player.userId, character)
 
-    )
+    if (autoHit) damage = Math.floor(autoHit.damage * 0.7)
 
     if (
 
@@ -868,6 +797,13 @@ async function autoAttack(sock) {
 // End Battle
 // =========================
 
+// آخر نتيجة معركة (يعرضها الموقع بعد انتهاء القتال لأن الحالة تُصفّر)
+let lastResult = null
+
+function getLastResult() {
+    return lastResult
+}
+
 async function endBattle(sock, victory) {
 
     const coop = await CoOp.findOne()
@@ -886,6 +822,26 @@ async function endBattle(sock, victory) {
             coop
         )
 
+    }
+
+    lastResult = {
+        at: Date.now(),
+        victory: !!victory,
+        boss: {
+            name: coop.boss.name,
+            anime: coop.boss.anime,
+            rank: coop.boss.rank,
+            image: coop.boss.image
+        },
+        rows: victory
+            ? rewardResults
+            : (coop.leaderboard || []).map((r, i) => ({
+                rank: i + 1,
+                userId: r.userId,
+                name: r.name,
+                damage: r.damage,
+                rewards: null
+            }))
     }
 
     let text = ""
@@ -970,13 +926,9 @@ ${player.rewards.coins}
 
     }
 
-    for (const group of [
+    for (const group of GROUPS) {
 
-        "120363409897316453@g.us",
-
-        "120363020823525909@g.us"
-
-    ]) {
+        if (!sock) break
 
         try {
 
@@ -1028,6 +980,8 @@ ${player.rewards.coins}
 
     coop.turnEnd = 0
 
+    coop.startAt = 0
+    coop.ready = []
     coop.joinEnd = 0
 
     coop.nextSpawn =
@@ -1057,6 +1011,8 @@ module.exports = {
 
     nextTurn,
 
-    endBattle
+    endBattle,
+
+    getLastResult
 
 }

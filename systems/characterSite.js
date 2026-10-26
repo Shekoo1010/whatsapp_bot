@@ -956,6 +956,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['market', '🛍️', 'السوق (المزاد)', `/u/${c}/market`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
+        ['coop', '🤝', 'الكو اوب', `/u/${c}/coop`],
         ['contrib', '💥', 'مساهمات الزعيم', `/u/${c}/contrib`],
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
@@ -7151,6 +7152,21 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+
+    // ─────────────── الكو اوب + متجره (systems/coopSite.js) ───────────────
+    if (opts.coopShop) {
+        require('./coopSite').registerCoopSite(app, {
+            Player, auth, jsonBody, esc, securityHeaders, html404, CODE_RE,
+            ownerSession, bossSession, safeImageUrl,
+            shop: opts.coopShop,
+            shell: {
+                head: `${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}`,
+                navBtn: NAV_BTN,
+                navDrawer: navDrawerHTML,
+                jsonForScript
+            }
+        })
+    }
 
     // ─────────────── غزو المملكة (نفس منطق .غزو بالبوت) ───────────────
     const { kingdomPageHTML } = require('./kingdomPage')
