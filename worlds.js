@@ -65,10 +65,7 @@ const EVOLUTION_POINTS = {
 
 // القروبات اللي يوصلها إعلان نهاية الأسبوع
 const WORLD_SEASON_GROUP_JID = [
-    '120363020823525909@g.us',
-    '120363409897316453@g.us',
-    '120363116482407260@g.us',
-    '120363362807326585@g.us'
+    '120363428933463078@g.us'
 ]
 
 const SAUDI_UTC_OFFSET_HOURS = 3
