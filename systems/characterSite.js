@@ -88,6 +88,7 @@ document.addEventListener('touchcancel',function(){if(!busy)reset();},{passive:t
 })();
 </script>`
 }
+const growth = require('./weeklyGrowth') // 🚀 تبويب الأكثر نمواً (أسبوعي)
 const kingdom = require('./kingdomGroups') // توب قروبات المملكة (Tsuki / Yama / Nakama) + إشعارات الجوائز
 const contribResults = require('./dailyContribResults') // 🏆 نتيجة جوائز المساهمات اليومية (تظهر بنافذة الهدايا)
 const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
@@ -1253,7 +1254,7 @@ function inboxPopupHTML(viewer) {
     }
     if(g.kind==='reward'){
       var rt=el('div','g-top'); rt.appendChild(el('span','',(i+1)+' / '+G.length)); rt.appendChild(el('span','','🏆 جائزة ترتيب '+g.period)); box.appendChild(rt);
-      var rl=el('div','g-line','المركز '); rl.appendChild(el('b','',String(g.pos))); rl.appendChild(document.createTextNode(' بقروب ')); var gb=el('b','',g.group); gb.style.direction='ltr'; gb.style.display='inline-block'; rl.appendChild(gb); box.appendChild(rl);
+      var rl=el('div','g-line','المركز '); rl.appendChild(el('b','',String(g.pos))); rl.appendChild(document.createTextNode(g.group==='الأكثر نمواً'?' في ':' بقروب ')); var gb=el('b','',g.group); gb.style.direction=g.group==='الأكثر نمواً'?'rtl':'ltr'; gb.style.display='inline-block'; rl.appendChild(gb); box.appendChild(rl);
       var ra=el('div','g-art'); if(g.img){ ra.style.backgroundImage=\"url('\"+g.img+\"')\"; } else { ra.textContent='🏆'; } box.appendChild(ra);
       if(g.charName){ box.appendChild(el('div','g-name',g.charName)); if(g.charRarity) box.appendChild(el('div','g-chip',g.charRarity)); }
       g.items.forEach(function(t){ box.appendChild(el('div','g-line',t)); });
@@ -4239,7 +4240,7 @@ const TOP_JS = `(function(){
   // عدّاد القوة يرتفع من 0 للرقم النهائي
   document.querySelectorAll('[data-n]').forEach(function(el){
     var to=+el.getAttribute('data-n')||0, t0=0, d=1400;
-    function f(n){return n.toLocaleString('en-US')}
+    function f(n){return (el.getAttribute('data-p')||'')+n.toLocaleString('en-US')}
     function step(t){var k=Math.min(1,(t-t0)/d); k=1-Math.pow(1-k,3); el.textContent=f(Math.round(to*k)); if(k<1) requestAnimationFrame(step); else el.textContent=f(to)}
     el.textContent='0'; setTimeout(function(){requestAnimationFrame(function(t){t0=t;step(t)})},500);
   });
@@ -4263,16 +4264,115 @@ const TOP_JS = `(function(){
   loop();
 })();`
 
+
+const GROWTH_CSS = `
+.tp.gr{--tg:#35f0b0;--tgd:#1f8a6a;--silver:#4cc9ff;--bronze:#c77dff}
+.tp-bg.gr-bg{background:#050d0f}
+.tp-bg.gr-bg i:nth-child(1){background:radial-gradient(circle,rgba(53,240,176,.34),transparent 65%)}
+.tp-bg.gr-bg i:nth-child(2){background:radial-gradient(circle,rgba(76,201,255,.30),transparent 65%)}
+.tp-bg.gr-bg i:nth-child(3){background:radial-gradient(circle,rgba(199,125,255,.26),transparent 65%)}
+.tp.gr h1{background:linear-gradient(110deg,#d9fff0 20%,#35f0b0 40%,#fff 50%,#4cc9ff 60%,#1f8a6a 80%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:tpShine 6s linear infinite}
+.tp.gr .tp-orn{color:#1f8a6a}
+.tp.gr .tp-slot{animation:grLaunch 1.15s cubic-bezier(.17,.9,.3,1.2) both}
+.tp.gr .tp-slot.r2{animation-delay:.1s}.tp.gr .tp-slot.r3{animation-delay:.3s}.tp.gr .tp-slot.r1{animation-delay:.6s}
+@keyframes grLaunch{from{opacity:0;transform:translateY(150px) scale(.7)}60%{opacity:1;transform:translateY(-16px) scale(1.04)}to{opacity:1;transform:none}}
+.tp.gr .r1 .tp-pc{animation:tpRot 4s linear infinite,tpFloat 5s ease-in-out infinite,tpGlow 2.6s ease-in-out infinite,grBeat 2.2s ease-in-out infinite}
+@keyframes grBeat{50%{scale:1.035}}
+.gr-aura{position:absolute;left:50%;top:42%;width:105%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:0;pointer-events:none}
+.gr-aura i{position:absolute;inset:0;border-radius:50%;border:2px solid #35f0b0;opacity:0;animation:grRing 3.6s ease-out infinite}
+.gr-aura i:nth-child(2){animation-delay:1.2s}.gr-aura i:nth-child(3){animation-delay:2.4s}
+@keyframes grRing{0%{transform:scale(.55);opacity:.85}100%{transform:scale(2.1);opacity:0}}
+.tp.gr .tp-pc::before{content:"";position:absolute;left:0;right:0;height:38%;top:-40%;z-index:3;pointer-events:none;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--c) 45%,transparent),transparent);animation:grScan 3.4s ease-in-out infinite}
+.tp.gr .r2 .tp-pc::before{animation-delay:1.1s}.tp.gr .r3 .tp-pc::before{animation-delay:2.2s}
+@keyframes grScan{0%{top:-40%}100%{top:110%}}
+.gr-sp{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.gr-sp::before,.gr-sp::after{content:"";position:absolute;inset:0;opacity:.85}
+.gr-sp::before{background-image:radial-gradient(circle,var(--c) 0 1.6px,transparent 2.6px),radial-gradient(circle,#fff 0 1px,transparent 1.8px);background-size:46px 62px,71px 93px;background-position:6px 0,30px 20px;animation:grUp1 3.4s linear infinite}
+.gr-sp::after{background-image:radial-gradient(circle,var(--c) 0 1.2px,transparent 2px);background-size:58px 80px;background-position:20px 10px;opacity:.55;animation:grUp2 5.2s linear infinite}
+@keyframes grUp1{to{background-position:6px -62px,30px -73px}}
+@keyframes grUp2{to{background-position:20px -70px}}
+.tp.gr .tp-crown{animation:tpCrown 1.6s ease-in-out infinite;filter:drop-shadow(0 3px 10px rgba(53,240,176,.8))}
+.tp.gr .tp-pw::before{content:"\\25B2";font-size:.6em;display:inline-block;animation:grBob 1.2s ease-in-out infinite}
+@keyframes grBob{50%{transform:translateY(-3px)}}
+.tp.gr .tp-sc{color:#35f0b0}
+.tp.gr .tp-row.me{border-color:#35f0b0;background:linear-gradient(90deg,rgba(53,240,176,.14),rgba(15,20,34,.85))}
+.tp.gr .tp-you,.tp.gr .gt-tab.on{color:#04110d}
+.gr-bar{height:5px;border-radius:9px;background:#10201f;overflow:hidden;margin-top:5px}
+.gr-bar i{display:block;height:100%;width:var(--w);border-radius:9px;background:linear-gradient(90deg,#1f8a6a,#35f0b0,#d9fff0);transform-origin:right;animation:grFill 1.1s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*45ms + .9s)}
+@keyframes grFill{from{transform:scaleX(0)}}
+.gr-cd{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 auto 14px;padding:10px 14px;max-width:440px;border-radius:16px;border:1px solid rgba(53,240,176,.35);background:linear-gradient(180deg,rgba(53,240,176,.10),rgba(8,16,16,.72))}
+.gr-cd>small{color:var(--td);font-size:12px;font-weight:700}
+.gr-cdn{direction:ltr;display:flex;gap:6px;font-family:'Oswald',sans-serif}
+.gr-cdn b{min-width:46px;text-align:center;font-size:22px;font-weight:600;color:#35f0b0;background:#07120f;border:1px solid #17352d;border-radius:10px;padding:2px 6px;box-shadow:inset 0 0 12px rgba(53,240,176,.08)}
+.gr-cdn b small{display:block;font:600 9px 'Cairo',sans-serif;color:var(--td)}
+.gr-cdn u{text-decoration:none;color:#1f8a6a;align-self:center;animation:grBl 1s steps(2) infinite}
+@keyframes grBl{50%{opacity:.25}}
+.gr-cd em{font-style:normal;font-size:11px;color:var(--td)}
+.gr-win{text-align:center;font-size:12.5px;color:var(--td);margin:0 0 12px}
+.gr-win b{color:#35f0b0}
+.gr-prz{margin:16px 0 0;border:1px solid var(--tl);border-radius:14px;background:rgba(10,18,18,.8);padding:8px 12px}
+.gr-prz summary{cursor:pointer;font-weight:800;color:#35f0b0;font-size:14px}
+.gr-prz div{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-top:1px solid var(--tl);margin-top:6px}
+.gr-prz div b{color:var(--c);font-family:'Oswald',sans-serif}
+.gr-new{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:60;background:#35f0b0;color:#06100f;font:900 13px 'Cairo',sans-serif;border:0;border-radius:20px;padding:8px 18px;box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer}
+`
+
+const GROWTH_JS = `(function(){
+  var cd=document.getElementById('gr-cd');
+  if(cd){
+    var end=+cd.getAttribute('data-end'), off=+cd.getAttribute('data-now')-Date.now(), u={}, t;
+    ['d','h','m','s'].forEach(function(k){u[k]=cd.querySelector('[data-u="'+k+'"]')});
+    function p(n){return (n<10?'0':'')+n}
+    function tick(){
+      var ms=Math.max(0,end-(Date.now()+off)), s=Math.floor(ms/1000);
+      u.d.textContent=p(Math.floor(s/86400)); u.h.textContent=p(Math.floor(s%86400/3600)); u.m.textContent=p(Math.floor(s%3600/60)); u.s.textContent=p(s%60);
+      if(ms<=0){clearInterval(t); setTimeout(function(){location.reload()},3000+Math.random()*9000)}
+    }
+    t=setInterval(tick,1000); tick();
+    var v0=cd.getAttribute('data-v'), pth=location.pathname; if(pth.slice(-1)==='/') pth=pth.slice(0,-1);
+    setInterval(function(){
+      if(document.hidden||document.getElementById('gr-new')) return;
+      fetch(pth+'/growth/v',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+        if(j&&String(j.v)!==v0&&!document.getElementById('gr-new')){
+          var b=document.createElement('button'); b.id='gr-new'; b.className='gr-new'; b.textContent='🔄 تحديث جديد — اضغط'; b.onclick=function(){location.reload()}; document.body.appendChild(b);
+        }
+      }).catch(function(){});
+    },90000);
+  }
+  var c=document.getElementById('gr-fx'); if(!c||matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  var x=c.getContext('2d'); if(!x) return;
+  var W=0,H=0,P=[],dpr=Math.min(2,devicePixelRatio||1),C=['53,240,176','76,201,255','199,125,255'];
+  function size(){W=c.clientWidth;H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}
+  function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+10,r:Math.random()*2.2+1.2,v:Math.random()*.9+.5,s:Math.random()*6.28,a:Math.random()*.55+.3,c:C[Math.floor(Math.random()*3)]}}
+  size(); addEventListener('resize',size);
+  var N=Math.round(Math.min(46,Math.max(22,innerWidth/18)));
+  for(var i=0;i<N;i++)P.push(mk(true));
+  function loop(){
+    if(document.hidden){requestAnimationFrame(loop);return}
+    x.clearRect(0,0,W,H);
+    for(var i=0;i<P.length;i++){var q=P[i];q.y-=q.v;q.s+=.03;q.x+=Math.sin(q.s)*.3;
+      if(q.y<-10){P[i]=mk(false);continue}
+      var al=q.a*Math.min(1,q.y/(H*.25),(H-q.y)/40+.2);
+      x.beginPath();x.fillStyle='rgba('+q.c+','+al+')';
+      x.moveTo(q.x,q.y-q.r*2);x.lineTo(q.x+q.r*1.7,q.y+q.r);x.lineTo(q.x,q.y+q.r*.2);x.lineTo(q.x-q.r*1.7,q.y+q.r);x.closePath();x.fill()}
+    requestAnimationFrame(loop)}
+  loop();
+})();`
+
 // podium: أول 3 · rows: من 4 فصاعداً · me: ترتيب صاحب الصفحة
 // كل عنصر: { rank, who, charName, tier, color, img, total, isMe }
-function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], subText = null, emptyText = null }) {
+function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], subText = null, emptyText = null, growth = null }) {
+    const G = !!growth
+    const num = v => (G ? '+' : '') + fmtInt(v)
+    const lead = Math.max(1, Number(podium[0] && podium[0].total) || 1)
+    const pct = d => Math.max(3, Math.min(100, Math.round((Number(d.total) || 0) / lead * 100)))
     const youLabel = viewer.isOwner ? 'أنت' : 'صاحب الصفحة'
     const initial = s => esc(Array.from(String(s || '?'))[0] || '?')
     const you = d => d.isMe ? ` <em class="tp-you">${youLabel}</em>` : ''
 
-    const slot = (d, i) => `<div class="tp-slot r${i + 1}">${i === 0 ? '<div class="tp-rays"></div>' : ''}<article class="tp-pc" style="--t:${d.color}"><div class="tp-art">${i === 0 ? '<span class="tp-crown">👑</span>' : ''}<span class="tp-medal">${i + 1}</span><span class="tp-tier">${esc(d.tier)}</span><span class="tp-ph">${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}</div><div class="tp-info"><div class="tp-cn">${esc(d.charName)}</div><div class="tp-un">${esc(d.who)}${you(d)}</div>${TITLES.wrap(d.t, true)}<div class="tp-pw"><span data-n="${Math.round(d.total)}">${fmtInt(d.total)}</span> <small>قوة</small></div></div></article></div>`
+    const slot = (d, i) => `<div class="tp-slot r${i + 1}">${i === 0 ? (G ? '<div class="gr-aura"><i></i><i></i><i></i></div>' : '<div class="tp-rays"></div>') : ''}<article class="tp-pc" style="--t:${d.color}"><div class="tp-art">${G ? '<span class="gr-sp"></span>' : ''}${i === 0 ? `<span class="tp-crown">${G ? '🚀' : '👑'}</span>` : ''}<span class="tp-medal">${i + 1}</span><span class="tp-tier">${esc(d.tier)}</span><span class="tp-ph">${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}</div><div class="tp-info"><div class="tp-cn">${esc(d.charName)}</div><div class="tp-un">${esc(d.who)}${you(d)}</div>${TITLES.wrap(d.t, true)}<div class="tp-pw"><span data-n="${Math.round(d.total)}"${G ? ' data-p="+"' : ''}>${num(d.total)}</span> <small>${G ? 'قوة مكتسبة' : 'قوة'}</small></div></div></article></div>`
 
-    const row = (d, i) => `<div class="tp-row${d.isMe ? ' me' : ''}" style="--t:${d.color};--i:${i}"><div class="tp-rk">${d.rank}</div><div class="tp-th"><span>${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div><div class="tp-mid"><b>${esc(d.who)}${you(d)}</b>${TITLES.wrap(d.t, true)}<span><i>${esc(d.tier)}</i> · ${esc(d.charName)}</span></div><div class="tp-sc">${fmtInt(d.total)}<small>مجموع القوة</small></div></div>`
+    const row = (d, i) => `<div class="tp-row${d.isMe ? ' me' : ''}" style="--t:${d.color};--i:${i}"><div class="tp-rk">${d.rank}</div><div class="tp-th"><span>${initial(d.charName)}</span>${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div><div class="tp-mid"><b>${esc(d.who)}${you(d)}</b>${TITLES.wrap(d.t, true)}<span><i>${esc(d.tier)}</i> · ${esc(d.charName)}</span>${G ? `<div class="gr-bar"><i style="--w:${pct(d)}%"></i></div>` : ''}</div><div class="tp-sc">${num(d.total)}<small>${G ? 'قوة مكتسبة' : 'مجموع القوة'}</small></div></div>`
 
     const topbar = viewer.isOwner
         ? `<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🏆 أقوى اللاعبين</span></span><a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>`
@@ -4284,22 +4384,28 @@ function topPageHTML({ code, viewer, podium, rows, me, updatedText, tabs = [], s
   <section class="tp-list">${rows.map(row).join('')}</section>` : `<div class="tp-sec"><span>آخر تحديث: ${esc(updatedText)}</span></div>`}`
         : `<div class="tp-empty">${esc(emptyText || 'لا يوجد لاعبون في الترتيب بعد.')}</div>`
 
+    const growthHead = !G ? '' : `<div class="gr-cd" id="gr-cd" data-end="${Number(growth.endMs)}" data-now="${Date.now()}" data-v="${esc(String(growth.v))}"><small>⏳ ينتهي الأسبوع وتُوزَّع الجوائز بعد</small><div class="gr-cdn"><b><span data-u="d">00</span><small>يوم</small></b><u>:</u><b><span data-u="h">00</span><small>ساعة</small></b><u>:</u><b><span data-u="m">00</span><small>دقيقة</small></b><u>:</u><b><span data-u="s">00</span><small>ثانية</small></b></div><em>كل أحد 12:00 ص بتوقيت السعودية</em></div>${growth.lastWinners && growth.lastWinners.length ? `<div class="gr-win">🏆 أبطال الأسبوع الماضي: ${growth.lastWinners.map(w => `<b>${esc(w.who)}</b>`).join(' · ')}</div>` : ''}`
+    const growthPrizes = !G ? '' : `<details class="gr-prz"><summary>🎁 جوائز الأسبوع (المراكز 1–${growth.prizes.length ? growth.prizes[growth.prizes.length - 1].to : 15})</summary>${growth.prizes.map(p => `<div style="--c:${esc(p.color)}"><span>${p.from === p.to ? 'المركز ' + p.from : 'المراكز ' + p.from + '–' + p.to}</span><b>${p.items.map(esc).join(' · ')}</b></div>`).join('')}<div><span>الاستلام</span><b>تظهر لك عند فتح الموقع ← اضغط استلام</b></div></details>`
+
     return `${shellHead('أقوى اللاعبين')}
 <body>
-<style>${TOP_CSS}</style>
-<div class="tp-bg" aria-hidden="true"><i></i><i></i><i></i><canvas id="tp-fx"></canvas></div>
-<div class="tp">
+<style>${TOP_CSS}${G ? GROWTH_CSS : ''}</style>
+<div class="tp-bg${G ? ' gr-bg' : ''}" aria-hidden="true"><i></i><i></i><i></i><canvas id="${G ? 'gr-fx' : 'tp-fx'}"></canvas></div>
+<div class="tp${G ? ' gr' : ''}">
   ${topbar}
-  <div class="tp-eb">Top Players</div>
-  <h1>أقوى اللاعبين</h1>
+  <div class="tp-eb">${G ? 'Most Growth' : 'Top Players'}</div>
+  <h1>${G ? 'الأكثر نمواً' : 'أقوى اللاعبين'}</h1>
   <p class="tp-sub">${esc(subText || `الترتيب حسب مجموع قوة شخصيات اللاعب (بحدّ سعة مخزونه)، أول ${TOP_LIMIT} لاعب`)}</p>
   <div class="tp-orn">◆</div>
   ${tabs.length ? `<nav class="gt-tabs">${tabs.map(t => `<a class="gt-tab${t.on ? ' on' : ''}" style="--g:${esc(t.color)}" href="${esc(t.href)}">${esc(t.label)}</a>`).join('')}</nav>` : ''}
+  ${growthHead}
   ${body}
+  ${growthPrizes}
 </div>
-<div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span>${TITLES.wrap(me.t, true)}<span class="p">⚔️ ${fmtInt(me.total)}</span></div></div>
+<div class="tp-me${viewer.isOwner ? '' : ' nb'}"><div><b>${me.rank ? '#' + fmtInt(me.rank) : '—'}</b><span class="t">${viewer.isOwner ? 'ترتيبك' : 'ترتيبه'}: ${esc(me.who)}</span>${TITLES.wrap(me.t, true)}<span class="p">${G ? '▲ +' : '⚔️ '}${fmtInt(me.total)}</span></div></div>
 ${viewer.isOwner ? navDrawerHTML(code, viewer.csrf, 'top', viewer.name) : ''}
 <script>${TOP_JS}</script>
+${G ? `<script>${GROWTH_JS}</script>` : ''}
 </body></html>`
 }
 
@@ -7402,9 +7508,9 @@ function registerCharacterSite(app, Player, opts = {}) {
     let topCache = null      // { at, list }
     let topPending = null
 
-    function getTotals() {
+    function getTotals(force) {
         const now = Date.now()
-        if (totalsCache && now - totalsCache.at < TOP_CACHE_MS) return Promise.resolve(totalsCache)
+        if (!force && totalsCache && now - totalsCache.at < TOP_CACHE_MS) return Promise.resolve(totalsCache)
         if (totalsPending) return totalsPending
         totalsPending = (async () => {
             try {
@@ -7430,6 +7536,8 @@ function registerCharacterSite(app, Player, opts = {}) {
         })()
         return totalsPending
     }
+
+    growth.init({ Player, getTotals, getSssChars: () => loadCatalog(getCatalog).filter(c => c && c.rarity === 'SSS') }) // 🚀 الأكثر نمواً: يعيد استخدام نفس التجميع المخزّن (بدون استعلام إضافي)
 
     function getTopList() {
         if (topPending) return topPending
@@ -7518,14 +7626,14 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = ownerSession(req, player)
             if (!sess && !auth.hasViewOnly(req)) return res.redirect(303, `/u/${code}`)
 
-            // تبويبات القروبات: ?g=tsuki|yama|nakama (بدونها = الترتيب العام)
-            const gTabs = kingdom.getTabs()
+            // تبويبات القروبات (Tsuki / Yama / Nakama) محذوفة: الترتيب العام فقط
+            const gTabs = []
             const grp = gTabs.find(t => t.k === String(req.query.g || '')) || null
-            const tabs = gTabs.length
-                ? [{ label: '🏆 العام', color: '#f0c04a', on: !grp, href: `/u/${code}/top` }]
-                    .concat(gTabs.map(t => ({ label: t.label, color: t.color, on: !!grp && grp.k === t.k, href: `/u/${code}/top?g=${t.k}` })))
-                : []
-            const snap = grp ? await kingdom.getBoard(grp.k) : await getTopList()
+            const isGrowth = !grp && String(req.query.tab || '') === 'growth'
+            const tabs = [{ label: '🏆 العام', color: '#f0c04a', on: !grp && !isGrowth, href: `/u/${code}/top` }]
+                .concat(gTabs.map(t => ({ label: t.label, color: t.color, on: !!grp && grp.k === t.k, href: `/u/${code}/top?g=${t.k}` })))
+                .concat([{ label: '🚀 الأكثر نمواً', color: '#35f0b0', on: isGrowth, href: `/u/${code}/top?tab=growth` }])
+            const snap = isGrowth ? await growth.getBoard() : (grp ? await kingdom.getBoard(grp.k) : await getTopList())
             const catIdx = getCatalogIndex(getCatalog)
             const tMap = await TITLES.lookupMany(Player, snap.list.map(d => d.userId).concat(player.userId)) // 🏅 ألقاب اللاعبين
 
@@ -7552,12 +7660,18 @@ function registerCharacterSite(app, Player, opts = {}) {
             const myIdx = snap.list.findIndex(d => d.userId === player.userId)
             let myRank = null
             if (myIdx >= 0) myRank = myIdx + 1
-            else if (!grp && myTotal > 0) myRank = await getOutsideRank(player.userId, myTotal)
+            else if (!grp && !isGrowth && myTotal > 0) myRank = await getOutsideRank(player.userId, myTotal)
             const me = {
                 rank: myRank,
                 total: myIdx >= 0 ? Number(snap.list[myIdx].total) || 0 : myTotal,
                 who: player.username ? '@' + player.username : (player.name || 'لاعب'),
                 t: tMap.get(player.userId) || null
+            }
+
+            if (isGrowth) { // 🚀 ترتيب القوة المكتسبة هذا الأسبوع
+                const mr = snap.rankMap.get(player.userId)
+                me.rank = mr ? mr.rank : null
+                me.total = mr ? mr.gain : 0
             }
 
             const viewer = sess
@@ -7571,12 +7685,28 @@ function registerCharacterSite(app, Player, opts = {}) {
                 me,
                 updatedText: grp ? 'يتجدد يومياً 1:00 ص' : agoText(Date.now() - snap.at),
                 tabs,
-                subText: grp ? `ترتيب أعضاء قروب ${grp.label} فقط، أول ${kingdom.TOP_GROUP_LIMIT} لاعب` : null,
-                emptyText: grp ? `لا يوجد لاعبون في قروب ${grp.label} بعد.` : null
+                subText: isGrowth ? 'الترتيب حسب القوة التي اكتسبتها هذا الأسبوع فقط — اللاعب الجديد ينافس الكبار' : (grp ? `ترتيب أعضاء قروب ${grp.label} فقط، أول ${kingdom.TOP_GROUP_LIMIT} لاعب` : null),
+                emptyText: isGrowth ? 'ما أحد كسب قوة هذا الأسبوع بعد 🚀 كن أنت الأول!' : (grp ? `لا يوجد لاعبون في قروب ${grp.label} بعد.` : null),
+                growth: isGrowth ? { endMs: snap.endMs, v: snap.v, lastWinners: snap.lastWinners, prizes: growth.prizeRows() } : null
             }))
         } catch (err) {
             console.error('top players page error:', err)
             res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // نسخة لوحة الأكثر نمواً (رقم فقط) — الصفحة تسأله كل 90 ثانية وتعرض زر "تحديث جديد" فقط عند التغيّر
+    app.get('/u/:code/top/growth/v', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return res.status(404).json({ v: 0 })
+            const exists = await Player.exists({ siteCode: code })
+            if (!exists) return res.status(404).json({ v: 0 })
+            const b = await growth.getBoard()
+            res.json({ v: b.v })
+        } catch (err) {
+            res.status(500).json({ v: 0 })
         }
     })
 
