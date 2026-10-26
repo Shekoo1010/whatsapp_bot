@@ -92,6 +92,7 @@ const kingdom = require('./kingdomGroups') // توب قروبات المملكة
 const contribResults = require('./dailyContribResults') // 🏆 نتيجة جوائز المساهمات اليومية (تظهر بنافذة الهدايا)
 const { warPageHTML } = require('./warPage') // ⚔️ صفحة حرب الأعلام (systems/warSystem.js)
 const { shardPageHTML } = require('./shardPage') // 🧩 صفحة الشظايا والتطوير والاسترجاع (نفس .شظايا / .تطوير / .استرجاع)
+const { echoPageHTML } = require('./echoPage') // 🎐 صفحة الإيكوز والدومين (نفس .ايكو / .لبس / .ازالة / .تطوير_ايكو / .بيع_ايكو / .فريق_دومين / .دخول_دومين)
 
 const PAGE_SIZE = 40
 const TOP_LIMIT = 30                    // عدد اللاعبين بصفحة أقوى اللاعبين
@@ -971,6 +972,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
+        ['echoes', '🎐', 'الإيكوز والدومين', `/u/${c}/echoes`],
         ['players', '👥', 'اللاعبون', `/u/${c}/players`],
         ['ids', '🪪', 'آيديات اللاعبين', `/u/${c}/ids`],
         ['war', '⚔️', 'حرب الأعلام', `/u/${c}/war`],
@@ -6406,6 +6408,209 @@ function registerCharacterSite(app, Player, opts = {}) {
             })
         } catch (err) {
             console.error('shards convert-all route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // ─────────────── 🎐 الإيكوز + 🌀 الدومين (نفس .ايكو / .لبس / .ازالة / .تطوير_ايكو / .بيع_ايكو / .فريق_دومين / .دخول_دومين) ───────────────
+    // كل المنطق بـ systems/echoSiteSystem.js اللي يستدعي equipmentSystem و domainSystem نفسهم اللي يستخدمهم البوت.
+    // هنا فقط: صفحة + مسارات آمنة (جلسة + CSRF + حد طلبات + تحقق مدخلات)، والنتيجة تُحسب بالخادم دائماً.
+    const echoSystem = opts.echoSystem
+    const echoPollHits = new Map()
+    function echoPollRate(userId) {
+        const now = Date.now()
+        const arr = (echoPollHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 60) { echoPollHits.set(userId, arr); return false }
+        arr.push(now); echoPollHits.set(userId, arr); return true
+    }
+    const echoStatus = code => code === 'BUSY' ? 409 : code === 'SERVER' ? 500 : 400
+    const ECHO_SLOTS_OK = ['cost4', 'cost3_1', 'cost3_2', 'cost1_1', 'cost1_2']
+    const echoInt = (v, a, b) => { const n = Number(v); return Number.isInteger(n) && n >= a && n <= b ? n : null }
+    const echoStr = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max ? v : ''
+
+    app.get('/u/:code/echoes', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!echoSystem) return res.status(503).send('صفحة الإيكوز غير مفعّلة حالياً')
+
+            const st = await echoSystem.getState({ userId: player.userId, charIndex: 0, domainId: 1, mapImg: c => shardImg(c, req) })
+            if (!st.ok) return res.status(500).send('خطأ بالخادم')
+
+            res.send(echoPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                state: st,
+                navDrawerHTML, NAV_BTN, titlesHead: TITLES.HEAD + PTR.HEAD
+            }))
+        } catch (err) {
+            console.error('echoes page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // إعادة قراءة الحالة بعد كل عملية (الواجهة ما تحسب شيء بنفسها) — بدون الإعدادات الثابتة (تُحقن مرة بالصفحة)
+    app.get('/echoes/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!echoSystem || !auth.authEnabled()) return res.status(503).json({ ok: false, message: 'غير مفعّل حالياً' })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!echoPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            const st = await echoSystem.getState({
+                userId: sess.u,
+                charIndex: echoInt(req.query.char, 0, 100000) ?? 0,
+                domainId: echoInt(req.query.dom, 1, 100) ?? 1,
+                mapImg: c => shardImg(c, req)
+            })
+            if (!st.ok) return res.status(400).json({ ok: false, code: st.code, message: st.message })
+            delete st.cfg
+            res.json(st)
+        } catch (err) {
+            console.error('echoes state error:', err)
+            res.status(500).json({ ok: false, message: '❌ حدث خطأ بالخادم، حاول مرة ثانية.' })
+        }
+    })
+
+    // قائمة الشخصيات بصفحات + بحث (لاعب عنده 200+ شخصية)
+    app.get('/echoes/chars', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!echoSystem || !auth.authEnabled()) return res.status(503).json({ ok: false, message: 'غير مفعّل حالياً' })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!echoPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            const r = await echoSystem.listChars({
+                userId: sess.u,
+                page: echoInt(req.query.page, 0, 100000) ?? 0,
+                q: typeof req.query.q === 'string' ? req.query.q.slice(0, 60) : '',
+                mapImg: c => shardImg(c, req)
+            })
+            if (!r.ok) return res.status(400).json({ ok: false, code: r.code, message: r.message })
+            res.json(r)
+        } catch (err) {
+            console.error('echoes chars error:', err)
+            res.status(500).json({ ok: false, message: '❌ حدث خطأ بالخادم، حاول مرة ثانية.' })
+        }
+    })
+
+    // 👕 .لبس (بدون سلوت = نفس .لبس بالضبط، وبسلوت = تجهيز مباشر بخانة محددة)
+    app.post('/echoes/equip', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.equip)
+        if (!g || !g.sess) return
+        try {
+            const charIndex = echoInt(g.body.charIndex, 0, 100000)
+            const name = echoStr(g.body.name, 120)
+            const uid = echoStr(g.body.uid, 64)
+            const slot = g.body.slot == null || g.body.slot === '' ? undefined : String(g.body.slot)
+            if (charIndex === null || !name || !uid || (slot !== undefined && !ECHO_SLOTS_OK.includes(slot))) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.equip({ userId: g.sess.u, charIndex, name, uid, slot })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر اللبس'))
+            res.json({ ok: true, slot: r.slot ? String(r.slot) : null, name: String(r.name || '') })
+        } catch (err) {
+            console.error('echoes equip route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // 🧤 .ازالة
+    app.post('/echoes/unequip', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.unequip)
+        if (!g || !g.sess) return
+        try {
+            const charIndex = echoInt(g.body.charIndex, 0, 100000)
+            const name = echoStr(g.body.name, 120)
+            const slot = String(g.body.slot || '')
+            if (charIndex === null || !name || !ECHO_SLOTS_OK.includes(slot)) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.unequip({ userId: g.sess.u, charIndex, name, slot })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر الخلع'))
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('echoes unequip route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // ⬆️ .تطوير_ايكو (تيونر + مال)
+    app.post('/echoes/level', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.level)
+        if (!g || !g.sess) return
+        try {
+            const uid = echoStr(g.body.uid, 64)
+            const levels = echoInt(g.body.levels, 1, 15)
+            if (!uid || levels === null) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.level({ userId: g.sess.u, uid, levels })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر التطوير'))
+            res.json({
+                ok: true, applied: Number(r.applied) || 0, cost: Number(r.cost) || 0,
+                unlocked: (r.unlocked || []).map(s => ({ t: String(s.t), name: String(s.name || ''), v: Number(s.v) || 0 }))
+            })
+        } catch (err) {
+            console.error('echoes level route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // 💰 .بيع_ايكو
+    app.post('/echoes/sell', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.sell)
+        if (!g || !g.sess) return
+        try {
+            const raw = Array.isArray(g.body.uids) ? g.body.uids : []
+            const uids = [...new Set(raw.map(u => echoStr(u, 64)).filter(Boolean))].slice(0, 40)
+            if (!uids.length) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.sell({ userId: g.sess.u, uids })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر البيع'))
+            res.json({ ok: true, sold: Number(r.sold) || 0, gold: Number(r.gold) || 0, money: Number(r.money) || 0 })
+        } catch (err) {
+            console.error('echoes sell route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // 👥 .فريق_دومين (3 شخصيات مختلفة بالضبط)
+    app.post('/echoes/team', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.setTeam)
+        if (!g || !g.sess) return
+        try {
+            const domainId = echoInt(g.body.domainId, 1, 100)
+            const arr = Array.isArray(g.body.chars) ? g.body.chars : []
+            const chars = arr.map(c => ({ index: echoInt(c && c.index, 0, 100000), name: echoStr(c && c.name, 120) }))
+            if (domainId === null || chars.length !== 3 || chars.some(c => c.index === null || !c.name)) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.setTeam({ userId: g.sess.u, domainId, chars })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر حفظ الفريق'))
+            res.json({ ok: true })
+        } catch (err) {
+            console.error('echoes team route error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
+        }
+    })
+
+    // ⚔️ .دخول_دومين (الخادم يحسب الرمية والفوز والقطعة؛ الواجهة تعرضها بحركة فقط)
+    app.post('/echoes/enter', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, echoSystem && echoSystem.enter)
+        if (!g || !g.sess) return
+        try {
+            const domainId = echoInt(g.body.domainId, 1, 100)
+            const difficulty = ['easy', 'medium', 'hard'].includes(g.body.difficulty) ? g.body.difficulty : null
+            if (domainId === null || !difficulty) return g.fail(400, 'BAD_INDEX', '❌ اختيار غير صحيح، حدّث الصفحة.')
+            const r = await echoSystem.enter({ userId: g.sess.u, domainId, difficulty, mapImg: c => shardImg(c, req) })
+            if (!r.ok) return g.fail(echoStatus(r.code), r.code, String(r.message || '❌ تعذّر دخول الدومين'))
+            res.json(r)
+        } catch (err) {
+            console.error('echoes enter route error:', err)
             return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية.')
         }
     })

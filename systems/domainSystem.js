@@ -334,6 +334,13 @@ function enterDomain(player, domainId, difficultyInput) {
         return {
             success: true,
             won: false,
+            // ➕ حقول إضافية للموقع فقط (البوت يقرأ message وما يتأثر)
+            luckRoll,
+            monster,
+            teamPower,
+            winChance,
+            difficultyKey,
+            staminaLeft: player.stamina,
             message:
 `${domain.emoji} دومين ${domain.name} - ${difficulty.label}
 🎲 رميت: ${luckRoll}/20 ${luckRoll > 10 ? '(فوق 10 👍)' : '(تحت 10 👎)'}
@@ -375,6 +382,14 @@ function enterDomain(player, domainId, difficultyInput) {
         success: true,
         won: true,
         item,
+
+        // ➕ حقول إضافية للموقع فقط (البوت يقرأ message وما يتأثر)
+        luckRoll,
+        monster,
+        teamPower,
+        winChance,
+        difficultyKey,
+        staminaLeft: player.stamina,
 
         message:
 `${domain.emoji} دومين ${domain.name} - ${difficulty.label}
