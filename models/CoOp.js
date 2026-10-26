@@ -32,7 +32,19 @@ const CharacterSchema = new mongoose.Schema({
     omegaAbility: {
         type: Object,
         default: null
-    }
+    },
+
+    // رقم الشخصية بقائمة اللاعب (لحساب المعدات/السلاح وقت الهجوم)
+    charIndex: {
+        type: Number,
+        default: -1
+    },
+
+    image: String,
+
+    rarity: String,
+
+    anime: String
 
 }, { _id: false })
 
@@ -122,6 +134,18 @@ const CoOpSchema = new mongoose.Schema({
         default: 0
     },
 
+    // userIds اللاعبين الذين ضغطوا "استعداد" (يظهر الزر عند 8 لاعبين)
+    ready: {
+        type: [String],
+        default: []
+    },
+
+    // وقت بدء القتال التلقائي (بعد اكتمال 5 لاعبين بـ 5 ثوانٍ)، 0 = لم يكتمل الفريق
+    startAt: {
+        type: Number,
+        default: 0
+    },
+
     turnEnd: {
         type: Number,
         default: 0
@@ -164,6 +188,11 @@ const CoOpSchema = new mongoose.Schema({
         shield: {
             type: Number,
             default: 0
+        },
+
+        rage: {
+            type: Boolean,
+            default: false
         },
 
         phase: {

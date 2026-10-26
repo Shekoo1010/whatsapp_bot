@@ -1043,6 +1043,27 @@ worldCtrWeapon: { type: Number, default: 0 },  // سحبات الأسلحة (ك�
 worldCtrKingdom: { type: Number, default: 0 }, // طوابق غزو المملكة (كل 2 = نقطة)
 
 // =========================
+// 🤝 CO-OP (عملات الكو اوب + حدود المتجر الأسبوعية)
+// =========================
+
+coopCoins: {
+    type: Number,
+    default: 0
+},
+
+// 🎲 تذاكر إعادة الرول (تُشترى من متجر الكو اوب)
+rerollTickets: {
+    type: Number,
+    default: 0
+},
+
+// مشتريات متجر الكو اوب هذا الأسبوع: { week: 'YYYY-MM-DD' (بداية الأسبوع), items: { itemId: count } }
+coopShopBought: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+},
+
+// =========================
 // 🌌 OMEGA EVOLUTION SYSTEM (تطوير أوميقا Ω)
 // =========================
 
