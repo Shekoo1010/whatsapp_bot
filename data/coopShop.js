@@ -9,22 +9,6 @@ module.exports = [
 },
 
 {
-    id: "awakeningCore",
-    name: "👑 Awakening Core",
-    price: 5000,
-    amount: 1,
-    weeklyLimit: 1
-},
-
-{
-    id: "omegaStone",
-    name: "💎 Omega Stone",
-    price: 1800,
-    amount: 1,
-    weeklyLimit: 2
-},
-
-{
     id: "sss_chance",
     name: "⭐ SSS Chance Box",
     price: 2000,
