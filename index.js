@@ -196,6 +196,8 @@ const CoOp = require('./models/CoOp')
 const coopManager = require('./systems/coopManager')
 
 const coopBattle = require('./systems/coopBattle')
+// 📵 أوامر الكو اوب بالواتس معطلة — الكو اوب يُلعب من الموقع فقط (غيّرها true لإرجاعها)
+const COOP_WA_ENABLED = false
 const heartQuiz = require("./heartQuiz")
 // =========================
 // 🎭 لعبة برا السالفة
@@ -5314,6 +5316,15 @@ const siteWorldsPage = require('./systems/siteWorlds').createSiteWorlds({ Player
 // 🪪 صفحة آيديات اللاعبين (systems/siteIds.js) — /u/:code/ids
 const siteIdsPage = require('./systems/siteIds').createSiteIds({ Player })
 
+// 🤝 متجر الكو اوب (systems/coopShopSystem.js) + حساب ضرر الكو اوب (systems/coopGear.js)
+const { createCoopShopSystem } = require('./systems/coopShopSystem')
+const coopShop = createCoopShopSystem({ Player })
+
+require('./systems/coopGear').setDeps({
+    Player, equipmentSystem, getWeaponBonusForCharacter, companionsData,
+    rollCrit, useEXAbilities, useAttackAbilities
+})
+
 registerCharacterSite(app, Player, {
     worldsPage: siteWorldsPage,
     idsPage: siteIdsPage,
@@ -5344,6 +5355,7 @@ registerCharacterSite(app, Player, {
     mergeAll: siteMergeAll,
     sortCharactersKeepFirst: sortCharactersByRankKeepFirst,
     bossAttack: bossAttackSystem,
+    coopShop,
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
@@ -8870,9 +8882,6 @@ const commandExplanations = {
         '.ازالة': 'يخلع قطعة إيكو من شخصية عن طريق الكوست (لو عندها قطعتين بنفس الكوست بيلقى وحده الموجودة تلقائياً). مثال: .ازالة رقم_الشخصية الكوست',
         '.بيع_ايكو': 'يبيع قطعة/قطع إيكو من حقيبتك برقمها من .ايكو. مثال: .بيع_ايكو 1 2 3',
         '.تطوير_ايكو': 'يرفع لفل قطعة إيكو من حقيبتك مقابل تيونر الصدى (1 تيونر = لفل واحد) + 26,667 مال لكل لفل (المجموع الكامل من لفل 0 إلى 15 = 400,000)، ويفتح لك ساب ستات جديد عند لفل 5/10/15. مثال: .تطوير_ايكو 1 أو .تطوير_ايكو 1 5',
-        '.cooptime': 'يعرض الوقت المتبقي على ظهور/انتهاء وحش Co-Op التعاوني الحالي.',
-        '.leaderboard': 'يعرض قائمة أعلى المساهمين بالضرر على وحش Co-Op التعاوني النشط.',
-        '.co-op': 'ينضم لمعركة الوحش التعاوني (Co-Op) النشطة حالياً بالقروب.',
     },
     'الفعاليات': {
         '.فعاليه': 'يعرض تفاصيل الفعالية النشطة حالياً بالبوت.',
@@ -8953,7 +8962,6 @@ const commandExplanations = {
         '.اسبون_بوس': 'أمر للمطور فقط - يستدعي (يُظهر) الزعيم العالمي يدوياً بالقروب.',
         '.قتل_البوس': 'أمر للمطور فقط - ينهي الزعيم العالمي الحالي يدوياً ويوزّع جوائزه.',
         '.رسبن_رايد': 'أمر للمطور فقط - يعيد ظهور (Respawn) وحش/هدف الرايد الجماعي يدوياً.',
-        '.spawncoop': 'أمر للمطور فقط - يستدعي وحش Co-Op التعاوني يدوياً.',
         '.تصفير_العشائر': 'أمر للمطور فقط - يصفّر بيانات كل العشائر.',
         '.حذف_العشائر_الفارغة': 'أمر للمطور فقط - يحذف كل العشائر اللي ما فيها أعضاء.',
         '.الغاء_الحروب': 'أمر للمطور فقط - يلغي كل حروب العشائر الجارية حالياً.',
@@ -31242,7 +31250,7 @@ ${allSubStatsText}${unlockedText}
 
     }
 
-    if (text === '.co-op') {
+    if (COOP_WA_ENABLED && text === '.co-op') {
 
     const playerName = msg.pushName || "Player"
 
@@ -31283,7 +31291,7 @@ ${result.players}/${result.maxPlayers}
 // Co-Op Attack
 // =========================
 
-if (text === '.مقاتلة') {
+if (COOP_WA_ENABLED && text === '.مقاتلة') {
 
     const result = await coopBattle.playerAttack(
 
@@ -31341,7 +31349,7 @@ ${result.damage.toLocaleString()}`
 // Co-Op Status
 // =========================
 
-if (text === '.coop') {
+if (COOP_WA_ENABLED && text === '.coop') {
 
     const coop = await CoOp.findOne()
 
@@ -31372,15 +31380,7 @@ if (text === '.coop') {
 
         coop.players.length
 
-    const maxPlayers = {
-
-        A: 5,
-
-        SS: 5,
-
-        RAID: 8
-
-    }[coop.boss.rank] || 5
+    const maxPlayers = coopManager.CONFIG.maxPlayers[coop.boss.rank] || 15
 
     let current = "لا أحد"
 
@@ -31420,21 +31420,7 @@ if (text === '.coop') {
 
         ?
 
-        Math.max(
-
-            0,
-
-            Math.floor(
-
-                (coop.joinEnd -
-
-                Date.now())
-
-                / 1000
-
-            )
-
-        )
+        0
 
         :
 
@@ -31482,7 +31468,7 @@ ${coop.round}
 👤 Current Turn
 ${current}
 
-⏳ ${time}s
+⏳ ${coop.status === "waiting" ? "بانتظار اكتمال الفريق" : time + "s"}
 
 📌 Status:
 ${coop.status}`
@@ -31496,7 +31482,7 @@ ${coop.status}`
 // Co-Op Leaderboard
 // =========================
 
-if (text === '.leaderboard') {
+if (COOP_WA_ENABLED && text === '.leaderboard') {
 
     const coop = await CoOp.findOne()
 
@@ -31615,7 +31601,7 @@ ${coop.boss.hp.toLocaleString()} / ${coop.boss.maxHp.toLocaleString()}`
 
 }
 
-    if (text === '.spawncoop') {
+    if (COOP_WA_ENABLED && text === '.spawncoop') {
 
     if (!isOwner(msg)) {
 
@@ -31673,7 +31659,7 @@ ${coop.boss.hp.toLocaleString()} / ${coop.boss.maxHp.toLocaleString()}`
 
 }
     
-if (text === '.cooptime') {
+if (COOP_WA_ENABLED && text === '.cooptime') {
 
     const coop = await CoOp.findOne()
 
@@ -31701,19 +31687,7 @@ if (text === '.cooptime') {
 
             ?
 
-            Math.max(
-
-                0,
-
-                Math.floor(
-
-                    (coop.joinEnd -
-
-                    Date.now()) / 1000
-
-                )
-
-            )
+            0
 
             :
 
@@ -31745,7 +31719,7 @@ if (text === '.cooptime') {
 ${coop.status}
 
 ⏳ الوقت المتبقي:
-${seconds} ثانية`
+${coop.status === "waiting" ? "بانتظار اكتمال الفريق" : seconds + " ثانية"}`
 
             }
 
