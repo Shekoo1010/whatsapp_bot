@@ -113,6 +113,7 @@ const equipmentSystem = require('./systems/equipmentSystem')
 const castleSystem = require('./systems/castleSystem') // 🏰 نظام القلاع (.قلعتي / .قلعة_*)
 const echoFamilies = require('./data/echoFamilies')
 const companionsData = require('./systems/companionsData')
+const { computeCombatStats } = require('./systems/combatStats') // 📊 مصدر واحد لأرقام ضرب الزعيم (نفس معادلة .هجوم)
 castleSystem.init({ equipmentSystem, getWeaponBonusForCharacter, companionsData }) // 🏰 تهيئة نظام القلاع (الدالة معرّفة أسفل، Hoisting)
 const collageMaker = require('./systems/collageMaker')
 
@@ -8705,7 +8706,7 @@ const commandExplanations = {
         '.عرض': 'يعرض تفاصيل شخصية معينة تملكها برقمها بقائمة .شخصياتي (صورة خام + معلومات نصية). مثال: .عرض رقم_الشخصية',
         '.عرض_تصميم': 'نفس .عرض لكن يعرضها كبطاقة تصميم رسومية (نفس تصميم إطار .المعرض) بدل الصورة الخام. مثال: .عرض_تصميم رقم_الشخصية',
         '.احصائيات': 'يحسب تلقائياً كل النسب المركّبة من نظام الإيكوز لشخصية معينة (ستات رئيسي + ساب ستات + بونص عوائل 2pc/5pc). مثال: .احصائيات رقم_الشخصية',
-        '.احصائيات_كاملة': 'أمر شامل يجمع كل مصدر يزيد ATK/كريت/دفاع/... لشخصية معينة بمكان واحد: إيكوز + سلاح + بونصات المستوى + الرفيق + قدرات EX. مثال: .احصائيات_كاملة رقم_الشخصية',
+        '.احصائيات_كاملة': 'أمر شامل يعرض أرقام ضرب الزعيم الفعلية لشخصية معينة (هجوم، كريت المعدات وEX، ضرر الزعيم، مضاعفات القدرات، وأقل/متوسط/أعلى ضربة) + مصدر كل رقم. مثال: .احصائيات_كاملة رقم_الشخصية',
         '.تشكيلة': 'يحدد تشكيلة القتال (الفريق) بتحديد أرقام شخصياتك. مثال: .تشكيلة 1 2 3',
         '.تشكيلتي': 'يعرض التشكيلة (الفريق) اللي حددتها حالياً للقتال.',
         '.تطوير': 'يطوّر (يرقّي) شخصية عندك لرتبة أعلى باستخدام الشظايا أو المتطلبات اللازمة.',
@@ -13934,7 +13935,7 @@ if (text.startsWith('.احصائيات') && !text.startsWith('.احصائيات_
             })
         }
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).lean()
 
         if (!player || !player.characters?.length) {
             return safeSend(msg.key.remoteJid, {
@@ -14053,9 +14054,9 @@ if (text.startsWith('.احصائيات') && !text.startsWith('.احصائيات_
 }
 
 // ─── .احصائيات_كاملة ───
-// أمر شامل: يجمع بمكان واحد كل مصدر يزيد ATK/كريت/دفاع/... لشخصية معينة —
-// إيكوز + سلاح + بونصات المستوى (player-wide) + الرفيق + قدرات EX —
-// بعكس .احصائيات اللي يقتصر على الإيكوز بس.
+// يعرض الأرقام الفعلية لضرب الزعيم (نفس معادلة .هجوم بالضبط عبر systems/combatStats.js):
+// الهجوم، الكريت (رمية المعدات + رمية EX)، ضرر الزعيم، مضاعفات القدرات، وضربة min/avg/max.
+// الكريت وقدرات الزعيم العشوائية خارج الحساب الثابت — لذلك نعرض المدى بدل رقم واحد.
 // مثال: .احصائيات_كاملة 1  (نفس رقم .شخصياتي)
 if (text.startsWith('.احصائيات_كاملة')) {
 
@@ -14086,6 +14087,13 @@ if (text.startsWith('.احصائيات_كاملة')) {
             })
         }
 
+        const st = computeCombatStats(player, character)
+
+        const fmt = n => Math.floor(Number(n) || 0).toLocaleString('en-US')
+        const f1 = n => String(Math.round((Number(n) || 0) * 10) / 10)
+        const pct = n => `${f1(n)}%`
+
+        // ───── 🎐 تفاصيل المصادر (إيكوز + عوائل + سلاح) ─────
         const STAT_LABEL = {
             attack: '⚔️ هجوم', attackPercent: '⚔️ هجوم',
             defense: '🛡️ دفاع', defensePercent: '🛡️ دفاع',
@@ -14095,144 +14103,96 @@ if (text.startsWith('.احصائيات_كاملة')) {
             accuracy: '🎯 دقة', shield: '🛡️ درع',
             lifesteal: '🩸 امتصاص حياة', reflect: '🪞 عكس ضرر'
         }
-
         const isPercentKey = (k) =>
             k.includes('Percent') ||
             ['critRate', 'critDamage', 'bossDamage', 'dodge', 'accuracy', 'lifesteal', 'reflect'].includes(k)
-
-        function bonusToLines(bonus) {
+        const bonusToLines = (bonus) => {
             const lines = []
             for (const key in bonus) {
                 const value = bonus[key]
                 if (!value) continue
-                const label = STAT_LABEL[key] || key
-                lines.push(`${label}: +${value}${isPercentKey(key) ? '%' : ''}`)
+                lines.push(`${STAT_LABEL[key] || key}: +${value}${isPercentKey(key) ? '%' : ''}`)
             }
             return lines
         }
 
-        // =========================
-        // 1) إيكوز (نظام المعدات الجديد)
-        // =========================
         const echoes = equipmentSystem.ensureEquipmentSlots(character)
         const echoBonus = equipmentSystem.calculateEquipmentStats(character)
         const families = equipmentSystem.getActiveFamilyDetails(echoes)
         const equippedCount = equipmentSystem.SLOT_KEYS.filter(k => echoes[k]).length
-
-        // =========================
-        // 2) السلاح المركّب
-        // =========================
         const weaponBonus = getWeaponBonusForCharacter(player, character)
         const equippedWeapon = Array.isArray(player.weaponsInventory)
             ? player.weaponsInventory.find(w => w && w.equippedTo === character.name)
             : null
 
-        // =========================
-        // 3) بونصات المستوى (levelAbilities) — بونص عام على اللاعب،
-        // مو خاص بشخصية معينة. نوضّح أيها فعليًا مقروء بهجوم الزعيم
-        // حاليًا وأيها لسا مو مربوط بأي معادلة ضرر (حقل معروض بس).
-        // =========================
-        const levelBonusLive = [
-            { key: 'attackBonus', label: '⚔️ هجوم', wired: true },
-            { key: 'bossDamageBonus', label: '👹 ضرر بوس', wired: true },
-            { key: 'critBonus', label: '🎯 كريت', wired: false },
-            { key: 'defenseBonus', label: '🛡️ دفاع', wired: false },
-            { key: 'dodgeBonus', label: '💨 مراوغة', wired: false },
-            { key: 'reflectBonus', label: '🪞 عكس ضرر', wired: false },
-            { key: 'lifestealBonus', label: '🩸 امتصاص حياة', wired: false }
-        ]
+        // ───── الرسالة ─────
+        const gc = st.crit.gear
+        const ec = st.crit.ex
+        const SEP = '━━━━━━━━━━━━━━━━━━━━'
 
-        // =========================
-        // 4) بونص الرفيق (Companion) — حسب النوع المجهز حاليًا
-        // =========================
-        let companionText = 'لا يوجد رفيق مجهز'
-        if (player.companion && player.companion.key && (player.companion.level || 0) >= 1) {
-            const companionBonusValue = companionsData.getCompanionBonus(
-                player.companion.key,
-                player.companion.level
-            )
-            companionText =
-                `${player.companion.key} (مستوى ${player.companion.level}) — بونص +${companionBonusValue}%`
+        let message = `📊 الإحصائيات الفعلية — ${character.name}\n💎 التطوير: +${character.evolutionLevel || 0}   ✨ EX: ${st.hasEX ? 'مفعّل' : 'غير مفعّل'}\n\n`
+
+        message += `${SEP}\n⚔️ الهجوم\n${SEP}\n`
+        message += `🔹 القوة الأساسية: ${fmt(st.power)}\n`
+        message += `🔹 هجوم المعدات/السلاح: +${fmt(st.gear.attack)}${st.gear.attackPercent ? `  (× +${pct(st.gear.attackPercent)})` : ''}\n`
+        if (st.hasEX) {
+            message += `🔹 هجوم EX: +${pct(st.ex.attackBonus)}\n`
+            message += `🔹 هجوم اللاعب (مستوى): +${pct(st.player.attackBonus)}\n`
+        }
+        message += `⚔️ الهجوم النهائي (ATK): ${fmt(st.atk)}\n\n`
+
+        message += `${SEP}\n🎯 الكريت (رمية لكل ضربة)\n${SEP}\n`
+        message += `🎲 كريت المعدات/السلاح${st.companionBonus.tiger ? '/النمر' : ''}: ${pct(gc.rawRate)}${gc.overflow ? ` (فعّال ${pct(gc.chance)})` : ''}\n`
+        message += `   💥 ضرر الكريت: ${pct(gc.damage)} → ×${gc.mult.toFixed(2)}${gc.overflow ? ` (أساسي ${pct(gc.baseDmg)} + فايض ${pct(gc.overflow)})` : ''}\n`
+        if (ec) {
+            message += `🎲 كريت قدرات EX: ${pct(ec.rawRate)}${ec.overflow ? ` (فعّال ${pct(ec.chance)})` : ''}\n`
+            message += `   💥 ضرر الكريت: ${pct(ec.damage)} → ×${ec.mult.toFixed(2)}${ec.overflow ? ` (أساسي ${pct(ec.baseDmg)} + فايض ${pct(ec.overflow)})` : ''}\n`
+            message += `ℹ️ الرميتان منفصلتان وقد تتراكمان بنفس الضربة\n`
+        }
+        message += '\n'
+
+        message += `${SEP}\n👹 ضرر الزعيم\n${SEP}\n`
+        message += `🔹 بونص الأسد: +${pct(st.bossParts.lion)}\n`
+        if (st.hasEX) {
+            message += `🔹 قدرات EX: +${pct(st.bossParts.ex)}\n`
+            message += `🔹 مستوى اللاعب: +${pct(st.bossParts.level)}\n`
+            message += `🔹 المعدات/السلاح: +${pct(st.bossParts.gear)}\n`
+            message += `🔹 ضرر عام (damageBonus): +${pct(st.player.damageBonus)}\n`
+        }
+        message += `👹 إجمالي ضرر الزعيم: +${pct(st.bossDamagePct)}\n`
+        if (!st.hasEX && (st.player.attackBonus || st.player.bossDamageBonus || st.player.damageBonus || st.bossParts.gear)) {
+            message += `⚠️ بونصات (هجوم/ضرر زعيم/ضرر عام) تشتغل فقط للشخصيات اللي فيها قدرات EX\n`
+        }
+        message += '\n'
+
+        if (st.skills.names.length) {
+            message += `${SEP}\n✨ قدرات اللاعب (دائمة)\n${SEP}\n`
+            message += st.skills.names.join('\n')
+            message += `\n✨ إجمالي المضاعف: ×${st.skills.mult.toFixed(2)}\n\n`
         }
 
-        // =========================
-        // 5) قدرات EX — تُعرض بالاسم فقط (تفعيلها بالمعركة عشوائي/جزئي
-        // حسب useEXAbilities، مو بونص ثابت نقدر نطبعه كرقم واحد هنا)
-        // =========================
-        const hasEX =
-            character.evolutionLevel >= 1 &&
-            character.urAbilities &&
-            character.urAbilities.length > 0
+        message += `${SEP}\n💥 الضربة الفعلية على الزعيم\n${SEP}\n`
+        message += `▫️ بدون كريت: ${fmt(st.hit.min)}\n`
+        message += `▪️ المتوسط: ${fmt(st.hit.avg)}\n`
+        message += `🔥 أعلى ضربة (كل الكريتات): ${fmt(st.hit.max)}\n`
+        message += `ℹ️ قبل قدرات الزعيم العشوائية (نصف/70%/مراوغة)\n\n`
 
-        // =========================
-        // 6) الأرقام النهائية المجمّعة (زي شاشة ستاتات الشخصية بالألعاب —
-        // كل شي مجموع برقم واحد نهائي، بدل تفكيكه حسب المصدر)
-        // نفس صيغة معادلة هجوم الزعيم الفعلية بالضبط (باستثناء قدرات EX
-        // لأنها رمية عشوائية بالمعركة، مو بونص ثابت نقدر نجمعه برقم واحد)
-        // =========================
-        const combined = {}
-        for (const key of new Set([...Object.keys(echoBonus), ...Object.keys(weaponBonus)])) {
-            combined[key] = (echoBonus[key] || 0) + (weaponBonus[key] || 0)
+        message += `${SEP}\n🛡️ دعم ودفاع (اللي يشتغل بقتال الزعيم)\n${SEP}\n`
+        message += `🩸 امتصاص حياة: +${pct(st.sustain.lifesteal)}\n`
+        message += `🛡️ درع EX: +${pct(st.sustain.shield)}\n`
+        message += `👻 مراوغة EX: +${pct(st.sustain.dodge)}\n`
+        message += `🪞 عكس ضرر EX: +${pct(st.sustain.reflect)}\n`
+        if (st.hpBonusPct) message += `❤️ HP (رفيق الدب): +${pct(st.hpBonusPct)}\n`
+        message += '\n'
+
+        const unusedKeys = Object.keys(st.unused)
+        if (unusedKeys.length) {
+            message += `ℹ️ ستات موجودة بمعداتك لكن ما تدخل بضربتك على الزعيم:\n`
+            message += unusedKeys.map(k => `${STAT_LABEL[k] || k}: +${st.unused[k]}${isPercentKey(k) ? '%' : ''}`).join('، ')
+            message += '\n\n'
         }
 
-        let companionCritBonus = 0
-        let companionBossDmgBonus = 0
-        let companionHpBonus = 0
-        if (player.companion && player.companion.key && (player.companion.level || 0) >= 1) {
-            const cVal = companionsData.getCompanionBonus(player.companion.key, player.companion.level)
-            if (player.companion.key === 'tiger') companionCritBonus = cVal
-            if (player.companion.key === 'lion') companionBossDmgBonus = cVal
-            if (player.companion.key === 'bear') companionHpBonus = cVal
-        }
-
-        let totalATK = character.power || 0
-        totalATK += (combined.attack || 0)
-        if ((combined.attackPercent || 0) > 0) {
-            totalATK = Math.floor(totalATK * (1 + combined.attackPercent / 100))
-        }
-        totalATK = Math.floor(totalATK * (1 + ((player.attackBonus || 0) / 100)))
-
-        const critRateRaw = (combined.critRate || 0) + companionCritBonus
-        const critDamageRaw = combined.critDamage || 0
-        const critOverflow = Math.max(0, critRateRaw - 100)
-        const critRateEffective = Math.min(100, critRateRaw)
-        const critDamageEffective = critDamageRaw + critOverflow
-
-        const totalBossDamage = (combined.bossDamage || 0) + (player.bossDamageBonus || 0) + companionBossDmgBonus
-        const totalDefenseFlat = combined.defense || 0
-        const totalDefensePercent = combined.defensePercent || 0
-        const totalHpFlat = combined.hp || 0
-        const totalHpPercent = (combined.hpPercent || 0) + companionHpBonus
-        const totalDodge = combined.dodge || 0
-        const totalLifesteal = combined.lifesteal || 0
-        const totalReflect = combined.reflect || 0
-        const totalAccuracy = combined.accuracy || 0
-        const totalShield = combined.shield || 0
-
-        // =========================
-        // بناء الرسالة
-        // =========================
-        let message =
-`📊 الإحصائيات النهائية — ${character.name}
-💎 التطوير: +${character.evolutionLevel || 0}
-
-⚔️ ATK: ${totalATK.toLocaleString()}
-🛡️ DEF: +${totalDefenseFlat}${totalDefensePercent ? ` (+${totalDefensePercent}%)` : ''}
-❤️ HP: +${totalHpFlat}${totalHpPercent ? ` (+${totalHpPercent}%)` : ''}
-🎯 Crit Rate: ${critRateRaw}%${critOverflow ? ` (فعّال: ${critRateEffective}%)` : ''}
-💥 Crit DMG: ${critDamageEffective}%${critOverflow ? ` (أساسي ${critDamageRaw}% + فايض الكريت ${critOverflow}%)` : ''}
-👹 Boss DMG: +${totalBossDamage}%
-👻 Dodge: +${totalDodge}%
-🩸 Lifesteal: +${totalLifesteal}%
-🪞 Reflect: +${totalReflect}%
-🎯 Accuracy: +${totalAccuracy}%
-🛡️ Shield: +${totalShield}
-
-${critRateRaw >= 100 ? '✅ كريت مضمون كل ضربة (crit rate ≥ 100%)' : `🎲 فرصة كريت كل ضربة: ${critRateEffective}%`}
-
-`
-
-        message += `━━━━━━━━━━━━━━━━━━━━\n📋 مصدر كل رقم (تفصيل)\n━━━━━━━━━━━━━━━━━━━━\n\n`
+        message += `${SEP}\n📋 مصدر الأرقام\n${SEP}\n\n`
 
         const echoLines = bonusToLines(echoBonus)
         message += `🎐 الإيكوز (${equippedCount}/5):\n`
@@ -14264,26 +14224,9 @@ ${critRateRaw >= 100 ? '✅ كريت مضمون كل ضربة (crit rate ≥ 100
         }
         message += '\n\n'
 
-        message += `📈 بونصات المستوى (عامة على حسابك):\n`
-        for (const b of levelBonusLive) {
-            const value = player[b.key] || 0
-            if (!value) continue
-            message += `${b.label}: +${value}%${b.wired ? '' : '  ⚠️ (مو مربوط بهجوم الزعيم، ما دخل بالمجموع أعلاه)'}\n`
-        }
-        if (!levelBonusLive.some(b => player[b.key])) {
-            message += 'لا توجد قدرات مستوى مفعّلة بعد\n'
-        }
-        message += '\n'
+        message += `🐾 الرفيق: ${st.companion ? `${st.companion.key} (مستوى ${st.companion.level}) — بونص +${st.companion.value}%` : 'لا يوجد رفيق مجهز'}\n\n`
 
-        message += `🐾 الرفيق: ${companionText}\n\n`
-
-        message += `✨ قدرات EX: `
-        if (hasEX) {
-            message += character.urAbilities.map(a => a.name).join('، ')
-            message += '\n⚠️ عشوائية بالمعركة — ما دخلت بالمجموع أعلاه'
-        } else {
-            message += 'لا توجد'
-        }
+        message += `✨ قدرات EX: ${st.ex.names.length ? st.ex.names.join('، ') : 'لا توجد'}`
 
         return safeSend(msg.key.remoteJid, { text: message.trim() })
 
@@ -22069,7 +22012,7 @@ ${player.ownedBeasts.length}${rewardText}`
 if (text === '.متجر_البيض') {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).lean()
 
     if (!player) return
 
@@ -25922,7 +25865,7 @@ ${player.bank.loanMoney.toLocaleString()}
     if (text === ".ديني") {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).lean()
 
     if (!player) {
 
@@ -29136,7 +29079,7 @@ ${amount.toLocaleString()} ذهب${donateViaUsername ? `\n\n💰 تم خصم ${U
 
         const uname = raw.toLowerCase()
 
-        const taken = await Player.findOne({ username: uname })
+        const taken = await Player.findOne({ username: uname }).lean() // ⚡ فحص وجود فقط
 
         if (taken) {
             return safeSend(msg.key.remoteJid, {
@@ -29188,7 +29131,7 @@ ${amount.toLocaleString()} ذهب${donateViaUsername ? `\n\n💰 تم خصم ${U
             })
         }
 
-        const taken = await Player.findOne({ username: uname })
+        const taken = await Player.findOne({ username: uname }).lean() // ⚡ فحص وجود فقط
 
         if (taken) {
             return safeSend(msg.key.remoteJid, {
@@ -30600,7 +30543,7 @@ ${charsListText || 'لا تملك شخصيات'}`
     // -------------------------
     if (text === '.سلاحي' || text.startsWith('.سلاحي ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).lean()
 
         if (!player || !Array.isArray(player.weaponsInventory) || !player.weaponsInventory.length) {
             return safeSend(msg.key.remoteJid, {
@@ -30897,7 +30840,7 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
             })
         }
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).lean()
 
         if (!player) {
             return safeSend(msg.key.remoteJid, {
@@ -32079,7 +32022,7 @@ ${player.money.toLocaleString()}`
 .قدرات 1`
         })
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).lean()
 
     if (!player || !player.characters || player.characters.length === 0)
         return safeSend(msg.key.remoteJid, {
@@ -32956,7 +32899,7 @@ parseInt(args[2]) - 1
 const player =
 await Player.findOne({
 userId
-})
+}).lean()
 
 if (!player) {
 
@@ -35313,7 +35256,7 @@ ${text}`
     }
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).lean()
 
     if (
         !player ||
@@ -38666,7 +38609,7 @@ try {
         })
     }
 
-    let player = await Player.findOne({ userId })
+    let player = await Player.findOne({ userId }).lean()
 
     if (!player || !player.characters?.length) {
         return safeSend(msg.key.remoteJid, {
@@ -38803,7 +38746,7 @@ try {
         })
     }
 
-    let player = await Player.findOne({ userId })
+    let player = await Player.findOne({ userId }).lean()
 
     if (!player || !player.characters?.length) {
         return safeSend(msg.key.remoteJid, {
