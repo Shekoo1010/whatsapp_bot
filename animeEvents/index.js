@@ -143,6 +143,12 @@ function scheduleNext(gen, delay) {
 
         if (gen !== generation) return
 
+        // 😴 قفل البوت (12 ص → 10 ص): ما نبدأ فعالية ولا نحفظ جدولة،
+        // نعيد الفحص كل دقيقة وتبدأ الفعالية فور 10 ص
+        if (global.botNightPaused && global.botNightPaused()) {
+            return scheduleNext(gen, 60000)
+        }
+
         // نحفظ الوقت القادم ورقم الفعالية التالية قبل الإرسال
         nextRunAt = Date.now() + EVENT_INTERVAL
 
