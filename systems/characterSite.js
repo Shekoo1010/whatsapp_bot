@@ -17,6 +17,9 @@ const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة �
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
 const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
+// 📊 إحصائيات الهجوم على الزعيم — نفس مصدر أمر .احصائيات_كاملة (systems/combatStats.js)
+let computeCombatStats = null
+try { computeCombatStats = require('./combatStats').computeCombatStats } catch (e) { console.error('combatStats غير متاح:', e.message) }
 
 // 🔄 سحب للتحديث (Pull-to-Refresh) — يعمل في كل الصفحات والتطبيق (مثل كروم): اسحب للأسفل من أعلى الصفحة ثم اترك
 const PTR = {
@@ -418,6 +421,103 @@ function abilityPaneHTML(char, evo, tierKey) {
     return `<div class="empty"><div>⚡</div>لا توجد قدرات لهذه الشخصية بعد</div>`
 }
 
+// ─────────────── 📊 تبويب الإحصائيات (ستايل Genshin / Wuthering Waves) ───────────────
+// الأرقام من systems/combatStats.js = نفس معادلة .هجوم الفعلية (الكريت عشوائي لذا نعرض المدى)
+function fmtInt(v) { return Math.floor(Number(v) || 0).toLocaleString('en-US') }
+function fmtPct(v) { return fmtNum(v) + '%' }
+
+function statsPaneHTML(st) {
+    if (!st) return `<div class="empty"><div>📊</div>الإحصائيات غير متاحة حالياً</div>`
+
+    const row = (icon, label, value, opt) => {
+        const o = opt || {}
+        return `<div class="stx-r${o.hl ? ' hl' : ''}${o.off ? ' off' : ''}"><span class="ic">${icon}</span><i>${esc(label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</i><b>${esc(value)}</b></div>`
+    }
+    const sec = (t, rows) => `<div class="stx-sec">${t}</div><div class="stx-list">${rows.filter(Boolean).join('')}</div>`
+
+    const gc = st.crit.gear
+    const ec = st.crit.ex
+
+    // موضع المتوسط على شريط (أقل ← أعلى)
+    const span = Math.max(1, st.hit.max - st.hit.min)
+    const avgPos = Math.max(4, Math.min(96, Math.round((st.hit.avg - st.hit.min) / span * 100)))
+
+    const hero = `<div class="stx-hero">
+      <div class="stx-atk"><small>ATK</small><b>${fmtInt(st.atk)}</b><em>PWR ${fmtInt(st.power)}</em></div>
+      <div class="stx-rings">
+        <div class="stx-ring" style="--p:${Math.round(gc.chance)}"><b>${fmtNum(gc.chance)}%</b><small>CRIT</small></div>
+        ${ec ? `<div class="stx-ring ex" style="--p:${Math.round(ec.chance)}"><b>${fmtNum(ec.chance)}%</b><small>EX CRIT</small></div>` : ''}
+      </div>
+    </div>`
+
+    const dmg = `<div class="stx-dmg">
+      <div class="stx-dmg-h">💥 الضربة الفعلية على الزعيم</div>
+      <div class="stx-dm">
+        <div><i>بدون كريت</i><b>${fmtInt(st.hit.min)}</b></div>
+        <div class="mid"><i>المتوسط</i><b>${fmtInt(st.hit.avg)}</b></div>
+        <div><i>أعلى ضربة</i><b>${fmtInt(st.hit.max)}</b></div>
+      </div>
+      <div class="stx-bar"><s style="left:${avgPos}%"></s></div>
+    </div>`
+
+    const atkRows = [
+        row('🔹', 'القوة الأساسية', fmtInt(st.power)),
+        row('🗡️', 'هجوم المعدات والسلاح', '+' + fmtInt(st.gear.attack), { sub: st.gear.weaponAtk ? 'سلاح +' + fmtInt(st.gear.weaponAtk) : '' }),
+        st.gear.attackPercent ? row('⚔️', 'هجوم %', '+' + fmtPct(st.gear.attackPercent)) : '',
+        st.hasEX ? row('✨', 'هجوم قدرات EX', '+' + fmtPct(st.ex.attackBonus)) : '',
+        st.hasEX ? row('📈', 'هجوم المستوى', '+' + fmtPct(st.player.attackBonus)) : '',
+        row('⚔️', 'الهجوم النهائي', fmtInt(st.atk), { hl: true })
+    ]
+
+    const critRows = [
+        row('🎯', 'نسبة الكريت (معدات/سلاح)', fmtPct(gc.rawRate), { sub: gc.overflow ? 'فعّال ' + fmtPct(gc.chance) : (st.companionBonus.tiger ? 'يشمل النمر' : '') }),
+        row('💥', 'ضرر الكريت', fmtPct(gc.damage), { sub: gc.overflow ? 'أساسي ' + fmtPct(gc.baseDmg) + ' + فايض ' + fmtPct(gc.overflow) : '' }),
+        ec ? row('✨', 'نسبة كريت EX', fmtPct(ec.rawRate), { sub: ec.overflow ? 'فعّال ' + fmtPct(ec.chance) : '' }) : '',
+        ec ? row('💫', 'ضرر كريت EX', fmtPct(ec.damage), { sub: ec.overflow ? 'أساسي ' + fmtPct(ec.baseDmg) + ' + فايض ' + fmtPct(ec.overflow) : '' }) : ''
+    ]
+
+    const bossRows = [
+        st.bossParts.lion ? row('🦁', 'رفيق الأسد', '+' + fmtPct(st.bossParts.lion)) : '',
+        st.hasEX ? row('✨', 'قدرات EX', '+' + fmtPct(st.bossParts.ex)) : '',
+        st.hasEX ? row('📈', 'مستوى اللاعب', '+' + fmtPct(st.bossParts.level)) : '',
+        st.hasEX ? row('🗡️', 'المعدات والسلاح', '+' + fmtPct(st.bossParts.gear)) : '',
+        st.hasEX ? row('💢', 'ضرر عام', '+' + fmtPct(st.player.damageBonus)) : '',
+        row('👹', 'إجمالي ضرر الزعيم', '+' + fmtPct(st.bossDamagePct), { hl: true })
+    ]
+
+    const skillsHTML = st.skills.names.length
+        ? `<div class="stx-sec">🌟 قدرات اللاعب</div><div class="stx-chips">${st.skills.names.map(n => `<span>${esc(n)}</span>`).join('')}</div>
+           <div class="stx-list">${row('✖️', 'المضاعف الإجمالي', '×' + (Math.round(st.skills.mult * 100) / 100), { hl: true })}</div>`
+        : ''
+
+    const supRows = [
+        row('🩸', 'امتصاص حياة', '+' + fmtPct(st.sustain.lifesteal), { off: !st.sustain.lifesteal }),
+        row('🛡️', 'درع EX', '+' + fmtPct(st.sustain.shield), { off: !st.sustain.shield }),
+        row('👻', 'مراوغة EX', '+' + fmtPct(st.sustain.dodge), { off: !st.sustain.dodge }),
+        row('🪞', 'عكس ضرر EX', '+' + fmtPct(st.sustain.reflect), { off: !st.sustain.reflect }),
+        st.hpBonusPct ? row('🐻', 'HP (رفيق الدب)', '+' + fmtPct(st.hpBonusPct)) : ''
+    ]
+
+    const notes = []
+    if (!st.hasEX && (st.player.attackBonus || st.player.bossDamageBonus || st.player.damageBonus || st.bossParts.gear)) {
+        notes.push('⚠️ بونصات (الهجوم / ضرر الزعيم / الضرر العام) تشتغل فقط للشخصيات اللي فيها قدرات EX')
+    }
+    const un = Object.keys(st.unused || {})
+    if (un.length) {
+        notes.push('ℹ️ ستات موجودة بمعداتك لكنها لا تدخل بضربتك على الزعيم: ' + un.map(k => statLabel(k) + ' +' + fmtNum(st.unused[k]) + (FLAT_TYPES.has(k) ? '' : '%')).join('، '))
+    }
+    notes.push('الأرقام تطابق معادلة ضرب الزعيم. الكريت عشوائي لذلك نعرض المدى، وقدرات الزعيم العشوائية (نصف الضرر / مراوغة) خارج الحساب.')
+
+    return `<div class="stx">${hero}${dmg}
+      ${sec('⚔️ الهجوم', atkRows)}
+      ${sec('🎯 الكريت', critRows)}
+      ${sec('👹 ضرر الزعيم', bossRows)}
+      ${skillsHTML}
+      ${sec('🛡️ الدعم والدفاع', supRows)}
+      ${notes.map(n => `<div class="note">${esc(n)}</div>`).join('')}
+    </div>`
+}
+
 function detailHTML(char) {
     const tierKey = resolveTierKey(char.rarity, char.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['SSS']
@@ -440,12 +540,14 @@ function detailHTML(char) {
         </div>
       </div>
       <div class="tabs">
-        <button class="tab on" type="button" data-t="ab">⚡ القدرات</button>
+        <button class="tab on" type="button" data-t="st">📊 الإحصائيات</button>
+        <button class="tab" type="button" data-t="ab">⚡ القدرات</button>
         <button class="tab" type="button" data-t="ec">🎐 الإيكوز</button>
         <button class="tab" type="button" data-t="wp">⚔️ السلاح</button>
       </div>
       <div class="body">
-        <div class="pane" data-p="ab">${abilityPaneHTML(char, evo, tierKey)}</div>
+        <div class="pane" data-p="st">${statsPaneHTML(char.__stats)}</div>
+        <div class="pane" data-p="ab" hidden>${abilityPaneHTML(char, evo, tierKey)}</div>
         <div class="pane" data-p="ec" hidden>${echoPaneHTML(char)}</div>
         <div class="pane" data-p="wp" hidden>${weaponPaneHTML(char.__weapon)}</div>
       </div>
@@ -2375,6 +2477,44 @@ a.chip{text-decoration:none;display:inline-block}
 .plbtn small{display:block;font:600 11px 'Cairo',sans-serif;opacity:.75}.plbtn .ar{font-size:22px}
 .vbar{margin:8px 0;text-align:center;font:700 12px 'Cairo',sans-serif;color:#8891a3;border:1px dashed #1f2740;border-radius:12px;padding:6px}.vbar b{color:#f0c04a}
 .backfab{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:60;background:linear-gradient(135deg,#f6d26b,#c8921e);color:#0a0d16;font:900 14px 'Cairo',sans-serif;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(0,0,0,.6);text-decoration:none}
+/* ───── 📊 تبويب الإحصائيات (ستايل Genshin / Wuthering Waves) ───── */
+.tabs{gap:2px; padding:10px 8px 0; overflow-x:auto}
+.tabs .tab{font-size:12px; padding:9px 1px; white-space:nowrap; min-width:0}
+.stx-hero{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 14px; border-radius:16px; overflow:hidden; background:radial-gradient(120% 140% at 85% 0%, color-mix(in srgb,var(--tier) 28%,transparent), transparent 60%), linear-gradient(135deg,#171d36,#0d1224); border:1px solid color-mix(in srgb,var(--tier) 40%,transparent)}
+.stx-atk small{display:block; font-family:'Oswald',sans-serif; letter-spacing:.3em; font-size:11px; color:#8891a3}
+.stx-atk b{display:block; font-family:'Oswald',sans-serif; font-weight:600; font-size:40px; line-height:1.05; color:#fff; direction:ltr; text-align:right; text-shadow:0 0 18px color-mix(in srgb,var(--tier) 55%,transparent)}
+.stx-atk em{display:block; font-style:normal; font-size:12px; color:#8891a3; direction:ltr; text-align:right}
+.stx-rings{display:flex; gap:10px}
+.stx-ring{--p:0; --c:var(--tier); position:relative; width:68px; height:68px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:conic-gradient(var(--c) calc(var(--p) * 1%), rgba(255,255,255,.09) 0)}
+.stx-ring.ex{--c:#c04aff}
+.stx-ring::before{content:''; position:absolute; inset:6px; border-radius:50%; background:#0e1326}
+.stx-ring b,.stx-ring small{position:relative; z-index:1}
+.stx-ring b{font-family:'Oswald',sans-serif; font-size:15px; color:#fff; direction:ltr; line-height:1.1}
+.stx-ring small{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.1em; color:#8891a3}
+.stx-dmg{margin:12px 0 4px; padding:12px; border-radius:14px; background:color-mix(in srgb,var(--tier) 6%,#0f1422); border:1px solid color-mix(in srgb,var(--tier) 22%,transparent)}
+.stx-dmg-h{font-weight:800; font-size:14px; color:#f0c04a; margin-bottom:8px}
+.stx-dm{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; text-align:center; direction:ltr}
+.stx-dm i{display:block; font-style:normal; font-size:11px; color:#8891a3}
+.stx-dm b{display:block; font-family:'Oswald',sans-serif; font-weight:600; font-size:16px; color:#fff}
+.stx-dm .mid b{color:var(--tier); font-size:20px}
+.stx-bar{position:relative; height:8px; border-radius:6px; margin-top:12px; direction:ltr; background:linear-gradient(90deg,#3b4468,var(--tier),#fff3c4)}
+.stx-bar s{position:absolute; top:-3px; width:4px; height:14px; border-radius:3px; background:#fff; box-shadow:0 0 8px #fff; transform:translateX(-50%)}
+.stx-sec{display:flex; align-items:center; gap:8px; margin:16px 2px 6px; font-weight:800; color:#f0c04a; font-size:15px}
+.stx-sec::after{content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(240,192,74,.45),transparent)}
+.stx-list{border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.05)}
+.stx-r{display:flex; align-items:center; gap:8px; padding:9px 10px; font-size:14px}
+.stx-r:nth-child(odd){background:rgba(255,255,255,.04)}
+.stx-r .ic{flex:0 0 22px; text-align:center}
+.stx-r i{flex:1; font-style:normal; color:#c9d0e0; line-height:1.35}
+.stx-r i small{display:block; font-size:11px; color:#8891a3}
+.stx-r b{font-family:'Oswald',sans-serif; font-weight:600; color:var(--tier); direction:ltr; white-space:nowrap}
+.stx-r.hl{background:color-mix(in srgb,var(--tier) 12%,transparent)}
+.stx-r.hl i{color:#fff; font-weight:800}
+.stx-r.hl b{color:#fff; font-size:17px}
+.stx-r.off{opacity:.45}
+.stx-chips{display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 8px}
+.stx-chips span{font-size:12.5px; font-weight:700; color:#fff; padding:4px 10px; border-radius:20px; background:color-mix(in srgb,var(--tier) 14%,#0f1422); border:1px solid color-mix(in srgb,var(--tier) 35%,transparent)}
+.stx .note{margin-top:10px; text-align:right}
 `
 
 function homeCardHTML(char) {
@@ -5598,7 +5738,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!CODE_RE.test(code)) return html404(res)
 
             const player = await Player.findOne({ siteCode: code })
-                .select('userId name username characters weaponsInventory giftInbox sessionVersion money xp level titles activeTitle')
+                .select('userId name username characters weaponsInventory giftInbox sessionVersion money xp level titles activeTitle companion attackBonus bossDamageBonus damageBonus specialAbilities')
                 .lean()
             if (!player) return html404(res)
 
@@ -5628,7 +5768,9 @@ function registerCharacterSite(app, Player, opts = {}) {
                 .map(x => ({
                     ...resolveDisplayChar(x.c, catIdx),
                     __num: x.num,
-                    __weapon: (player.weaponsInventory || []).find(w => w && w.equippedTo === x.c.name) || null
+                    __weapon: (player.weaponsInventory || []).find(w => w && w.equippedTo === x.c.name) || null,
+                    // 📊 الإحصائيات تُحسب من الشخصية الأصلية (مو المعروضة) عشان تطابق ضرب الزعيم
+                    __stats: (() => { try { return computeCombatStats ? computeCombatStats(player, x.c) : null } catch (e) { return null } })()
                 }))
 
             const chips = HOME_FILTERS.map(f => ({
