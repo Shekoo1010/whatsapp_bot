@@ -625,6 +625,9 @@ const interval = setInterval(async () => {
 
 try {
 
+    // 😴 قفل البوت (12 ص → 10 ص): لا فعاليات سريعة جديدة
+    if (global.botNightPaused && global.botNightPaused()) return
+
     const now = new Date()
 
     const minute = now.getMinutes()

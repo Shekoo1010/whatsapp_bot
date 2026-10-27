@@ -421,6 +421,40 @@ function getRiyadhHour() {
     return parseInt(parts.find(p => p.type === "hour").value, 10);
 }
 
+
+// =========================
+// 😴 إيقاف الفعاليات في وقت قفل البوت (12:00 ص → 10:00 ص بتوقيت الرياض)
+// - أي setInterval تنشئه الفعالية أثناء تشغيلها عبر runWithNightPause
+//   يتخطى تنفيذه (بدون أي شغل أو استعلامات قاعدة) طالما البوت مقفول،
+//   ويرجع تلقائياً مع أول تكة بعد 10 ص (أو عند .فتح_البوت).
+// - الفعاليات اللي بدأت قبل 12 تكمل طبيعي، والريسيتات (برج/عوالم/مكافآت)
+//   ما تتأثر لأنها غير ملفوفة.
+// =========================
+// 🚩 العلم الذي تقرأه ملفات الفعاليات (quickEvents / autoEvents / animeEvents)
+global.botNightPaused = () => {
+    try { return !botAvailable() } catch (e) { return false }
+}
+
+function runWithNightPause(label, fn) {
+    const origSetInterval = global.setInterval
+    global.setInterval = function (cb, ms, ...args) {
+        if (typeof cb !== 'function') return origSetInterval.call(this, cb, ms, ...args)
+        return origSetInterval.call(this, function (...a) {
+            let open = true
+            try { open = botAvailable() } catch (e) { open = true }
+            if (!open) return
+            return cb.apply(this, a)
+        }, ms, ...args)
+    }
+    try {
+        return fn()
+    } catch (err) {
+        console.log(`❌ [إيقاف ليلي] فشل تشغيل ${label}:`, err?.message || err)
+    } finally {
+        global.setInterval = origSetInterval
+    }
+}
+
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
 const { handleEditOmega } = require('./systems/devOmegaEdit')
@@ -8028,7 +8062,7 @@ if (!global.auctionStarted) {
 
     global.auctionStarted = true
 
-    scheduleAuction(sock)
+    runWithNightPause('المزاد', () => scheduleAuction(sock))
 
     console.log(
         '✅ Auction System Started'
@@ -8040,7 +8074,7 @@ if (!global.coopStarted) {
 
     global.coopStarted = true
 
-    coopManager.startLoop(liveSockProxy)
+    runWithNightPause('التعاوني', () => coopManager.startLoop(liveSockProxy))
 
     console.log(
         '✅ Co-Op System Started'
@@ -8061,7 +8095,7 @@ if (!global.eventsStarted) {
 
     global.raidStarted = true
 
-    startRaidScheduler(liveSockProxy)
+    runWithNightPause('الغارات', () => startRaidScheduler(liveSockProxy))
 
     console.log(
         '✅ Raid System Started'

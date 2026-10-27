@@ -79,6 +79,9 @@ autoEventsStarted = true
 
 async function launchEvent() {
 
+    // 😴 قفل البوت (12 ص → 10 ص): نتخطى هذي الجولة، وتكمل الدورة بعد 10 ص
+    if (global.botNightPaused && global.botNightPaused()) return
+
     console.log('🚀 AUTO EVENT TRIGGERED')
 
     console.log(
