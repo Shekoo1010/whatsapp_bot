@@ -40423,6 +40423,8 @@ function sweepRuntimeMaps() {
         n += _sweepMap('pendingSwaps', pendingSwaps, 30 * MIN)
         n += _sweepMap('pendingSellConfirm', global.pendingSellConfirm, 30 * MIN)
         n += _sweepMap('lastRolls', lastRolls, 120 * MIN)
+        n += _sweepMap('lastChatByUser', lastChatByUser, 360 * MIN)
+        n += _sweepMap('fileExistsCache', _fileExistsCache, 15 * MIN, v => (v && typeof v.at === 'number' ? v.at : null))
 
         const xo = global.pendingXO
         if (xo && typeof xo === 'object') {
