@@ -2478,7 +2478,9 @@ a.chip{text-decoration:none;display:inline-block}
 .vbar{margin:8px 0;text-align:center;font:700 12px 'Cairo',sans-serif;color:#8891a3;border:1px dashed #1f2740;border-radius:12px;padding:6px}.vbar b{color:#f0c04a}
 .backfab{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:60;background:linear-gradient(135deg,#f6d26b,#c8921e);color:#0a0d16;font:900 14px 'Cairo',sans-serif;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(0,0,0,.6);text-decoration:none}
 /* ───── 📊 تبويب الإحصائيات (ستايل Genshin / Wuthering Waves) ───── */
-.tabs{gap:2px; padding:10px 8px 0; overflow-x:auto}
+.tabs{gap:2px; padding:10px 8px 0; overflow-x:auto; flex-shrink:0}
+.sh-head{flex-shrink:0}
+.sheet .body{min-height:0}
 .tabs .tab{font-size:12px; padding:9px 1px; white-space:nowrap; min-width:0}
 .stx-hero{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 14px; border-radius:16px; overflow:hidden; background:radial-gradient(120% 140% at 85% 0%, color-mix(in srgb,var(--tier) 28%,transparent), transparent 60%), linear-gradient(135deg,#171d36,#0d1224); border:1px solid color-mix(in srgb,var(--tier) 40%,transparent)}
 .stx-atk small{display:block; font-family:'Oswald',sans-serif; letter-spacing:.3em; font-size:11px; color:#8891a3}
