@@ -15667,7 +15667,7 @@ ${names.join('\n')}
     const player =
         await Player.findOne({
             userId
-        })
+        }).lean() // ⚡ عرض فقط، ما يُحفظ
 
     if (
         !player ||
@@ -25382,7 +25382,7 @@ cooldowns.set(key, now)
     const players = await Player.find(
         {},
         { userId: 1, name: 1 }
-    )
+    ).lean() // ⚡ عرض فقط، ما يُحفظ
 
     let result = `👥 عدد اللاعبين: ${players.length}\n\n`
     const mentions = []
@@ -29431,20 +29431,23 @@ const charactersListText =
 
 // 📩 إشعار خاص للطرف الثاني فقط لو استخدم اليوزرنيم (مو منشن)
 if (viaUsername) {
-    try {
-        const giftDmJid = await resolveDmJid(target)
-        await sock.sendMessage(giftDmJid, {
-            text:
+    // ⚡ الإشعار الخاص يشتغل بالخلفية — رسالة التأكيد بالقروب ما تنتظره (نفس النص ونفس معالجة الخطأ)
+    ;(async () => {
+        try {
+            const giftDmJid = await resolveDmJid(target)
+            await sock.sendMessage(giftDmJid, {
+                text:
 `🎁 وصلتك هدية! (${selectedCharacters.length} شخصية)
 
 👤 من: @${userId.split('@')[0]}
 
 ${charactersListText}`,
-            mentions: [userId]
-        })
-    } catch (err) {
-        console.log('خطأ إشعار .اهداء الخاص:', err)
-    }
+                mentions: [userId]
+            })
+        } catch (err) {
+            console.log('خطأ إشعار .اهداء الخاص:', err)
+        }
+    })()
 }
 
 return safeSend(
