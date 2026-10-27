@@ -4147,7 +4147,7 @@ const TOP_CSS = `
 .tp{--tg:#f0c04a;--tgd:#8a6d24;--tt:#eef1f8;--td:#8891a3;--tl:#222a42;--silver:#c9d3e6;--bronze:#e0905a;max-width:760px;margin-inline:auto;padding:14px 16px 150px;position:relative;color:var(--tt);font-family:'Cairo',system-ui,sans-serif}
 .tp *{box-sizing:border-box}
 .tp-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#0a0d16}
-.tp-bg i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;will-change:transform}
+.tp-bg i{position:absolute;border-radius:50%;opacity:.7;will-change:transform;contain:strict}
 .tp-bg i:nth-child(1){width:60vmax;height:60vmax;left:-20vmax;top:-22vmax;background:radial-gradient(circle,rgba(240,192,74,.38),transparent 65%);animation:tpDrift1 18s ease-in-out infinite alternate}
 .tp-bg i:nth-child(2){width:56vmax;height:56vmax;right:-22vmax;top:8vh;background:radial-gradient(circle,rgba(124,77,255,.34),transparent 65%);animation:tpDrift2 22s ease-in-out infinite alternate}
 .tp-bg i:nth-child(3){width:52vmax;height:52vmax;left:-10vmax;bottom:-24vmax;background:radial-gradient(circle,rgba(62,168,255,.28),transparent 65%);animation:tpDrift3 26s ease-in-out infinite alternate}
@@ -4169,15 +4169,21 @@ const TOP_CSS = `
 @keyframes tpRise{from{opacity:0;transform:translateY(46px) scale(.92)}to{opacity:1;transform:none}}
 .tp-rays{position:absolute;left:50%;top:38%;width:230%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:repeating-conic-gradient(from 0deg,rgba(240,192,74,.20) 0 5deg,transparent 5deg 15deg);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 60%);mask-image:radial-gradient(circle,#000 0,transparent 60%);animation:tpSpin 40s linear infinite}
 @keyframes tpSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-.tp-pc{--c:var(--tg);position:relative;z-index:1;border-radius:18px;border:2.5px solid transparent;overflow:hidden;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),var(--c),#fff,var(--c),color-mix(in srgb,var(--c) 30%,#000),var(--c)) border-box;animation:tpRot 5s linear infinite,tpFloat 5.5s ease-in-out infinite,tpGlow 3.2s ease-in-out infinite}
-.r2 .tp-pc{--c:var(--silver);animation-delay:0s,.6s,.4s}.r3 .tp-pc{--c:var(--bronze);animation-delay:0s,1.2s,.8s}
-.r1 .tp-pc{animation-duration:4s,5s,2.6s}
+.tp-slot{--c:var(--tg)}.tp-slot.r2{--c:var(--silver)}.tp-slot.r3{--c:var(--bronze)}
+.tp-pc{--c:var(--tg);position:relative;z-index:1;border-radius:18px;overflow:hidden;background:#0f1422;will-change:transform;animation:tpFloat 5.5s ease-in-out infinite}
+.tp-pc::after{content:"";position:absolute;left:50%;top:50%;width:230%;aspect-ratio:1;z-index:0;pointer-events:none;background:conic-gradient(from 0deg,var(--c),#fff,var(--c),color-mix(in srgb,var(--c) 30%,#000),var(--c));transform:translate(-50%,-50%);will-change:transform;animation:tpSpinB 5s linear infinite}
+@keyframes tpSpinB{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.tp-slot::before{content:"";position:absolute;inset:0;z-index:0;border-radius:18px;box-shadow:0 10px 44px -2px var(--c);opacity:.3;pointer-events:none;will-change:transform,opacity;animation:tpFloat 5.5s ease-in-out infinite,tpGlowO 3.2s ease-in-out infinite}
+.tp-slot.r2::before{animation-delay:.6s,.4s}.tp-slot.r3::before{animation-delay:1.2s,.8s}
+@keyframes tpGlowO{50%{opacity:1}}
+.r2 .tp-pc{--c:var(--silver);animation-delay:.6s}.r3 .tp-pc{--c:var(--bronze);animation-delay:1.2s}
+.r1 .tp-pc{animation-duration:5s}.tp-slot.r1::before{animation-duration:5s,2.6s}
 @keyframes tpRot{to{--a:360deg}}
 @keyframes tpFloat{50%{transform:translateY(-8px)}}
 @keyframes tpGlow{0%,100%{box-shadow:0 8px 26px -10px var(--c)}50%{box-shadow:0 10px 44px -4px var(--c)}}
-.tp-art{position:relative;aspect-ratio:3/4.3;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 70% at 50% 100%,var(--t) 0%,transparent 65%),linear-gradient(170deg,#1a2140,#0b0f1d 70%)}
+.tp-art{position:relative;z-index:1;margin:2.5px;border-radius:15.5px;aspect-ratio:3/4.3;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 70% at 50% 100%,var(--t) 0%,transparent 65%),linear-gradient(170deg,#1a2140,#0b0f1d 70%)}
 .r1 .tp-art{aspect-ratio:3/4.9}
-.tp-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;animation:tpKen 10s ease-in-out infinite alternate}
+.tp-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;will-change:transform;animation:tpKen 10s ease-in-out infinite alternate}
 @keyframes tpKen{from{transform:scale(1)}to{transform:scale(1.09) translateY(1.5%)}}
 .tp-ph{font-family:'Oswald',sans-serif;font-weight:700;font-size:clamp(70px,22vw,150px);color:rgba(255,255,255,.1);line-height:1;animation:tpPulse 4s ease-in-out infinite}
 @keyframes tpPulse{50%{transform:scale(1.07);color:rgba(255,255,255,.16)}}
@@ -4190,7 +4196,7 @@ const TOP_CSS = `
 .tp-crown{position:absolute;z-index:5;top:-26px;left:50%;font-size:30px;filter:drop-shadow(0 3px 8px rgba(240,192,74,.7));transform:translateX(-50%);animation:tpCrown 2.6s ease-in-out infinite}
 @keyframes tpCrown{50%{transform:translateX(-50%) translateY(-6px) rotate(-6deg)}}
 .tp-tier{position:absolute;z-index:4;top:10px;inset-inline-end:8px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--t);border:1px solid var(--t);border-radius:20px;padding:2px 8px;background:rgba(8,11,20,.72);direction:ltr}
-.tp-info{position:absolute;z-index:4;inset-inline:0;bottom:0;padding:10px 8px 12px;text-align:center}
+.tp-info{position:absolute;z-index:4;inset-inline:2.5px;bottom:2.5px;padding:10px 8px 12px;text-align:center}
 .tp-cn{font-size:12px;color:var(--c);font-weight:800;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tp-un{font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r1 .tp-un{font-size:18px}
@@ -4201,7 +4207,7 @@ const TOP_CSS = `
 .tp-sec{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 10px;color:var(--tg);font-weight:800;font-size:15px}
 .tp-sec span{color:var(--td);font-weight:600;font-size:12px}
 .tp-list{display:flex;flex-direction:column;gap:8px}
-.tp-row{--t:#8891a3;display:grid;grid-template-columns:38px 46px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px 8px 14px;border-radius:14px;background:rgba(15,20,34,.82);border:1px solid var(--tl);backdrop-filter:blur(6px);animation:tpRow .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*45ms + .7s);transition:transform .2s,border-color .2s}
+.tp-row{--t:#8891a3;display:grid;grid-template-columns:38px 46px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px 8px 14px;border-radius:14px;background:rgba(15,20,34,.92);border:1px solid var(--tl);content-visibility:auto;contain-intrinsic-size:auto 62px;animation:tpRow .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*45ms + .7s);transition:transform .2s,border-color .2s}
 .tp-row:hover{transform:translateX(-4px);border-color:var(--t)}
 @keyframes tpRow{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
 .tp-rk{font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;color:var(--td);text-align:center;font-variant-numeric:tabular-nums}
@@ -4246,21 +4252,25 @@ const TOP_JS = `(function(){
   });
   // شرارات ذهبية وزرقاء تصعد بالخلفية
   var c=document.getElementById('tp-fx'); if(!c) return; var x=c.getContext('2d'); if(!x) return;
-  var W=0,H=0,P=[],dpr=Math.min(2,devicePixelRatio||1);
+  var W=0,H=0,P=[],dpr=Math.min(1.5,devicePixelRatio||1),run=true;
+  function sprite(rgb){var k=document.createElement('canvas');k.width=k.height=24;var g=k.getContext('2d'),r=g.createRadialGradient(12,12,0,12,12,12);
+    r.addColorStop(0,'rgba('+rgb+',1)');r.addColorStop(.35,'rgba('+rgb+',.55)');r.addColorStop(1,'rgba('+rgb+',0)');g.fillStyle=r;g.fillRect(0,0,24,24);return k}
+  var SG=sprite('240,192,74'),SB=sprite('160,190,255');
   function size(){W=c.clientWidth;H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}
-  function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+10,r:Math.random()*2+.6,v:Math.random()*.6+.25,s:Math.random()*Math.PI*2,a:Math.random()*.6+.25,g:Math.random()<.78}}
+  function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+10,r:Math.random()*3+1.6,v:Math.random()*.6+.25,s:Math.random()*Math.PI*2,a:Math.random()*.6+.25,g:Math.random()<.78}}
   size(); addEventListener('resize',size);
-  var N=Math.round(Math.min(70,Math.max(30,innerWidth/14)));
+  var N=Math.round(Math.min(36,Math.max(20,innerWidth/20)));
   for(var i=0;i<N;i++)P.push(mk(true));
   function loop(){
-    if(document.hidden){requestAnimationFrame(loop);return}
+    if(!run) return;
     x.clearRect(0,0,W,H);
     for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.v;p.s+=.02;p.x+=Math.sin(p.s)*.35;
       if(p.y<-10){P[i]=mk(false);continue}
-      var al=p.a*Math.min(1,p.y/(H*.25),(H-p.y)/40+.2);
-      x.beginPath();x.fillStyle=p.g?'rgba(240,192,74,'+al+')':'rgba(160,190,255,'+al+')';
-      x.shadowColor=p.g?'#f0c04a':'#8fb0ff';x.shadowBlur=8;x.arc(p.x,p.y,p.r,0,6.283);x.fill()}
+      x.globalAlpha=p.a*Math.min(1,p.y/(H*.25),(H-p.y)/40+.2);
+      var d=p.r*2;x.drawImage(p.g?SG:SB,p.x-p.r,p.y-p.r,d,d)}
     requestAnimationFrame(loop)}
+  // يتوقف تماماً عند إخفاء الصفحة (يوفّر البطارية والمعالج)
+  document.addEventListener('visibilitychange',function(){var h=document.hidden;if(h){run=false}else if(!run){run=true;requestAnimationFrame(loop)}});
   loop();
 })();`
 
@@ -4276,22 +4286,24 @@ const GROWTH_CSS = `
 .tp.gr .tp-slot{animation:grLaunch 1.15s cubic-bezier(.17,.9,.3,1.2) both}
 .tp.gr .tp-slot.r2{animation-delay:.1s}.tp.gr .tp-slot.r3{animation-delay:.3s}.tp.gr .tp-slot.r1{animation-delay:.6s}
 @keyframes grLaunch{from{opacity:0;transform:translateY(150px) scale(.7)}60%{opacity:1;transform:translateY(-16px) scale(1.04)}to{opacity:1;transform:none}}
-.tp.gr .r1 .tp-pc{animation:tpRot 4s linear infinite,tpFloat 5s ease-in-out infinite,tpGlow 2.6s ease-in-out infinite,grBeat 2.2s ease-in-out infinite}
+.tp.gr .r1 .tp-pc{animation:tpFloat 5s ease-in-out infinite,grBeat 2.2s ease-in-out infinite}
 @keyframes grBeat{50%{scale:1.035}}
 .gr-aura{position:absolute;left:50%;top:42%;width:105%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:0;pointer-events:none}
-.gr-aura i{position:absolute;inset:0;border-radius:50%;border:2px solid #35f0b0;opacity:0;animation:grRing 3.6s ease-out infinite}
+.gr-aura i{position:absolute;inset:0;border-radius:50%;border:2px solid #35f0b0;opacity:0;will-change:transform,opacity;animation:grRing 3.6s ease-out infinite}
 .gr-aura i:nth-child(2){animation-delay:1.2s}.gr-aura i:nth-child(3){animation-delay:2.4s}
 @keyframes grRing{0%{transform:scale(.55);opacity:.85}100%{transform:scale(2.1);opacity:0}}
-.tp.gr .tp-pc::before{content:"";position:absolute;left:0;right:0;height:38%;top:-40%;z-index:3;pointer-events:none;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--c) 45%,transparent),transparent);animation:grScan 3.4s ease-in-out infinite}
+.tp.gr .tp-pc::before{content:"";position:absolute;left:0;right:0;height:38%;top:0;transform:translateY(-105%);z-index:3;pointer-events:none;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--c) 45%,transparent),transparent);will-change:transform;animation:grScan 3.4s ease-in-out infinite}
 .tp.gr .r2 .tp-pc::before{animation-delay:1.1s}.tp.gr .r3 .tp-pc::before{animation-delay:2.2s}
-@keyframes grScan{0%{top:-40%}100%{top:110%}}
+@keyframes grScan{to{transform:translateY(300%)}}
 .gr-sp{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
-.gr-sp::before,.gr-sp::after{content:"";position:absolute;inset:0;opacity:.85}
-.gr-sp::before{background-image:radial-gradient(circle,var(--c) 0 1.6px,transparent 2.6px),radial-gradient(circle,#fff 0 1px,transparent 1.8px);background-size:46px 62px,71px 93px;background-position:6px 0,30px 20px;animation:grUp1 3.4s linear infinite}
-.gr-sp::after{background-image:radial-gradient(circle,var(--c) 0 1.2px,transparent 2px);background-size:58px 80px;background-position:20px 10px;opacity:.55;animation:grUp2 5.2s linear infinite}
-@keyframes grUp1{to{background-position:6px -62px,30px -73px}}
-@keyframes grUp2{to{background-position:20px -70px}}
+.gr-sp::before,.gr-sp::after{content:"";position:absolute;left:0;right:0;top:0;opacity:.85;will-change:transform}
+.gr-sp::before{height:calc(100% + 62px);background-image:radial-gradient(circle,var(--c) 0 1.6px,transparent 2.6px);background-size:46px 62px;background-position:6px 0;animation:grUp1 3.4s linear infinite}
+.gr-sp::after{height:calc(100% + 93px);background-image:radial-gradient(circle,#fff 0 1px,transparent 1.8px);background-size:71px 93px;background-position:30px 20px;opacity:.6;animation:grUp2 5.2s linear infinite}
+@keyframes grUp1{to{transform:translateY(-62px)}}
+@keyframes grUp2{to{transform:translateY(-93px)}}
 .tp.gr .tp-crown{animation:tpCrown 1.6s ease-in-out infinite;filter:drop-shadow(0 3px 10px rgba(53,240,176,.8))}
+.tp.gr .r2 .tp-art,.tp.gr .r3 .tp-art{aspect-ratio:3/5.4}.tp.gr .r1 .tp-art{aspect-ratio:3/6}
+.tp.gr .tp-pw{flex-wrap:wrap;justify-content:center;line-height:1.1}.tp.gr .tp-pw small{flex-basis:100%;text-align:center}
 .tp.gr .tp-pw::before{content:"\\25B2";font-size:.6em;display:inline-block;animation:grBob 1.2s ease-in-out infinite}
 @keyframes grBob{50%{transform:translateY(-3px)}}
 .tp.gr .tp-sc{color:#35f0b0}
@@ -7683,7 +7695,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 podium: entries.slice(0, 3),
                 rows: entries.slice(3),
                 me,
-                updatedText: grp ? 'يتجدد يومياً 1:00 ص' : agoText(Date.now() - snap.at),
+                updatedText: grp ? 'يتجدد يومياً 1:00 ص' : agoText(Date.now() - (snap.at || snap.snapAt || Date.now())),
                 tabs,
                 subText: isGrowth ? 'الترتيب حسب القوة التي اكتسبتها هذا الأسبوع فقط — اللاعب الجديد ينافس الكبار' : (grp ? `ترتيب أعضاء قروب ${grp.label} فقط، أول ${kingdom.TOP_GROUP_LIMIT} لاعب` : null),
                 emptyText: isGrowth ? 'ما أحد كسب قوة هذا الأسبوع بعد 🚀 كن أنت الأول!' : (grp ? `لا يوجد لاعبون في قروب ${grp.label} بعد.` : null),
