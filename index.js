@@ -474,6 +474,8 @@ const { handleMigrateQuestionsCommand } = require('./utils/migrateQuestions')
 
 // 🏟️ نظام الأرينا (ملف خارجي كامل — راجع systems/arenaCommands.js و systems/arenaSystem.js)
 const { handleArenaCommand, ARENA_HELP } = require('./systems/arenaCommands')
+// 📖 نامي تشرح أي أمر أو ميزة بالبوت وبالموقع (systems/namiCommandHelp.js)
+const { createNamiCommandHelp } = require('./systems/namiCommandHelp')
 // ⏸️ تعطيل مؤقت لأمر .هجوم_ارينا بالواتساب (الهجوم متاح من الموقع: تحدي ارينا). لإعادة التفعيل: غيّرها إلى false
 const ARENA_ATTACK_WA_DISABLED = true
 const { startArenaSchedulers } = require('./systems/arenaSystem')
@@ -2057,6 +2059,44 @@ require('./systems/achievements')
 // يتحقق من الإنجازات، يمنح الجوائز تلقائياً، ويرسل إشعاراً فورياً
 const siteNotify = require('./systems/siteNotify') // 🔔 إشعارات الموقع (نفس ما يُرسل للواتساب)
 
+// 🔕 رسائل الواتساب التلقائية: true = تُرسل بالواتساب، false = موقوفة (الإشعار يبقى بالموقع دائماً)
+// رسائل الأورب تبقى بالواتساب (orb: true). لإرجاع أي نوع للواتساب غيّر قيمته إلى true.
+const WA_NOTIFY_ENABLED = {
+    achievement: false,     // 🏆 إنجاز جديد
+    giftReceivedDm: false,  // 🎁 وصلتك هدية (الخاص للمستلم عند الإهداء باليوزرنيم)
+    siteDm: false,          // 📩 الإشعارات الخاصة التلقائية (siteNotifyDm) مثل جوائز وتنبيهات الأنظمة
+    donateDm: false,        // 💰 إشعار "وصلتك تبرع" الخاص (.تبرع باليوزرنيم) — يظهر بالموقع فقط
+    userMessageDm: false,   // 📩 رسالة .رسالة باليوزرنيم — تظهر بالموقع فقط
+    orb: true               // 🔮 رسائل الأورب تُرسل بالواتساب دائماً
+}
+const WA_ORB_TEXT_RX = /أورب|اورب|🔮/
+
+// 🛡️ حارس الخاص لـ sock المستخدم بأنظمة الموقع (getSock): يمنع أي رسالة خاصة بالواتساب
+// (إنجاز/ترقية/جوائز/تنبيهات أنظمة...) ويسمح فقط برسائل الأورب. رسائل القروبات ما تتأثر.
+function guardSiteSock(realSock) {
+    if (!realSock || typeof realSock !== 'object') return realSock
+    return new Proxy(realSock, {
+        get(target, prop, receiver) {
+            if (prop === 'sendMessage') {
+                return async (jid, content, ...rest) => {
+                    try {
+                        const j = String(jid || '')
+                        const isGroupLike = j.endsWith('@g.us') || j.endsWith('@broadcast') || j.endsWith('@newsletter')
+                        if (!isGroupLike) {
+                            const txt = String((content && (content.text || content.caption)) || '')
+                            if (!(WA_NOTIFY_ENABLED.orb && WA_ORB_TEXT_RX.test(txt))) {
+                                return null // 🔕 خاص غير أورب = موقوف (الإشعار بالموقع يبقى)
+                            }
+                        }
+                    } catch (e) { /* عند أي خلل نكمل الإرسال الطبيعي */ }
+                    return target.sendMessage(jid, content, ...rest)
+                }
+            }
+            return Reflect.get(target, prop, target)
+        }
+    })
+}
+
 // 🧿 جمع الشخصيات = عدد شخصيات SSS فقط (المكررات تُحسب)
 function countSSS(p) {
     return ((p && p.characters) || []).filter(c => c && c.rarity === 'SSS').length
@@ -2221,6 +2261,9 @@ ${categoryDef.icon} ${categoryDef.name}
     } catch (e) { /* لا يوقف الإنجاز */ }
 
     text += `📊 استخدم .انجازاتي لعرض تقدمك الكامل`
+
+    // 🔕 رسالة الإنجاز بالواتساب موقوفة (الإشعار بالموقع يبقى). لإعادتها: WA_NOTIFY_ENABLED.achievement = true
+    if (!WA_NOTIFY_ENABLED.achievement) return
 
     try {
 
@@ -2879,7 +2922,7 @@ function buildNamiGreeting(mood) {
         .join(" ")
 }
 
-async function askNami(prompt) {
+async function askNami(prompt, opts = {}) {
 
     // 🔁 محاولتان قبل الاستسلام — أغلب انقطاعات Groq (مهلة/شبكة) عابرة
     // وتنجح في المحاولة الثانية، بدل إرسال رد الاعتذار من أول عثرة
@@ -3043,7 +3086,7 @@ presence_penalty: 0.8,
 
 frequency_penalty: 0.5,
 
-max_tokens: 700
+max_tokens: opts.maxTokens || 700
 
             },
 
@@ -3097,7 +3140,7 @@ return answer
 
         if (attempt < MAX_NAMI_ATTEMPTS) continue
 
-        return "... يبدو أنني لم أستطع الرد الآن 😅"
+        return opts.nullOnFail ? null : "... يبدو أنني لم أستطع الرد الآن 😅"
 
     }
 
@@ -4760,6 +4803,11 @@ const marketFile =
 
 const app = express()
 
+// 🔕 سياق طلبات الموقع: أي رسالة خاصة بالواتساب تنطلق أثناء/بسبب طلب من الموقع تُمنع (الإشعار يبقى بالموقع)، عدا الأورب
+const { AsyncLocalStorage } = require('async_hooks')
+const siteRequestCtx = new AsyncLocalStorage()
+app.use((req, res, next) => { siteRequestCtx.run({ fromSite: true }, next) })
+
 app.get('/health', (req, res) => {
 
     res.status(200).send('OK')
@@ -4835,9 +4883,12 @@ kingdom.init({
     notifyOwner: (text) => siteNotifyOwner(text)
 })
 
-async function siteNotifyDm(userId, text) {
+async function siteNotifyDm(userId, text, opts) {
     // 🔔 نفس الرسالة تظهر بالموقع (حتى لو الواتساب منقطع)
     siteNotify.push(userId, { type: 'dm', icon: '📩', title: 'إشعار', text: String(text || '').replace(/[━═─]{2,}/g, '').trim() })
+    if (opts && opts.siteOnly) return // 🔕 هذا الإشعار للموقع فقط (بدون واتساب أبداً)
+    // 🔕 الخاص بالواتساب موقوف (الموقع فقط) عدا رسائل الأورب
+    if (!WA_NOTIFY_ENABLED.siteDm && !(WA_NOTIFY_ENABLED.orb && WA_ORB_TEXT_RX.test(String(text || '')))) return
     try {
         const s = siteSockRef.current
         if (!s || !userId) return
@@ -7298,6 +7349,24 @@ const sock = makeWASocket({
 // 🛡️ حماية الإرسال للقروبات: فشل قروب واحد ما يوقف الإعلان للباقي ولا يفصل البوت
 guardGroupSends(sock)
 
+// 🔕 قفل الخاص لأي عملية جاية من الموقع (مهما كان النظام اللي أرسلها): خاص غير أورب = يُتجاهل
+{
+    const __origSend = sock.sendMessage.bind(sock)
+    sock.sendMessage = async (jid, content, ...rest) => {
+        try {
+            if (siteRequestCtx.getStore()?.fromSite) {
+                const j = String(jid || '')
+                const groupLike = j.endsWith('@g.us') || j.endsWith('@broadcast') || j.endsWith('@newsletter')
+                if (!groupLike) {
+                    const txt = String((content && (content.text || content.caption)) || '')
+                    if (!(WA_NOTIFY_ENABLED.orb && WA_ORB_TEXT_RX.test(txt))) return null
+                }
+            }
+        } catch (e) { /* عند أي خلل نكمل الإرسال الطبيعي */ }
+        return __origSend(jid, content, ...rest)
+    }
+}
+
 // 🛡️ لو شخصية بدون صورة (image فارغ) انسحبت قبل ما يضع المطور صورتها بـ .ص،
 // نحوّل إرسال الصورة الفارغة لرسالة نصية بدل ما يفشل الإرسال/الأمر
 {
@@ -7841,7 +7910,7 @@ async function setStickerRights(webpBuf, pack, author) {
     // =========================
    
 
-siteSockRef.current = sock
+siteSockRef.current = guardSiteSock(sock) // 🔕 أنظمة الموقع: الخاص موقوف عدا الأورب
 // kingdom.startScheduler(() => siteSockRef.current) // 🛑 معطّل: البوت خرج من قروبات المملكة (أزل // لإعادة التفعيل) // يبدأ مرة واحدة فقط (محمي داخلياً من التكرار عند إعادة الاتصال)
 require('./systems/galleryRewards').startScheduler(siteNotifyOwner) // 🖼️ جوائز لايكات المعارض أسبوعياً (الخميس 1:00 ص)
 
@@ -9031,6 +9100,21 @@ const commandExplanations = {
         '.اشرح pvp': 'أمر للمطور فقط - يعرض شرحاً تفصيلياً كاملاً لآلية عمل نظام القتال PvP.',
     },
 }
+
+// 📖 شرح الأوامر والميزات عبر نامي: "نامي اشرحي لي .هجوم" / "هجوم الزعيم" / "المعرض بالموقع"
+// - يفهرس كل ملفات المشروع تلقائياً (البوت + الموقع + systems + utils): أي أمر له معالج يُلتقط
+// - قاموس commandExplanations أعلاه مرجع رسمي، والأوامر التي لا شرح لها به تُشرح من الكود
+// - لربط اسم عربي بمسار موقع لا تعليق عربي عنده: featureAliases { 'المعرض': '/gallery' }
+const namiCommandHelp = createNamiCommandHelp({
+    commandExplanations,
+    projectRoot: __dirname,
+    featureAliases: {},
+    extra: {
+        '.رابط': 'يرسل رابط موقع شخصياتك (يُنشأ أول مرة تلقائياً، ويحتاج أن تملك شخصيات).',
+        '.رابط جديد': 'يولّد رابطاً جديداً لموقع شخصياتك ويلغي الرابط القديم.'
+    }
+})
+setTimeout(() => namiCommandHelp.warmUp(), 20000)
 
 const Trade = require('./models/Trade')
 
@@ -29009,6 +29093,18 @@ await targetPlayer.save()
 
 // 📩 إشعار خاص للطرف الثاني فقط لو استخدم اليوزرنيم (مو منشن)
 if (donateViaUsername) {
+    // 🔔 المستلم يشوف التبرع بإشعارات الموقع دائماً
+    try {
+        siteNotify.push(target, {
+            type: 'dm',
+            icon: '💰',
+            title: 'وصلك تبرع',
+            text: `من: ${userId.split('@')[0]}\nالمبلغ: ${amount.toLocaleString()} ذهب`
+        })
+    } catch (e) { /* لا يوقف التبرع */ }
+}
+// 🔕 رسالة التبرع الخاصة بالواتساب موقوفة. لإعادتها: WA_NOTIFY_ENABLED.donateDm = true
+if (donateViaUsername && WA_NOTIFY_ENABLED.donateDm) {
     try {
         const donateDmJid = await resolveDmJid(target)
         await sock.sendMessage(donateDmJid, {
@@ -29258,7 +29354,18 @@ ${list}━━━━━━━━━━━━━━━━━━
         player.money -= USERNAME_ACTION_COST
         await player.save()
 
+        // 🔔 المستلم يشوف الرسالة بإشعارات الموقع دائماً
         try {
+            siteNotify.push(targetId, {
+                type: 'dm',
+                icon: '📩',
+                title: 'رسالة جديدة',
+                text: `من: ${userId.split('@')[0]}\n${String(body).slice(0, 500)}`
+            })
+        } catch (e) { /* لا يوقف الإرسال */ }
+
+        // 🔕 رسالة .رسالة الخاصة بالواتساب موقوفة. لإعادتها: WA_NOTIFY_ENABLED.userMessageDm = true
+        if (WA_NOTIFY_ENABLED.userMessageDm) try {
             const msgDmJid = await resolveDmJid(targetId)
             await sock.sendMessage(msgDmJid, {
                 text:
@@ -29431,6 +29538,19 @@ const charactersListText =
 
 // 📩 إشعار خاص للطرف الثاني فقط لو استخدم اليوزرنيم (مو منشن)
 if (viaUsername) {
+    // 🔔 المستلم يشوف الهدية بإشعارات الموقع دائماً
+    try {
+        siteNotify.push(target, {
+            type: 'dm',
+            icon: '🎁',
+            title: `وصلتك هدية (${selectedCharacters.length} شخصية)`,
+            text: `من: ${userId.split('@')[0]}\n` + selectedCharacters.map(c => `${c.name} (${c.rarity})`).join(' · ')
+        })
+    } catch (e) { /* لا يوقف الإهداء */ }
+}
+
+// 🔕 رسالة "وصلتك هدية" الخاصة بالواتساب موقوفة. لإعادتها: WA_NOTIFY_ENABLED.giftReceivedDm = true
+if (viaUsername && WA_NOTIFY_ENABLED.giftReceivedDm) {
     // ⚡ الإشعار الخاص يشتغل بالخلفية — رسالة التأكيد بالقروب ما تنتظره (نفس النص ونفس معالجة الخطأ)
     ;(async () => {
         try {
@@ -29478,11 +29598,11 @@ ${charactersListText}
 
 }
     
-    if (/^(نامي|يا نامي)/i.test(text.trim())) {
+    if (/^\.?(نامي|يا نامي)/i.test(text.trim())) {
 
     const question =
         text
-            .replace(/^(نامي|يا نامي)/i, "")
+            .replace(/^\.?(نامي|يا نامي)/i, "")
             .trim()
 
     const namiMood = getNamiMood()
@@ -29498,6 +29618,93 @@ ${charactersListText}
             }
         )
 
+    }
+
+    // 📖 سؤال عن أمر/ميزة: "نامي اشرحي لي .هجوم" / "هجوم الزعيم" / "المعرض بالموقع" / "اوامر الزعماء"
+    {
+        // 🔎 فحص نظام الشرح (للمطور فقط): "نامي فحص الشرح"
+        if (/^(فحص|تشخيص)\s*(الشرح|الاوامر|الأوامر)$/.test(question)) {
+            let _ownerDiag = false
+            try { _ownerDiag = !!isOwner(msg) } catch (e) { /* تجاهل */ }
+            if (_ownerDiag) {
+                return safeSend(msg.key.remoteJid, { text: namiCommandHelp.diagnosticsText() })
+            }
+        }
+
+        // 🔎 فحص قراءة أمر معيّن (للمطور فقط): "نامي فحص الشرح .هجوم"
+        // يعرض: أي ملفات نظام قُرئت وهل قُرئت كاملة، والدوال التي لم يُرسل نصها، وحجم السياق لكل مستوى
+        {
+            const _cov = question.match(/^(?:فحص|تشخيص)\s*(?:الشرح|الاوامر|الأوامر)\s+(.+)$/)
+            if (_cov) {
+                let _ownerCov = false
+                try { _ownerCov = !!isOwner(msg) } catch (e) { /* تجاهل */ }
+                if (_ownerCov) {
+                    let _covText = ''
+                    try { _covText = namiCommandHelp.coverageText(_cov[1]) } catch (e) { _covText = 'تعذّر الفحص: ' + (e && e.message) }
+                    return safeSend(msg.key.remoteJid, { text: _covText })
+                }
+            }
+        }
+
+        let _help = null
+        try { _help = namiCommandHelp.resolve(question) } catch (e) { console.log('Nami help resolve error:', e && e.message) }
+
+        if (_help) {
+            if (_help.kind === 'all') {
+                return safeSend(msg.key.remoteJid, { text: namiCommandHelp.allText() })
+            }
+
+            if (_help.kind === 'category') {
+                return safeSend(msg.key.remoteJid, { text: namiCommandHelp.categoryText(_help) })
+            }
+
+            // حالة الأمر الحالية (الأوامر المعطّلة بالواتساب)
+            let _status = null
+            try {
+                const _c = _help.entry ? _help.entry.cmd : ''
+                if (_c === '.هجوم' && WHATSAPP_BOSS_ATTACK_DISABLED) {
+                    _status = 'هذا الأمر معطّل حالياً بالواتساب (لا يرد)، وهجوم الزعيم صار من الموقع فقط. رابط موقعك: .رابط'
+                } else if (_c === '.هجوم_ارينا' && ARENA_ATTACK_WA_DISABLED) {
+                    _status = 'هذا الأمر معطّل حالياً بالواتساب، والهجوم متاح من الموقع (تحدي الأرينا).'
+                } else if (_c.startsWith('.المعرض') && GALLERY_COMMAND_DISABLED) {
+                    _status = 'أمر .المعرض (وكل أوامره الفرعية) معطّل مؤقتاً حالياً بالواتساب.'
+                } else if (_c === '.عرض_تصميم' && CARD_DESIGN_DISABLED) {
+                    _status = 'هذا الأمر معطّل مؤقتاً حالياً، والبديل هو .عرض.'
+                }
+            } catch (e) { /* ثابت غير متاح بهذا النطاق: نكمل بدون ملاحظة */ }
+
+            let _owner = false
+            try { _owner = !!isOwner(msg) } catch (e) { /* تجاهل */ }
+
+            const _moodPrompt = NAMI_MOOD_PROMPTS[namiMood] || NAMI_MOOD_PROMPTS.normal
+
+            // محاولة كاملة (الأمر + ملف النظام كاملاً + ربطه واستخدامه من الموقع) ثم أخف ثم الأخف إن رفضها Groq لحجم الطلب
+            let _helpAnswer = null
+            for (const _level of [0, 1, 2]) {
+                _helpAnswer = await askNami(
+                    namiCommandHelp.buildPrompt({
+                        match: _help,
+                        question,
+                        status: _status,
+                        isOwner: _owner,
+                        moodPrompt: _moodPrompt,
+                        level: _level
+                    }),
+                    { maxTokens: 2200, nullOnFail: true }
+                )
+                if (_helpAnswer && _helpAnswer.trim()) break
+            }
+
+            const _finalText = (_helpAnswer && _helpAnswer.trim())
+                ? _helpAnswer
+                : namiCommandHelp.fallbackText(_help, _status)
+
+            // رد طويل: نقسمه لرسائل مريحة بترتيبها
+            for (const _chunk of namiCommandHelp.splitMessage(_finalText)) {
+                await safeSend(msg.key.remoteJid, { text: _chunk })
+            }
+            return
+        }
     }
 
     const memory =
