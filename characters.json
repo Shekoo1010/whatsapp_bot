@@ -17269,5 +17269,806 @@
     "rarity": "SSS",
     "ability": "التحكم بالواقع الرقمي",
     "image": ""
+  },
+  {
+    "name": "Kaoru",
+    "form": "سيدة مدرسة كاميا",
+    "anime": "Rurouni Kenshin",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "سيف الإرادة الثابتة",
+    "image": ""
+  },
+  {
+    "name": "Misao",
+    "form": "نينجا الأوني الصغيرة",
+    "anime": "Rurouni Kenshin",
+    "power": 6763,
+    "rarity": "SSS",
+    "ability": "خناجر الكوناي الخاطفة",
+    "image": ""
+  },
+  {
+    "name": "Kagome",
+    "form": "حاملة سهام النور",
+    "anime": "Inuyasha",
+    "power": 6857,
+    "rarity": "SSS",
+    "ability": "السهم المتوهج",
+    "image": ""
+  },
+  {
+    "name": "Kikyo",
+    "form": "راعية الأقواس القديمة",
+    "anime": "Inuyasha",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "سهم الصدى القديم",
+    "image": ""
+  },
+  {
+    "name": "Sango",
+    "form": "صائدة الوحوش",
+    "anime": "Inuyasha",
+    "power": 6931,
+    "rarity": "SSS",
+    "ability": "بوميرانغ العظم الضخم",
+    "image": ""
+  },
+  {
+    "name": "Pataushce Kivia",
+    "form": "قائدة الفرسان المنفية",
+    "anime": "Sentenced to Be a Hero",
+    "power": 6652,
+    "rarity": "SSS",
+    "ability": "سيف الإصرار العنيد",
+    "image": ""
+  },
+  {
+    "name": "Yui",
+    "form": "عازفة الجيتار الحالمة",
+    "anime": "K-On!",
+    "power": 6714,
+    "rarity": "SSS",
+    "ability": "وتر الإيقاع الحماسي",
+    "image": ""
+  },
+  {
+    "name": "Mio S",
+    "form": "عازفة الباص الأنيقة",
+    "anime": "K-On!",
+    "power": 6907,
+    "rarity": "SSS",
+    "ability": "إيقاع الباص الهادئ",
+    "image": ""
+  },
+  {
+    "name": "Mugi",
+    "form": "عازفة الكيبورد النبيلة",
+    "anime": "K-On!",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "ألحان الشاي الذهبية",
+    "image": ""
+  },
+  {
+    "name": "Azusa",
+    "form": "عازفة الجيتار المجتهدة",
+    "anime": "K-On!",
+    "power": 6884,
+    "rarity": "SSS",
+    "ability": "أوتار الدقة المتقنة",
+    "image": ""
+  },
+  {
+    "name": "Kumiko",
+    "form": "عازفة اليوفونيوم الهادئة",
+    "anime": "Sound! Euphonium",
+    "power": 6815,
+    "rarity": "SSS",
+    "ability": "نفَس اللحن الصامد",
+    "image": ""
+  },
+  {
+    "name": "Reina",
+    "form": "عازفة الترومبيت الموهوبة",
+    "anime": "Sound! Euphonium",
+    "power": 6893,
+    "rarity": "SSS",
+    "ability": "نغمة الصفاء الحادة",
+    "image": ""
+  },
+  {
+    "name": "Kyouko Hori",
+    "form": "الفتاة ذات الوجهين",
+    "anime": "Horimiya",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "حنان الوجه الخفي",
+    "image": ""
+  },
+  {
+    "name": "Komi",
+    "form": "الفتاة الصامتة الساحرة",
+    "anime": "Komi Can't Communicate",
+    "power": 6974,
+    "rarity": "SSS",
+    "ability": "نظرة الصمت اللامعة",
+    "image": ""
+  },
+  {
+    "name": "Tsukasa",
+    "form": "الزوجة الغامضة الخالدة",
+    "anime": "Tonikawa",
+    "power": 6997,
+    "rarity": "SSS",
+    "ability": "التجدد الأبدي",
+    "image": ""
+  },
+  {
+    "name": "Chinatsu",
+    "form": "نجمة السلة المتألقة",
+    "anime": "Blue Box",
+    "power": 6993,
+    "rarity": "SSS",
+    "ability": "رمية القوس المثالية",
+    "image": ""
+  },
+  {
+    "name": "Hina",
+    "form": "الصديقة المثابرة",
+    "anime": "Blue Box",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "عزيمة بلا تراجع",
+    "image": ""
+  },
+  {
+    "name": "Anju",
+    "form": "حامية الفريق الحنون",
+    "anime": "86",
+    "power": 6984,
+    "rarity": "SSS",
+    "ability": "درع المودة",
+    "image": ""
+  },
+  {
+    "name": "Kurena",
+    "form": "المقاتلة الصامدة",
+    "anime": "86",
+    "power": 6995,
+    "rarity": "SSS",
+    "ability": "رصاصة الإصرار",
+    "image": ""
+  },
+  {
+    "name": "Cattleya",
+    "form": "دمية الذكريات الأنيقة",
+    "anime": "Violet Evergarden",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "حروف الإبداع",
+    "image": ""
+  },
+  {
+    "name": "Mitsuha",
+    "form": "فتاة القرية الحالمة",
+    "anime": "Your Name",
+    "power": 6825,
+    "rarity": "SSS",
+    "ability": "تبادل الأجساد الغامض",
+    "image": ""
+  },
+  {
+    "name": "Chihiro",
+    "form": "فتاة الحمّام الشجاعة",
+    "anime": "Spirited Away",
+    "power": 6722,
+    "rarity": "SSS",
+    "ability": "الإرادة الشجاعة",
+    "image": ""
+  },
+  {
+    "name": "Kiki",
+    "form": "ساحرة التوصيل الصغيرة",
+    "anime": "Kiki's Delivery Service",
+    "power": 6601,
+    "rarity": "SSS",
+    "ability": "الطيران بالمكنسة",
+    "image": ""
+  },
+  {
+    "name": "Sophie",
+    "form": "الخياطة الطيبة",
+    "anime": "Howl's Moving Castle",
+    "power": 6914,
+    "rarity": "SSS",
+    "ability": "عزيمة تكسر اللعنة",
+    "image": ""
+  },
+  {
+    "name": "Ponyo",
+    "form": "ابنة البحر الصغيرة",
+    "anime": "Ponyo",
+    "power": 6641,
+    "rarity": "SSS",
+    "ability": "سحر الأمواج الدافئة",
+    "image": ""
+  },
+  {
+    "name": "Maki",
+    "form": "رامية النخبة الحازمة",
+    "anime": "Fire Force",
+    "power": 6656,
+    "rarity": "SSS",
+    "ability": "نيران الدقة",
+    "image": ""
+  },
+  {
+    "name": "Tamaki",
+    "form": "المحاربة المحظوظة",
+    "anime": "Fire Force",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "الحظ المتقد",
+    "image": ""
+  },
+  {
+    "name": "Sawako Kuronuma",
+    "form": "الفتاة الطيبة الخجولة",
+    "anime": "Kimi ni Todoke",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "ابتسامة الصدق",
+    "image": ""
+  },
+  {
+    "name": "Rin Shima",
+    "form": "المخيّمة المنفردة",
+    "anime": "Yuru Camp",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "هدوء الغابة الثلجية",
+    "image": ""
+  },
+  {
+    "name": "Nadeshiko Kagamihara",
+    "form": "عاشقة الطعام والمخيمات",
+    "anime": "Yuru Camp",
+    "power": 6605,
+    "rarity": "SSS",
+    "ability": "طاقة المرح المتوهجة",
+    "image": ""
+  },
+  {
+    "name": "Chiaki Ogaki",
+    "form": "رئيسة نادي المخيم",
+    "anime": "Yuru Camp",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "حماسة المغامرة",
+    "image": ""
+  },
+  {
+    "name": "Naho Takamiya",
+    "form": "الفتاة التي تغيّر المصير",
+    "anime": "Orange",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "رسالة المستقبل",
+    "image": ""
+  },
+  {
+    "name": "Usagi Tsukino",
+    "form": "فتاة القمر المحاربة",
+    "anime": "Sailor Moon",
+    "power": 6947,
+    "rarity": "SSS",
+    "ability": "تاج الهلال المتوهج",
+    "image": ""
+  },
+  {
+    "name": "Ami Mizuno",
+    "form": "محاربة الماء العبقرية",
+    "anime": "Sailor Moon",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "ضباب الجليد الذكي",
+    "image": ""
+  },
+  {
+    "name": "Rei Hino",
+    "form": "محاربة النار الشجاعة",
+    "anime": "Sailor Moon",
+    "power": 6707,
+    "rarity": "SSS",
+    "ability": "سهام اللهب الحارقة",
+    "image": ""
+  },
+  {
+    "name": "Kou Reirin",
+    "form": "الأميرة الحكيمة الهادئة",
+    "anime": "Though I Am an Inept Villainess",
+    "power": 6803,
+    "rarity": "SSS",
+    "ability": "ذكاء البلاط الهادئ",
+    "image": ""
+  },
+  {
+    "name": "Shinku",
+    "form": "حارسة الحبر القرمزي",
+    "anime": "NTE",
+    "power": 6728,
+    "rarity": "SSS",
+    "ability": "ريشة الحبر الخاطفة",
+    "image": ""
+  },
+  {
+    "name": "Zankou",
+    "form": "السياف الصامت",
+    "anime": "NTE",
+    "power": 6778,
+    "rarity": "SSS",
+    "ability": "قطع الغروب",
+    "image": ""
+  },
+  {
+    "name": "Hotori",
+    "form": "راقصة الربيع",
+    "anime": "NTE",
+    "power": 6782,
+    "rarity": "SSS",
+    "ability": "بتلات الريح اللطيفة",
+    "image": ""
+  },
+  {
+    "name": "Daffodil",
+    "form": "زهرة النرجس المتوهجة",
+    "anime": "NTE",
+    "power": 6792,
+    "rarity": "SSS",
+    "ability": "عبير النور الساطع",
+    "image": ""
+  },
+  {
+    "name": "Hathor",
+    "form": "حارسة الذهب",
+    "anime": "NTE",
+    "power": 6981,
+    "rarity": "SSS",
+    "ability": "بريق الذهب الملكي",
+    "image": ""
+  },
+  {
+    "name": "Nista",
+    "form": "المهندسة الماكرة",
+    "anime": "NTE",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "ابتكار الدوائر",
+    "image": ""
+  },
+  {
+    "name": "Akane Rin",
+    "form": "فتاة الشفق القرمزي",
+    "anime": "NTE",
+    "power": 6926,
+    "rarity": "SSS",
+    "ability": "وهج الغروب",
+    "image": ""
+  },
+  {
+    "name": "Nanally",
+    "form": "المحاربة المرحة",
+    "anime": "NTE",
+    "power": 6639,
+    "rarity": "SSS",
+    "ability": "قفزة الفرحة",
+    "image": ""
+  },
+  {
+    "name": "Jiuyuan",
+    "form": "الرامي الهادئ",
+    "anime": "NTE",
+    "power": 6970,
+    "rarity": "SSS",
+    "ability": "سهم القمر الصافي",
+    "image": ""
+  },
+  {
+    "name": "Blackbird",
+    "form": "الطائر الأسود",
+    "anime": "NTE",
+    "power": 6774,
+    "rarity": "SSS",
+    "ability": "جناح الليل",
+    "image": ""
+  },
+  {
+    "name": "Lacrimosa",
+    "form": "سيدة المطر الفضي",
+    "anime": "NTE",
+    "power": 6645,
+    "rarity": "SSS",
+    "ability": "مطر الأسى",
+    "image": ""
+  },
+  {
+    "name": "Fadia",
+    "form": "الحارسة الغامضة",
+    "anime": "NTE",
+    "power": 6885,
+    "rarity": "SSS",
+    "ability": "ستار الوهم",
+    "image": ""
+  },
+  {
+    "name": "Elyms",
+    "form": "المستكشف الجريء",
+    "anime": "NTE",
+    "power": 6875,
+    "rarity": "SSS",
+    "ability": "بوصلة الأفق",
+    "image": ""
+  },
+  {
+    "name": "Exe",
+    "form": "الفتى الوحيد المتفرد",
+    "anime": "NTE",
+    "power": 6749,
+    "rarity": "SSS",
+    "ability": "قبضة الإرادة الوحيدة",
+    "image": ""
+  },
+  {
+    "name": "Kim Cheong Wul",
+    "form": "الباحث عن الحقيقة",
+    "anime": "Reality Quest",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "اختراق الواقع",
+    "image": ""
+  },
+  {
+    "name": "Si Yeon",
+    "form": "الفتاة الفضولية",
+    "anime": "Reality Quest",
+    "power": 6834,
+    "rarity": "SSS",
+    "ability": "حدس الإنقاذ",
+    "image": ""
+  },
+  {
+    "name": "Joo Ah Rin",
+    "form": "الرامية الحذرة",
+    "anime": "Reality Quest",
+    "power": 6672,
+    "rarity": "SSS",
+    "ability": "دقة الظل",
+    "image": ""
+  },
+  {
+    "name": "Hyun Jin Seo",
+    "form": "القائد الهادئ",
+    "anime": "Reality Quest",
+    "power": 6930,
+    "rarity": "SSS",
+    "ability": "تخطيط المهمة",
+    "image": ""
+  },
+  {
+    "name": "Gu Feiyang",
+    "form": "الوريث الصاعد",
+    "anime": "The Eternal Supreme",
+    "power": 6960,
+    "rarity": "SSS",
+    "ability": "سيف السماء الأزرق",
+    "image": ""
+  },
+  {
+    "name": "Aphrodi",
+    "form": "هداف الكرة الذهبية",
+    "anime": "Inazuma Eleven",
+    "power": 6966,
+    "rarity": "SSS",
+    "ability": "تسديدة النجم الساطع",
+    "image": ""
+  },
+  {
+    "name": "Yu Mira",
+    "form": "وريثة الفنون القتالية",
+    "anime": "The God of High School",
+    "power": 6895,
+    "rarity": "SSS",
+    "ability": "شفرة الفجر الصافية",
+    "image": ""
+  },
+  {
+    "name": "Lee Sujin",
+    "form": "المبارز الأنيق",
+    "anime": "The God of High School",
+    "power": 6758,
+    "rarity": "SSS",
+    "ability": "ضربة الدقة الهادئة",
+    "image": ""
+  },
+  {
+    "name": "Dan A Han",
+    "form": "المحارب الهادئ",
+    "anime": "The God of High School",
+    "power": 6612,
+    "rarity": "SSS",
+    "ability": "فنون القتال الصارمة",
+    "image": ""
+  },
+  {
+    "name": "Park Il Pyo",
+    "form": "الخصم المراوغ",
+    "anime": "The God of High School",
+    "power": 6963,
+    "rarity": "SSS",
+    "ability": "ضربة الظل",
+    "image": ""
+  },
+  {
+    "name": "Kwon Jinnie",
+    "form": "الفتاة الجريئة",
+    "anime": "The Breaker",
+    "power": 6788,
+    "rarity": "SSS",
+    "ability": "ركلة الإعصار",
+    "image": ""
+  },
+  {
+    "name": "Han Chun Woo",
+    "form": "القائد الغامض",
+    "anime": "The Breaker",
+    "power": 6786,
+    "rarity": "SSS",
+    "ability": "قبضة الظل",
+    "image": ""
+  },
+  {
+    "name": "Shi Woon Yi",
+    "form": "التلميذ الموهوب",
+    "anime": "The Breaker",
+    "power": 6836,
+    "rarity": "SSS",
+    "ability": "مهارة القتال المتقنة",
+    "image": ""
+  },
+  {
+    "name": "Tenka Izumo",
+    "form": "قائدة الفرقة المتألقة",
+    "anime": "Mato Seihei no Slave",
+    "power": 6816,
+    "rarity": "SSS",
+    "ability": "سيف اللمعان",
+    "image": ""
+  },
+  {
+    "name": "Ren Yamashiro",
+    "form": "القائدة الحازمة",
+    "anime": "Mato Seihei no Slave",
+    "power": 6646,
+    "rarity": "SSS",
+    "ability": "سيف المكر",
+    "image": ""
+  },
+  {
+    "name": "Yakumo Ezo",
+    "form": "المحارب الصلب",
+    "anime": "Mato Seihei no Slave",
+    "power": 6804,
+    "rarity": "SSS",
+    "ability": "قبضة الجبل",
+    "image": ""
+  },
+  {
+    "name": "Mikadono Miwa",
+    "form": "الأخت الكبرى الأنيقة",
+    "anime": "Mikadono Sanshimai wa Angai, Choroi",
+    "power": 6899,
+    "rarity": "SSS",
+    "ability": "هدوء الحنان",
+    "image": ""
+  },
+  {
+    "name": "Mikadono Kazuki",
+    "form": "الأخت الوسطى الحازمة",
+    "anime": "Mikadono Sanshimai wa Angai, Choroi",
+    "power": 6883,
+    "rarity": "SSS",
+    "ability": "صرامة المحبة",
+    "image": ""
+  },
+  {
+    "name": "Mikadono Nico",
+    "form": "الأخت الصغرى المرحة",
+    "anime": "Mikadono Sanshimai wa Angai, Choroi",
+    "power": 6855,
+    "rarity": "SSS",
+    "ability": "مرح لا ينتهي",
+    "image": ""
+  },
+  {
+    "name": "Saki Ryojo",
+    "form": "الفتاة الحادة",
+    "anime": "I Took Over the Academy with Just a Sashimi Knife",
+    "power": 6659,
+    "rarity": "SSS",
+    "ability": "سكين السوشي الخاطف",
+    "image": ""
+  },
+  {
+    "name": "Rachel",
+    "form": "الطالبة الذكية",
+    "anime": "I Took Over the Academy with Just a Sashimi Knife",
+    "power": 6817,
+    "rarity": "SSS",
+    "ability": "حيلة الأكاديمية",
+    "image": ""
+  },
+  {
+    "name": "Abel von Nibelung",
+    "form": "السيّاف الشاب",
+    "anime": "I Took Over the Academy with Just a Sashimi Knife",
+    "power": 6859,
+    "rarity": "SSS",
+    "ability": "سيف النبلاء",
+    "image": ""
+  },
+  {
+    "name": "Yi Byul",
+    "form": "الصغيرة المتقدة",
+    "anime": "The Novel's Extra",
+    "power": 6984,
+    "rarity": "SSS",
+    "ability": "شرارة الحماس",
+    "image": ""
+  },
+  {
+    "name": "Yoo Yeonha",
+    "form": "الوريثة الباردة",
+    "anime": "The Novel's Extra",
+    "power": 6907,
+    "rarity": "SSS",
+    "ability": "هدوء الصقيع",
+    "image": ""
+  },
+  {
+    "name": "Kim Hajin",
+    "form": "العائد المتقن",
+    "anime": "The Novel's Extra",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "ذاكرة المستقبل",
+    "image": ""
+  },
+  {
+    "name": "Chae Nayoun",
+    "form": "القناصة الماهرة",
+    "anime": "The Novel's Extra",
+    "power": 6803,
+    "rarity": "SSS",
+    "ability": "رمية الخصم المباغتة",
+    "image": ""
+  },
+  {
+    "name": "Irene Belserion",
+    "form": "ملكة التنانين العظيمة",
+    "anime": "Fairy Tail",
+    "power": 6868,
+    "rarity": "SSS",
+    "ability": "سحر التنانين القديم",
+    "image": ""
+  },
+  {
+    "name": "Tamako Kitashirakawa",
+    "form": "بنت محل الموتشي المرحة",
+    "anime": "Tamako Market",
+    "power": 6729,
+    "rarity": "SSS",
+    "ability": "حلاوة الموتشي الدافئة",
+    "image": ""
+  },
+  {
+    "name": "Shoko Nishimiya",
+    "form": "الفتاة الهادئة بلغة الإشارة",
+    "anime": "A Silent Voice",
+    "power": 6766,
+    "rarity": "SSS",
+    "ability": "لغة القلب الصامتة",
+    "image": ""
+  },
+  {
+    "name": "Renge Miyauchi",
+    "form": "طفلة الريف المرحة",
+    "anime": "Non Non Biyori",
+    "power": 6701,
+    "rarity": "SSS",
+    "ability": "براءة الريف الساحرة",
+    "image": ""
+  },
+  {
+    "name": "Kukuru Misakino",
+    "form": "فتاة الأكواريوم المفعمة بالحيوية",
+    "anime": "The Aquatope on White Sand",
+    "power": 6698,
+    "rarity": "SSS",
+    "ability": "حماس البحر المتوهج",
+    "image": ""
+  },
+  {
+    "name": "Hina Amano",
+    "form": "فتاة الشمس المشرقة",
+    "anime": "Weathering with You",
+    "power": 6806,
+    "rarity": "SSS",
+    "ability": "نداء الشمس الدافئ",
+    "image": ""
+  },
+  {
+    "name": "Marnie",
+    "form": "الفتاة الشقراء الغامضة",
+    "anime": "When Marnie Was There",
+    "power": 6794,
+    "rarity": "SSS",
+    "ability": "ذكريات البحيرة",
+    "image": ""
+  },
+  {
+    "name": "Shizuku Tsukishima",
+    "form": "الكاتبة الحالمة",
+    "anime": "Whisper of the Heart",
+    "power": 6702,
+    "rarity": "SSS",
+    "ability": "قلم الخيال",
+    "image": ""
+  },
+  {
+    "name": "Sheeta",
+    "form": "حاملة حجر الطيران",
+    "anime": "Castle in the Sky",
+    "power": 6906,
+    "rarity": "SSS",
+    "ability": "وهج حجر الطيران",
+    "image": ""
+  },
+  {
+    "name": "Nausicaä",
+    "form": "أميرة وادي الريح",
+    "anime": "Nausicaä of the Valley of the Wind",
+    "power": 6691,
+    "rarity": "SSS",
+    "ability": "الطيران بالجليدة الشراعية",
+    "image": ""
+  },
+  {
+    "name": "Nahoko Satomi",
+    "form": "الرسامة الرقيقة",
+    "anime": "The Wind Rises",
+    "power": 6717,
+    "rarity": "SSS",
+    "ability": "لوحة الريح الحالمة",
+    "image": ""
+  },
+  {
+    "name": "Kokoro",
+    "form": "فتاة القلعة المرآتية",
+    "anime": "Lonely Castle in the Mirror",
+    "power": 6727,
+    "rarity": "SSS",
+    "ability": "عبور المرآة",
+    "image": ""
+  },
+  {
+    "name": "Akane",
+    "form": "فتاة العالم العجيب",
+    "anime": "The Wonderland",
+    "power": 6668,
+    "rarity": "SSS",
+    "ability": "شجاعة الأرض العجيبة",
+    "image": ""
   }
 ]
