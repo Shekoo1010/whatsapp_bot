@@ -18196,5 +18196,806 @@
     "rarity": "SSS",
     "ability": "دفاع الحديد",
     "image": ""
+  },
+  {
+    "name": "Urara Shiraishi",
+    "form": "ساحرة التبادل",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "تبديل الأرواح",
+    "image": ""
+  },
+  {
+    "name": "Maria Sarushima",
+    "form": "ساحرة الأوهام",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "سحر الإيحاء",
+    "image": ""
+  },
+  {
+    "name": "Nene Odagiri",
+    "form": "ساحرة العقول",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "قراءة الأفكار المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Mikoto Asuka",
+    "form": "ساحرة الظلال البيضاء",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "التحكم بالذاكرة",
+    "image": ""
+  },
+  {
+    "name": "Leona Miyamura",
+    "form": "ساحرة الحكمة الصامتة",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6600,
+    "rarity": "SSS",
+    "ability": "استشراف الأحداث",
+    "image": ""
+  },
+  {
+    "name": "Sora Himekawa",
+    "form": "ساحرة السماء",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "رياح العاصفة الخفية",
+    "image": ""
+  },
+  {
+    "name": "Rika Saionji",
+    "form": "ساحرة العلم الغامض",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "الابتكار السحري",
+    "image": ""
+  },
+  {
+    "name": "Noa Takigawa",
+    "form": "ساحرة الأحلام",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "التنقل بين الأحلام",
+    "image": ""
+  },
+  {
+    "name": "Meiko Otsuka",
+    "form": "ساحرة الهدوء المرعب",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "الرعب الخفي",
+    "image": ""
+  },
+  {
+    "name": "Miyabi Ito",
+    "form": "ساحرة الزمن",
+    "anime": "Yamada-kun to 7-nin no Majo",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "إيقاف اللحظة",
+    "image": ""
+  },
+  {
+    "name": "Mai Kawakami",
+    "form": "حارسة الأطياف",
+    "anime": "Musaigen no Phantom World",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "ختم الأطياف",
+    "image": ""
+  },
+  {
+    "name": "Reina Izumi",
+    "form": "سيدة الطيف الأحمر",
+    "anime": "Musaigen no Phantom World",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "لهب الطيف",
+    "image": ""
+  },
+  {
+    "name": "Koito Minase",
+    "form": "سيدة الوهم الأبيض",
+    "anime": "Musaigen no Phantom World",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "اندماج الأطياف",
+    "image": ""
+  },
+  {
+    "name": "Yo Shuu",
+    "form": "مبيد الأرواح",
+    "anime": "Soul Buster",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "قبضة الروح الحديدية",
+    "image": ""
+  },
+  {
+    "name": "Neko",
+    "form": "القطة الطيفية",
+    "anime": "K Project",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "التنقل الخفي",
+    "image": ""
+  },
+  {
+    "name": "Awashima Seri",
+    "form": "قائدة فرقة النصل",
+    "anime": "K Project",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ضربة السيف الأزرق",
+    "image": ""
+  },
+  {
+    "name": "Rusalka Evereska",
+    "form": "فارسة الأجنحة الفضية",
+    "anime": "Senyoku no Sigrdrifa",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "اختراق الجو",
+    "image": ""
+  },
+  {
+    "name": "Claudia Bruford",
+    "form": "قائدة السرب الذهبي",
+    "anime": "Senyoku no Sigrdrifa",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "قيادة السرب المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Azuzu Komagome",
+    "form": "طيارة الريح الصافية",
+    "anime": "Senyoku no Sigrdrifa",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "مناورة الرياح",
+    "image": ""
+  },
+  {
+    "name": "Yumeko Jabami",
+    "form": "ملكة المخاطرة المجنونة",
+    "anime": "Kakegurui",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "قراءة النوايا المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Bondrewd",
+    "form": "سيد الفجر الأسود",
+    "anime": "Made in Abyss",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "قوة الأعماق السوداء",
+    "image": ""
+  },
+  {
+    "name": "Yukari Origami",
+    "form": "حارسة النصل العتيق",
+    "anime": "Toji no Miko",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "تقنية النصل العتيق",
+    "image": ""
+  },
+  {
+    "name": "Freya",
+    "form": "سيدة الجمال الفضي",
+    "anime": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "سحر الأسر",
+    "image": ""
+  },
+  {
+    "name": "Ais Wallenstein",
+    "form": "سيافة العاصفة",
+    "anime": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "رياح السيف الذهبي",
+    "image": ""
+  },
+  {
+    "name": "Ryuu Lion",
+    "form": "الجنية الصامتة",
+    "anime": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ضربة الظل السريعة",
+    "image": ""
+  },
+  {
+    "name": "Hephaistos",
+    "form": "صانعة الأسلحة الأسطورية",
+    "anime": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "الحدادة المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Blade",
+    "form": "السيف الخالد",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "الجرح المتجدد",
+    "image": ""
+  },
+  {
+    "name": "Boothill",
+    "form": "فارس الصحراء الآلي",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "رصاصة النهاية",
+    "image": ""
+  },
+  {
+    "name": "Dan Heng",
+    "form": "تنين القمر العظيم",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "هجمة التنين الرعدية",
+    "image": ""
+  },
+  {
+    "name": "Jiaoqiu",
+    "form": "خبير الأدخنة الصامت",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "ختم الاحتراق",
+    "image": ""
+  },
+  {
+    "name": "Jing Yuan",
+    "form": "جنرال الرعد",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "عاصفة الرعد",
+    "image": ""
+  },
+  {
+    "name": "Luocha",
+    "form": "الطبيب الغامض",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "بتلات الشفاء",
+    "image": ""
+  },
+  {
+    "name": "Mydei",
+    "form": "الفارس الأحمر الخالد",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "غضب الدم الخالد",
+    "image": ""
+  },
+  {
+    "name": "Phainon",
+    "form": "حامل الشعلة الأولى",
+    "anime": "Honkai: Star Rail",
+    "power": 7000,
+    "rarity": "SSS",
+    "ability": "الشعلة الأبدية",
+    "image": ""
+  },
+  {
+    "name": "Sunday",
+    "form": "قائد الجوقة الحالمة",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "لحن السكينة",
+    "image": ""
+  },
+  {
+    "name": "Welt",
+    "form": "المستكشف الحكيم",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "سحق الزمكان",
+    "image": ""
+  },
+  {
+    "name": "Acheron",
+    "form": "نصل الفراغ الأحمر",
+    "anime": "Honkai: Star Rail",
+    "power": 7000,
+    "rarity": "SSS",
+    "ability": "تقطيع الفراغ",
+    "image": ""
+  },
+  {
+    "name": "Aglaea",
+    "form": "صانعة الأثواب الذهبية",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "نسج الأسلحة",
+    "image": ""
+  },
+  {
+    "name": "Black Swan",
+    "form": "ساحرة الأحلام السوداء",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "استدعاء الذكريات المظلمة",
+    "image": ""
+  },
+  {
+    "name": "Bronya",
+    "form": "قائدة الحرس الأعلى",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "تعزيز القيادة",
+    "image": ""
+  },
+  {
+    "name": "Castorice",
+    "form": "أميرة الأرواح الباردة",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "نداء الأرواح الفقيدة",
+    "image": ""
+  },
+  {
+    "name": "Cerydra",
+    "form": "فارسة الرمح العاصف",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "عاصفة الرمح",
+    "image": ""
+  },
+  {
+    "name": "Cipher",
+    "form": "لصة الظلال",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "سرقة الهوية",
+    "image": ""
+  },
+  {
+    "name": "Cyrene",
+    "form": "عازفة الذكريات",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ألحان الذاكرة",
+    "image": ""
+  },
+  {
+    "name": "Evanescia",
+    "form": "طيف الزوال",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "تلاشي الواقع",
+    "image": ""
+  },
+  {
+    "name": "Evernight",
+    "form": "سيدة الليل الأبدي",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "ظلام الأبد",
+    "image": ""
+  },
+  {
+    "name": "Feixiao",
+    "form": "قناصة السماء",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "ضربة النجم الساقط",
+    "image": ""
+  },
+  {
+    "name": "Firefly",
+    "form": "الفتاة النارية الحالمة",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "تحول اليراعة الحمراء",
+    "image": ""
+  },
+  {
+    "name": "Fu Xuan",
+    "form": "المنجمة الحكيمة",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "قراءة المستقبل المنظور",
+    "image": ""
+  },
+  {
+    "name": "Fugue",
+    "form": "ثعلبة الأشباح",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ألسنة الخداع",
+    "image": ""
+  },
+  {
+    "name": "Himeko",
+    "form": "قائدة المركبة الحمراء",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "قصف النجوم",
+    "image": ""
+  },
+  {
+    "name": "Huohuo",
+    "form": "الشبح الخجول",
+    "anime": "Honkai: Star Rail",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "تعويذة الدعم الأخضر",
+    "image": ""
+  },
+  {
+    "name": "Hyacine",
+    "form": "حارسة الغيوم الوردية",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "مطر الشفاء",
+    "image": ""
+  },
+  {
+    "name": "Hysilens",
+    "form": "سيرينة الأعماق",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "غناء الأمواج",
+    "image": ""
+  },
+  {
+    "name": "Jade",
+    "form": "التاجرة الماكرة",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "سرقة الأرباح",
+    "image": ""
+  },
+  {
+    "name": "Jingliu",
+    "form": "سيدة الجليد القاتل",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "سيف الجليد الأزرق",
+    "image": ""
+  },
+  {
+    "name": "Kafka",
+    "form": "صيادة النجوم الغامضة",
+    "anime": "Honkai: Star Rail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "سيطرة الأوامر الخفية",
+    "image": ""
+  },
+  {
+    "name": "Lingsha",
+    "form": "طبيبة الأعشاب الأنيقة",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "أعشاب الشفاء الذهبية",
+    "image": ""
+  },
+  {
+    "name": "Pearl",
+    "form": "لؤلؤة البحر الغامضة",
+    "anime": "Honkai: Star Rail",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "درع الأمواج",
+    "image": ""
+  },
+  {
+    "name": "Rappa",
+    "form": "النينجا الحرة",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "خفة الظل المتجددة",
+    "image": ""
+  },
+  {
+    "name": "Robin S",
+    "form": "مغنية السماء",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "ألحان الجناح الفضي",
+    "image": ""
+  },
+  {
+    "name": "Ruan Mei",
+    "form": "عالمة الأحياء الصامتة",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "مختبر الحياة",
+    "image": ""
+  },
+  {
+    "name": "Seele",
+    "form": "فراشة الظلام",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "اختراق الأبعاد",
+    "image": ""
+  },
+  {
+    "name": "Silver Wolf",
+    "form": "قرصانة العالم الرقمي",
+    "anime": "Honkai: Star Rail",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "اختراق الشيفرة",
+    "image": ""
+  },
+  {
+    "name": "Sparkle",
+    "form": "المهرجة المجنونة",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "مهرجان الفوضى",
+    "image": ""
+  },
+  {
+    "name": "Sparxie",
+    "form": "نجمة العرض المتألقة",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "ضوضاء النجومية",
+    "image": ""
+  },
+  {
+    "name": "The Dahlia",
+    "form": "سيدة الداليا المسمومة",
+    "anime": "Honkai: Star Rail",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "إزهار الدمار",
+    "image": ""
+  },
+  {
+    "name": "The Herta",
+    "form": "عبقرية الدمية الكبرى",
+    "anime": "Honkai: Star Rail",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "محاكاة الكون",
+    "image": ""
+  },
+  {
+    "name": "Topaz & Numby",
+    "form": "ثنائي الجشع الذهبي",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "هجوم الجشع",
+    "image": ""
+  },
+  {
+    "name": "Tribbie",
+    "form": "ثلاثية الزهور الحالمة",
+    "anime": "Honkai: Star Rail",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "حدائق الأحلام",
+    "image": ""
+  },
+  {
+    "name": "Yao Guang",
+    "form": "ساحرة الضوء الأخضر",
+    "anime": "Honkai: Star Rail",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "ضوء الإنقاذ",
+    "image": ""
+  },
+  {
+    "name": "Yunli",
+    "form": "فارسة الغيوم المقاتلة",
+    "anime": "Honkai: Star Rail",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "ضربة السيف الصاعق",
+    "image": ""
+  },
+  {
+    "name": "Rokuro Enmado",
+    "form": "طارد اللعنات الأقوى",
+    "anime": "Sousei no Onmyouji",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "تقنية الطرد المزدوج",
+    "image": ""
+  },
+  {
+    "name": "Benio Adashino",
+    "form": "ساحرة الأختام",
+    "anime": "Sousei no Onmyouji",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "ختم الأوراق السحرية",
+    "image": ""
+  },
+  {
+    "name": "Amawaka Seigen",
+    "form": "الحكيم الأسود",
+    "anime": "Sousei no Onmyouji",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "أمر الأرواح المقيدة",
+    "image": ""
+  },
+  {
+    "name": "Chisa Kotegawa",
+    "form": "غواصة الأمواج الهادئة",
+    "anime": "Grand Blue",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "سيطرة الأعماق الهادئة",
+    "image": ""
+  },
+  {
+    "name": "Aina Yoshiwara",
+    "form": "سيدة الشاطئ الحيوية",
+    "anime": "Grand Blue",
+    "power": 6600,
+    "rarity": "SSS",
+    "ability": "اندفاع الأمواج",
+    "image": ""
+  },
+  {
+    "name": "Azusa Hamaoka",
+    "form": "غواصة المرجان",
+    "anime": "Grand Blue",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "نفس البحر العميق",
+    "image": ""
+  },
+  {
+    "name": "Nanaka Kotegawa",
+    "form": "الغواصة المرحة",
+    "anime": "Grand Blue",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "تيار الأمواج الفتاك",
+    "image": ""
+  },
+  {
+    "name": "Akane Hououji",
+    "form": "صاحبة المقهى الأنيقة",
+    "anime": "Megami no Cafe Terrace",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "ضيافة القلوب",
+    "image": ""
+  },
+  {
+    "name": "Nazuna Nanakusa",
+    "form": "مصاصة دماء الليل",
+    "anime": "Yofukashi no Uta",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "الطيران الليلي",
+    "image": ""
+  },
+  {
+    "name": "Anko Uguisu",
+    "form": "حارسة الظلال الليلية",
+    "anime": "Yofukashi no Uta",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "سحر الحراسة",
+    "image": ""
+  },
+  {
+    "name": "Akira Asai",
+    "form": "صياد الأرواح الليلية",
+    "anime": "Yofukashi no Uta",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "ضربة الفجر",
+    "image": ""
+  },
+  {
+    "name": "Lo Po Bia Lilial",
+    "form": "فارسة النجوم الزرقاء",
+    "anime": "Tower of God",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "نصل الضوء الأزرق",
+    "image": ""
+  },
+  {
+    "name": "Hwaryun",
+    "form": "مقاتلة اللهب الأحمر",
+    "anime": "Tower of God",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "سيف النار الدوارة",
+    "image": ""
+  },
+  {
+    "name": "Gustang Po Bidau",
+    "form": "المقاتل الصلب الأسطوري",
+    "anime": "Tower of God",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "قبضة الجدار الحديدي",
+    "image": ""
+  },
+  {
+    "name": "Lo Po Bia Elaine",
+    "form": "سيدة الريح العليا",
+    "anime": "Tower of God",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ريشة الريح الفضية",
+    "image": ""
+  },
+  {
+    "name": "Sinon",
+    "form": "قناصة الصحراء",
+    "anime": "Sword Art Online",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "رصاصة الدقة المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Alice S",
+    "form": "فارسة النزاهة الذهبية",
+    "anime": "Sword Art Online",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "نصل الزهرة الذهبية",
+    "image": ""
   }
 ]
