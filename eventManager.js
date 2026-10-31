@@ -3,10 +3,6 @@ const events = require('./eventList')
 const groupEvents = {}
 
 function getRandomEvent() {
-console.log(
-    'TOTAL EVENTS:',
-    events?.length
-)
 return events[
     Math.floor(
         Math.random() *
@@ -76,21 +72,6 @@ data.startedAt =
 data.currentEvent =
     sharedEvent ||
     getRandomEvent()
-
-console.log(
-'🚀 START EVENT:',
-jid
-)
-
-console.log(
-    'EVENT DATA:',
-    data.currentEvent
-)
-
-console.log(
-    'COMMAND:',
-    data.currentEvent.command
-)
 
 try {
 

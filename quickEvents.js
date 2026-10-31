@@ -164,169 +164,104 @@ type: 'box_sss_high'
 }
 }
 
-async function giveQuickReward(
-userId
-) {
-const player =
-await Player.findOne({
-userId
-})
+// يجيب شخصية عشوائية بنُدرة معيّنة (null لو ما فيه ولا شخصية بهذي النُدرة)
+function pickCharacterByRarity(rarity) {
 
-if (!player)
-return null
+    const pool = characters.filter(c => c.rarity === rarity)
 
-    if (!player.boxes) {
+    if (!pool.length) return null
 
-player.boxes = {
-basic: 0,
-rare: 0,
-epic: 0,
-legendary: 0,
-sss_chance: 0,
-sss_high: 0
+    return pool[Math.floor(Math.random() * pool.length)]
 }
 
-}
+// 🎁 يعطي الجائزة ويرجع نصها. يرجع null لو اللاعب مو مسجل.
+// - الذهب والصناديق والتذاكر بـ $inc ذري (ما يتعارض مع أي حفظ متزامن لنفس اللاعب)
+// - الـ XP والشخصيات تبقى بـ save() عشان Player.pre('save') يشغّل رفع المستوى وبقية المنطق
+async function giveQuickReward(userId) {
 
-const reward =
-randomReward()
+    const player = await Player.findOne({ userId })
 
-if (
-reward.type === 'money'
-) {
+    if (!player) return null
 
-player.money +=
-reward.amount
+    let reward = randomReward()
 
-await player.save()
+    // 🛟 لو ما فيه شخصيات بالنُدرة المطلوبة نعطيه تذكرة بدل ما ينهار الكود
+    let char = null
 
-return `💰 ${reward.amount.toLocaleString()} ذهب`
-}
+    if (reward.type === 'excellent' || reward.type === 'legendary') {
 
-if (
-reward.type === 'xp'
-) {
+        char = pickCharacterByRarity(
+            reward.type === 'excellent' ? 'ممتاز' : 'اسطوري'
+        )
 
-player.xp +=
-reward.amount
+        if (!char) reward = { type: 'tickets', amount: 1 }
+    }
 
-await player.save()
+    if (reward.type === 'money') {
 
-return `📚 ${reward.amount} XP`
-}
+        await Player.updateOne(
+            { userId },
+            { $inc: { money: reward.amount } }
+        )
 
-if (
-reward.type === 'tickets'
-) {
+        return `💰 ${reward.amount.toLocaleString()} ذهب`
+    }
 
-// حفظ آمن: $inc ذري (ما يتأثر بأي حفظ متزامن ولا يتحول لـ NaN لو pulls ما كانت موجودة)
-try {
+    if (reward.type === 'xp') {
 
-await Player.updateOne(
-{ userId },
-{ $inc: { pulls: reward.amount } }
-)
+        player.xp += reward.amount
 
-} catch (err) {
+        await player.save()
 
-console.log('Quick reward pulls $inc error:', err)
+        return `📚 ${reward.amount} XP`
+    }
 
-player.pulls =
-(player.pulls || 0) +
-reward.amount
+    if (reward.type === 'tickets') {
 
-await player.save()
+        // حفظ آمن: $inc ذري (ما يتأثر بأي حفظ متزامن ولا يتحول لـ NaN لو pulls ما كانت موجودة)
+        try {
 
-}
+            await Player.updateOne(
+                { userId },
+                { $inc: { pulls: reward.amount } }
+            )
 
-return `🎟️ ${reward.amount} تذكرة`
-}
+        } catch (err) {
 
-if (
-reward.type === 'excellent'
-) {
+            console.log('Quick reward pulls $inc error:', err)
 
-const pool =
-characters.filter(
-c =>
-c.rarity ===
-'ممتاز'
-)
+            player.pulls = (player.pulls || 0) + reward.amount
 
-const char =
-pool[
-Math.floor(
-Math.random() *
-pool.length
-)
-]
+            await player.save()
+        }
 
-player.characters.push({
-...char
-})
+        return `🎟️ ${reward.amount} تذكرة`
+    }
 
-await player.save()
+    if (reward.type === 'excellent' || reward.type === 'legendary') {
 
-return `⭐ ${char.name}`
-}
+        player.characters.push({ ...char })
 
-if (
-reward.type === 'legendary'
-) {
+        await player.save()
 
-const pool =
-characters.filter(
-c =>
-c.rarity ===
-'اسطوري'
-)
+        return `${reward.type === 'excellent' ? '⭐' : '🌟'} ${char.name}`
+    }
 
-const char =
-pool[
-Math.floor(
-Math.random() *
-pool.length
-)
-]
+    // صناديق
+    const boxMap = {
+        box_legendary: ['legendary', '📦 Legendary Box ×1'],
+        box_sss_chance: ['sss_chance', '📦 SSS Chance Box ×1'],
+        box_sss_high: ['sss_high', '📦 SSS High Box ×1']
+    }
 
-player.characters.push({
-...char
-})
+    const [boxKey, boxText] = boxMap[reward.type] || boxMap.box_legendary
 
-await player.save()
+    await Player.updateOne(
+        { userId },
+        { $inc: { [`boxes.${boxKey}`]: 1 } }
+    )
 
-return `🌟 ${char.name}`
-}
-
-if (
-reward.type ===
-'box_legendary'
-) {
-
-player.boxes.legendary += 1
-
-await player.save()
-
-return '📦 Legendary Box ×1'
-}
-
-if (
-reward.type ===
-'box_sss_chance'
-) {
-
-player.boxes.sss_chance += 1
-
-await player.save()
-
-return '📦 SSS Chance Box ×1'
-}
-
-player.boxes.sss_high += 1
-
-await player.save()
-
-return '📦 SSS High Box ×1'
+    return boxText
 }
 
 

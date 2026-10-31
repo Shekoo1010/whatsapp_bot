@@ -8109,15 +8109,25 @@ if (currentBoss) {
     // ✅ لازم يكون داخل startBot
     if (!bossInterval) {
 
+    // 🔇 نطبع حالة الزعيم فقط عند تغيّرها (بدل كل دقيقة)
+    let _lastBossLogState = null
+
     bossInterval = setInterval(async () => {
 
         try {
 
-            console.log(
-                'Boss Check:',
-                currentBoss?.finished,
-                currentBoss?.respawnAt
-            )
+            const _bossState = `${currentBoss?.finished}|${currentBoss?.respawnAt}`
+
+            if (_bossState !== _lastBossLogState) {
+
+                _lastBossLogState = _bossState
+
+                console.log(
+                    'Boss Check:',
+                    currentBoss?.finished,
+                    currentBoss?.respawnAt
+                )
+            }
 
             if (global.siteBossLoopActive) return // 🌐 حلقة الموقع المستقلة هي المسؤولة عن إعادة الإنشاء
 
@@ -9998,7 +10008,20 @@ if (!text) return;
             // نسجّل الفائز فوراً (بدون await) عشان إجابتين متزامنتين بنفس القروب ما تفوزان معاً
             ev.winners[_qeGroup] = userId
 
-            const rewardText = await giveQuickReward(userId)
+            // 🛟 لو الجائزة فشلت (لاعب مو مسجل / خطأ) نفتح القفل ونتجاهل الإجابة
+            // بدل ما نقفل القروب ونرسل "null"
+            let rewardText = null
+
+            try {
+                rewardText = await giveQuickReward(userId)
+            } catch (err) {
+                console.log('quick reward error:', err?.message || err)
+            }
+
+            if (!rewardText) {
+                if (ev.winners[_qeGroup] === userId) delete ev.winners[_qeGroup]
+                return
+            }
 
             await safeGroupSend(sock, 
                 _qeGroup,

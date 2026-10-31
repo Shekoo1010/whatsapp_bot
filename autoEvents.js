@@ -82,18 +82,6 @@ async function launchEvent() {
     // 😴 قفل البوت (12 ص → 10 ص): نتخطى هذي الجولة، وتكمل الدورة بعد 10 ص
     if (global.botNightPaused && global.botNightPaused()) return
 
-    console.log('🚀 AUTO EVENT TRIGGERED')
-
-    console.log(
-        'SOCKET READY:',
-        !!sock?.user
-    )
-
-    console.log(
-        'WS STATE:',
-        sock?.ws?.readyState
-    )
-
     if (
     !sock ||
     !sock.user
@@ -106,10 +94,7 @@ async function launchEvent() {
         const sharedEvent =
     eventManager.getRandomEvent()
 
-console.log(
-    'EVENT SELECTED:',
-    sharedEvent
-)
+console.log('🚀 AUTO EVENT:', sharedEvent?.name)
 
 if (!sharedEvent) {
 
@@ -123,11 +108,6 @@ if (!sharedEvent) {
         for (const groupId of eventGroups) {
 
             try {
-
-                console.log(
-                    'Sending Event To:',
-                    groupId
-                )
 
                 const started =
 await eventManager.startEvent(
