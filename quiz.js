@@ -197,6 +197,9 @@ const PREWARM_AHEAD = 3
 // url -> وقت التسخين. ينتهي بعد 25 دقيقة لأن كاش الرفع يحذف المدخلات بعد 30 دقيقة
 const PREWARM_TTL_MS = 25 * 60 * 1000
 const _prewarmedUrls = new Map()
+// الفاصل بين رفع صورة والتي بعدها (يوزّع الحمل)
+const PREWARM_GAP_MS = 2000
+let _prewarmPending = 0
 let _prewarmChain = Promise.resolve()
 
 function prewarmUpcomingImages(sock, room) {
@@ -222,21 +225,40 @@ function prewarmUpcomingImages(sock, room) {
 
         if (doneAt && Date.now() - doneAt < PREWARM_TTL_MS) continue
 
+        // الطابور ممتلئ (أسئلة سريعة): لا نكدّس رفعات جديدة فوق القديمة
+        if (_prewarmPending >= PREWARM_AHEAD) break
+
         _prewarmedUrls.set(url, Date.now())
+        _prewarmPending++
 
         _prewarmChain = _prewarmChain.then(async () => {
             try {
+                // المسابقة انتهت: لا نرفع شيئاً
+                if (!room.quizActive) {
+                    _prewarmedUrls.delete(url)
+                    return
+                }
+
                 await sock.sendMessage(selfJid, { image: { url } })
+
+                // فاصل بين الرفعات حتى لا يتركز الحمل
+                await new Promise(r => setTimeout(r, PREWARM_GAP_MS))
             } catch (err) {
                 _prewarmedUrls.delete(url)
+            } finally {
+                _prewarmPending--
             }
         })
     }
 }
 
 function schedulePrewarm(sock, room) {
-    // بعد 3 ثواني من بداية السؤال حتى لا ننافس إرسال السؤال الحالي على النت
-    setTimeout(() => prewarmUpcomingImages(sock, room), 3000)
+    // لا نسخّن إلا في الأنماط التي فيها صور
+    if (room.quizMode !== 'image' && room.quizMode !== 'mixed') return
+
+    // بعد ثانية ونصف حتى لا ننافس إرسال السؤال الحالي (الأسئلة تُحل بسرعة،
+    // فلو انتظرنا 3 ثواني قد يكون السؤال التالي بدأ قبل أن نسخّن)
+    setTimeout(() => prewarmUpcomingImages(sock, room), 1500)
 }
 
 // 🔀 خلط عشوائي (Fisher–Yates) — يُستخدم لبناء طوابير السحب أدناه

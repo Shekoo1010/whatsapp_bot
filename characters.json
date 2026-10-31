@@ -18070,5 +18070,131 @@
     "rarity": "SSS",
     "ability": "شجاعة الأرض العجيبة",
     "image": ""
+  },
+  {
+    "name": "Count D Monte Cristo",
+    "form": "كونت الانتقام الغامض",
+    "anime": "Gankutsuou: The Count of Monte Cristo",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "لهب الانتقام الأزرق",
+    "image": ""
+  },
+  {
+    "name": "Seiichi Samura",
+    "form": "سيّد النصل الأعظم",
+    "anime": "Kagurabachi",
+    "power": 7000,
+    "rarity": "SSS",
+    "ability": "شفرة الفجر الأخيرة",
+    "image": ""
+  },
+  {
+    "name": "Chihiro Rokuhira",
+    "form": "ابن الحداد الثائر",
+    "anime": "Kagurabachi",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "نصل الانتقام الأسود",
+    "image": ""
+  },
+  {
+    "name": "Togo Shiba",
+    "form": "المبارز الصامت",
+    "anime": "Kagurabachi",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "قطع الظل",
+    "image": ""
+  },
+  {
+    "name": "Char Kyonagi",
+    "form": "السيّاف الغامض",
+    "anime": "Kagurabachi",
+    "power": 6750,
+    "rarity": "SSS",
+    "ability": "رقصة النصل القرمزي",
+    "image": ""
+  },
+  {
+    "name": "Hakuri Sazanami",
+    "form": "صائد الأمواج",
+    "anime": "Kagurabachi",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "موجة الشفرات",
+    "image": ""
+  },
+  {
+    "name": "Hiyuki Kagari",
+    "form": "حارسة الثلج المتوهج",
+    "anime": "Kagurabachi",
+    "power": 6720,
+    "rarity": "SSS",
+    "ability": "وهج الثلج",
+    "image": ""
+  },
+  {
+    "name": "Soshiro Azami",
+    "form": "المحارب الهادئ",
+    "anime": "Kagurabachi",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "ضربة الشوك",
+    "image": ""
+  },
+  {
+    "name": "Yoji Uruha",
+    "form": "سيّاف الغروب",
+    "anime": "Kagurabachi",
+    "power": 6780,
+    "rarity": "SSS",
+    "ability": "قطع الغروب",
+    "image": ""
+  },
+  {
+    "name": "Genichi Sojo",
+    "form": "الشيخ المحنّك",
+    "anime": "Kagurabachi",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "حكمة النصل القديم",
+    "image": ""
+  },
+  {
+    "name": "Hiruhiko",
+    "form": "ظلّ النهار",
+    "anime": "Kagurabachi",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "شعاع الظهيرة",
+    "image": ""
+  },
+  {
+    "name": "Kazane Machi",
+    "form": "ريح المدينة",
+    "anime": "Kagurabachi",
+    "power": 6680,
+    "rarity": "SSS",
+    "ability": "عاصفة الشوارع",
+    "image": ""
+  },
+  {
+    "name": "Yura",
+    "form": "المبارزة الخفيفة",
+    "anime": "Kagurabachi",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "خطوة الريح",
+    "image": ""
+  },
+  {
+    "name": "Ikuto Hagiwara",
+    "form": "حارس النصل",
+    "anime": "Kagurabachi",
+    "power": 6740,
+    "rarity": "SSS",
+    "ability": "دفاع الحديد",
+    "image": ""
   }
 ]
