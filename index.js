@@ -9127,7 +9127,7 @@ const commandExplanations = {
         '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
         '.اصلاح_الالقاب': 'أمر للمطور فقط - يصلح ألقاب/رتب اللاعبين التالفة.',
-        '.لقب_اداره': 'أمر للمطور فقط - يهدي لقب «حاكم الأكوان» للاعب بالرد على رسالته أو بمنشنه.',
+        '.لقب_اداره': 'أمر للمطور فقط - يهدي لقب «سيد القصر» للاعب بالرد على رسالته أو بمنشنه.',
         '.ايديات_اللاعبين': 'أمر للمطور فقط - يعرض قائمة آيديات كل اللاعبين المسجّلين.',
         '.update waifus images': 'أمر للمطور فقط - يحدّث صور الويفوز من مصدر AniList.',
         '.نقل_حساب': 'أمر للمطور فقط - يبدّل كل بيانات حسابين مع بعض بالكامل (مستوى، فلوس، شخصيات، ألقاب، صناديق...). مثال: .نقل_حساب @الحساب_القديم @الحساب_الجديد',
@@ -32106,7 +32106,7 @@ ${minutes} دقيقة`
         },
 
         {
-            name: "☄️ مدمر الأكوان",
+            name: "☄️ مدمر العروش",
             type: "bossDamage",
             value: 30,
             description: "+30% ضرر ضد الزعماء",
@@ -32122,7 +32122,7 @@ ${minutes} دقيقة`
         },
 
         {
-            name: "🌌 سيد الأكوان",
+            name: "🌌 سيد الهيبة",
             type: "bossDamage",
             value: 50,
             description: "+50% ضرر ضد الزعماء",
@@ -32176,9 +32176,9 @@ ${minutes} دقيقة`
 🧊 القدرات:
 
 ⚔️ سيد القتال
-☄️ مدمر الأكوان
+☄️ مدمر العروش
 💥 محطم الجبال
-🌌 سيد الأكوان
+🌌 سيد الهيبة
 👹 قاتل الوحوش
 💀 ملك الدماء
 🎯 عين الصياد`
@@ -32255,7 +32255,7 @@ ${player.money.toLocaleString()}`
 }
 
     // ─── .لقب_اداره ───
-    // يهدي لقب «🌌 حاكم الأكوان» للاعب واحد (رد على رسالته أو منشن) — للمطور فقط
+    // يهدي لقب «🏯 سيد القصر» للاعب واحد (رد على رسالته أو منشن) — للمطور فقط
     // اللقب يُضاف لقائمة ألقابه، ويفعّله بنفسه من صفحة الألقاب بالموقع
     if (text === '.لقب_اداره' || text.startsWith('.لقب_اداره ')) {
 
@@ -32273,7 +32273,7 @@ ${player.money.toLocaleString()}`
             })
         }
 
-        const ADMIN_TITLE = '🌌 حاكم الأكوان'
+        const ADMIN_TITLE = '🏯 سيد القصر'
 
         const r = await Player.updateOne(
             { userId: target },
@@ -32291,6 +32291,121 @@ ${player.money.toLocaleString()}`
                 ? `✅ تم إهداء لقب ${ADMIN_TITLE} إلى @${target.split('@')[0]}\n\nيفعّله من صفحة الألقاب في الموقع.`
                 : `ℹ️ @${target.split('@')[0]} يملك اللقب بالفعل.`,
             mentions: [target]
+        })
+    }
+
+    // ─── .تر_لقب ─── (للمطور فقط)
+    // يرحّل لقب «🌌 حاكم الأكوان» القديم إلى «🏯 سيد القصر» عند كل اللاعبين (القائمة + اللقب المفعّل)
+    if (text === '.تر_لقب') {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ هذا الأمر للمطور فقط'
+            })
+        }
+
+        const OLD_TITLE = '🌌 حاكم الأكوان'
+        const NEW_TITLE = '🏯 سيد القصر'
+
+        const r = await Player.updateMany(
+            { $or: [{ titles: OLD_TITLE }, { activeTitle: OLD_TITLE }] },
+            [{
+                $set: {
+                    titles: {
+                        $map: {
+                            input: { $ifNull: ['$titles', []] },
+                            in: { $cond: [{ $eq: ['$$this', OLD_TITLE] }, NEW_TITLE, '$$this'] }
+                        }
+                    },
+                    activeTitle: {
+                        $cond: [{ $eq: ['$activeTitle', OLD_TITLE] }, NEW_TITLE, '$activeTitle']
+                    }
+                }
+            }]
+        )
+
+        return safeSend(msg.key.remoteJid, {
+            text: `✅ تم ترحيل اللقب إلى ${NEW_TITLE}\n\n👥 عدد اللاعبين: ${r.modifiedCount}`
+        })
+    }
+
+    // ─── .تر_قدرات ─── (للمطور فقط)
+    // يرحّل أسماء القدرات القديمة (urAbilities) داخل شخصيات كل اللاعبين إلى الأسماء الجديدة
+    // يغيّر حقل name فقط — type/value/description وباقي بيانات الشخصية تبقى كما هي
+    // .تر_قدرات        ← معاينة فقط (عدّ بدون تعديل)
+    // .تر_قدرات تأكيد  ← تنفيذ فعلي
+    if (text === '.تر_قدرات' || text === '.تر_قدرات تأكيد') {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ هذا الأمر للمطور فقط'
+            })
+        }
+
+        const RENAMES = {
+            '☄️ مدمر الأكوان': '☄️ مدمر العروش',
+            '🌌 سيد الأكوان': '🌌 سيد الهيبة',
+            '🌠 لعنة الأكوان': '🌠 غضب المجرّات'
+        }
+        const OLD_NAMES = Object.keys(RENAMES)
+
+        const filter = { 'characters.urAbilities.name': { $in: OLD_NAMES } }
+
+        if (text === '.تر_قدرات') {
+            const affected = await Player.countDocuments(filter)
+            return safeSend(msg.key.remoteJid, {
+                text: `🔎 معاينة فقط (لم يتغير شيء)\n\n👥 لاعبون عندهم قدرات بأسماء قديمة: ${affected}\n\nللتنفيذ أرسل:\n.تر_قدرات تأكيد`
+            })
+        }
+
+        const nameExpr = {
+            $switch: {
+                branches: OLD_NAMES.map(o => ({
+                    case: { $eq: ['$$a.name', o] },
+                    then: RENAMES[o]
+                })),
+                default: '$$a.name'
+            }
+        }
+
+        const r = await Player.updateMany(filter, [{
+            $set: {
+                characters: {
+                    $map: {
+                        input: '$characters',
+                        as: 'c',
+                        in: {
+                            $cond: [
+                                { $isArray: '$$c.urAbilities' },
+                                {
+                                    $mergeObjects: ['$$c', {
+                                        urAbilities: {
+                                            $map: {
+                                                input: '$$c.urAbilities',
+                                                as: 'a',
+                                                in: {
+                                                    $cond: [
+                                                        { $in: ['$$a.name', OLD_NAMES] },
+                                                        { $mergeObjects: ['$$a', { name: nameExpr }] },
+                                                        '$$a'
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }]
+                                },
+                                '$$c'
+                            ]
+                        }
+                    }
+                }
+            }
+        }])
+
+        const left = await Player.countDocuments(filter)
+
+        return safeSend(msg.key.remoteJid, {
+            text: `✅ تم ترحيل أسماء القدرات\n\n👥 لاعبون تحدّثوا: ${r.modifiedCount}\n⚠️ متبقٍ بأسماء قديمة: ${left}`
         })
     }
 
@@ -34468,7 +34583,7 @@ if (text === '.استرجاع_sss') {
             player.titles = []
 
         const titlesToAdd = [
-            '🌌 حاكم الأكوان',
+            '🏯 سيد القصر',
             '👑 ملك الأبطال'
         ]
 
@@ -34498,7 +34613,7 @@ if (text === '.استرجاع_sss') {
 `✅ تم استرجاع الألقاب القديمة
 
 🏆 الألقاب المضافة:
-🌌 حاكم الأكوان
+🏯 سيد القصر
 👑 ملك الأبطال
 
 👥 عدد الإضافات:

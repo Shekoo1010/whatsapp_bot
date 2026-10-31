@@ -65,7 +65,7 @@ chance: 10
 },
 
 {
-name: "☄️ مدمر الأكوان",
+name: "☄️ مدمر العروش",
 type: "bossDamage",
 value: 30,
 description: "+30% ضرر ضد الزعماء",
@@ -89,7 +89,7 @@ chance: 2
 },
 
 {
-name: "🌌 سيد الأكوان",
+name: "🌌 سيد الهيبة",
 type: "bossDamage",
 value: 50,
 description: "+50% ضرر ضد الزعماء",
