@@ -1,3 +1,4 @@
+require('./groupRemap') // 🔁 يوحّد ايدي القروب في كل الملفات (لازم أول سطر)
 // ⚡ مجمّع خيوط libuv: الافتراضي 4 فقط، وهو مشترك بين قراءة/كتابة ملفات جلسة واتساب (auth/)،
 // وDNS، والتشفير (scrypt عند تسجيل الدخول بالموقع)، وضغط الصور. لو 4 عمليات بطيئة (مثلاً 4 تسجيلات
 // دخول بالموقع بنفس اللحظة على معالج Render الضعيف) شغلوا الخيوط كلها، كل عمليات ملفات/DNS
@@ -80,6 +81,9 @@ const BRAWL_SITE_ONLY_MSG = '🥊 المضاربة متاحة حالياً من 
 const fightCmdLocks = new Set();
 const bankSystem = require("./bankSystem")
 const animeEvents = require("./animeEvents")
+
+// 🆔 قروب الفعاليات: يتغيّر من ملف eventGroups.js فقط
+const { EVENT_GROUP } = require('./eventGroups')
 
 // ⚡ تحسين أداء: نُقلت من داخل معالج الرسائل (كانت تُبنى من جديد
 // مع كل رسالة توصل) — قيمتها ثابتة فلا داعي لإعادة إنشائها كل مرة.
@@ -1139,7 +1143,7 @@ const WEEKLY_GOALS = {
 
 const allowedGroups = [
 
-'120363428933463078@g.us'
+EVENT_GROUP
 
 ]
 const {
@@ -3198,7 +3202,7 @@ async function saveNamiMemory(
 }
 
 const BEAST_GROUPS = [
-    '120363428933463078@g.us'
+    EVENT_GROUP
 ]
 const guessCharacters =
     require('./guessCharacters')
@@ -6765,7 +6769,7 @@ let eventParticipants = []
 let eventStartedBy = null
 
 const GROUP_IDS = [
-    "120363428933463078@g.us"
+    EVENT_GROUP
 ]
 
 // =========================
@@ -8692,7 +8696,7 @@ const COLLAGE_DEBOUNCE_MS = 4000
 // 🎯 أمر .صمم (وكاش الصور المرافق له) مقيّد بهذا القروب فقط — أي صورة
 // تُرسل بأي قروب ثاني ما تُخزَّن بالذاكرة إطلاقاً (الشرط بالأسفل يوقفها
 // قبل أي تخزين).
-const COLLAGE_ALLOWED_GROUP = '120363428933463078@g.us'
+const COLLAGE_ALLOWED_GROUP = EVENT_GROUP
 
 // 🧹 تنظيف دوري لـ recentImagesForCollage — بدون هذا، أي شخص يرسل
 // صورة بقروب بدون ما يكتب .صمم أبداً (الحالة الطبيعية لأغلب الصور)
@@ -9764,7 +9768,7 @@ if (!text) return;
             const _announceGroups = [...new Set([
                 ...allowedGroups,
                 ...EVENT_GROUPS,
-                '120363428933463078@g.us',
+                EVENT_GROUP,
                 BOSS_ATTACK_GROUP,
                 BOSS_ATTACK_GROUP_ALWAYS
             ])].filter(g => g && !disabledGroups.has(g))
@@ -24071,7 +24075,7 @@ for (
 const group of
 currentAuction.auctionGroups ||
 [
-'120363428933463078@g.us'
+EVENT_GROUP
 ]
 ) {
 
