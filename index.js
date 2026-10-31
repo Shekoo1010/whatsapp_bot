@@ -7330,7 +7330,19 @@ const sock = makeWASocket({
         : {}),
 
     ...(global.mediaCacheActive
-        ? { mediaCache: baileysPerf.createMediaCache() }
+        ? {
+            mediaCache: (() => {
+                // ⚡ كاش دائم بـ Mongo لصور المسابقة (يبقى بعد إعادة النشر).
+                // لو فشل لأي سبب نرجع للكاش العادي. تعطيله: MEDIA_CACHE_PERSIST=0
+                try {
+                    global.waMediaCache = require('./utils/persistentMediaCache').getPersistentMediaCache()
+                } catch (err) {
+                    console.log('⚠️ persistent mediaCache unavailable, using in-memory:', err?.message)
+                    global.waMediaCache = global.waMediaCache || baileysPerf.createMediaCache()
+                }
+                return global.waMediaCache
+            })()
+        }
         : {}),
 
     printQRInTerminal: false,
@@ -7962,6 +7974,21 @@ qrCodeData = ""
 // السبب الحقيقي وراء عدم وصول الإعلان للقروبات — مو بس مشكلة الصور.
 global.liveSock = sock
 setBeastManagerSocket(sock)
+
+// 🔥 تسخين صور المسابقة بالخلفية (رفع بطيء بدون إرسال لأي محادثة) — مرة وحدة
+// حتى لو أُعيد الاتصال. تعطيله: MEDIA_WARM=0 (شوف utils/mediaWarmer.js)
+if (!global.mediaWarmerStarted && global.mediaCacheActive && global.waMediaCache && process.env.MEDIA_WARM !== '0') {
+    global.mediaWarmerStarted = true
+    try {
+        require('./utils/mediaWarmer').startMediaWarmer({
+            getSock: () => global.liveSock,
+            getCache: () => global.waMediaCache,
+            getUrls: () => require('./imageQuestions').map(q => q && q.image)
+        })
+    } catch (err) {
+        console.log('⚠️ mediaWarmer failed to start:', err?.message)
+    }
+}
 
 // ⚡ تسخين متصفح توليد الصور (.المعرض/.شخصياتي/بطولة المعرض) بالخلفية مرة وحدة
 // عشان أول أمر صور ما يدفع كلفة تشغيل Chrome (عدة ثواني). ما يحجب شي.
