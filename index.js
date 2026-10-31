@@ -9113,6 +9113,7 @@ const commandExplanations = {
         '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
         '.اصلاح_الالقاب': 'أمر للمطور فقط - يصلح ألقاب/رتب اللاعبين التالفة.',
+        '.لقب_اداره': 'أمر للمطور فقط - يهدي لقب «حاكم الأكوان» للاعب بالرد على رسالته أو بمنشنه.',
         '.ايديات_اللاعبين': 'أمر للمطور فقط - يعرض قائمة آيديات كل اللاعبين المسجّلين.',
         '.update waifus images': 'أمر للمطور فقط - يحدّث صور الويفوز من مصدر AniList.',
         '.نقل_حساب': 'أمر للمطور فقط - يبدّل كل بيانات حسابين مع بعض بالكامل (مستوى، فلوس، شخصيات، ألقاب، صناديق...). مثال: .نقل_حساب @الحساب_القديم @الحساب_الجديد',
@@ -32018,6 +32019,12 @@ ${minutes} دقيقة`
 }
     if (text === ".اعطاء_هيوكي") {
 
+    if (!isOwner(msg)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '❌ هذا الأمر للمطور فقط'
+        })
+    }
+
     const userId = "193407225995463@lid"
 
     const player = await Player.findOne({ userId })
@@ -32180,6 +32187,12 @@ ${minutes} دقيقة`
 
     if (text === ".اعطاء_فلوس") {
 
+    if (!isOwner(msg)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '❌ هذا الأمر للمطور فقط'
+        })
+    }
+
     const targetId = "175114725408817@lid"
 
     let player = await Player.findOne({
@@ -32213,6 +32226,46 @@ ${player.money.toLocaleString()}`
         }
     )
 }
+
+    // ─── .لقب_اداره ───
+    // يهدي لقب «🌌 حاكم الأكوان» للاعب واحد (رد على رسالته أو منشن) — للمطور فقط
+    // اللقب يُضاف لقائمة ألقابه، ويفعّله بنفسه من صفحة الألقاب بالموقع
+    if (text === '.لقب_اداره' || text.startsWith('.لقب_اداره ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ هذا الأمر للمطور فقط'
+            })
+        }
+
+        const target = resolveBanTarget(msg)
+
+        if (!target) {
+            return safeSend(msg.key.remoteJid, {
+                text: '📌 الاستخدام: رد على رسالة اللاعب أو امنشنه مع .لقب_اداره'
+            })
+        }
+
+        const ADMIN_TITLE = '🌌 حاكم الأكوان'
+
+        const r = await Player.updateOne(
+            { userId: target },
+            { $addToSet: { titles: ADMIN_TITLE } }
+        )
+
+        if (!r.matchedCount) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ اللاعب غير موجود.'
+            })
+        }
+
+        return safeSend(msg.key.remoteJid, {
+            text: r.modifiedCount
+                ? `✅ تم إهداء لقب ${ADMIN_TITLE} إلى @${target.split('@')[0]}\n\nيفعّله من صفحة الألقاب في الموقع.`
+                : `ℹ️ @${target.split('@')[0]} يملك اللقب بالفعل.`,
+            mentions: [target]
+        })
+    }
 
     if (text === ".انهاء_قلوب") {
 
@@ -34371,6 +34424,12 @@ if (text === '.استرجاع_sss') {
 
     
     if (text === '.اصلاح_الالقاب') {
+
+    if (!isOwner(msg)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '❌ هذا الأمر للمطور فقط'
+        })
+    }
 
     const players = await Player.find({})
 
