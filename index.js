@@ -9959,7 +9959,7 @@ if (!text) return;
     // وقت عمل البوت، تمامًا متل نظام الكويز فوق.
     // =========================
     if (
-        textMatchesAnyPrefix(text, OUTSIDE_GAME_PREFIXES) &&
+        (textMatchesAnyPrefix(text, OUTSIDE_GAME_PREFIXES) || text === '.نعم' || text === '.لا') &&
         await outsideGame.handleMessage(
             sock,
             msg,
