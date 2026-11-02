@@ -302,7 +302,7 @@ async function setPendingTurn(sock, groupId, state, turn, announce = true) {
 
     if (announce) {
         await sock.sendMessage(groupId, {
-            text: `🎙️ ${mentionTag(turn.asker)} اسأل ${mentionTag(turn.answerer)}\n\n(${mentionTag(turn.answerer)} جاوب بـ "نعم" أو "لا" فقط — عندك دقيقتين ⏱️)`,
+            text: `🎙️ ${mentionTag(turn.asker)} اسأل ${mentionTag(turn.answerer)}\n\n(${mentionTag(turn.answerer)} جاوب بـ .نعم أو .لا فقط — عندك دقيقتين ⏱️)`,
             mentions: [turn.asker, turn.answerer]
         })
     }
@@ -480,7 +480,7 @@ async function beginRound(sock, groupId) {
     state.turnOrder = shuffle(state.players)
     state.turnIndex = 0
 
-    let startMsg = `🎬 بدأت الجولة!\n\n📂 الفئة: ${state.category}\n👥 اللاعبين: ${state.players.length}\n🚫 عدد اللي برا السالفة: ${outsiderCount}\n\n📩 تم إرسال دوركم بالخاص، تأكدوا من فتح الخاص مع البوت.\n\nجاوبوا بـ "نعم" أو "لا" فقط عند دوركم، عندكم دقيقتين لكل دور ⏱️`
+    let startMsg = `🎬 بدأت الجولة!\n\n📂 الفئة: ${state.category}\n👥 اللاعبين: ${state.players.length}\n🚫 عدد اللي برا السالفة: ${outsiderCount}\n\n📩 تم إرسال دوركم بالخاص، تأكدوا من فتح الخاص مع البوت.\n\nجاوبوا بـ .نعم أو .لا فقط عند دوركم، عندكم دقيقتين لكل دور ⏱️`
 
     if (failedPlayers.length) {
         startMsg += `\n\n⚠️ ما وصلت الرسالة الخاصة لـ: ${failedPlayers.map(mentionTag).join('، ')}\nراسلوا البوت بالخاص أي رسالة (مثلاً "هلا") عشان يحفظ رقمكم، وبعدها اطلبوا من مسؤول الجولة يبدأ جولة جديدة.`
@@ -525,7 +525,8 @@ async function handleAnswer(sock, groupId, senderId, text) {
     const { answerer, type } = state.pendingTurn
     if (senderId !== answerer) return false
 
-    const clean = text.trim()
+    // ✅ الإجابة بنقطة: .نعم / .لا (تصل للعبة عبر فلتر البادئات بـ index.js)
+    const clean = text.trim().replace(/^\./, '')
     if (clean !== 'نعم' && clean !== 'لا') return false
 
     clearTurnTimer(state)
@@ -896,6 +897,16 @@ async function handleMessage(sock, msg, groupId, senderId, text, mentionedJids =
 
     if (text === '.انهي_برا_السالفه') {
         await endGame(sock, groupId)
+        return true
+    }
+
+    // 🔒 .نعم / .لا ملتزمتان باللعبة: طالما فيه لعبة برا السالفة بالقروب،
+    // الأمرين يخصانها فقط ولا يمران لنظام بيع الشخصيات (.بيع) إطلاقاً.
+    // لو المرسل ليس المسؤول بدوره نتجاهلها بصمت (نرجع true عشان ما تكمل لغيرها).
+    const _t = text.trim()
+    if (_t === '.نعم' || _t === '.لا') {
+        if (!games.has(groupId)) return false   // ما فيه لعبة → تمر لنظامها الطبيعي (البيع)
+        await handleAnswer(sock, groupId, senderId, _t)
         return true
     }
 
