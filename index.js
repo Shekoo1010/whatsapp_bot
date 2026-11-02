@@ -4813,8 +4813,19 @@ const siteRequestCtx = new AsyncLocalStorage()
 app.use((req, res, next) => { siteRequestCtx.run({ fromSite: true }, next) })
 
 app.get('/health', (req, res) => {
-
-    res.status(200).send('OK')
+    // يرجع 200 دائماً (للبينغ/Render) ويعرض الذاكرة والتشغيل لمراقبتها من المتصفح
+    const mu = process.memoryUsage()
+    const mb = (n) => Math.round(n / 1048576)
+    const up = Math.floor(process.uptime())
+    const h = Math.floor(up / 3600), m = Math.floor((up % 3600) / 60)
+    res.status(200).type('text/plain').send(
+        `OK\n` +
+        `RAM (rss): ${mb(mu.rss)} MB / 512 MB\n` +
+        `Heap: ${mb(mu.heapUsed)} / ${mb(mu.heapTotal)} MB\n` +
+        `External: ${mb(mu.external)} MB\n` +
+        `Buffers: ${mb(mu.arrayBuffers)} MB\n` +
+        `Uptime: ${h}h ${m}m`
+    )
 })
 
 let qrCodeData = ""
@@ -5550,7 +5561,7 @@ try {
         const mu = process.memoryUsage()
         const p99 = _lag.percentile(99) / 1e6, mx = _lag.max / 1e6
         const rss = Math.round(mu.rss / 1048576)
-        if (p99 > 150 || rss > 380) console.log(`📊 HEALTH lag p99=${p99.toFixed(0)}ms max=${mx.toFixed(0)}ms rss=${rss}MB heap=${Math.round(mu.heapUsed / 1048576)}MB`)
+        if (p99 > 150 || rss > 380) console.log(`📊 HEALTH lag p99=${p99.toFixed(0)}ms max=${mx.toFixed(0)}ms rss=${rss}MB heap=${Math.round(mu.heapUsed / 1048576)}MB ext=${Math.round(mu.external / 1048576)}MB buf=${Math.round(mu.arrayBuffers / 1048576)}MB`)
         _lag.reset()
     }, 30000).unref()
 } catch (e) { /* اختياري */ }
