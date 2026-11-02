@@ -1,4 +1,14 @@
 require('./groupRemap') // 🔁 يوحّد ايدي القروب في كل الملفات (لازم أول سطر)
+// 🔇 يمنع سيل سجلات libsignal (Closing/Opening session ...) — تطبع كائنات جلسات كاملة (فيها مفاتيح) وتملأ اللوج وتستهلك ذاكرة
+{
+    const _origConsoleInfo = console.info
+    const _sigNoise = /^(Closing session|Opening session|Removing old closed session|Closing open session|Session already|Migrating session)/
+    console.info = (...args) => {
+        if (typeof args[0] === 'string' && _sigNoise.test(args[0])) return
+        return _origConsoleInfo.apply(console, args)
+    }
+}
+
 // ⚡ مجمّع خيوط libuv: الافتراضي 4 فقط، وهو مشترك بين قراءة/كتابة ملفات جلسة واتساب (auth/)،
 // وDNS، والتشفير (scrypt عند تسجيل الدخول بالموقع)، وضغط الصور. لو 4 عمليات بطيئة (مثلاً 4 تسجيلات
 // دخول بالموقع بنفس اللحظة على معالج Render الضعيف) شغلوا الخيوط كلها، كل عمليات ملفات/DNS
