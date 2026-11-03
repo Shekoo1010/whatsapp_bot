@@ -285,19 +285,23 @@ function createBossAttackSystem(deps) {
 
     // ───────────── توزيع الجوائز (نفس distributeBossRewards بالواتس) ─────────────
     async function grantRewards(boss) {
+        const rewardLog = require('./rewardLog')
+
+        // نفس الحقول المستبعدة في attack() — ذاكرة أقل ولا تمس هوكات المستوى/المهام/الإنجازات
         const players = await Player.find({ bossDamage: { $gt: 0 } })
+            .select('-giftInbox -giftLog -giftOpKeys -galleryLikes -gallery -domainTeams -inventory')
         const killerId = boss?.killer
-        const killer = players.find(p => p.userId === killerId)
 
         if (!players.length) return null
 
         players.sort((a, b) => (b.bossDamage || 0) - (a.bossDamage || 0))
 
-        const entries = []
+        const entries = new Array(players.length)
+        let killerEntry = null
 
-        for (let i = 0; i < players.length; i++) {
-            const p = players[i]
+        const grantOne = async (p, i) => {
             p.boxes = p.boxes || {}
+            const isKiller = p.userId === killerId
             let money, xpGain, boxes
 
             if (i === 0) {
@@ -321,33 +325,42 @@ function createBossAttackSystem(deps) {
                 boxes = ['2 Epic Boxes']
             }
 
+            // 🗡️ صندوق الضربة القاضية يُضاف بنفس الحفظ (حفظ واحد للقاتل بدل اثنين)
+            if (isKiller) p.boxes.sss_high = (p.boxes.sss_high || 0) + 1
+
             p.money = (p.money || 0) + money
             p.xp = (p.xp || 0) + xpGain
             await p.save()
 
             // 🎁 سجل الجوائز بالموقع
-            require('./rewardLog').logReward(p.userId, {
+            rewardLog.logReward(p.userId, {
                 src: `الزعيم — المركز ${i + 1}`,
                 icon: ['👑', '🥈', '🥉'][i] || '🏅',
                 lines: [`💰 ${Number(money).toLocaleString('en')} مال`, `⭐ ${xpGain} XP`, ...boxes.map(b => `📦 ${b}`)]
             })
 
-            entries.push({
+            if (isKiller) {
+                rewardLog.logReward(p.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
+                killerEntry = { userId: p.userId, name: nameOf(p), boxes: ['1 SSS High Box إضافي'] }
+            }
+
+            entries[i] = {
                 rank: i + 1, userId: p.userId, name: nameOf(p),
                 damage: p.bossDamage || 0, money, xp: xpGain, boxes
-            })
+            }
         }
 
-        let killerEntry = null
-        if (killer) {
-            killer.boxes = killer.boxes || {}
-            killer.boxes.sss_high = (killer.boxes.sss_high || 0) + 1
-            await killer.save()
-            require('./rewardLog').logReward(killer.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
-            killerEntry = { userId: killer.userId, name: nameOf(killer), boxes: ['1 SSS High Box إضافي'] }
+        // ⚡ دفعات متوازية صغيرة بدل لاعب بعد لاعب (كل لاعب مستند مستقل، والهوكات آمنة)
+        const BATCH = 15
+        for (let s = 0; s < players.length; s += BATCH) {
+            await Promise.all(players.slice(s, s + BATCH).map((p, k) => grantOne(p, s + k)))
         }
 
-        await Player.updateMany({}, { $set: { bossDamage: 0, bossHits: 0 } })
+        // ⚡ تصفير الضرر لمن شارك فقط (نفس النتيجة بكتابة أقل)
+        await Player.updateMany(
+            { $or: [{ bossDamage: { $gt: 0 } }, { bossHits: { $gt: 0 } }] },
+            { $set: { bossDamage: 0, bossHits: 0 } }
+        )
 
         return {
             bossName: boss?.name || '',
