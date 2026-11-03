@@ -111,9 +111,9 @@ async function checkRespawn() {
 
                 const groups = [
 
-                    "120363400448225715@g.us",
+        
 
-                    "120363020823525909@g.us"
+                    "120363409897316453@g.us"
                 ]
 
                 // 🥚 نجيب حالة حامل بيضة الرفيق بعد resetBeasts —
