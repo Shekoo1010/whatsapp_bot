@@ -35863,7 +35863,7 @@ if (text.startsWith('.ذكاء')) {
     )
 }
     
-    if (text === '.فحصxp') {
+    if (false && text === '.فحصxp') { // 🔌 معطّل بطلب المطور (أمر فحص داخلي)
 
     const me = await Player.findOne({ userId })
 
@@ -37983,7 +37983,7 @@ ${team2Names}
     }
 
 
-if (text === '.الدم') {
+if (false && text === '.الدم') { // 🔌 معطّل بطلب المطور (يحمّل كل المشاركين بالزعيم)
 
     const players = await Player.find({
         bossHits: { $gt: 0 }
