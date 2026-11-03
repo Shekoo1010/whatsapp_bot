@@ -1075,6 +1075,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
+        ['favorite', '⭐', 'المفضلة', `/u/${c}/favorite`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
         ['echoes', '🎐', 'الإيكوز والدومين', `/u/${c}/echoes`],
         ['players', '👥', 'اللاعبون', `/u/${c}/players`],
@@ -1608,6 +1609,217 @@ function shopItemOut(d, catIdx) {
         stars: t.stars,
         en: t.lang === 'en'
     }
+}
+
+// ⭐ المفضلة (نفس .مفضلة و .المفضلة بالواتس): اختيار شخصية SSS بـ 200,000 مال لمدة 4 أيام، نسختين، وبونص رفيق سونيك
+function favoritePageHTML({ viewer, code, state }) {
+    return `${shellHead('المفضلة')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">⭐ المفضلة</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'favorite', viewer.name)}
+<style>
+.fv{max-width:640px;margin:0 auto}
+.fv-sub{text-align:center;color:var(--text-dim);font-size:12px;margin:6px 0 14px;line-height:1.9}
+.fv-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.fv-bar div{background:#0f1422;border:1px solid #222a42;border-radius:14px;padding:8px 10px;text-align:center}
+.fv-bar small{display:block;color:var(--text-dim);font-size:11px}
+.fv-bar b{display:block;font:700 20px 'Oswald',sans-serif;color:var(--gold);direction:ltr}
+.fv-hero{border-radius:20px;border:1.5px solid #222a42;background:#0f1422;padding:16px;margin-bottom:22px;text-align:center}
+.fv-hero.on{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;border:2px solid transparent;animation:rot 5s linear infinite;box-shadow:0 0 26px -8px rgba(240,192,74,.5)}
+.fv-tag{display:inline-block;font-weight:900;font-size:12px;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold));padding:3px 14px;border-radius:20px}
+.fv-art{position:relative;width:min(58%,230px);aspect-ratio:3/4;margin:14px auto 12px;border-radius:16px;overflow:hidden;display:grid;place-items:center;font:900 64px 'Cairo',sans-serif;color:var(--gold);background:radial-gradient(circle at 50% 30%,#2a2210,#0a0d16);box-shadow:0 10px 30px -10px rgba(0,0,0,.8)}
+.fv-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fv-nm{font-weight:900;font-size:21px;margin:2px 0}
+.fv-an{color:var(--text-dim);font-size:13px}
+.fv-pw{font:700 15px 'Oswald',sans-serif;color:var(--gold);direction:ltr;margin-top:4px}
+.fv-pips{display:flex;justify-content:center;align-items:center;gap:8px;margin:12px 0 4px;font-weight:800;font-size:13px}
+.fv-pips i{width:22px;height:22px;border-radius:50%;border:2px solid #3a4260;display:inline-grid;place-items:center;font-style:normal;font-size:12px;color:transparent}
+.fv-pips i.on{border-color:var(--gold);background:var(--gold);color:#0a0d16}
+.fv-lbl{color:var(--text-dim);font-size:12px;margin:14px 0 6px}
+.fv-time{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;direction:rtl}
+.fv-time div{background:#0a0d16;border:1px solid #222a42;border-radius:12px;padding:8px 2px}
+.fv-time b{display:block;font:700 22px 'Oswald',sans-serif;color:var(--gold);direction:ltr}
+.fv-time small{color:var(--text-dim);font-size:11px}
+.fv-sonic{margin-top:14px;border-radius:14px;border:1px solid #1f4a7a;background:linear-gradient(135deg,#0d1b33,#0f1422);padding:10px 12px;text-align:right;font-weight:800;font-size:13px;color:#7cc4ff}
+.fv-sonic small{color:var(--text-dim);font-weight:600;margin-inline-start:6px}
+.fv-sonic.off{border-color:#222a42;background:#0f1422;color:var(--text-dim);font-weight:600;font-size:12px;line-height:1.8}
+.fv-sr{display:flex;justify-content:space-between;margin-top:6px;color:var(--text);font-weight:600;font-size:12.5px}
+.fv-sr b{color:#7cc4ff;font-family:'Oswald',sans-serif}
+.fv-hint{color:var(--text-dim);font-size:11.5px;line-height:1.8;margin-top:12px}
+.fv-big{font-size:42px;margin:4px 0}
+.fv-ht{font-weight:900;font-size:17px;margin:4px 0}
+.fv-hd{color:var(--text-dim);font-size:12.5px;line-height:1.9}
+.fv-h2{font-weight:900;font-size:17px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.fv-search input{width:100%;box-sizing:border-box;font:700 15px 'Cairo',sans-serif;color:var(--text);background:#0f1422;border:1.5px solid #222a42;border-radius:14px;padding:12px 14px;outline:0}
+.fv-search input:focus{border-color:var(--gold)}
+.fv-meta{color:var(--text-dim);font-size:12px;margin:8px 2px 12px;display:flex;justify-content:space-between;gap:8px}
+.fv-lock{background:#2a1a1f;border:1px solid #5a2a35;color:#ff9aa6;border-radius:12px;padding:8px 12px;font-size:12.5px;font-weight:700;margin-bottom:10px;line-height:1.8}
+.fv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;min-height:120px}
+.fv-c{display:flex;flex-direction:column;border-radius:16px;border:1.5px solid #2a3150;background:#0f1422;overflow:hidden;transition:border-color .2s}
+.fv-c:hover{border-color:var(--gold-dim)}
+.fv-c.cur{border-color:var(--gold);box-shadow:0 0 16px -4px rgba(240,192,74,.5)}
+.fv-ca{position:relative;aspect-ratio:4/3;display:grid;place-items:center;font:900 40px 'Cairo',sans-serif;color:var(--gold);background:radial-gradient(circle at 50% 30%,#2a2210,#0a0d16)}
+.fv-ca img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fv-cn{padding:8px 10px 0;font-weight:900;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fv-cs{padding:0 10px;color:var(--text-dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fv-cp{padding:2px 10px 6px;font:700 13px 'Oswald',sans-serif;color:var(--gold);direction:ltr;text-align:right}
+.fv-pb{width:calc(100% - 20px);margin:auto 10px 10px;padding:9px;border:0;border-radius:12px;font:900 13px 'Cairo',sans-serif;cursor:pointer;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.fv-pb:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+.fv-pb:focus-visible,.fv-pg button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.fv-pg{display:flex;align-items:center;justify-content:center;gap:12px;margin:18px 0 6px}
+.fv-pg button{font:900 14px 'Cairo',sans-serif;color:var(--gold);background:#0f1422;border:1.5px solid var(--gold-dim);border-radius:12px;padding:8px 16px;cursor:pointer}
+.fv-pg button:disabled{opacity:.35;cursor:not-allowed}
+.fv-pg span{font-weight:800;font-size:13px;color:var(--text-dim)}
+.fv-empty{grid-column:1/-1;text-align:center;color:var(--text-dim);padding:40px 10px;line-height:2}
+.fv-mo{position:fixed;inset:0;z-index:80;background:rgba(3,4,9,.78);display:flex;align-items:center;justify-content:center;padding:18px}
+.fv-mo[hidden]{display:none}
+.fv-md{width:min(92vw,360px);background:#0f1422;border:1.5px solid var(--gold-dim);border-radius:20px;padding:18px;text-align:center}
+.fv-md .fv-art{width:46%;margin:6px auto 10px;font-size:46px}
+.fv-ml{text-align:right;color:var(--text-dim);font-size:12.5px;line-height:2;margin:10px 0 14px;background:#0a0d16;border-radius:12px;padding:8px 12px}
+.fv-ml b{color:var(--text)}
+.fv-mb{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fv-mb button{padding:11px;border-radius:12px;border:0;font:900 14px 'Cairo',sans-serif;cursor:pointer}
+.fv-yes{color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.fv-no{color:var(--text);background:#1a2036}
+.fv-mb button:disabled{opacity:.5;cursor:not-allowed}
+.fv-toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid var(--gold-dim);border-radius:14px;padding:12px 16px;font-weight:700;font-size:14px;transition:.3s;max-width:92%;text-align:center;z-index:90}
+.fv-toast.on{transform:translate(-50%,0);opacity:1}.fv-toast.good{border-color:#4fe08a}.fv-toast.bad{border-color:#ff6b6b;color:#ff9aa6}
+@media (prefers-reduced-motion:reduce){.fv-hero.on{animation:none}.fv-toast{transition:none}}
+</style>
+  <div class="fv">
+    <p class="fv-sub">اختر شخصية SSS مفضلة: تحصل على نسختين منها من سحبات SSS<br>مدة المفضلة 4 أيام ولا يمكن تغييرها قبل انتهائها</p>
+    <div class="fv-bar"><div><small>💳 رصيدك</small><b id="fv-money">0</b></div><div><small>💰 تكلفة الاختيار</small><b id="fv-cost">0</b></div></div>
+    <section class="fv-hero" id="fv-hero"></section>
+    <section>
+      <h2 class="fv-h2">🔎 اختر شخصيتك المفضلة</h2>
+      <div class="fv-search"><input id="fv-q" type="search" placeholder="ابحث باسم الشخصية…" maxlength="40" autocomplete="off" enterkeyhint="search"></div>
+      <div class="fv-meta"><span id="fv-total"></span><span>كل صفحة 12 شخصية</span></div>
+      <div id="fv-lockmsg"></div>
+      <div class="fv-grid" id="fv-grid"></div>
+      <div class="fv-pg" id="fv-pg"></div>
+    </section>
+  </div>
+</div>
+<div class="fv-mo" id="fv-mo" hidden>
+  <div class="fv-md" role="dialog" aria-modal="true" aria-labelledby="fv-mn">
+    <div class="fv-art" id="fv-mart"></div>
+    <div class="fv-nm" id="fv-mn"></div>
+    <div class="fv-an" id="fv-ma"></div>
+    <div class="fv-ml">💰 التكلفة: <b id="fv-mc"></b><br>⏳ المدة: <b>4 أيام</b><br>🎯 النسخ: <b>2</b><br>🚫 لا يمكن تغييرها حتى تنتهي المدة</div>
+    <div class="fv-mb"><button class="fv-yes" id="fv-yes" type="button">⭐ تأكيد</button><button class="fv-no" id="fv-no" type="button">إلغاء</button></div>
+  </div>
+</div>
+<div class="fv-toast" id="fv-toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)};
+  var S=${jsonForScript(state)}, end=Date.now()+(Number(S.remainingMs)||0);
+  var items=[], total=0, off=0, SIZE=12, q='', seq=0, dbt=0, th=0, sel=null, busy=false, polling=false, wasLocked=end>Date.now();
+  function $(i){ return document.getElementById(i); }
+  function fm(n){ return Number(n).toLocaleString('en-US'); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(m,k){ var t=$('fv-toast'); t.textContent=m; t.className='fv-toast on '+(k||''); clearTimeout(th); th=setTimeout(function(){ t.className='fv-toast'; },3400); }
+  function locked(){ return end>Date.now(); }
+  function art(name,img){ return esc(Array.from(name)[0]||'?')+(img?'<img src="'+esc(img)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':''); }
+  function timeBox(){ return '<div class="fv-lbl">⏳ يتبقى على انتهاء المفضلة</div><div class="fv-time"><div><b id="fv-td">0</b><small>يوم</small></div><div><b id="fv-th">0</b><small>ساعة</small></div><div><b id="fv-tm">0</b><small>دقيقة</small></div><div><b id="fv-ts">0</b><small>ثانية</small></div></div>'; }
+  function sonicBox(){
+    var s=S.sonic;
+    if(!s) return '<div class="fv-sonic off">💙 رفيق سونيك يجدد فرصة سحب المفضلة بدل ما تنحسب من رصيدك — لا تملك رفيق سونيك حالياً</div>';
+    return '<div class="fv-sonic">💙 رفيق سونيك<small>مستوى '+s.level+'</small><div class="fv-sr"><span>فرصة التجديد: <b>'+s.chance+'%</b></span><span>التجديدات المستخدمة: <b>'+s.used+'/'+s.max+'</b></span></div></div>';
+  }
+  function drawHero(){
+    var h=$('fv-hero'), a=S.active, html='';
+    if(a){
+      var pips=''; for(var i=0;i<S.max;i++) pips+='<i class="'+(i<S.obtained?'on':'')+'">✓</i>';
+      html='<span class="fv-tag">⭐ الشخصية المفضلة</span>'
+        +'<div class="fv-art">'+art(a.name,a.img)+'</div>'
+        +'<div class="fv-nm">'+esc(a.name)+'</div>'
+        +'<div class="fv-an">🌌 '+esc(a.anime||'—')+'</div>'
+        +'<div class="fv-pw">⚔️ '+fm(a.power)+' PWR</div>'
+        +'<div class="fv-pips">🎯 النسخ المحصلة <span style="display:inline-flex;gap:6px">'+pips+'</span> '+S.obtained+'/'+S.max+'</div>'
+        +timeBox()+sonicBox()
+        +'<div class="fv-hint">💡 كل سحبة SSS تعطيك نسخة من هذي الشخصية (حتى '+S.max+' نسخ)</div>';
+      h.className='fv-hero on';
+    } else if(locked()){
+      html='<div class="fv-big">✅</div><div class="fv-ht">اكتملت نسخ المفضلة</div><div class="fv-hd">حصلت على '+S.max+'/'+S.max+' نسخ — تقدر تختار مفضلة جديدة بعد انتهاء المدة</div>'+timeBox();
+      h.className='fv-hero';
+    } else {
+      html='<div class="fv-big">⭐</div><div class="fv-ht">لا توجد شخصية مفضلة حالياً</div><div class="fv-hd">اختر شخصية SSS من القائمة بالأسفل لتحصل على نسخ منها من سحباتك</div>';
+      h.className='fv-hero';
+    }
+    h.innerHTML=html;
+    tick();
+  }
+  function tick(){
+    var l=end-Date.now(), s=Math.max(0,Math.floor(l/1000));
+    var d=$('fv-td'); if(d){ $('fv-td').textContent=Math.floor(s/86400); $('fv-th').textContent=Math.floor(s%86400/3600); $('fv-tm').textContent=Math.floor(s%3600/60); $('fv-ts').textContent=s%60; }
+    if(wasLocked&&l<=0){ wasLocked=false; poll(true); }
+  }
+  function drawBar(){ $('fv-money').textContent=fm(S.money); $('fv-cost').textContent=fm(S.cost); }
+  function drawList(){
+    var can=!locked()&&S.money>=S.cost;
+    $('fv-total').textContent=total?('🔎 '+fm(total)+' شخصية SSS'):'';
+    $('fv-lockmsg').innerHTML=locked()?'<div class="fv-lock">🔒 اختيار مفضلة جديدة مقفل حتى تنتهي المدة الحالية</div>':'';
+    if(!items.length){ $('fv-grid').innerHTML='<div class="fv-empty">😕 لا توجد شخصية SSS بهذا الاسم</div>'; }
+    else $('fv-grid').innerHTML=items.map(function(it,i){
+      var cur=S.active&&S.active.name===it.n;
+      var label=cur?'⭐ مفضلتك الحالية':locked()?'🔒 مقفل':(S.money<S.cost?'رصيدك لا يكفي':'اجعلها مفضلة');
+      return '<article class="fv-c'+(cur?' cur':'')+'"><div class="fv-ca">'+art(it.n,it.img)+'</div><div class="fv-cn">'+esc(it.n)+'</div><div class="fv-cs">'+esc(it.a||'—')+'</div><div class="fv-cp">⚔️ '+fm(it.p)+'</div><button class="fv-pb" type="button" data-i="'+i+'"'+((!can||cur)?' disabled':'')+'>'+label+'</button></article>';
+    }).join('');
+    var pages=Math.max(1,Math.ceil(total/SIZE)), pg=Math.floor(off/SIZE)+1;
+    $('fv-pg').innerHTML=total>SIZE?'<button type="button" id="fv-pv"'+(pg<=1?' disabled':'')+'>→ السابق</button><span>صفحة '+pg+' من '+pages+'</span><button type="button" id="fv-nx"'+(pg>=pages?' disabled':'')+'>التالي ←</button>':'';
+  }
+  function load(){
+    var my=++seq;
+    fetch('/favorite/list?q='+encodeURIComponent(q)+'&o='+off,{credentials:'same-origin',cache:'no-store'})
+    .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json().catch(function(){ return null; }); })
+    .then(function(j){ if(my!==seq||!j) return; if(!j.ok){ toast(j.message||'تعذر تحميل القائمة','bad'); return; } items=j.items; total=j.total; drawList(); })
+    .catch(function(){ if(my===seq) toast('تعذر الاتصال بالسيرفر','bad'); });
+  }
+  function setState(st){ S=st; end=Date.now()+(Number(S.remainingMs)||0); wasLocked=end>Date.now(); drawBar(); drawHero(); drawList(); }
+  function poll(force){
+    if(polling||(document.hidden&&!force)) return; polling=true;
+    fetch('/favorite/state',{credentials:'same-origin',cache:'no-store'})
+    .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.ok?r.json():null; })
+    .then(function(j){ polling=false; if(j&&j.ok) setState(j.state); })
+    .catch(function(){ polling=false; });
+  }
+  function openM(it){
+    sel=it; $('fv-mart').innerHTML=art(it.n,it.img); $('fv-mn').textContent=it.n; $('fv-ma').textContent='🌌 '+(it.a||'—'); $('fv-mc').textContent=fm(S.cost);
+    $('fv-yes').disabled=false; $('fv-yes').textContent='⭐ تأكيد'; $('fv-mo').hidden=false;
+  }
+  function closeM(){ $('fv-mo').hidden=true; sel=null; }
+  function confirmM(){
+    if(!sel||busy) return; busy=true; var b=$('fv-yes'); b.disabled=true; b.textContent='جارٍ التعيين…';
+    fetch('/favorite/set',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:CSRF,code:CODE,name:sel.n})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      busy=false;
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      closeM();
+      if(x.j.ok){ setState(x.j.state); toast(x.j.message,'good'); window.scrollTo({top:0,behavior:'smooth'}); }
+      else { toast(x.j.message||'فشل التعيين','bad'); poll(true); }
+    })
+    .catch(function(){ busy=false; closeM(); toast('لم يصلنا رد من السيرفر — حدّث الصفحة وتأكد من رصيدك قبل إعادة المحاولة.','bad'); });
+  }
+  $('fv-q').addEventListener('input',function(){ clearTimeout(dbt); var v=this.value; dbt=setTimeout(function(){ q=v.trim(); off=0; load(); },300); });
+  $('fv-grid').addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('.fv-pb'); if(b&&!b.disabled){ var it=items[parseInt(b.getAttribute('data-i'),10)]; if(it) openM(it); } });
+  $('fv-pg').addEventListener('click',function(e){
+    var id=e.target&&e.target.id; if(e.target.disabled) return;
+    if(id==='fv-pv'){ off=Math.max(0,off-SIZE); load(); $('fv-grid').scrollIntoView({behavior:'smooth',block:'start'}); }
+    if(id==='fv-nx'){ off+=SIZE; load(); $('fv-grid').scrollIntoView({behavior:'smooth',block:'start'}); }
+  });
+  $('fv-yes').addEventListener('click',confirmM);
+  $('fv-no').addEventListener('click',closeM);
+  $('fv-mo').addEventListener('click',function(e){ if(e.target===this) closeM(); });
+  drawBar(); drawHero(); drawList(); load();
+  setInterval(tick,1000); setInterval(poll,20000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(true); });
+})();
+</script></body></html>`
 }
 
 function shopPageHTML({ viewer, code, items, money, msLeft }) {
@@ -5434,6 +5646,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
     const pullCharacter = opts.pullCharacter // من systems/pullSystem.js (نفس منطق .اسحب)
+    const companionsData = opts.companionsData || { getCompanionBonus: () => 0 } // ⭐ المفضلة: نسبة بونص رفيق سونيك
     const sellCharacters = opts.sellCharacters // من systems/characterTradeSystem.js (نفس منطق .بيع)
     const mergeAll = opts.mergeAll     // من systems/characterTradeSystem.js (نفس منطق .دمج_الكل)
     const bossAttack = opts.bossAttack // من systems/bossAttackSystem.js (نفس منطق .هجوم)
@@ -6969,6 +7182,196 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('shop buy route error:', err)
             return g.fail(500, 'SERVER', shopErrorMessage({ code: 'SERVER' }))
+        }
+    })
+
+    // ─────────────── ⭐ المفضلة  /u/:code/favorite (نفس .مفضلة و .المفضلة بالواتس) ───────────────
+    // الاختيار: شخصية SSS فقط، 200,000 مال، مدة 4 أيام لا تتغير قبل انتهائها، نسختين من السحبات (يطبّقه pullCharacter)
+    // بونص رفيق سونيك: يجدد فرصة المفضلة (حد أقصى 2 مرة) — يُعرض هنا فقط، والمنطق نفسه داخل pullCharacter
+    const FAV_COST = 200000
+    const FAV_MAX = 2
+    const FAV_PAGE = 12
+    const FAV_MS = 4 * 24 * 60 * 60 * 1000
+    const FAV_FIELDS = 'userId name username money sessionVersion favoriteCharacter favoriteObtained favoriteExpires sonicBonusUsed companion'
+    const favHits = new Map()
+    function favRate(userId) {
+        const now = Date.now()
+        const arr = (favHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 90) { favHits.set(userId, arr); return false }
+        arr.push(now); favHits.set(userId, arr); return true
+    }
+    const favGate = () => true
+
+    let favCat = null
+    let favList = []
+    function favSssList() {
+        const cat = loadCatalog(getCatalog)
+        if (cat === favCat) return favList
+        const seen = new Set()
+        const out = []
+        for (const c of cat) {
+            if (!c || c.rarity !== 'SSS' || !c.name || seen.has(c.name)) continue
+            seen.add(c.name)
+            out.push({
+                name: String(c.name), nl: String(c.name).toLowerCase(),
+                anime: String(c.anime || ''), al: String(c.anime || '').toLowerCase(),
+                power: Math.round(Number(c.power) || 0), img: safeImageUrl(c.image) || ''
+            })
+        }
+        favCat = cat
+        favList = out
+        return out
+    }
+
+    function favState(p) {
+        const now = Date.now()
+        const exp = Number(p.favoriteExpires) || 0
+        const remainingMs = Math.max(0, exp - now)
+        let active = null
+        if (p.favoriteCharacter && remainingMs > 0) {
+            const c = favSssList().find(x => x.name === p.favoriteCharacter)
+            active = c
+                ? { name: c.name, anime: c.anime, power: c.power, img: c.img }
+                : { name: String(p.favoriteCharacter), anime: '', power: 0, img: '' }
+        }
+        let sonic = null
+        const comp = p.companion
+        if (active && comp && comp.key === 'sonic' && (comp.level || 0) >= 1) {
+            let chance = 0
+            try { chance = Number(companionsData.getCompanionBonus('sonic', comp.level)) || 0 } catch (e) { chance = 0 }
+            sonic = { level: Number(comp.level) || 1, chance, used: Math.min(2, Number(p.sonicBonusUsed) || 0), max: 2 }
+        }
+        return {
+            money: Number(p.money) || 0,
+            cost: FAV_COST,
+            remainingMs,
+            active,
+            obtained: Math.max(0, Math.min(FAV_MAX, Number(p.favoriteObtained) || 0)),
+            max: FAV_MAX,
+            sonic
+        }
+    }
+
+    function favMessage(r) {
+        if (r.code === 'LOCKED') {
+            const d = Math.ceil((Number(r.remainingMs) || 0) / 86400000)
+            return `❌ لا يمكنك اختيار شخصية مفضلة جديدة — المتبقي ${d} يوم، انتظر انتهاء مدة الـ 4 أيام`
+        }
+        if (r.code === 'NO_MONEY') return `❌ تحتاج ${FAV_COST.toLocaleString('en-US')} مال`
+        if (r.code === 'NOT_FOUND') return '❌ لم يتم العثور على شخصية SSS بهذا الاسم'
+        if (r.code === 'NO_ACCOUNT') return '❌ لا تملك حساباً'
+        return '❌ حدث خطأ بالخادم، حاول مرة ثانية'
+    }
+
+    app.get('/u/:code/favorite', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code }).select(FAV_FIELDS).lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            res.send(favoritePageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                state: favState(player)
+            }))
+        } catch (err) {
+            console.error('favorite page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/favorite/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!auth.authEnabled()) return res.status(503).json({ ok: false })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!favRate(sess.u)) return res.status(429).json({ ok: false })
+            const me = await Player.findOne({ userId: sess.u }).select(FAV_FIELDS).lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            res.json({ ok: true, state: favState(me) })
+        } catch (err) {
+            console.error('favorite state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    // قائمة شخصيات SSS (بحث بالاسم + صفحات)
+    app.get('/favorite/list', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!auth.authEnabled()) return res.status(503).json({ ok: false, message: 'غير مفعّل حالياً.' })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!favRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+
+            const q = String(req.query.q || '').trim().toLowerCase().slice(0, 40)
+            const off = Math.max(0, Math.min(100000, parseInt(req.query.o, 10) || 0))
+            let list = favSssList()
+            if (q) {
+                const rank = c => c.nl === q ? 0 : c.nl.startsWith(q) ? 1 : c.nl.includes(q) ? 2 : c.al.includes(q) ? 3 : 9
+                list = list.filter(c => rank(c) < 9)
+                    .sort((a, b) => (rank(a) - rank(b)) || (b.power - a.power) || a.name.localeCompare(b.name, 'ar'))
+            } else {
+                list = list.slice().sort((a, b) => (b.power - a.power) || a.name.localeCompare(b.name, 'ar'))
+            }
+            res.json({
+                ok: true,
+                total: list.length,
+                items: list.slice(off, off + FAV_PAGE).map(c => ({ n: c.name, a: c.anime, p: c.power, img: c.img }))
+            })
+        } catch (err) {
+            console.error('favorite list error:', err)
+            res.status(500).json({ ok: false, message: 'خطأ بالخادم' })
+        }
+    })
+
+    // تعيين المفضلة — خصم ذري (نفس شروط .مفضلة: مفضلة منتهية/غير موجودة + رصيد كافٍ)
+    app.post('/favorite/set', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, favGate)
+        if (!g || !g.sess) return
+        try {
+            const name = String(g.body.name || '').trim().slice(0, 80).toLowerCase()
+            const list = favSssList()
+            const target = name && (list.find(c => c.nl === name) || list.find(c => c.nl.startsWith(name)))
+            if (!target) return g.fail(404, 'NOT_FOUND', favMessage({ code: 'NOT_FOUND' }))
+
+            const now = Date.now()
+            const set = { favoriteCharacter: target.name, favoriteObtained: 0, favoriteExpires: now + FAV_MS }
+            if (Player.schema.path('sonicBonusUsed')) set.sonicBonusUsed = 0
+
+            const r = await Player.findOneAndUpdate(
+                {
+                    userId: g.sess.u,
+                    money: { $gte: FAV_COST },
+                    $or: [{ favoriteExpires: { $exists: false } }, { favoriteExpires: null }, { favoriteExpires: { $lte: now } }]
+                },
+                { $set: set, $inc: { money: -FAV_COST } },
+                { new: true, strict: false, projection: FAV_FIELDS.split(' ').reduce((o, k) => (o[k] = 1, o), {}) }
+            ).lean()
+
+            if (!r) {
+                const p = await Player.findOne({ userId: g.sess.u }).select('money favoriteExpires').lean()
+                if (!p) return g.fail(400, 'NO_ACCOUNT', favMessage({ code: 'NO_ACCOUNT' }))
+                if ((Number(p.favoriteExpires) || 0) > now) {
+                    return g.fail(400, 'LOCKED', favMessage({ code: 'LOCKED', remainingMs: p.favoriteExpires - now }))
+                }
+                return g.fail(400, 'NO_MONEY', favMessage({ code: 'NO_MONEY' }))
+            }
+
+            res.json({
+                ok: true,
+                message: `⭐ تم تعيين ${target.name} كشخصية مفضلة لمدة 4 أيام (التكلفة ${FAV_COST.toLocaleString('en-US')})`,
+                state: favState(r)
+            })
+        } catch (err) {
+            console.error('favorite set error:', err)
+            return g.fail(500, 'SERVER', favMessage({ code: 'SERVER' }))
         }
     })
 
