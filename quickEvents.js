@@ -3,7 +3,7 @@ const Player = require('./models/Player')
 const characters = require('./characters.json')
 const repeatQuestions = require('./repeatQuestions')
 const EVENT_GROUPS = [
-'120363428933463078@g.us'
+'120363409897316453@g.us'
 ]
 
 const quickEvents = {
