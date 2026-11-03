@@ -8702,8 +8702,12 @@ function registerCharacterSite(app, Player, opts = {}) {
     }
     const GAL_TTL = 30 * 1000
     let galSnap = { at: 0, list: [] }
+    let galPending = null // ⚡ يمنع تزاحم الاستعلامات عند انتهاء الكاش (نفس نمط plPending)
     async function galleryOwners() {
         if (Date.now() - galSnap.at < GAL_TTL) return galSnap
+        if (galPending) return galPending
+        galPending = (async () => {
+        try {
         const docs = await Player.find({ 'gallery.0': { $exists: true } })
             .select('userId name username gallery galleryLikes characters titles activeTitle')
             .lean()
@@ -8727,6 +8731,11 @@ function registerCharacterSite(app, Player, opts = {}) {
         list.sort((a, b) => (b.l - a.l) || (b.n - a.n) || a.u.localeCompare(b.u, 'ar'))
         galSnap = { at: Date.now(), list }
         return galSnap
+        } finally {
+            galPending = null
+        }
+        })()
+        return galPending
     }
 
     // نفس شرط بقية الصفحات: مالك مسجّل (جلسة صالحة) أو مشاهدة فقط
@@ -9611,7 +9620,9 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (q.length < 2) return res.json({ ok: true, items: [] })
             const doc = await ChatFr.findOne({ u: sess.u }).select('fr').lean()
             const have = new Set((doc && doc.fr) || [])
-            const rows = await Player.find({ username: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+            // ⚡ بحث بالبداية فقط على يوزرنيم lowercase (^ بدون i) ليستخدم فهرس username بدل مسح كل اللاعبين
+            const qEsc = q.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const rows = await Player.find({ username: new RegExp('^' + qEsc) })
                 .select('userId name username titles activeTitle').limit(15).lean()
             const sims = await chatImgsFor(rows.map(r => r.userId))
             const items = rows.filter(r => r.userId !== sess.u && !have.has(r.userId)).slice(0, 12).map(r => {
