@@ -5467,6 +5467,7 @@ registerCharacterSite(app, Player, {
     sortCharactersKeepFirst: sortCharactersByRankKeepFirst,
     bossAttack: bossAttackSystem,
     coopShop,
+    companionsData, // ⭐ المفضلة بالموقع: بونص رفيق سونيك
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
