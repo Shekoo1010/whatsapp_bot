@@ -1053,6 +1053,7 @@ function navDrawerHTML(code, csrf, current, name) {
     const items = [
         ['home', '🏠', 'العرض الرئيسي', `/u/${c}`],
         ['pull', '🎴', 'سحب شخصية', `/u/${c}/pull`],
+        ['boxes', '🎁', 'الصناديق', `/u/${c}/boxes`],
         ['wheel', '🎡', 'عجلة الحظ', `/u/${c}/wheel`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['weapons', '⚔️', 'بنر الأسلحة', `/u/${c}/weapons`],
@@ -5908,6 +5909,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, shellHead, charView: siteCharView
             })
         } catch (e) { console.error('site tower mount error:', e) }
+    }
+
+    // 🎁 الصناديق — /u/:code/boxes + POST /boxes/open (systems/siteBoxes.js) — نفس .فتح / .فتح_الكل
+    if (opts.boxes) {
+        try {
+            opts.boxes.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc,
+                navDrawerHTML, NAV_BTN, shellHead
+            })
+        } catch (e) { console.error('site boxes mount error:', e) }
     }
 
     // ⚔️ بنر الأسلحة — /u/:code/weapons (systems/siteWeaponBanner.js) — نفس .سحب_سلاح
