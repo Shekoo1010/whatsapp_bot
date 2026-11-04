@@ -4458,6 +4458,12 @@ function getRandomCharacterByRarity(rarity) {
 // أنواع الصناديق المسموحة (قائمة بيضاء — اسم الصندوق يدخل مسار حقل بالاستعلام الذري)
 const BOX_TYPES = new Set(['basic', 'rare', 'epic', 'legendary', 'sss_chance', 'sss_high'])
 
+// 🔒 فتح الصناديق بالواتس معطّل — الفتح من الموقع فقط (صفحة الصناديق).
+// غيّرها إلى false لإرجاع .فتح / .فتحبكج / .فتح_الكل
+const WA_BOX_OPEN_DISABLED = true
+const WA_BOX_OPEN_RE = /^\.(فتح|فتح_الكل|فتحبكج)(\s|$)/
+const WA_BOX_OPEN_MSG = '🔒 فتح الصناديق صار من الموقع فقط.\n\n🌐 اكتب .رابط وادخل صفحة 🎁 الصناديق واختر العدد اللي تبيه.'
+
 // ⚡ تجميع ندرات متعددة مرة وحدة وتخزينها (الكتالوج ثابت بعد التحميل)
 const _boxPoolCache = new Map()
 
@@ -5472,7 +5478,16 @@ require('./systems/coopGear').setDeps({
     rollCrit, useEXAbilities, useAttackAbilities
 })
 
+// 🎁 صفحة الصناديق بالموقع (systems/siteBoxes.js + systems/boxesPage.html) — نفس منطق .فتح / .فتح_الكل بعدد يختاره اللاعب بشريط
+const siteBoxes = require('./systems/siteBoxes').create({
+    Player, getRandomCharacterByBox, companionsData, addCommandXp,
+    commandXp: COMMAND_XP.openBox, checkAndGrantAchievement, countSSS,
+    getSock: () => siteSockRef.current,
+    getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
+})
+
 registerCharacterSite(app, Player, {
+    boxes: siteBoxes,
     worldsPage: siteWorldsPage,
     idsPage: siteIdsPage,
     weaponBanner: siteWeaponBanner,
@@ -9037,10 +9052,10 @@ const commandExplanations = {
         '.متجر_البيض': 'يعرض متجر بيض الوحوش المتاح للشراء.',
     },
     'الصناديق': {
-        '.فتح': 'يفتح صندوق من نوع معيّن تملكه. مثال: .فتح نوع_الصندوق',
+        '.فتح': 'معطّل بالواتس — فتح الصناديق صار من الموقع فقط (اكتب .رابط ثم صفحة الصناديق).',
         '.صناديقي': 'يعرض عدد وأنواع الصناديق اللي تملكها حالياً.',
-        '.فتحبكج': 'يفتح مجموعة (باكج) صناديق دفعة وحدة بدل فتحها وحدة وحدة.',
-        '.فتح_الكل': 'يفتح كل الصناديق من نوع معيّن تملكه دفعة وحدة. مثال: .فتح_الكل basic',
+        '.فتحبكج': 'معطّل بالواتس — فتح الصناديق صار من الموقع فقط (اكتب .رابط ثم صفحة الصناديق).',
+        '.فتح_الكل': 'معطّل بالواتس — فتح الصناديق صار من الموقع فقط (اكتب .رابط ثم صفحة الصناديق).',
     },
     'المتجر': {
         '.متجر': 'يعرض متجر شراء الشخصيات (أول 10 عناصر متاحة).',
@@ -22716,6 +22731,10 @@ if (text === '.بيع_رفيق') {
 
 // ─── .فتح ───
 
+        if (WA_BOX_OPEN_DISABLED && WA_BOX_OPEN_RE.test(text)) {
+            return sock.sendMessage(msg.key.remoteJid, { text: WA_BOX_OPEN_MSG })
+        }
+
         if (text.startsWith('.فتح ')) {
 
     let player = await Player.findOne({ userId })
@@ -22826,37 +22845,30 @@ ${character.anime}
         }
     }
 
+    const _bh = (cmd) => WA_BOX_OPEN_DISABLED ? '' : `\n↳ ${cmd}`
+
     return sock.sendMessage(
         msg.key.remoteJid,
         {
             text:
 `🎁 ════〔 صناديقك 〕════
 
-📦 Basic: ${player.boxes.basic || 0}
-↳ .فتحبكج basic
+📦 Basic: ${player.boxes.basic || 0}${_bh('.فتحبكج basic')}
 
-📦 Rare: ${player.boxes.rare || 0}
-↳ .فتحبكج rare
+📦 Rare: ${player.boxes.rare || 0}${_bh('.فتحبكج rare')}
 
-📦 Epic: ${player.boxes.epic || 0}
-↳ .فتحبكج epic
+📦 Epic: ${player.boxes.epic || 0}${_bh('.فتحبكج epic')}
 
-📦 Legendary: ${player.boxes.legendary || 0}
-↳ .فتحبكج legendary
+📦 Legendary: ${player.boxes.legendary || 0}${_bh('.فتحبكج legendary')}
 
 ━━━━━━━━━━━━━━
 
-🌟 SSS Chance: ${player.boxes.sss_chance || 0}
-↳ .فتح sss_chance
+🌟 SSS Chance: ${player.boxes.sss_chance || 0}${_bh('.فتح sss_chance')}
 
-💎 SSS High: ${player.boxes.sss_high || 0}
-↳ .فتح sss_high
+💎 SSS High: ${player.boxes.sss_high || 0}${_bh('.فتح sss_high')}
 
 ━━━━━━━━━━━━━━
-💡 أمثلة:
-
-📦 .فتحبكج legendary
-🌟 .فتح sss_chance`
+${WA_BOX_OPEN_DISABLED ? '🌐 الفتح من الموقع فقط — اكتب .رابط ثم افتح صفحة 🎁 الصناديق' : '💡 أمثلة:\n\n📦 .فتحبكج legendary\n🌟 .فتح sss_chance'}`
         }
     )
 
@@ -22969,10 +22981,13 @@ ${character.anime}
 
     // ⚛️ تحديث ذري (نفس أسلوب .فتح): لا يعطي شخصيتين من صندوق واحد لو وصلت رسالتان معاً
     // (boxType هنا مضمون من القائمة المسموحة: default بالـ switch أعلاه يرجع قبل هذا السطر)
+    // ⭐ خبرة الفتح (نفس .فتح)
+    const _packXp = addCommandXp(player, COMMAND_XP.openBox)
+
     const _updatedPack = await Player.findOneAndUpdate(
         { userId, [`boxes.${boxType}`]: { $gt: 0 } },
         {
-            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1 },
+            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1, xp: _packXp },
             $push: { characters: character }
         },
         { new: true }
@@ -26150,6 +26165,10 @@ ${borrowedToday}
 }
     
 
+    if (WA_BOX_OPEN_DISABLED && WA_BOX_OPEN_RE.test(text)) {
+        return sock.sendMessage(msg.key.remoteJid, { text: WA_BOX_OPEN_MSG })
+    }
+
     if (text.startsWith('.فتح_الكل ')) {
 
     let player = await Player.findOne({ userId })
@@ -26255,11 +26274,14 @@ ${borrowedToday}
 
     // ⚛️ تحديث ذري: يصفّر الصناديق ويضيف كل الشخصيات بعملية وحدة، بشرط أن عدد الصناديق
     // لسا نفس اللي قرأناه (لو تغيّر بنفس اللحظة يفشل بدل ما يعطي شخصيات زيادة)
+    // ⭐ خبرة الفتح لكل صندوق (نفس .فتح) — تُحسب بالذاكرة وتُطبّق بـ $inc
+    const _allXp = addCommandXp(player, COMMAND_XP.openBox * totalBoxes)
+
     const _updatedAll = await Player.findOneAndUpdate(
         { userId, [`boxes.${boxType}`]: totalBoxes },
         {
             $set: { [`boxes.${boxType}`]: 0 },
-            $inc: { boxesOpened: totalBoxes },
+            $inc: { boxesOpened: totalBoxes, xp: _allXp },
             $push: { characters: { $each: rewards } }
         },
         { new: true }
