@@ -1937,6 +1937,35 @@ function getRandomAbilities(count = 7) {
 }
 
 
+// 🔎 يبحث عن شخصيات SSS فقط بالاسم أو الفورم (مثل: Luffy / Joy Boy Luffy / نيكا الكاملة)
+// يرجع مصفوفة: تطابق تام أولاً، وإن لم يوجد فتطابق جزئي
+function findSSSCharacters(query) {
+    const q = normalizeName(String(query || ''))
+    if (!q) return []
+
+    const keysOf = c => {
+        const name = c.name || ''
+        const form = c.form || ''
+        return [name, form, `${form} ${name}`, `${name} ${form}`]
+            .map(normalizeName)
+            .filter(Boolean)
+    }
+
+    const sss = characters.filter(c => c.rarity === 'SSS')
+
+    const exact = sss.filter(c => keysOf(c).some(k => k === q))
+    if (exact.length) return exact
+
+    return sss.filter(c => keysOf(c).some(k => k.includes(q)))
+}
+
+function formatCharMatches(list) {
+    return list
+        .slice(0, 8)
+        .map(c => `• ${c.name}${c.form ? ` (${c.form})` : ''}`)
+        .join('\n')
+}
+
 const cheerio = require("cheerio");
 
 console.log("cheerio loaded OK");
@@ -9163,6 +9192,8 @@ const commandExplanations = {
         '.ريست_مجموع': 'أمر للمطور فقط - يصفّر إحصائيات القتال المجموعة للاعبين.',
         '.اعطاء_فلوس': 'أمر للمطور فقط - يعطي مبلغاً مالياً للاعب معيّن.',
         '.اعطاء_EX': 'أمر للمطور فقط - يعطي عملة/مورد EX للاعب معيّن.',
+        '.شخصية': 'أمر للمطور فقط - يعطيك نسخة EX من شخصية SSS بقدرات عشوائية (7 قدرات). مثال: .شخصية Joy Boy Luffy. بالرد أو المنشن تروح للاعب الآخر.',
+        '.شظية': 'أمر للمطور فقط - يعطيك عدداً من شظايا شخصية SSS. مثال: .شظية 12 Luffy. بالرد أو المنشن تروح للاعب الآخر.',
         '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
         '.اصلاح_الالقاب': 'أمر للمطور فقط - يصلح ألقاب/رتب اللاعبين التالفة.',
@@ -30013,6 +30044,158 @@ ${question}`
     // 🛠️ .تعديل_اوميقا — للمطور فقط (systems/devOmegaEdit.js)
     if (text === '.تعديل_اوميقا' || text.startsWith('.تعديل_اوميقا ')) {
         return handleEditOmega({ text, msg, Player, safeSend, isOwner, omegaAbilities, userId })
+    }
+
+    // ─── .شخصية <اسم> (للمطور) — يعطي نسخة EX بقدرات عشوائية ───
+    // بدون رد/منشن تروح لك أنت، ومع رد أو منشن تروح للاعب الآخر
+    if (text.startsWith('.شخصية ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const query = text.slice('.شخصية '.length).trim()
+        const matches = findSSSCharacters(query)
+
+        if (!matches.length) {
+            return safeSend(msg.key.remoteJid, {
+                text: `❌ ما لقيت شخصية SSS بهذا الاسم\n\nالاستخدام:\n.شخصية Joy Boy Luffy`
+            })
+        }
+
+        if (matches.length > 1) {
+            return safeSend(msg.key.remoteJid, {
+                text: `⚠️ أكثر من شخصية تطابق الاسم، اكتب الاسم بشكل أدق (مع الفورم):\n\n${formatCharMatches(matches)}`
+            })
+        }
+
+        const base = matches[0]
+        const targetId = resolveBanTarget(msg) || userId
+        const player = await Player.findOne({ userId: targetId })
+
+        if (!player) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        const abilities = getRandomAbilities(7)
+
+        const exChar = {
+            ...JSON.parse(JSON.stringify(base)),
+            rarity: 'SSS',
+            power: 25000,
+            originalPower: 25000,
+            currentHp: 25000,
+            dead: false,
+            evolutionLevel: 6,
+            evolutionType: 'fixed',
+            level: 1,
+            xp: 0,
+            locked: false,
+            obtainedAt: Date.now(),
+            urAbilities: abilities
+        }
+
+        player.characters.push(exChar)
+        player.markModified('characters')
+        await player.save()
+
+        const abilitiesText = abilities
+            .map((a, i) => `${i + 1}. ${a.name}\n   📈 ${a.description}`)
+            .join('\n\n')
+
+        const exCaption =
+`🌌 ═══〔 EX 〕═══ 🌌
+
+👑 ${exChar.name}${exChar.form ? ` (${exChar.form})` : ''}
+
+⚔️ القوة: ${exChar.power.toLocaleString()}
+💎 الرتبة: EX
+
+🔥 القدرات العشوائية:
+
+${abilitiesText}`
+
+        try {
+            const exImg = await resolveCharacterImageForSend(
+                applyCustomImage(exChar, exChar).image
+            )
+
+            if (exImg) {
+                return sock.sendMessage(msg.key.remoteJid, {
+                    image: exImg,
+                    caption: exCaption
+                })
+            }
+        } catch (e) {
+            console.log('.شخصية image error:', e?.message || e)
+        }
+
+        return safeSend(msg.key.remoteJid, { text: exCaption })
+    }
+
+    // ─── .شظية <عدد> <اسم> (للمطور) — يعطي شظايا شخصية SSS ───
+    if (text.startsWith('.شظية ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const shardArgs = text.trim().split(/\s+/)
+        const shardCount = parseInt(shardArgs[1])
+        const shardQuery = shardArgs.slice(2).join(' ')
+
+        if (isNaN(shardCount) || shardCount < 1 || shardCount > 1000 || !shardQuery) {
+            return safeSend(msg.key.remoteJid, {
+                text: `❌ الاستخدام الصحيح\n\n.شظية 12 Luffy`
+            })
+        }
+
+        const shardMatches = findSSSCharacters(shardQuery)
+
+        if (!shardMatches.length) {
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ ما لقيت شخصية SSS بهذا الاسم'
+            })
+        }
+
+        // الشظايا مخزنة باسم الشخصية فقط، فنفس الاسم بفورمات مختلفة لا يعتبر تعارض
+        const shardNames = [...new Set(shardMatches.map(c => c.name))]
+
+        if (shardNames.length > 1) {
+            return safeSend(msg.key.remoteJid, {
+                text: `⚠️ أكثر من شخصية تطابق الاسم، اكتب الاسم بشكل أدق:\n\n${formatCharMatches(shardMatches)}`
+            })
+        }
+
+        const shardBase = shardMatches[0]
+        const shardTargetId = resolveBanTarget(msg) || userId
+        const shardPlayer = await Player.findOne({ userId: shardTargetId })
+
+        if (!shardPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        if (!shardPlayer.shards) {
+            shardPlayer.shards = new Map()
+        }
+
+        // نفس مفتاح نظام الشظايا الأصلي (النقطة تتحول لـ ．)
+        const shardKeyDev = shardBase.name.replace(/\./g, '．')
+        const shardCurrent = shardPlayer.shards.get(shardKeyDev) || 0
+
+        shardPlayer.shards.set(shardKeyDev, shardCurrent + shardCount)
+        shardPlayer.markModified('shards')
+        await shardPlayer.save()
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`💎 تم إعطاء الشظايا
+
+👑 ${shardBase.name}
+🧩 +${shardCount}
+
+📦 المجموع الآن: ${shardCurrent + shardCount}`
+        })
     }
 
     if (text === ".اعطاء_EX") {
