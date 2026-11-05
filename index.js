@@ -195,6 +195,12 @@ function applyCatBonus(player, amount) {
     return amount
 }
 
+// 👑 جوائز الزعيم العالمي — الأرقام كلها في systems/bossAttackSystem.js (جدول BOSS_REWARDS بأعلى الملف، عدّل هناك فقط)
+const {
+    BOSS_REWARDS, bossFmt, bossGiveBoxes, bossBoxLines, bossBoxList,
+    bossRewardsShortText, bossRewardsFullText
+} = require('./systems/bossAttackSystem')
+
 function applyDogBonus(player, amount) {
     if (
         player &&
@@ -18793,21 +18799,7 @@ ${currentBoss.ability.description}
 
 🏆 الجوائز:
 
-🥇 الأول:
-10000 مال
-1000 XP
-شخصية أسطورية
-
-🥈 الثاني:
-5000 مال
-500 XP
-30% أسطوري
-50% ممتاز
-
-🥉 الثالث وما بعده:
-2500 مال
-500 XP
-شخصية ممتازة`
+${bossRewardsShortText()}`
     }
 )
         }
@@ -18963,38 +18955,7 @@ if (text === '.جوائز') {
 return safeSend(msg.key.remoteJid, {
     text:
 
-`🏆 جوائز الزعيم العالمي 🏆
-
-🥇 المركز الأول
-
-💰 10000 مال
-⭐ 1000 XP
-👑 شخصية أسطورية عشوائية
-
-━━━━━━━━━━━━━━━━━━
-
-🥈 المركز الثاني
-
-💰 5000 مال
-⭐ 500 XP
-
-🎲 30% شخصية أسطورية
-🎲 50% شخصية ممتازة
-
-━━━━━━━━━━━━━━━━━━
-
-🥉 المركز الثالث
-
-💰 2500 مال
-⭐ 500 XP
-✨ شخصية ممتازة عشوائية
-
-━━━━━━━━━━━━━━━━━━
-
-⚔️ يتم تحديد الفائزين حسب
-إجمالي الضرر المسبب للزعيم
-
-📊 استخدم .زعيم لمعرفة الزعيم الحالي`
+bossRewardsFullText()
 })
 
 }
@@ -41102,71 +41063,53 @@ async function distributeBossRewards(sock, groupId) {
 
 if (first) {
 
-    var firstMoneyReward = applyCatBonus(first, 1000000)
+    var firstMoneyReward = applyCatBonus(first, BOSS_REWARDS.first.money)
 
     first.money =
         (first.money || 0) + firstMoneyReward
 
     first.xp =
-        (first.xp || 0) + 1000
+        (first.xp || 0) + BOSS_REWARDS.first.xp
 
-    first.boxes = first.boxes || {}
-
-    first.boxes.sss_chance =
-        (first.boxes.sss_chance || 0) + 1
-
-    first.boxes.sss_high =
-        (first.boxes.sss_high || 0) + 1
+    bossGiveBoxes(first, BOSS_REWARDS.first.boxes)
 
     await first.save()
 
-    rewardLog.logReward(first.userId, { src: 'زعيم المجموعة — المركز الأول', icon: '👑', lines: [`💰 ${Number(firstMoneyReward).toLocaleString('en')} مال`, '⭐ 1,000 XP', '📦 SSS Chance', '📦 SSS High'] })
+    rewardLog.logReward(first.userId, { src: 'زعيم المجموعة — المركز الأول', icon: '👑', lines: [`💰 ${bossFmt(firstMoneyReward)} مال`, `⭐ ${bossFmt(BOSS_REWARDS.first.xp)} XP`, ...bossBoxLines(BOSS_REWARDS.first.boxes)] })
 }
 
 if (second) {
 
-    var secondMoneyReward = applyCatBonus(second, 700000)
+    var secondMoneyReward = applyCatBonus(second, BOSS_REWARDS.second.money)
 
     second.money =
         (second.money || 0) + secondMoneyReward
 
     second.xp =
-        (second.xp || 0) + 500
+        (second.xp || 0) + BOSS_REWARDS.second.xp
 
-    second.boxes = second.boxes || {}
-
-    second.boxes.sss_high =
-        (second.boxes.sss_high || 0) + 1
-
-    second.boxes.legendary =
-        (second.boxes.legendary || 0) + 1
+    bossGiveBoxes(second, BOSS_REWARDS.second.boxes)
 
     await second.save()
 
-    rewardLog.logReward(second.userId, { src: 'زعيم المجموعة — المركز الثاني', icon: '🥈', lines: [`💰 ${Number(secondMoneyReward).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 SSS High', '📦 صندوق اسطوري'] })
+    rewardLog.logReward(second.userId, { src: 'زعيم المجموعة — المركز الثاني', icon: '🥈', lines: [`💰 ${bossFmt(secondMoneyReward)} مال`, `⭐ ${bossFmt(BOSS_REWARDS.second.xp)} XP`, ...bossBoxLines(BOSS_REWARDS.second.boxes)] })
 }
 
 if (third) {
 
-    var thirdMoneyReward = applyCatBonus(third, 500000)
+    var thirdMoneyReward = applyCatBonus(third, BOSS_REWARDS.third.money)
 
     third.money =
         (third.money || 0) + thirdMoneyReward
 
     third.xp =
-        (third.xp || 0) + 500
+        (third.xp || 0) + BOSS_REWARDS.third.xp
 
-    third.boxes = third.boxes || {}
-
-    third.boxes.legendary =
-        (third.boxes.legendary || 0) + 1
-
-    third.boxes.epic =
-        (third.boxes.epic || 0) + 1
+    bossGiveBoxes(third, BOSS_REWARDS.third.boxes)
 
     await third.save()
 
-    rewardLog.logReward(third.userId, { src: 'زعيم المجموعة — المركز الثالث', icon: '🥉', lines: [`💰 ${Number(thirdMoneyReward).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 صندوق اسطوري', '📦 صندوق Epic'] })
+    rewardLog.logReward(third.userId, { src: 'زعيم المجموعة — المركز الثالث', icon: '🥉', lines: [`💰 ${bossFmt(thirdMoneyReward)} مال`, `⭐ ${bossFmt(BOSS_REWARDS.third.xp)} XP`, ...bossBoxLines(BOSS_REWARDS.third.boxes)] })
 }
 
 const _siteRestMoney = {}
@@ -41175,36 +41118,29 @@ for (let i = 3; i < players.length; i++) {
 
     const player = players[i]
 
-    _siteRestMoney[i] = applyCatBonus(player, 300000)
+    _siteRestMoney[i] = applyCatBonus(player, BOSS_REWARDS.rest.money)
 
     player.money =
         (player.money || 0) + _siteRestMoney[i]
 
     player.xp =
-        (player.xp || 0) + 500
+        (player.xp || 0) + BOSS_REWARDS.rest.xp
 
-    player.boxes = player.boxes || {}
-
-    player.boxes.epic =
-        (player.boxes.epic || 0) + 2
+    bossGiveBoxes(player, BOSS_REWARDS.rest.boxes)
 
     await player.save()
 
-    rewardLog.logReward(player.userId, { src: 'زعيم المجموعة — مشارك', icon: '🏅', lines: [`💰 ${Number(_siteRestMoney[i]).toLocaleString('en')} مال`, '⭐ 500 XP', '📦 2 × صندوق Epic'] })
+    rewardLog.logReward(player.userId, { src: 'زعيم المجموعة — مشارك', icon: '🏅', lines: [`💰 ${bossFmt(_siteRestMoney[i])} مال`, `⭐ ${bossFmt(BOSS_REWARDS.rest.xp)} XP`, ...bossBoxLines(BOSS_REWARDS.rest.boxes)] })
 }
 
     
     if (killer) {
 
-    killer.boxes =
-        killer.boxes || {}
-
-    killer.boxes.sss_high =
-        (killer.boxes.sss_high || 0) + 1
+    bossGiveBoxes(killer, BOSS_REWARDS.killer.boxes)
 
     await killer.save()
 
-    rewardLog.logReward(killer.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
+    rewardLog.logReward(killer.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: [...bossBoxLines(BOSS_REWARDS.killer.boxes).map(l => l + ' إضافي')] })
     }
 
     const rankingData = players.map(p => ({
@@ -41227,12 +41163,12 @@ console.log("All boss damage reset")
 // 🌐 نتائج الزعيم تظهر بالموقع كمان (بدون أي إرسال إضافي للقروب)
 try {
     const _siteBoxes = [
-        ['1 SSS Chance Box', '1 SSS High Box'],
-        ['1 SSS High Box', '1 Legendary Box'],
-        ['1 Legendary Box', '1 Epic Box']
+        bossBoxList(BOSS_REWARDS.first.boxes),
+        bossBoxList(BOSS_REWARDS.second.boxes),
+        bossBoxList(BOSS_REWARDS.third.boxes)
     ]
     const _siteMoney = [firstMoneyReward, secondMoneyReward, thirdMoneyReward]
-    const _siteXp = [1000, 500, 500]
+    const _siteXp = [BOSS_REWARDS.first.xp, BOSS_REWARDS.second.xp, BOSS_REWARDS.third.xp]
     const _siteName = p => p.username || p.name || String(p.userId || '').split('@')[0]
     const _killerP = players.find(p => p.userId === killerId)
 
@@ -41245,11 +41181,11 @@ try {
             name: _siteName(p),
             damage: rankingData[i]?.damage || 0,
             money: i < 3 ? (_siteMoney[i] || 0) : (_siteRestMoney[i] || 0),
-            xp: i < 3 ? _siteXp[i] : 500,
-            boxes: i < 3 ? _siteBoxes[i] : ['2 Epic Boxes']
+            xp: i < 3 ? _siteXp[i] : BOSS_REWARDS.rest.xp,
+            boxes: i < 3 ? _siteBoxes[i] : bossBoxList(BOSS_REWARDS.rest.boxes)
         })),
         killer: _killerP
-            ? { userId: _killerP.userId, name: _siteName(_killerP), boxes: ['1 SSS High Box إضافي'] }
+            ? { userId: _killerP.userId, name: _siteName(_killerP), boxes: bossBoxList(BOSS_REWARDS.killer.boxes).map(b => b + ' إضافي') }
             : null,
         at: Date.now()
     })
@@ -41284,11 +41220,10 @@ await sendMessageWithRetry(sock, groupId, {
 
 👑 @${players[0]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(firstMoneyReward || 1000000).toLocaleString()} مال
-⭐ 1000 XP
+💰 ${bossFmt(firstMoneyReward || BOSS_REWARDS.first.money)} مال
+⭐ ${bossFmt(BOSS_REWARDS.first.xp)} XP
 
-📦 1 SSS Chance Box
-📦 1 SSS High Box
+${bossBoxLines(BOSS_REWARDS.first.boxes).join('\n')}
 
 ━━━━━━━━━━━━━━━━━━
 
@@ -41296,11 +41231,10 @@ await sendMessageWithRetry(sock, groupId, {
 
 ⚔️ @${players[1]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(secondMoneyReward || 700000).toLocaleString()} مال
-⭐ 500 XP
+💰 ${bossFmt(secondMoneyReward || BOSS_REWARDS.second.money)} مال
+⭐ ${bossFmt(BOSS_REWARDS.second.xp)} XP
 
-📦 1 SSS High Box
-📦 1 Legendary Box
+${bossBoxLines(BOSS_REWARDS.second.boxes).join('\n')}
 
 ━━━━━━━━━━━━━━━━━━
 
@@ -41308,20 +41242,19 @@ await sendMessageWithRetry(sock, groupId, {
 
 🔥 @${players[2]?.userId.split('@')[0] || 'لا يوجد'}
 
-💰 ${(thirdMoneyReward || 500000).toLocaleString()} مال
-⭐ 500 XP
+💰 ${bossFmt(thirdMoneyReward || BOSS_REWARDS.third.money)} مال
+⭐ ${bossFmt(BOSS_REWARDS.third.xp)} XP
 
-📦 1 Legendary Box
-📦 1 Epic Box
+${bossBoxLines(BOSS_REWARDS.third.boxes).join('\n')}
 
 ━━━━━━━━━━━━━━━━━━
 
 🎖️ بقية المشاركين
 
-💰 300,000 مال
-⭐ 500 XP
+💰 ${bossFmt(BOSS_REWARDS.rest.money)} مال
+⭐ ${bossFmt(BOSS_REWARDS.rest.xp)} XP
 
-📦 2 Epic Boxes
+${bossBoxLines(BOSS_REWARDS.rest.boxes).join('\n')}
 
 ━━━━━━━━━━━━━━━━━━
 
@@ -41329,7 +41262,7 @@ await sendMessageWithRetry(sock, groupId, {
 
 @${killerId?.split('@')[0] || 'لا يوجد'}
 
-🎁 1 SSS High Box إضافي
+🎁 ${bossBoxList(BOSS_REWARDS.killer.boxes).join(' + ')} إضافي
 
 ━━━━━━━━━━━━━━━━━━
 
