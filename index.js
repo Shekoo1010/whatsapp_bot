@@ -6177,31 +6177,43 @@ const tigerCrit2 =
         ? companionsData.getCompanionBonus('tiger', player2.companion.level)
         : 0
 
-// حرج المعدات (نظام متدرج: فايض الـcrit rate فوق 100% يتحول crit damage إضافي)
+// قدرات EX النشطة (4 عشوائية) — تُحدَّد مبكراً لأن الكريت صار رمية واحدة
+const activeAbilities1 =
+    shuffle(char1.urAbilities || []).slice(0, 4)
+
+const activeAbilities2 =
+    shuffle(char2.urAbilities || []).slice(0, 4)
+
+const sumAbility = (list, type) =>
+    list.reduce((t, a) => t + (a && a.type === type ? (Number(a.value) || 0) : 0), 0)
+
+// 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع نسبة الكريت من
+// المعدات/السلاح + النمر + قدرات EX النشطة، وضرر الكريت = مجموع المعدات + قدرات EX.
+// الفايض فوق 100% يتحول ضرر كريت إضافي (داخل rollCrit).
 const p1Crit = rollCrit(
-    (char1EquipBonus.critRate || 0) + tigerCrit1,
-    char1EquipBonus.critDamage || 0
+    (char1EquipBonus.critRate || 0) + tigerCrit1 + sumAbility(activeAbilities1, 'critRate'),
+    (char1EquipBonus.critDamage || 0) + sumAbility(activeAbilities1, 'critDamage')
 )
 if (p1Crit.isCrit) {
     dmg1 = Math.floor(dmg1 * p1Crit.multiplier)
     log1 += `
 
-🎯 حرج المعدات
+🎯 كريت
 
-💥 ضربة حرجة`
+💥 ضربة حرجة ×${p1Crit.multiplier.toFixed(2)}`
 }
 
 const p2Crit = rollCrit(
-    (char2EquipBonus.critRate || 0) + tigerCrit2,
-    char2EquipBonus.critDamage || 0
+    (char2EquipBonus.critRate || 0) + tigerCrit2 + sumAbility(activeAbilities2, 'critRate'),
+    (char2EquipBonus.critDamage || 0) + sumAbility(activeAbilities2, 'critDamage')
 )
 if (p2Crit.isCrit) {
     dmg2 = Math.floor(dmg2 * p2Crit.multiplier)
     log2 += `
 
-🎯 حرج المعدات
+🎯 كريت
 
-💥 ضربة حرجة`
+💥 ضربة حرجة ×${p2Crit.multiplier.toFixed(2)}`
 }
 
 // 🐻 بونص رفيق الدب — يقلل الضرر الوارد عليك (تحمّل أعلى)
@@ -6292,12 +6304,6 @@ if ((char1EquipBonus.reflect || 0) > 0) {
 💥 عكس ${reflectedEquip1} ضرر`
 }
 
-const activeAbilities1 =
-    shuffle(char1.urAbilities || []).slice(0, 4)
-
-const activeAbilities2 =
-    shuffle(char2.urAbilities || []).slice(0, 4)
-
         // =========================
 // PLAYER 1 ABILITIES
 // =========================
@@ -6332,21 +6338,6 @@ for (const ability of activeAbilities1) {
 
 🛡️ قلل ضرر الخصم ${ability.value}%`
 
-}
-
-    if (
-    ability.type === 'critRate' &&
-    Math.random() * 100 <=
-    ability.value
-) {
-
-    dmg1 *= 2
-
-    log1 += `
-
-🎯 ${ability.name}
-
-💥 ضربة حرجة ×2`
 }
 
     if (
@@ -6456,21 +6447,6 @@ for (const ability of activeAbilities2) {
 
 🛡️ قلل ضرر الخصم ${ability.value}%`
 
-}
-
-    if (
-    ability.type === 'critRate' &&
-    Math.random() * 100 <=
-    ability.value
-) {
-
-    dmg2 *= 2
-
-    log2 += `
-
-🎯 ${ability.name}
-
-💥 ضربة حرجة ×2`
 }
 
     if (
@@ -9234,6 +9210,7 @@ const commandExplanations = {
         '.اعطاء_فلوس': 'أمر للمطور فقط - يعطي مبلغاً مالياً للاعب معيّن.',
         '.اعطاء_EX': 'أمر للمطور فقط - يعطي عملة/مورد EX للاعب معيّن.',
         '.شخصية': 'أمر للمطور فقط - يعطيك نسخة EX من شخصية SSS بقدرات عشوائية (7 قدرات). مثال: .شخصية Joy Boy Luffy. بالرد أو المنشن تروح للاعب الآخر.',
+        '.ماكس_رفيق': 'أمر للمطور فقط - يرفع رفيقك لأعلى مستوى. بالرد أو المنشن يرفع رفيق اللاعب الآخر.',
         '.شظية': 'أمر للمطور فقط - يعطيك عدداً من شظايا شخصية SSS. مثال: .شظية 12 Luffy. بالرد أو المنشن تروح للاعب الآخر.',
         '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
@@ -11136,15 +11113,23 @@ if (me.companion && me.companion.key === 'tiger' && (me.companion.level || 0) >=
 
 // 🎯 حرج المعدات (نظام المعدات الجديد - .هجوم الزعيم)
 // نظام متدرج: الفايض فوق 100% crit rate يتحول crit damage إضافي
-const gearCrit = rollCrit(
-    (combinedGearBonus.critRate || 0) + tigerCritBonus,
-    combinedGearBonus.critDamage || 0
+// 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع المعدات + السلاح + النمر + قدرات EX
+const hasEXAbilities = !!(
+    strongest.evolutionLevel >= 1 &&
+    strongest.urAbilities &&
+    strongest.urAbilities.length > 0
+)
+const exEarly = hasEXAbilities ? useEXAbilities(strongest) : null
+
+const totalCrit = rollCrit(
+    (combinedGearBonus.critRate || 0) + tigerCritBonus + (exEarly ? exEarly.critRate : 0),
+    (combinedGearBonus.critDamage || 0) + (exEarly ? exEarly.critDamage : 0)
 )
 
 let bossHitWasCrit = false
 
-if (gearCrit.isCrit) {
-    damage = Math.floor(damage * gearCrit.multiplier)
+if (totalCrit.isCrit) {
+    damage = Math.floor(damage * totalCrit.multiplier)
     bossHitWasCrit = true
 }
 
@@ -11205,13 +11190,9 @@ let playerSkillsText = ''
 
 let ex = null
 
-if (
-    strongest.evolutionLevel >= 1 &&
-    strongest.urAbilities &&
-    strongest.urAbilities.length > 0
-) {
+if (hasEXAbilities) {
 
-    ex = useEXAbilities(strongest)
+    ex = exEarly
 
     // زيادة الهجوم
     damage = Math.floor(
@@ -11242,14 +11223,6 @@ damage = Math.floor(
     damage *
     (1 + ((me.damageBonus || 0) / 100))
 )
-
-    // حرج EX (نفس النظام المتدرج — فايض الـcrit rate يتحول crit damage)
-    const exCrit = rollCrit(ex.critRate, ex.critDamage)
-
-    if (exCrit.isCrit) {
-        damage = Math.floor(damage * exCrit.multiplier)
-        bossHitWasCrit = true
-    }
 
     // ❤️ امتصاص حياة قدرات EX/أوميقا (حقيقي — يرجّع دم فعلي، ويُعرض
     // بقسم "🩸 امتصاص الحياة" بالرسالة، بدل نظام lifestealBonus القديم)
@@ -14424,14 +14397,12 @@ if (text.startsWith('.احصائيات_كاملة')) {
         }
         message += `⚔️ الهجوم النهائي (ATK): ${fmt(st.atk)}\n\n`
 
-        message += `${SEP}\n🎯 الكريت (رمية لكل ضربة)\n${SEP}\n`
-        message += `🎲 كريت المعدات/السلاح${st.companionBonus.tiger ? '/النمر' : ''}: ${pct(gc.rawRate)}${gc.overflow ? ` (فعّال ${pct(gc.chance)})` : ''}\n`
-        message += `   💥 ضرر الكريت: ${pct(gc.damage)} → ×${gc.mult.toFixed(2)}${gc.overflow ? ` (أساسي ${pct(gc.baseDmg)} + فايض ${pct(gc.overflow)})` : ''}\n`
-        if (ec) {
-            message += `🎲 كريت قدرات EX: ${pct(ec.rawRate)}${ec.overflow ? ` (فعّال ${pct(ec.chance)})` : ''}\n`
-            message += `   💥 ضرر الكريت: ${pct(ec.damage)} → ×${ec.mult.toFixed(2)}${ec.overflow ? ` (أساسي ${pct(ec.baseDmg)} + فايض ${pct(ec.overflow)})` : ''}\n`
-            message += `ℹ️ الرميتان منفصلتان وقد تتراكمان بنفس الضربة\n`
-        }
+        const tc = st.crit.total
+        message += `${SEP}\n🎯 الكريت (رمية واحدة لكل ضربة)\n${SEP}\n`
+        message += `🎲 نسبة الكريت الكلية: ${pct(tc.rawRate)}${tc.overflow ? ` (فعّال ${pct(tc.chance)})` : ''}\n`
+        message += `   💥 ضرر الكريت: ${pct(tc.damage)} → ×${tc.mult.toFixed(2)}${tc.overflow ? ` (أساسي ${pct(tc.baseDmg)} + فايض ${pct(tc.overflow)})` : ''}\n`
+        message += `   ├ معدات/سلاح${st.companionBonus.tiger ? '/نمر' : ''}: ${pct(gc.rawRate)} نسبة | ${pct(gc.baseDmg)} ضرر\n`
+        if (ec) message += `   └ قدرات EX: ${pct(ec.rawRate)} نسبة | ${pct(ec.baseDmg)} ضرر\n`
         message += '\n'
 
         message += `${SEP}\n👹 ضرر الزعيم\n${SEP}\n`
@@ -26728,6 +26699,9 @@ if (text === ".اسبون_بوس") {
 
     currentBoss = await Boss.findOne()
 
+    // 🟢 الاسبون اليدوي يفتح باب الهجوم بالموقع فوراً (قبل كذا كان يضل مقفول لين رأس الساعة)
+    global.bossAttackWindowOpen = !!(currentBoss && !currentBoss.finished && (currentBoss.hp || 0) > 0)
+
     return safeSend(msg.key.remoteJid,{
         text:"✅ تم إنشاء الزعيم."
     })
@@ -30603,6 +30577,45 @@ ${abilitiesText}`
 🧩 +${shardCount}
 
 📦 المجموع الآن: ${shardCurrent + shardCount}`
+        })
+    }
+
+    // ─── .ماكس_رفيق (للمطور) — يرفع الرفيق لأعلى مستوى (لك، أو للمنشن/الرد) ───
+    if (text === '.ماكس_رفيق' || text.startsWith('.ماكس_رفيق ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const maxCompTargetId = resolveBanTarget(msg) || userId
+        const maxCompPlayer = await Player.findOne({ userId: maxCompTargetId })
+
+        if (!maxCompPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        if (!maxCompPlayer.companion || !maxCompPlayer.companion.key) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا اللاعب ما عنده رفيق.' })
+        }
+
+        const maxCompAnimal = companionsData.ANIMALS[maxCompPlayer.companion.key]
+        const maxCompName = maxCompPlayer.companion.customName || maxCompAnimal?.defaultName || maxCompPlayer.companion.key
+        const maxCompOld = maxCompPlayer.companion.level || 0
+
+        maxCompPlayer.companion.level = companionsData.MAX_LEVEL
+        maxCompPlayer.companion.foodProgress = 0
+        maxCompPlayer.markModified('companion')
+        await maxCompPlayer.save()
+
+        const maxCompBonus = companionsData.getCompanionBonus(maxCompPlayer.companion.key, companionsData.MAX_LEVEL)
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🌟 تم رفع الرفيق لأعلى مستوى
+
+${maxCompAnimal?.emoji || '🐾'} ${maxCompName}
+📈 المستوى: ${maxCompOld} → ${companionsData.MAX_LEVEL}/${companionsData.MAX_LEVEL}
+✨ البونص الحالي: +${maxCompBonus}${maxCompAnimal?.unit || ''}`
         })
     }
 
