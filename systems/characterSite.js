@@ -2173,6 +2173,19 @@ function pullPageHTML({ viewer, code, state }) {
 .pl-sell{max-width:320px; width:100%;}
 .pl-mg{margin-top:14px; padding-top:14px; border-top:1px solid #1f2740;}
 .pl-mg-t{text-align:center; font-weight:800; color:var(--gold-dim); font-size:14px; margin-bottom:2px;}
+#goN[hidden]{display:none;}
+.pl-sum{font-weight:800; color:var(--gold); font-size:15px; margin-bottom:12px; text-align:center;}
+.pl-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; width:100%;}
+.pl-grid .card{animation:plpop .45s ease-out both; max-width:none;}
+.pl-grid .art{min-height:210px;}
+.pl-grid .tier-tag{padding:8px 8px 4px; gap:4px;}
+.pl-grid .tier-name,.pl-grid .tier-name.en{font-size:12px; letter-spacing:.04em;}
+.pl-grid .pwr-badge{font-size:10px; padding:3px 7px;}
+.pl-grid .stars{font-size:12px; padding:0 10px 6px;}
+.pl-grid .name-en{font-size:15px;}
+.pl-grid .anime-chip{font-size:10px; padding:2px 8px; margin-top:6px;}
+.pl-grid .plate{padding:10px 6px 12px;}
+.pl-tag{position:absolute; top:8px; left:8px; z-index:2; font-size:11px; font-weight:800; color:var(--gold); padding:3px 8px; border-radius:10px; background:rgba(8,10,18,.8); border:1px solid var(--gold-dim);}
 @media (max-width:560px){ .pl-res .art{min-height:280px;} }
 body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none;background:radial-gradient(40% 35% at 20% 20%,rgba(91,42,122,.5),transparent 70%),radial-gradient(45% 40% at 80% 30%,rgba(18,71,107,.55),transparent 70%),radial-gradient(50% 45% at 50% 95%,rgba(240,192,74,.16),transparent 70%);animation:paNeb 26s ease-in-out infinite alternate;}
 body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(1.5px 1.5px at 12% 22%,#fff,transparent),radial-gradient(1px 1px at 33% 64%,#ffe9a8,transparent),radial-gradient(1.5px 1.5px at 58% 18%,#fff,transparent),radial-gradient(1px 1px at 76% 52%,#bfe3ff,transparent),radial-gradient(1.5px 1.5px at 90% 80%,#fff,transparent),radial-gradient(1px 1px at 22% 88%,#ffe9a8,transparent),radial-gradient(1px 1px at 66% 90%,#fff,transparent);animation:paTw 5s ease-in-out infinite alternate;}
@@ -2233,6 +2246,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;bac
       <div class="pl-reset" id="reset"></div>
       <div class="gp-msg" id="msg" hidden style="white-space:pre-wrap"></div>
       <button class="btn gold" id="go" type="button">🎴 اسحب</button>
+      <button class="btn purple" id="goN" type="button" hidden>🎴 اسحب ×5</button>
       <div class="pl-mg">
         <div class="pl-mg-t">🔥 الدمج الشامل (كل 5 شخصيات ➜ شخصية أعلى)</div>
         <button class="btn purple" id="mg-good" type="button">🔥 دمج الكل ممتاز ➜ أسطوري</button>
@@ -2260,7 +2274,10 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;bac
     $('s-pulls').textContent=S.pulls+'/'+S.max+(S.bonus>0?' +'+S.bonus+'🎡':'');
     $('s-pity').textContent=S.pity+'/'+S.pityMax;
     $('s-cap').textContent=S.count+'/'+S.cap;
-    $('go').disabled=busy;
+    var full=S.count>=S.cap, mn=multiN();
+    $('go').disabled=busy||full;
+    var gn=$('goN'); gn.hidden=mn<2; gn.textContent='🎴 اسحب ×'+mn; gn.disabled=busy||full;
+    if(full && !busy && $('msg').hidden) show('warn','📦 المخزون ممتلئ — بِع أو ادمج شخصيات عشان تقدر تسحب');
     $('mg-good').disabled=busy; $('mg-leg').disabled=busy;
   }
   function tick(){
@@ -2428,6 +2445,54 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;bac
     }
     paRaf=requestAnimationFrame(frame);
   }
+  // ===== 🎴 سحب ×N (حد أقصى 5): زر بعدد سحباتك، الأنميشن لأعلى شخصية ثم بطاقات النتائج =====
+  function multiN(){ return Math.max(0,Math.min(Number(S.pulls)||0,Number(S.maxMulti)||5,(Number(S.cap)||0)-(Number(S.count)||0))); }
+  function applyState(st){
+    if(!st) return;
+    if(st.pulls!=null) S.pulls=st.pulls;
+    if(st.bonus!=null) S.bonus=st.bonus;
+    if(st.pity!=null) S.pity=st.pity;
+    if(st.count!=null) S.count=st.count;
+    if(st.cap!=null) S.cap=st.cap;
+    if(st.resetIn!=null){ S.resetIn=st.resetIn; endAt=Date.now()+S.resetIn*1000; }
+  }
+  function renderMany(list,notes){
+    var r=$('res'); r.innerHTML='';
+    r.appendChild(el('div','pl-sum','🎴 حصلت على '+list.length+' شخصيات'));
+    var g=el('div','pl-grid');
+    list.forEach(function(x,i){ var d=card(x.card); d.style.animationDelay=(i*0.1)+'s'; if(x.tag) d.appendChild(el('div','pl-tag',x.tag)); g.appendChild(d); });
+    r.appendChild(g);
+    if(notes&&notes.length){ var n=el('div','pl-note'); n.textContent=notes.join(String.fromCharCode(10,10)); r.appendChild(n); }
+    list.slice().reverse().forEach(function(x){ hist.unshift(x.card); }); if(hist.length>12) hist.length=12;
+    var h=$('hist'); h.innerHTML='';
+    hist.forEach(function(x,i){ var ch=el('span','chip'); ch.style.setProperty('--tier',x.color); ch.appendChild(el('i','',String(hist.length-i))); ch.appendChild(document.createTextNode(x.name)); h.appendChild(ch); });
+    $('histw').hidden=false;
+  }
+  $('goN').addEventListener('click',function(){
+    if(busy) return;
+    var n=multiN(); if(n<2) return;
+    busy=true; $('goN').disabled=true; $('go').disabled=true; $('goN').textContent='جارٍ السحب…'; show(null);
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/pull',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE,count:n})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm); busy=false;
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      var j=x.j; applyState(j.state);
+      if(j.ok && j.cards && j.cards.length){
+        busy=true; var list=j.cards;
+        try{ paPlay(list[0].card,function(again){ busy=false; renderMany(list,j.notes); stats(); if(again&&S.pulls>0) setTimeout(function(){ $('go').click(); },60); }); }
+        catch(e){ paOn=false; $('pa-stage').style.display='none'; busy=false; renderMany(list,j.notes); }
+      } else { show('bad',j.message||'فشل السحب'); }
+      stats();
+    })
+    .catch(function(){
+      clearTimeout(tm); busy=false;
+      show('warn','لم يصلنا رد من السيرفر — قد تكون السحبات تمت. حدّث الصفحة للتأكد من سحباتك ومخزونك قبل المحاولة من جديد.');
+      stats();
+    });
+  });
   $('mg-good').addEventListener('click',function(){ mergeAll('ممتاز','دمج الكل ممتاز ➜ أسطوري'); });
   $('mg-leg').addEventListener('click',function(){ mergeAll('اسطوري','دمج الكل أسطوري ➜ SSS'); });
   $('go').addEventListener('click',function(){
@@ -5647,6 +5712,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     const notifyDm = opts.notifyDm || (async () => {})
     const notifyOwner = opts.notifyOwner || (async () => {})
     const pullCharacter = opts.pullCharacter // من systems/pullSystem.js (نفس منطق .اسحب)
+    const pullMany = opts.pullMany // 🎴 سحب متعدد ×N (من نفس الملف)
     const companionsData = opts.companionsData || { getCompanionBonus: () => 0 } // ⭐ المفضلة: نسبة بونص رفيق سونيك
     const sellCharacters = opts.sellCharacters // من systems/characterTradeSystem.js (نفس منطق .بيع)
     const mergeAll = opts.mergeAll     // من systems/characterTradeSystem.js (نفس منطق .دمج_الكل)
@@ -5739,6 +5805,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         return {
             pulls,
             max: 5,
+            maxMulti: 5, // أقصى سحبات بزر ×N
             pity: Number(player.sssPity) || 0,
             bonus: Number(player.bonusPulls) || 0, // 🎡 عملات العجلة
             pityMax: 30,
@@ -6430,6 +6497,47 @@ function registerCharacterSite(app, Player, opts = {}) {
             // نسخة الجلسة (تتبدل لما يغيّر كلمة السر)
             const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            // 🎴 سحب متعدد (×N): نفس منطق .اسحب لكل سحبة بحفظ واحد (حد أقصى 5)
+            const reqCount = Math.floor(Number(b.count)) || 1
+            if (reqCount > 1) {
+                if (typeof pullMany !== 'function') return fail(503, 'DISABLED', 'السحب المتعدد غير مفعّل حالياً.')
+                const m = await pullMany({ userId: sess.u, count: Math.min(reqCount, 5) })
+                if (!m.ok) {
+                    const status = m.code === 'BUSY' ? 409 : m.code === 'SERVER' ? 500 : m.code === 'OFFLINE' ? 503 : 400
+                    const extra = {}
+                    if (m.code === 'NO_PULLS') extra.state = { pulls: 0, resetIn: Math.ceil((Number(m.retryInMs) || 0) / 1000) }
+                    return fail(status, m.code, pullErrorMessage(m), extra)
+                }
+                const catIdx = getCatalogIndex(getCatalog)
+                const cards = m.results.map(x => {
+                    const disp = resolveDisplayChar(x.character, catIdx)
+                    const tags = []
+                    if (x.isFavoritePull) tags.push('⭐ مفضلة')
+                    if (x.guaranteedSSS) tags.push('🎯 ضمان')
+                    return { card: pullCardData(disp), tag: tags.join(' ') }
+                })
+                // الأعلى رتبة أولاً (الأولى هي اللي يُشغَّل لها الأنميشن)
+                cards.sort((a, c) => (c.card.stars - a.card.stars) || (c.card.power - a.card.power))
+                const notes = []
+                m.results.forEach(x => {
+                    if (x.sonicBonusText) notes.push(x.sonicBonusText)
+                    if (x.worldPointsText) notes.push(String(x.worldPointsText))
+                })
+                return res.json({
+                    ok: true,
+                    multi: true,
+                    cards,
+                    notes,
+                    state: {
+                        pulls: Number(m.pullsLeft) || 0,
+                        bonus: Number(m.bonusLeft) || 0,
+                        pity: Number(m.sssPity) || 0,
+                        count: Number(m.charCount) || 0,
+                        cap: Number(m.capacity) || 30
+                    }
+                })
+            }
 
             const r = await pullCharacter({ userId: sess.u })
 

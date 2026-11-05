@@ -32,10 +32,14 @@ function createPullSystem(deps) {
     const COOLDOWN = 60 * 60 * 1000
     const PULLS_PER_HOUR = 5
     const PITY_CAP = 30
+    const MAX_MULTI = 5 // أقصى عدد سحبات بالطلب الواحد (زر ×N بالموقع)
 
     const fail = (code, extra = {}) => ({ ok: false, code, ...extra })
 
-    async function pullCharacter({ userId }) {
+    // 🎴 السحب المتعدد: نفس منطق .اسحب بالضبط لكل سحبة، بحفظ واحد بالنهاية
+    async function pullMany({ userId, count = 1 }) {
+
+        count = Math.max(1, Math.min(MAX_MULTI, Math.floor(Number(count)) || 1))
 
         if (!userId) return fail('NO_PLAYER')
 
@@ -107,177 +111,205 @@ function createPullSystem(deps) {
                 })
             }
 
-            // 🎯 عداد الضمان
-            player.sssPity = (player.sssPity || 0) + 1
+            // 📦 المساحة المتبقية بالمخزون — ما نسحب أكثر من اللي يتسع
+            const capacity = player.maxCharacters || 30
+            const space = capacity - player.characters.length
 
-            let guaranteedSSS = false
+            // عدد السحبات الفعلي = الأقل بين المطلوب والرصيد والمساحة
+            const total = Math.min(count, player.pulls, space)
 
-            if (player.sssPity >= PITY_CAP) {
-                guaranteedSSS = true
-                player.sssPity = 0
-            }
+            const results = []
 
-            // 🍀 بونص الحظ من لفل 10
-            let luckBonus = 0
+            for (let n = 0; n < total; n++) {
 
-            if ((player.level || 1) >= 10) {
-                luckBonus = 3
-            }
+                // 🎯 عداد الضمان
+                player.sssPity = (player.sssPity || 0) + 1
 
-            // 🎲 تحديد الندرة
-            let rarity = 'عادي'
+                let guaranteedSSS = false
 
-            if (guaranteedSSS) {
-
-                rarity = 'SSS'
-
-            } else {
-
-                let chance = Math.random() * 100
-
-                chance -= luckBonus
-
-                if (chance <= 5) {
-                    rarity = 'SSS'
-                } else if (chance <= 22) {
-                    rarity = 'اسطوري'
-                } else if (chance <= 50) {
-                    rarity = 'ممتاز'
+                if (player.sssPity >= PITY_CAP) {
+                    guaranteedSSS = true
+                    player.sssPity = 0
                 }
-            }
 
-            const filteredCharacters = getCharsByRarityFast(rarity)
+                // 🍀 بونص الحظ من لفل 10
+                let luckBonus = 0
 
-            if (!filteredCharacters.length) {
-                return fail('NO_POOL', { rarity })
-            }
+                if ((player.level || 1) >= 10) {
+                    luckBonus = 3
+                }
 
-            let randomCharacter
-            let isFavoritePull = false
+                // 🎲 تحديد الندرة
+                let rarity = 'عادي'
 
-            // 💖 الشخصية المفضلة (SSS فقط، نسختين كحد أقصى)
-            if (
-                rarity === 'SSS' &&
-                player.favoriteCharacter &&
-                player.favoriteObtained < 2 &&
-                player.favoriteExpires > Date.now()
-            ) {
+                if (guaranteedSSS) {
 
-                const favorite =
-                    (
-                        player.favoriteCharacter &&
-                        player.favoriteExpires > Date.now() &&
-                        player.favoriteObtained < 2
-                    )
-                        ? getCharByNameRarityFast(player.favoriteCharacter, 'SSS')
-                        : null
+                    rarity = 'SSS'
 
-                if (favorite) {
+                } else {
 
-                    randomCharacter = favorite
+                    let chance = Math.random() * 100
 
-                    isFavoritePull = true
+                    chance -= luckBonus
 
-                    player.favoriteObtained =
-                        (player.favoriteObtained || 0) + 1
-
-                    if (player.favoriteObtained >= 2) {
-
-                        player.favoriteObtained = 2
-
-                        // إيقاف ظهور المفضلة بعد النسختين
-                        player.favoriteCharacter = null
+                    if (chance <= 5) {
+                        rarity = 'SSS'
+                    } else if (chance <= 22) {
+                        rarity = 'اسطوري'
+                    } else if (chance <= 50) {
+                        rarity = 'ممتاز'
                     }
                 }
-            }
 
-            if (!randomCharacter) {
+                const filteredCharacters = getCharsByRarityFast(rarity)
 
-                randomCharacter =
-                    filteredCharacters[
-                        Math.floor(Math.random() * filteredCharacters.length)
-                    ]
-            }
-
-            if (
-                player.favoriteCharacter &&
-                player.favoriteExpires <= Date.now()
-            ) {
-
-                player.favoriteCharacter = null
-                player.favoriteObtained = 0
-                player.sonicBonusUsed = 0
-                player.favoriteExpires = 0
-            }
-
-            // 📅 المهام اليومية
-            if (player.dailyMissions) {
-
-                player.dailyMissions.pulls += 1
-
-                if (randomCharacter.rarity === 'اسطوري') {
-                    player.dailyMissions.gotLegendary += 1
+                if (!filteredCharacters.length) {
+                    // أول سحبة: نفشل مثل الأمر. بنص الدفعة: نوقف ونحفظ اللي انسحب
+                    if (!results.length) {
+                        player.sssPity = Math.max(0, (player.sssPity || 0) - 1)
+                        return fail('NO_POOL', { rarity })
+                    }
+                    player.sssPity = Math.max(0, (player.sssPity || 0) - 1)
+                    break
                 }
 
-                if (randomCharacter.rarity === 'SSS') {
-                    player.dailyMissions.gotSSS = true
-                }
+                let randomCharacter
+                let isFavoritePull = false
 
-                player.markModified('dailyMissions')
-            }
-
-            // 📅 المهام الأسبوعية
-            trackWeeklyPull(player, randomCharacter)
-
-            // ➕ إضافة الشخصية
-            player.characters.push({
-                ...randomCharacter,
-                originalPower: randomCharacter.power,
-                evolutionLevel: 0,
-                urAbilities: []
-            })
-
-            // 💙 بونص رفيق سونيك — يجدد فرصة سحب المفضلة
-            let sonicBonusText = ''
-
-            if (
-                isFavoritePull &&
-                player.companion &&
-                player.companion.key === 'sonic' &&
-                (player.companion.level || 0) >= 1
-            ) {
-
-                const sonicChance =
-                    companionsData.getCompanionBonus('sonic', player.companion.level)
-
-                // 💙 حد أقصى: نسختين مضافتين من سونيك لكل مفضلة (2 أساسية + 2 مضافة = 4)
-                // ⚠️ يحتاج حقل sonicBonusUsed بـ Player.js — لو غير موجود نوقف البونص (أمان)
-                const sonicBonusUsed = player.sonicBonusUsed || 0
-                const sonicFieldOk = !!Player.schema.path('sonicBonusUsed')
-
+                // 💖 الشخصية المفضلة (SSS فقط، نسختين كحد أقصى)
                 if (
-                    sonicFieldOk &&
-                    sonicBonusUsed < 2 &&
-                    Math.random() * 100 < sonicChance
+                    rarity === 'SSS' &&
+                    player.favoriteCharacter &&
+                    player.favoriteObtained < 2 &&
+                    player.favoriteExpires > Date.now()
                 ) {
 
-                    player.sonicBonusUsed = sonicBonusUsed + 1
+                    const favorite =
+                        (
+                            player.favoriteCharacter &&
+                            player.favoriteExpires > Date.now() &&
+                            player.favoriteObtained < 2
+                        )
+                            ? getCharByNameRarityFast(player.favoriteCharacter, 'SSS')
+                            : null
 
-                    // هذي السحبة ما تُحسب من رصيد المفضلة
-                    player.favoriteObtained =
-                        Math.max(0, (player.favoriteObtained || 0) - 1)
+                    if (favorite) {
 
-                    if (!player.favoriteCharacter) {
-                        player.favoriteCharacter = randomCharacter.name
+                        randomCharacter = favorite
+
+                        isFavoritePull = true
+
+                        player.favoriteObtained =
+                            (player.favoriteObtained || 0) + 1
+
+                        if (player.favoriteObtained >= 2) {
+
+                            player.favoriteObtained = 2
+
+                            // إيقاف ظهور المفضلة بعد النسختين
+                            player.favoriteCharacter = null
+                        }
+                    }
+                }
+
+                if (!randomCharacter) {
+
+                    randomCharacter =
+                        filteredCharacters[
+                            Math.floor(Math.random() * filteredCharacters.length)
+                        ]
+                }
+
+                if (
+                    player.favoriteCharacter &&
+                    player.favoriteExpires <= Date.now()
+                ) {
+
+                    player.favoriteCharacter = null
+                    player.favoriteObtained = 0
+                    player.sonicBonusUsed = 0
+                    player.favoriteExpires = 0
+                }
+
+                // 📅 المهام اليومية
+                if (player.dailyMissions) {
+
+                    player.dailyMissions.pulls += 1
+
+                    if (randomCharacter.rarity === 'اسطوري') {
+                        player.dailyMissions.gotLegendary += 1
                     }
 
-                    sonicBonusText = '💙 رفيقك سونيك جدد فرصة سحب المفضلة! هذي السحبة ما تُحسب من رصيدك'
-                }
-            }
+                    if (randomCharacter.rarity === 'SSS') {
+                        player.dailyMissions.gotSSS = true
+                    }
 
-            player.pulls -= 1
-            player.totalPulls = (player.totalPulls || 0) + 1
-            addCommandXp(player, COMMAND_XP.pull)
+                    player.markModified('dailyMissions')
+                }
+
+                // 📅 المهام الأسبوعية
+                trackWeeklyPull(player, randomCharacter)
+
+                // ➕ إضافة الشخصية
+                player.characters.push({
+                    ...randomCharacter,
+                    originalPower: randomCharacter.power,
+                    evolutionLevel: 0,
+                    urAbilities: []
+                })
+
+                // 💙 بونص رفيق سونيك — يجدد فرصة سحب المفضلة
+                let sonicBonusText = ''
+
+                if (
+                    isFavoritePull &&
+                    player.companion &&
+                    player.companion.key === 'sonic' &&
+                    (player.companion.level || 0) >= 1
+                ) {
+
+                    const sonicChance =
+                        companionsData.getCompanionBonus('sonic', player.companion.level)
+
+                    // 💙 حد أقصى: نسختين مضافتين من سونيك لكل مفضلة (2 أساسية + 2 مضافة = 4)
+                    // ⚠️ يحتاج حقل sonicBonusUsed بـ Player.js — لو غير موجود نوقف البونص (أمان)
+                    const sonicBonusUsed = player.sonicBonusUsed || 0
+                    const sonicFieldOk = !!Player.schema.path('sonicBonusUsed')
+
+                    if (
+                        sonicFieldOk &&
+                        sonicBonusUsed < 2 &&
+                        Math.random() * 100 < sonicChance
+                    ) {
+
+                        player.sonicBonusUsed = sonicBonusUsed + 1
+
+                        // هذي السحبة ما تُحسب من رصيد المفضلة
+                        player.favoriteObtained =
+                            Math.max(0, (player.favoriteObtained || 0) - 1)
+
+                        if (!player.favoriteCharacter) {
+                            player.favoriteCharacter = randomCharacter.name
+                        }
+
+                        sonicBonusText = '💙 رفيقك سونيك جدد فرصة سحب المفضلة! هذي السحبة ما تُحسب من رصيدك'
+                    }
+                }
+
+                player.pulls -= 1
+                player.totalPulls = (player.totalPulls || 0) + 1
+                addCommandXp(player, COMMAND_XP.pull)
+
+                results.push({
+                    character: randomCharacter,
+                    guaranteedSSS,
+                    isFavoritePull,
+                    sonicBonusText,
+                    worldPointsText: '',
+                    totalPullsAt: player.totalPulls,
+                    charCountAt: player.characters.length
+                })
+            }
 
             await player.save()
 
@@ -291,38 +323,39 @@ function createPullSystem(deps) {
                 notifyJid = (await getNotifyJid(userId)) || userId
             } catch (e) { /* نكمل بالخاص */ }
 
-            try {
-                await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, notifyJid)
-                await checkAndGrantAchievement(player, 'collection', player.characters.length, sock, notifyJid)
-            } catch (err) {
-                console.log('site pull achievements error:', err)
-            }
+            // 🏆 الإنجازات + 🌍 نقاط العالم لكل سحبة (نفس الأمر)، بعد الحفظ الواحد
+            for (const r of results) {
 
-            let worldPointsText = ''
+                try {
+                    await checkAndGrantAchievement(player, 'pulls', r.totalPullsAt, sock, notifyJid)
+                    await checkAndGrantAchievement(player, 'collection', r.charCountAt, sock, notifyJid)
+                } catch (err) {
+                    console.log('site pull achievements error:', err)
+                }
 
-            try {
-                worldPointsText = (await worlds.awardPullPoints(
-                    player,
-                    sock,
-                    notifyJid,
-                    randomCharacter.rarity
-                )) || ''
-            } catch (err) {
-                console.log('site pull world points error:', err)
+                try {
+                    r.worldPointsText = (await worlds.awardPullPoints(
+                        player,
+                        sock,
+                        notifyJid,
+                        r.character.rarity
+                    )) || ''
+                } catch (err) {
+                    console.log('site pull world points error:', err)
+                }
+
+                delete r.totalPullsAt
+                delete r.charCountAt
             }
 
             return {
                 ok: true,
-                character: randomCharacter,
-                guaranteedSSS,
-                isFavoritePull,
-                sonicBonusText,
-                worldPointsText,
+                results,
                 pullsLeft: player.pulls,
                 bonusLeft: player.bonusPulls || 0,
                 sssPity: player.sssPity,
                 charCount: player.characters.length,
-                capacity: player.maxCharacters || 30
+                capacity
             }
 
         } catch (err) {
@@ -338,7 +371,31 @@ function createPullSystem(deps) {
         }
     }
 
-    return { pullCharacter, PULLS_PER_HOUR, PITY_CAP, COOLDOWN }
+    // 🎴 سحبة وحدة — نفس الشكل القديم تماماً (يستخدمه /pull العادي)
+    async function pullCharacter({ userId }) {
+
+        const r = await pullMany({ userId, count: 1 })
+
+        if (!r.ok) return r
+
+        const one = r.results[0]
+
+        return {
+            ok: true,
+            character: one.character,
+            guaranteedSSS: one.guaranteedSSS,
+            isFavoritePull: one.isFavoritePull,
+            sonicBonusText: one.sonicBonusText,
+            worldPointsText: one.worldPointsText,
+            pullsLeft: r.pullsLeft,
+            bonusLeft: r.bonusLeft,
+            sssPity: r.sssPity,
+            charCount: r.charCount,
+            capacity: r.capacity
+        }
+    }
+
+    return { pullCharacter, pullMany, MAX_MULTI, PULLS_PER_HOUR, PITY_CAP, COOLDOWN }
 }
 
 module.exports = { createPullSystem }
