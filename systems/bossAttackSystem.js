@@ -12,6 +12,55 @@
 // البيانات) وحالة الزعيم نفسها (currentBoss).
 // =====================================================================
 
+// ═══════════════════════════════════════════════════════════
+// 👑 جوائز الزعيم العالمي — مصدر واحد (عدّل الأرقام هنا فقط)
+// التوزيع الفعلي + رسالة النتائج + .جوائز + .زعيم كلها تقرأ من هنا تلقائياً
+// boxes: مفتاح الصندوق بقاعدة البيانات : العدد
+// ═══════════════════════════════════════════════════════════
+const BOSS_REWARDS = {
+    first:  { money: 1000000, xp: 1000, boxes: { sss_chance: 1, sss_high: 1 } },
+    second: { money: 700000,  xp: 500,  boxes: { sss_high: 1, legendary: 1 } },
+    third:  { money: 500000,  xp: 500,  boxes: { legendary: 1, epic: 1 } },
+    rest:   { money: 300000,  xp: 500,  boxes: { epic: 2 } },        // بقية المشاركين
+    killer: { money: 0,       xp: 0,    boxes: { sss_high: 1 } }     // الضربة القاضية (إضافي)
+}
+const BOSS_BOX_LABELS = {
+    sss_chance: 'SSS Chance Box',
+    sss_high: 'SSS High Box',
+    legendary: 'Legendary Box',
+    epic: 'Epic Box'
+}
+function bossBoxLabel(key) { return BOSS_BOX_LABELS[key] || key }
+function bossFmt(n) { return Number(n || 0).toLocaleString('en') }
+// يضيف صناديق الجائزة للاعب
+function bossGiveBoxes(player, boxes) {
+    player.boxes = player.boxes || {}
+    for (const [k, n] of Object.entries(boxes || {})) {
+        player.boxes[k] = (player.boxes[k] || 0) + n
+    }
+}
+// أسطر نصية: "📦 1 SSS Chance Box"
+function bossBoxLines(boxes) {
+    return Object.entries(boxes || {}).map(([k, n]) => `📦 ${n} ${bossBoxLabel(k)}`)
+}
+// قائمة نصية للموقع: ['1 SSS Chance Box', ...]
+function bossBoxList(boxes) {
+    return Object.entries(boxes || {}).map(([k, n]) => `${n} ${bossBoxLabel(k)}`)
+}
+// نص مختصر لأمر .زعيم
+function bossRewardsShortText() {
+    const R = BOSS_REWARDS
+    const blk = r => `${bossFmt(r.money)} مال\n${bossFmt(r.xp)} XP\n` + Object.entries(r.boxes).map(([k, n]) => `${n} ${bossBoxLabel(k)}`).join('\n')
+    return `🥇 الأول:\n${blk(R.first)}\n\n🥈 الثاني:\n${blk(R.second)}\n\n🥉 الثالث:\n${blk(R.third)}\n\n🎖️ بقية المشاركين:\n${blk(R.rest)}\n\n☠️ الضربة القاضية:\n${bossBoxList(R.killer.boxes).join('\n')} إضافي`
+}
+// نص كامل لأمر .جوائز
+function bossRewardsFullText() {
+    const R = BOSS_REWARDS
+    const blk = r => `💰 ${bossFmt(r.money)} مال\n⭐ ${bossFmt(r.xp)} XP\n` + bossBoxLines(r.boxes).join('\n')
+    const sep = '\n\n━━━━━━━━━━━━━━━━━━\n\n'
+    return `🏆 جوائز الزعيم العالمي 🏆\n\n🥇 المركز الأول\n\n${blk(R.first)}${sep}🥈 المركز الثاني\n\n${blk(R.second)}${sep}🥉 المركز الثالث\n\n${blk(R.third)}${sep}🎖️ بقية المشاركين\n\n${blk(R.rest)}${sep}☠️ الضربة القاضية\n\n🎁 ${bossBoxList(R.killer.boxes).join(' + ')} إضافي${sep}⚔️ يتم تحديد الفائزين حسب\nإجمالي الضرر المسبب للزعيم\n\n📊 استخدم .زعيم لمعرفة الزعيم الحالي`
+}
+
 const COOLDOWN_MS = 30000
 const RESPAWN_MS = 5 * 60 * 1000
 
@@ -302,31 +351,17 @@ function createBossAttackSystem(deps) {
         const grantOne = async (p, i) => {
             p.boxes = p.boxes || {}
             const isKiller = p.userId === killerId
-            let money, xpGain, boxes
-
-            if (i === 0) {
-                money = applyCatBonus(p, 10000); xpGain = 1000
-                p.boxes.sss_chance = (p.boxes.sss_chance || 0) + 1
-                p.boxes.sss_high = (p.boxes.sss_high || 0) + 1
-                boxes = ['1 SSS Chance Box', '1 SSS High Box']
-            } else if (i === 1) {
-                money = applyCatBonus(p, 5000); xpGain = 500
-                p.boxes.sss_high = (p.boxes.sss_high || 0) + 1
-                p.boxes.legendary = (p.boxes.legendary || 0) + 1
-                boxes = ['1 SSS High Box', '1 Legendary Box']
-            } else if (i === 2) {
-                money = applyCatBonus(p, 2500); xpGain = 500
-                p.boxes.legendary = (p.boxes.legendary || 0) + 1
-                p.boxes.epic = (p.boxes.epic || 0) + 1
-                boxes = ['1 Legendary Box', '1 Epic Box']
-            } else {
-                money = applyCatBonus(p, 2500); xpGain = 500
-                p.boxes.epic = (p.boxes.epic || 0) + 2
-                boxes = ['2 Epic Boxes']
-            }
+            const R = i === 0 ? BOSS_REWARDS.first
+                : i === 1 ? BOSS_REWARDS.second
+                : i === 2 ? BOSS_REWARDS.third
+                : BOSS_REWARDS.rest
+            const money = applyCatBonus(p, R.money)
+            const xpGain = R.xp
+            bossGiveBoxes(p, R.boxes)
+            const boxes = bossBoxList(R.boxes)
 
             // 🗡️ صندوق الضربة القاضية يُضاف بنفس الحفظ (حفظ واحد للقاتل بدل اثنين)
-            if (isKiller) p.boxes.sss_high = (p.boxes.sss_high || 0) + 1
+            if (isKiller) bossGiveBoxes(p, BOSS_REWARDS.killer.boxes)
 
             p.money = (p.money || 0) + money
             p.xp = (p.xp || 0) + xpGain
@@ -336,12 +371,12 @@ function createBossAttackSystem(deps) {
             rewardLog.logReward(p.userId, {
                 src: `الزعيم — المركز ${i + 1}`,
                 icon: ['👑', '🥈', '🥉'][i] || '🏅',
-                lines: [`💰 ${Number(money).toLocaleString('en')} مال`, `⭐ ${xpGain} XP`, ...boxes.map(b => `📦 ${b}`)]
+                lines: [`💰 ${bossFmt(money)} مال`, `⭐ ${bossFmt(xpGain)} XP`, ...boxes.map(b => `📦 ${b}`)]
             })
 
             if (isKiller) {
-                rewardLog.logReward(p.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: ['📦 1 SSS High Box إضافي'] })
-                killerEntry = { userId: p.userId, name: nameOf(p), boxes: ['1 SSS High Box إضافي'] }
+                rewardLog.logReward(p.userId, { src: 'الزعيم — الضربة القاضية', icon: '🗡️', lines: bossBoxLines(BOSS_REWARDS.killer.boxes).map(l => l + ' إضافي') })
+                killerEntry = { userId: p.userId, name: nameOf(p), boxes: bossBoxList(BOSS_REWARDS.killer.boxes).map(b => b + ' إضافي') }
             }
 
             entries[i] = {
@@ -1125,4 +1160,9 @@ function createBossAttackSystem(deps) {
     return { attack, getState, getFeed, latestFeedId, getLastResults, recordResults, subscribe, COOLDOWN_MS }
 }
 
-module.exports = { createBossAttackSystem }
+module.exports = {
+    createBossAttackSystem,
+    // 👑 جوائز الزعيم — يستخدمها index.js أيضاً
+    BOSS_REWARDS, BOSS_BOX_LABELS, bossBoxLabel, bossFmt, bossGiveBoxes,
+    bossBoxLines, bossBoxList, bossRewardsShortText, bossRewardsFullText
+}
