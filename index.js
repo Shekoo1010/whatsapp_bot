@@ -475,7 +475,7 @@ function runWithNightPause(label, fn) {
 
 const useAttackAbilities = require('./systems/useAttackAbilities')
 const useEXAbilities = require('./utils/useEXAbilities')
-const { handleEditOmega } = require('./systems/devOmegaEdit')
+// (تم استبدال systems/devOmegaEdit بنظام تعديل القدرات الجديد داخل هذا الملف)
 const getPlayerPower = require('./utils/getPlayerPower')
 const { cappedPower } = require('./utils/cappedPower') // قوة الترتيب بحدّ سعة المخزون
 const { handleShipCommand, startShipDailyReset } = require('./shipCommands')
@@ -673,6 +673,29 @@ const {
 const pendingSellConfirm =
 global.pendingSellConfirm ||
 (global.pendingSellConfirm = new Map())
+
+// 🛠️ تعديل القدرات للمطور (.غير_قدرة / .تعديل_اوميقا ثم .اختر)
+// ownerUserId -> { type, targetId, charIndex, charName, slotName, options, at }
+const pendingAbilityEdit =
+global.pendingAbilityEdit ||
+(global.pendingAbilityEdit = new Map())
+const ABILITY_EDIT_TTL = 5 * 60 * 1000
+
+// يقسّم قائمة القدرات إلى رسائل لا تتجاوز ~3000 حرف
+function buildAbilityOptionChunks(options) {
+    const chunks = []
+    let cur = ''
+    options.forEach((a, i) => {
+        const block = `${i + 1}. ${a.name}\n   📈 ${a.description || ''}\n\n`
+        if (cur.length + block.length > 3000 && cur) {
+            chunks.push(cur)
+            cur = ''
+        }
+        cur += block
+    })
+    if (cur) chunks.push(cur)
+    return chunks
+}
 const {
 startAuction,
 currentAuction
@@ -5113,7 +5136,7 @@ const { giftCharacters } = createGiftSystem({
 // يشارك قفل pullLocks مع .اسحب و .سحب_بنر فما يصير سحبتين متزامنتين (موقع + واتساب)
 const { createPullSystem } = require('./systems/pullSystem')
 
-const { pullCharacter } = createPullSystem({
+const { pullCharacter, pullMany } = createPullSystem({
     Player,
     pullLocks,
     getCharsByRarityFast,
@@ -5511,6 +5534,7 @@ registerCharacterSite(app, Player, {
     bossPush,
     giftCharacters: siteGiftCharacters,
     pullCharacter,
+    pullMany,
     bannerInfo: bannerPullSystem.getBannerInfo,
     bannerPull: bannerPullSystem.pullBanner,
     sellCharacters: siteSellCharacters,
@@ -13731,6 +13755,39 @@ ${rewardText}`
 if (text === '.شخصياتي') {
 
     try {
+
+        // 👑 للمطور فقط: بالرد على رسالة لاعب (أو منشنه) يعرض شخصياته بنفس أرقام .غير_قدرة
+        const _viewTarget = isOwner(msg) ? resolveBanTarget(msg) : null
+
+        if (_viewTarget && _viewTarget !== userId) {
+
+            const tPlayer = await Player.findOne({ userId: _viewTarget })
+                .select('characters.name characters.power characters.rarity characters.evolutionLevel maxCharacters')
+                .lean()
+
+            if (!tPlayer || !tPlayer.characters || !tPlayer.characters.length) {
+                return safeSend(msg.key.remoteJid, { text: '❌ هذا اللاعب غير موجود أو لا يملك شخصيات.' })
+            }
+
+            // عرض للقراءة فقط: الرقم = مكان الشخصية الفعلي المحفوظ عند اللاعب
+            const tLines = [`👤 شخصيات @${_viewTarget.split('@')[0]} (${tPlayer.characters.length}/${tPlayer.maxCharacters || 30})\n\n`]
+            let tRank = null
+
+            tPlayer.characters.forEach((c, i) => {
+                const r = getCharacterRank(c)
+                if (r !== tRank) {
+                    if (tRank !== null) tLines.push('━━━━━━━━━━━━━━━\n')
+                    tRank = r
+                    tLines.push(`${r === 'Ω' ? '🌌' : '🌟'} ${r}\n`)
+                }
+                tLines.push(`${i + 1}. ${c.name} ⚔️${c.power}\n`)
+            })
+
+            return safeSend(msg.key.remoteJid, {
+                text: tLines.join(''),
+                mentions: [_viewTarget]
+            })
+        }
 
         // ⚡ قراءة خفيفة: الحقول اللي نعرضها فقط (بدل تحميل مستند اللاعب كامل بكل الإيكوز والصناديق والسجلات)
         let player =
@@ -30208,9 +30265,193 @@ ${question}`
 
 }
 
-    // 🛠️ .تعديل_اوميقا — للمطور فقط (systems/devOmegaEdit.js)
-    if (text === '.تعديل_اوميقا' || text.startsWith('.تعديل_اوميقا ')) {
-        return handleEditOmega({ text, msg, Player, safeSend, isOwner, omegaAbilities, userId })
+    // =====================================================================
+    // 🛠️ تعديل القدرات — للمطور فقط
+    //   .غير_قدرة <رقم الشخصية> <رقم القدرة>   → تغيير قدرة شخصية EX
+    //   .تعديل_اوميقا <رقم الشخصية>            → تغيير قدرة الأوميقا
+    //   (بالرد على رسالة لاعب أو منشنه = تعديل شخصية ذلك اللاعب، وبدونهما = شخصيتك)
+    //   البوت يرسل القدرات المتبقية (اللي ما تملكها الشخصية) ثم: .اختر_قدرة <رقم>
+    // الأرقام = نفس أرقام .شخصياتي
+    // =====================================================================
+    if (
+        text === '.غير_قدرة' || text.startsWith('.غير_قدرة ') ||
+        text === '.تعديل_اوميقا' || text.startsWith('.تعديل_اوميقا ')
+    ) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const isOmegaEdit = text.startsWith('.تعديل_اوميقا')
+        const eArgs = text.trim().split(/\s+/)
+        const charNum = parseInt(eArgs[1])
+        const slotNum = isOmegaEdit ? null : parseInt(eArgs[2])
+
+        if (isNaN(charNum) || (!isOmegaEdit && isNaN(slotNum))) {
+            return safeSend(msg.key.remoteJid, {
+                text: isOmegaEdit
+                    ? '❌ الاستخدام الصحيح\n\n.تعديل_اوميقا 3\n(رقم الشخصية من .شخصياتي — بالرد على رسالة لاعب لتعديل شخصيته)'
+                    : '❌ الاستخدام الصحيح\n\n.غير_قدرة 3 6\n(3 = رقم الشخصية من .شخصياتي، 6 = رقم القدرة داخلها)\nبالرد على رسالة لاعب لتعديل شخصيته'
+            })
+        }
+
+        const editTargetId = resolveBanTarget(msg) || userId
+        const editPlayer = await Player.findOne({ userId: editTargetId })
+
+        if (!editPlayer || !editPlayer.characters || !editPlayer.characters.length) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود أو لا يملك شخصيات.' })
+        }
+
+        if (charNum < 1 || charNum > editPlayer.characters.length) {
+            return safeSend(msg.key.remoteJid, { text: '❌ رقم الشخصية غير صحيح.' })
+        }
+
+        const editChar = editPlayer.characters[charNum - 1]
+        const ownedAbilities = editChar.urAbilities || []
+        const isOmegaName = n => omegaAbilities.some(o => o.name === n)
+
+        let slotName = null
+        let options = []
+
+        if (isOmegaEdit) {
+
+            if ((editChar.evolutionLevel || 0) < 7) {
+                return safeSend(msg.key.remoteJid, { text: '❌ هذه الشخصية ليست أوميقا.' })
+            }
+
+            const cur = ownedAbilities.find(a => isOmegaName(a.name))
+
+            if (!cur) {
+                return safeSend(msg.key.remoteJid, { text: '❌ هذه الشخصية لا تملك قدرة أوميقا.' })
+            }
+
+            slotName = cur.name
+            options = omegaAbilities.filter(a => !ownedAbilities.some(o => o.name === a.name))
+
+        } else {
+
+            if ((editChar.evolutionLevel || 0) < 6) {
+                return safeSend(msg.key.remoteJid, { text: '❌ هذه الشخصية ليست EX.' })
+            }
+
+            if (slotNum < 1 || slotNum > ownedAbilities.length) {
+                return safeSend(msg.key.remoteJid, {
+                    text: `❌ رقم القدرة غير صحيح (الشخصية عندها ${ownedAbilities.length} قدرات).`
+                })
+            }
+
+            const cur = ownedAbilities[slotNum - 1]
+
+            if (isOmegaName(cur.name)) {
+                return safeSend(msg.key.remoteJid, {
+                    text: '❌ هذه قدرة أوميقا — لتغييرها استخدم:\n.تعديل_اوميقا ' + charNum
+                })
+            }
+
+            slotName = cur.name
+            options = urAbilities.filter(a => !isOmegaName(a.name) && !ownedAbilities.some(o => o.name === a.name))
+        }
+
+        if (!options.length) {
+            return safeSend(msg.key.remoteJid, { text: '❌ لا توجد قدرات متبقية لهذه الشخصية.' })
+        }
+
+        pendingAbilityEdit.set(userId, {
+            type: isOmegaEdit ? 'omega' : 'ex',
+            targetId: editTargetId,
+            charIndex: charNum - 1,
+            charName: editChar.name,
+            slotName,
+            options,
+            at: Date.now()
+        })
+
+        const mentionTag = editTargetId !== userId ? ` (@${editTargetId.split('@')[0]})` : ''
+        const header =
+`🛠️ تغيير قدرة ${isOmegaEdit ? 'الأوميقا' : 'EX'}
+
+👤 ${editChar.name}${mentionTag}
+🔁 القدرة الحالية: ${slotName}
+
+📜 القدرات المتبقية (${options.length}):
+
+`
+        const chunks = buildAbilityOptionChunks(options)
+
+        await safeSend(msg.key.remoteJid, {
+            text: header + chunks[0],
+            mentions: editTargetId !== userId ? [editTargetId] : []
+        })
+
+        for (let i = 1; i < chunks.length; i++) {
+            await safeSend(msg.key.remoteJid, { text: chunks[i] })
+        }
+
+        return safeSend(msg.key.remoteJid, {
+            text: '✅ اكتب: .اختر_قدرة <رقم القدرة>\n(صالح 5 دقائق)'
+        })
+    }
+
+    // ─── .اختر_قدرة <رقم> — تأكيد اختيار القدرة الجديدة (للمطور) ───
+    if ((text === '.اختر_قدرة' || text.startsWith('.اختر_قدرة ')) && isOwner(msg)) {
+
+        const pend = pendingAbilityEdit.get(userId)
+
+        if (!pend || Date.now() - pend.at > ABILITY_EDIT_TTL) {
+            pendingAbilityEdit.delete(userId)
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ لا يوجد تعديل معلّق (أو انتهت مدته). ابدأ من جديد بـ .غير_قدرة أو .تعديل_اوميقا'
+            })
+        }
+
+        const pick = parseInt(text.trim().split(/\s+/)[1])
+
+        if (isNaN(pick) || pick < 1 || pick > pend.options.length) {
+            return safeSend(msg.key.remoteJid, {
+                text: `❌ اختر رقماً من 1 إلى ${pend.options.length}`
+            })
+        }
+
+        const chosen = pend.options[pick - 1]
+        const pickPlayer = await Player.findOne({ userId: pend.targetId })
+        const pickChar = pickPlayer?.characters?.[pend.charIndex]
+
+        if (!pickChar || pickChar.name !== pend.charName) {
+            pendingAbilityEdit.delete(userId)
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ تغيّرت شخصيات اللاعب أثناء الاختيار — أعد الأمر من جديد.'
+            })
+        }
+
+        const abArr = pickChar.urAbilities || []
+        const slotIdx = abArr.findIndex(a => a.name === pend.slotName)
+
+        if (slotIdx === -1 || abArr.some(a => a.name === chosen.name)) {
+            pendingAbilityEdit.delete(userId)
+            return safeSend(msg.key.remoteJid, {
+                text: '❌ تغيّرت قدرات الشخصية أثناء الاختيار — أعد الأمر من جديد.'
+            })
+        }
+
+        const oldName = abArr[slotIdx].name
+        abArr[slotIdx] = JSON.parse(JSON.stringify(chosen))
+        pickChar.urAbilities = abArr
+
+        pickPlayer.markModified('characters')
+        await pickPlayer.save()
+
+        pendingAbilityEdit.delete(userId)
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`✅ تم تغيير القدرة
+
+👤 ${pickChar.name}
+❌ القدرة القديمة: ${oldName}
+✨ القدرة الجديدة: ${chosen.name}
+
+📈 ${chosen.description || ''}`
+        })
     }
 
     // ─── .شخصية <اسم> (للمطور) — يعطي نسخة EX بقدرات عشوائية ───
@@ -30880,6 +31121,54 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
     }
 
     // -------------------------
+    // .سلاح (للمطور فقط) — يعطي سلاح عشوائي بدون صورة وبدون خصم سحبات
+    // بالرد على رسالة لاعب أو منشنه = يروح له، وبدونهما = لك
+    // -------------------------
+    if (text === '.سلاح') {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const gwTargetId = resolveBanTarget(msg) || userId
+        const gwPlayer = await Player.findOne({ userId: gwTargetId })
+
+        if (!gwPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        const gwWeapon = getRandomWeapon()
+
+        gwPlayer.weaponsInventory = gwPlayer.weaponsInventory || []
+        gwPlayer.weaponsInventory.push({
+            instanceId: `${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+            id: gwWeapon.id,
+            name: gwWeapon.name,
+            type: gwWeapon.type,
+            rarity: gwWeapon.rarity,
+            baseAtk: gwWeapon.baseAtk,
+            subStatType: gwWeapon.subStatType,
+            subStatValue: gwWeapon.subStatValue,
+            image: gwWeapon.image || '',
+            equippedTo: null
+        })
+        gwPlayer.markModified('weaponsInventory')
+        await gwPlayer.save()
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🗡️ تم إعطاء سلاح عشوائي${gwTargetId !== userId ? ` لـ @${gwTargetId.split('@')[0]}` : ''}
+
+🏹 ${gwWeapon.name}
+🔰 النوع ➤ ${gwWeapon.type}
+🌟 الندرة ➤ ${'★'.repeat(gwWeapon.rarity)}
+⚡ الهجوم الأساسي ➤ ${gwWeapon.baseAtk}
+✨ ${WEAPON_STAT_LABELS[gwWeapon.subStatType] || gwWeapon.subStatType} ➤ +${gwWeapon.subStatValue}%`,
+            mentions: gwTargetId !== userId ? [gwTargetId] : []
+        })
+    }
+
+    // -------------------------
     // .سحب_سلاح
     // -------------------------
     if (text === '.سحب_سلاح') {
@@ -31482,6 +31771,136 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
     // 🎐 Echo System - .ايكو_شخصية رقم_الشخصية (عرض الإيكوز المجهزة على شخصية معينة
     // مع الستات الرئيسي + كل الساب ستات لكل قطعة منفردة)
     // =========================
+
+    // =========================
+    // 🎐 .ايكو_جاهز <العائلة> — للمطور فقط
+    // يعطي طقم 5 قطع (كوست 4 + 3 + 3 + 1 + 1) من عائلة وحدة، مطوّر لأقصى لفل،
+    // بأفضل ستاتس لهجوم الزعيم: رئيسي (ضرر بوس / هجوم) + ساب (هجوم % + كريت ريت + كريت دمج) بأعلى قيمة.
+    // بدون عائلة: يعرض أسماء العوائل. بالرد/المنشن على لاعب = يروح له.
+    // =========================
+    if (text === '.ايكو_جاهز' || text.startsWith('.ايكو_جاهز ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const gfQuery = text.slice('.ايكو_جاهز'.length).trim().toLowerCase()
+
+        const gfListText = () =>
+            '🎐 عوائل الإيكو:\n\n' +
+            echoFamilies.map((f, i) => `${i + 1}. ${f.name.split(' ')[0]} ${f.nameAr}`).join('\n') +
+            '\n\n📌 الاستخدام: .ايكو_جاهز رعد الفراغ\n(أو برقم العائلة: .ايكو_جاهز 1)'
+
+        if (!gfQuery) {
+            return safeSend(msg.key.remoteJid, { text: gfListText() })
+        }
+
+        // البحث: رقم القائمة، أو المعرّف، أو الاسم العربي/الإنجليزي (مطابقة تامة ثم جزئية)
+        const gfNum = /^\d+$/.test(gfQuery) ? parseInt(gfQuery) : null
+        const gfNorm = v => String(v || '').toLowerCase()
+
+        let gfFamily =
+            (gfNum ? echoFamilies[gfNum - 1] : null) ||
+            echoFamilies.find(f =>
+                gfNorm(f.id) === gfQuery ||
+                gfNorm(f.nameAr) === gfQuery ||
+                gfNorm(f.name).includes(gfQuery) && gfNorm(f.name).replace(/[^a-z ]/g, '').trim() === gfQuery
+            )
+
+        if (!gfFamily) {
+            const partial = echoFamilies.filter(f =>
+                gfNorm(f.nameAr).includes(gfQuery) ||
+                gfNorm(f.id).includes(gfQuery) ||
+                gfNorm(f.name).includes(gfQuery)
+            )
+            if (partial.length === 1) gfFamily = partial[0]
+            else if (partial.length > 1) {
+                return safeSend(msg.key.remoteJid, {
+                    text: '⚠️ أكثر من عائلة تطابق الاسم، اكتب الاسم بشكل أدق:\n\n' +
+                        partial.map(f => `• ${f.nameAr}`).join('\n')
+                })
+            }
+        }
+
+        if (!gfFamily) {
+            return safeSend(msg.key.remoteJid, { text: '❌ ما لقيت هذي العائلة.\n\n' + gfListText() })
+        }
+
+        const gfTargetId = resolveBanTarget(msg) || userId
+        const gfPlayer = await Player.findOne({ userId: gfTargetId })
+
+        if (!gfPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        // بنك الساب ستات الحقيقي (نقرأ أعلى قيمة لكل نوع منه بدل تخمينها)
+        const gfAffixes = require('./data/equipmentAffixes').affixes
+        const gfPref = ['attackPercent', 'critRate', 'critDamage', 'attack', 'bossDamage']
+
+        const gfPickSubs = mainType => {
+            const out = []
+            for (const t of gfPref) {
+                if (out.length >= equipmentSystem.MAX_SUBSTATS) break
+                if (t === mainType) continue
+                const a = gfAffixes.find(x => x.type === t)
+                if (!a) continue
+                // "attack" فلات نستخدمه فقط لو ما فيه attackPercent ببنك الساب ستات
+                if (t === 'attack' && out.some(o => o.type === 'attackPercent')) continue
+                out.push({ type: a.type, name: a.name, value: a.max })
+            }
+            return out
+        }
+
+        // الطقم: كوست 4 (ضرر بوس) + 3 + 3 + 1 + 1 (هجوم)
+        const gfLayout = [
+            { cost: 4, main: 'bossDamage' },
+            { cost: 3, main: 'attack' },
+            { cost: 3, main: 'attack' },
+            { cost: 1, main: 'attack' },
+            { cost: 1, main: 'attack' }
+        ]
+
+        if (!gfPlayer.inventory) gfPlayer.inventory = []
+
+        const gfCreated = []
+
+        for (const slot of gfLayout) {
+
+            const piece = equipmentSystem.generateEchoPiece(slot.cost, gfFamily.id)
+            if (!piece) continue
+
+            // الستات الرئيسي المطلوب (لازم يكون ضمن بنك الكوست)
+            const allowed = equipmentSystem.MAIN_STAT_POOL[slot.cost] || []
+            const mainType = allowed.includes(slot.main) ? slot.main : piece.mainStat.type
+            piece.mainStat.type = mainType
+
+            // رفع لأقصى لفل (يحدّث قيمة الرئيسي لسقفها) ثم نستبدل الساب ستات العشوائية بأفضل ثلاثة
+            equipmentSystem.levelUpEchoBy(piece, equipmentSystem.MAX_LEVEL)
+            piece.subStats = gfPickSubs(mainType)
+
+            gfPlayer.inventory.push(piece)
+            gfCreated.push(piece)
+        }
+
+        gfPlayer.markModified('inventory')
+        await gfPlayer.save()
+
+        const gfLines = gfCreated.map(p => {
+            const isPct = equipmentSystem.PERCENT_MAIN_STATS.includes(p.mainStat.type)
+            const subs = p.subStats.map(s => `${s.name} +${s.value}`).join(' | ')
+            return `${p.icon} كوست ${p.cost} | لفل ${p.level}/${p.maxLevel}\n   ├ ${p.mainStat.type} +${p.mainStat.value}${isPct ? '%' : ''}\n   └ ${subs}`
+        }).join('\n\n')
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🎐 تم إعطاء طقم ${gfFamily.nameAr} الجاهز${gfTargetId !== userId ? ` لـ @${gfTargetId.split('@')[0]}` : ''}
+
+${gfLines}
+
+📌 اكتب .ايكو لرؤيتها ثم .لبس للتجهيز`,
+            mentions: gfTargetId !== userId ? [gfTargetId] : []
+        })
+    }
 
     if (text.startsWith('.ايكو_شخصية')) {
 
@@ -41192,6 +41611,7 @@ function sweepRuntimeMaps() {
         n += _sweepMap('pvpNearbyLists', global.pvpNearbyLists, 10 * MIN, v => (v && typeof v.at === 'number' ? v.at : null))
         n += _sweepMap('pendingSwaps', pendingSwaps, 30 * MIN)
         n += _sweepMap('pendingSellConfirm', global.pendingSellConfirm, 30 * MIN)
+        n += _sweepMap('pendingAbilityEdit', global.pendingAbilityEdit, 10 * MIN, v => (v && typeof v.at === 'number' ? v.at : null))
         n += _sweepMap('lastRolls', lastRolls, 120 * MIN)
         n += _sweepMap('lastChatByUser', lastChatByUser, 360 * MIN)
         n += _sweepMap('fileExistsCache', _fileExistsCache, 15 * MIN, v => (v && typeof v.at === 'number' ? v.at : null))
