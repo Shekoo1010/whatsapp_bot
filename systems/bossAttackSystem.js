@@ -482,14 +482,24 @@ function createBossAttackSystem(deps) {
                 tigerCritBonus = companionsData.getCompanionBonus('tiger', me.companion.level)
             }
 
-            const gearCrit = rollCrit(
-                (combinedGearBonus.critRate || 0) + tigerCritBonus,
-                combinedGearBonus.critDamage || 0
+            // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع نسبة الكريت من كل المصادر
+            // (معدات/سلاح + نمر + قدرات EX) وضرر الكريت = مجموع ضرر المعدات + EX.
+            // الفايض فوق 100% يتحول ضرر كريت إضافي (داخل rollCrit).
+            const hasEXAbilities = !!(
+                strongest.evolutionLevel >= 1 &&
+                strongest.urAbilities &&
+                strongest.urAbilities.length > 0
+            )
+            const exEarly = hasEXAbilities ? useEXAbilities(strongest) : null
+
+            const totalCrit = rollCrit(
+                (combinedGearBonus.critRate || 0) + tigerCritBonus + (exEarly ? exEarly.critRate : 0),
+                (combinedGearBonus.critDamage || 0) + (exEarly ? exEarly.critDamage : 0)
             )
 
             let bossHitWasCrit = false
-            if (gearCrit.isCrit) {
-                damage = Math.floor(damage * gearCrit.multiplier)
+            if (totalCrit.isCrit) {
+                damage = Math.floor(damage * totalCrit.multiplier)
                 bossHitWasCrit = true
             }
 
@@ -525,12 +535,8 @@ function createBossAttackSystem(deps) {
 
             let ex = null
 
-            if (
-                strongest.evolutionLevel >= 1 &&
-                strongest.urAbilities &&
-                strongest.urAbilities.length > 0
-            ) {
-                ex = useEXAbilities(strongest)
+            if (hasEXAbilities) {
+                ex = exEarly
 
                 damage = Math.floor(damage * (1 + ex.attackBonus / 100))
                 damage = Math.floor(damage * (1 + ex.bossDamage / 100))
@@ -542,12 +548,6 @@ function createBossAttackSystem(deps) {
                 )
 
                 damage = Math.floor(damage * (1 + ((me.damageBonus || 0) / 100)))
-
-                const exCrit = rollCrit(ex.critRate, ex.critDamage)
-                if (exCrit.isCrit) {
-                    damage = Math.floor(damage * exCrit.multiplier)
-                    bossHitWasCrit = true
-                }
 
                 if (ex.lifesteal > 0) {
                     const heal = Math.floor(damage * ex.lifesteal / 100)

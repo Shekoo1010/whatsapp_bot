@@ -437,6 +437,7 @@ function statsPaneHTML(st) {
 
     const gc = st.crit.gear
     const ec = st.crit.ex
+    const tc = st.crit.total
 
     // موضع المتوسط على شريط (أقل ← أعلى)
     const span = Math.max(1, st.hit.max - st.hit.min)
@@ -445,8 +446,7 @@ function statsPaneHTML(st) {
     const hero = `<div class="stx-hero">
       <div class="stx-atk"><small>ATK</small><b>${fmtInt(st.atk)}</b><em>PWR ${fmtInt(st.power)}</em></div>
       <div class="stx-rings">
-        <div class="stx-ring" style="--p:${Math.round(gc.chance)}"><b>${fmtNum(gc.chance)}%</b><small>CRIT</small></div>
-        ${ec ? `<div class="stx-ring ex" style="--p:${Math.round(ec.chance)}"><b>${fmtNum(ec.chance)}%</b><small>EX CRIT</small></div>` : ''}
+        <div class="stx-ring" style="--p:${Math.round(tc.chance)}"><b>${fmtNum(tc.chance)}%</b><small>CRIT</small></div>
       </div>
     </div>`
 
@@ -470,10 +470,10 @@ function statsPaneHTML(st) {
     ]
 
     const critRows = [
-        row('🎯', 'نسبة الكريت (معدات/سلاح)', fmtPct(gc.rawRate), { sub: gc.overflow ? 'فعّال ' + fmtPct(gc.chance) : (st.companionBonus.tiger ? 'يشمل النمر' : '') }),
-        row('💥', 'ضرر الكريت', fmtPct(gc.damage), { sub: gc.overflow ? 'أساسي ' + fmtPct(gc.baseDmg) + ' + فايض ' + fmtPct(gc.overflow) : '' }),
-        ec ? row('✨', 'نسبة كريت EX', fmtPct(ec.rawRate), { sub: ec.overflow ? 'فعّال ' + fmtPct(ec.chance) : '' }) : '',
-        ec ? row('💫', 'ضرر كريت EX', fmtPct(ec.damage), { sub: ec.overflow ? 'أساسي ' + fmtPct(ec.baseDmg) + ' + فايض ' + fmtPct(ec.overflow) : '' }) : ''
+        row('🎯', 'نسبة الكريت الكلية', fmtPct(tc.rawRate), { hl: true, sub: tc.overflow ? 'فعّال ' + fmtPct(tc.chance) : '' }),
+        row('💥', 'ضرر الكريت الكلي', fmtPct(tc.damage), { sub: tc.overflow ? 'أساسي ' + fmtPct(tc.baseDmg) + ' + فايض ' + fmtPct(tc.overflow) : '' }),
+        row('🗡️', 'من المعدات/السلاح' + (st.companionBonus.tiger ? '/النمر' : ''), fmtPct(gc.rawRate) + ' | ' + fmtPct(gc.baseDmg)),
+        ec ? row('✨', 'من قدرات EX', fmtPct(ec.rawRate) + ' | ' + fmtPct(ec.baseDmg)) : ''
     ]
 
     const bossRows = [

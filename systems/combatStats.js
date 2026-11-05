@@ -7,10 +7,11 @@
 // أي تعديل على معادلة ضرب الزعيم يُعدَّل هنا أيضاً ليبقى المعروض = الفعلي.
 //
 // ترتيب الحساب الفعلي (بنفس الـ floor بكل خطوة):
-//   power + هجوم(معدات+سلاح)  → × هجوم%  → [رمية كريت المعدات]
+//   power + هجوم(معدات+سلاح)  → × هجوم%  → [رمية الكريت الموحّدة]
 //   → × بونص الأسد
 //   → (فقط لو الشخصية فيها EX): × هجوم EX → × ضرر زعيم EX → × attackBonus
-//        → × (bossDamageBonus + ضرر زعيم المعدات) → × damageBonus → [رمية كريت EX]
+//        → × (bossDamageBonus + ضرر زعيم المعدات) → × damageBonus
+//   (الكريت: رمية واحدة بمجموع المعدات + السلاح + النمر + EX، تُطبَّق مرة واحدة)
 //   → × مضاعفات specialAbilities (لكل الشخصيات)
 // =====================================================================
 
@@ -87,16 +88,22 @@ function computeCombatStats(player, character) {
     const pDmg = num(player.damageBonus)
     const power = num(character.power)
 
+    // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع كل المصادر.
+    // gear/ex تبقى للتفصيل فقط (مصدر كل رقم)، و total هو اللي يُستخدم بالحساب.
     const gearCrit = critInfo(num(gear.critRate) + tiger, gear.critDamage)
     const exCrit = hasEX ? critInfo(ex.critRate, ex.critDamage) : critInfo(0, 0)
+    const totalCrit = critInfo(
+        num(gear.critRate) + tiger + (hasEX ? num(ex.critRate) : 0),
+        num(gear.critDamage) + (hasEX ? num(ex.critDamage) : 0)
+    )
 
     const skillPlayer = { specialAbilities: player.specialAbilities }
 
-    // 🧮 ضربة واحدة بنفس خطوات المعادلة الفعلية (gc/ec = هل كرّت الرمية)
-    function hit(gc, ec) {
+    // 🧮 ضربة واحدة بنفس خطوات المعادلة الفعلية (crit = هل نجحت الرمية الموحّدة)
+    function hit(crit) {
         let d = power + num(gear.attack)
         if (num(gear.attackPercent) > 0) d = Math.floor(d * (1 + gear.attackPercent / 100))
-        if (gc) d = Math.floor(d * gearCrit.mult)
+        if (crit) d = Math.floor(d * totalCrit.mult)
         if (compKey === 'lion') d = Math.floor(d * (1 + lion / 100))
         if (hasEX) {
             d = Math.floor(d * (1 + ex.attackBonus / 100))
@@ -104,23 +111,14 @@ function computeCombatStats(player, character) {
             d = Math.floor(d * (1 + pAtk / 100))
             d = Math.floor(d * (1 + (pBoss + num(gear.bossDamage)) / 100))
             d = Math.floor(d * (1 + pDmg / 100))
-            if (ec) d = Math.floor(d * exCrit.mult)
         }
         return useAttackAbilities({ player: skillPlayer, character, damage: d }).damage
     }
 
-    const pG = gearCrit.chance / 100
-    const pE = hasEX ? exCrit.chance / 100 : 0
-    const min = hit(false, false)
-    const max = hit(pG > 0, pE > 0)
-    let avg = 0
-    for (const [gc, pg] of [[false, 1 - pG], [true, pG]]) {
-        for (const [ec, pe] of [[false, 1 - pE], [true, pE]]) {
-            const p = pg * pe
-            if (p > 0) avg += p * hit(gc, ec)
-        }
-    }
-    avg = Math.floor(avg)
+    const pC = totalCrit.chance / 100
+    const min = hit(false)
+    const max = hit(pC > 0)
+    const avg = Math.floor((1 - pC) * hit(false) + (pC > 0 ? pC * hit(true) : 0))
 
     // ⚔️ رقم "الهجوم" (قبل الكريت وضرر الزعيم)
     let atk = power + num(gear.attack)
@@ -170,6 +168,7 @@ function computeCombatStats(player, character) {
         companion: compKey ? { key: compKey, level: num(player.companion.level), value: compVal } : null,
         companionBonus: { tiger, lion, bear },
         crit: {
+            total: totalCrit,
             gear: gearCrit,
             ex: hasEX ? exCrit : null
         },

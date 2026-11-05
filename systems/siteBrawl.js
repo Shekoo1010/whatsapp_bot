@@ -118,12 +118,25 @@ function create(deps) {
         const tiger = i => (players[i].companion && players[i].companion.key === 'tiger' && (players[i].companion.level || 0) >= 1)
             ? companionsData.getCompanionBonus('tiger', players[i].companion.level) : 0
 
-        // 🎯 حرج المعدات (اللاعب 1 ثم 2)
+        // 👑 قدرات UR النشطة: 4 عشوائية لكل شخصية (تُحدَّد مبكراً لأن الكريت صار رمية واحدة)
+        const active = [
+            shuffle(chars[0].urAbilities || []).slice(0, 4),
+            shuffle(chars[1].urAbilities || []).slice(0, 4)
+        ]
+        const sumAbility = (list, type) =>
+            list.reduce((t, a) => t + (a && a.type === type ? (Number(a.value) || 0) : 0), 0)
+
+        // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع نسبة الكريت من
+        // المعدات/السلاح + النمر + قدرات UR النشطة، وضرر الكريت = المعدات + قدرات UR.
+        // الفايض فوق 100% يتحول ضرر كريت إضافي (داخل rollCrit).
         for (let i = 0; i < 2; i++) {
-            const c = rollCrit((b[i].critRate || 0) + tiger(i), b[i].critDamage || 0)
+            const c = rollCrit(
+                (b[i].critRate || 0) + tiger(i) + sumAbility(active[i], 'critRate'),
+                (b[i].critDamage || 0) + sumAbility(active[i], 'critDamage')
+            )
             if (c.isCrit) {
                 d[i] = Math.floor(d[i] * c.multiplier)
-                push(i + 1, '🎯', 'حرج المعدات', '💥 ضربة حرجة')
+                push(i + 1, '🎯', 'كريت', `💥 ضربة حرجة ×${c.multiplier.toFixed(2)}`)
             }
         }
 
@@ -166,7 +179,7 @@ function create(deps) {
         // 👑 قدرات UR: 4 عشوائية لكل شخصية (اللاعب 1 كاملة ثم اللاعب 2)
         for (let me = 0; me < 2; me++) {
             const opp = 1 - me
-            const abilities = shuffle(chars[me].urAbilities || []).slice(0, 4)
+            const abilities = active[me]
             for (const a of abilities) {
                 if (a.type === 'attack' || a.type === 'bossDamage') {
                     d[me] = Math.floor(d[me] * (1 + a.value / 100))
@@ -175,10 +188,6 @@ function create(deps) {
                 if (a.type === 'defense') {
                     d[opp] = Math.floor(d[opp] * (1 - a.value / 100))
                     push(me + 1, '🛡️', a.name, `قلل ضرر الخصم ${a.value}%`)
-                }
-                if (a.type === 'critRate' && Math.random() * 100 <= a.value) {
-                    d[me] *= 2
-                    push(me + 1, '🎯', a.name, '💥 ضربة حرجة ×2')
                 }
                 if (a.type === 'lifesteal') {
                     const bonus = Math.floor(d[me] * a.value / 200)
