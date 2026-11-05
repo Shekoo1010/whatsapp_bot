@@ -18991,7 +18991,7 @@
   },
   {
     "name": "Omi",
-    "form": "فتى الشوارع المتمرد",
+    "form": "فتاة الشوارع المتمردة",
     "anime": "Cyberpunk: Edgerunners 2",
     "power": 6660,
     "rarity": "SSS",
@@ -19341,12 +19341,12 @@
     "image": ""
   },
   {
-    "name": "Ryon",
-    "form": "المقاتل المراوغ",
+    "name": "Rion Akao",
+    "form": "المقاتلة الأسطورية",
     "anime": "Sakamoto Days",
     "power": 6981,
     "rarity": "SSS",
-    "ability": "مراوغة الخصم السريعة",
+    "ability": "رؤية المسارات",
     "image": ""
   },
   {
@@ -19440,15 +19440,6 @@
     "image": ""
   },
   {
-    "name": "Rick Grimes",
-    "form": "قائد الناجين",
-    "anime": "The Walking Dead",
-    "power": 6930,
-    "rarity": "SSS",
-    "ability": "قيادة البقاء الصلبة",
-    "image": ""
-  },
-  {
     "name": "Princia Funnybunny",
     "form": "الرامية المرحة",
     "anime": "Black Clover",
@@ -19513,7 +19504,7 @@
   },
   {
     "name": "Kang Haesol",
-    "form": "الفتى الصامد",
+    "form": "الفتاة الصامدة",
     "anime": "Yeonwoo's Innocence",
     "power": 6786,
     "rarity": "SSS",
@@ -19522,11 +19513,11 @@
   },
   {
     "name": "Subin Lee",
-    "form": "الشاب الموهوب",
+    "form": "الشابة الموهوبة",
     "anime": "Eleceed",
     "power": 6836,
     "rarity": "SSS",
-    "ability": "تركيز الطاقة الكهربائية",
+    "ability": "التحكم بالجليد",
     "image": ""
   },
   {
