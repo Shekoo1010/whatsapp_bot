@@ -9190,6 +9190,8 @@ const commandExplanations = {
         '.اسبون_بوس': 'أمر للمطور فقط - يستدعي (يُظهر) الزعيم العالمي يدوياً بالقروب.',
         '.قتل_البوس': 'أمر للمطور فقط - ينهي الزعيم العالمي الحالي يدوياً ويوزّع جوائزه.',
         '.حذف_كيكونوجو': 'أمر للمطور فقط - يحذف شخصية Kikunojo (One Piece) نهائياً من كل اللاعبين (عادية ومطورة + شظايا + عروض السوق) — هي فقط.',
+        '.حذف_شوكو': 'أمر للمطور فقط - يحذف شخصية Nishimiya Shouko (Koe no Katachi) نهائياً من كل اللاعبين (عادية ومطورة + شظايا + عروض السوق) — هي فقط.',
+        '.ترحيل_زينو_اورورا': 'أمر للمطور فقط - يرحّل Zeno (Yona of the Dawn) إلى Zeno S و Aurora (League of Legends) إلى Aurora S عند كل اللاعبين (الشخصية + الشظايا + التطوير + المعرض + التشكيلة + السلاح + السوق).',
         '.رسبن_رايد': 'أمر للمطور فقط - يعيد ظهور (Respawn) وحش/هدف الرايد الجماعي يدوياً.',
         '.تصفير_العشائر': 'أمر للمطور فقط - يصفّر بيانات كل العشائر.',
         '.حذف_العشائر_الفارغة': 'أمر للمطور فقط - يحذف كل العشائر اللي ما فيها أعضاء.',
@@ -26823,6 +26825,149 @@ if (text === ".قتل_البوس") {
         } catch (err) {
             console.log('حذف_كيكونوجو error:', err)
             return safeSend(msg.key.remoteJid, { text: '❌ صار خطأ أثناء الحذف.' })
+        }
+    }
+
+    // 🗑️ .حذف_شوكو — للمطور فقط: يحذف شخصية Nishimiya Shouko (Koe no Katachi) نهائياً من كل اللاعبين
+    // (عادية ومطورة) + شظاياها + المعرض + تشكيلة التحدي + تطويرها (charDev) ويفك السلاح المركّب عليها.
+    // مطابقة حرفية على الاسم Nishimiya Shouko فقط — ما تمس Shoko Nishimiya ولا أي شخصية ثانية.
+    if (text === ".حذف_شوكو") {
+
+        if (!isOwner(msg)) return
+
+        const charName = 'Nishimiya Shouko'
+        const shardKey = charName.replace(/\./g, '．')
+
+        try {
+            const r1 = await Player.collection.updateMany(
+                { $or: [
+                    { 'characters.name': charName },
+                    { [`shards.${shardKey}`]: { $exists: true } },
+                    { gallery: charName },
+                    { challengeTeam: charName },
+                    { [`charDev.${shardKey}`]: { $exists: true } }
+                ] },
+                {
+                    $pull: { characters: { name: charName }, gallery: charName, challengeTeam: charName },
+                    $unset: { [`shards.${shardKey}`]: '', [`charDev.${shardKey}`]: '' }
+                }
+            )
+            const r2 = await Player.collection.updateMany(
+                { 'weaponsInventory.equippedTo': charName },
+                { $set: { 'weaponsInventory.$[w].equippedTo': null } },
+                { arrayFilters: [{ 'w.equippedTo': charName }] }
+            )
+
+            // 🏪 عروض السوق: الشخصية المعروضة تنشال من اللاعب وتنحفظ بالسوق — نحذفها هناك بعد
+            const r3 = await Market.deleteMany({ 'character.name': charName })
+
+            return safeSend(msg.key.remoteJid, {
+                text: `✅ تم حذف ${charName} (Koe no Katachi) من كل اللاعبين.\n\n👥 لاعبين تعدّلوا: ${r1.modifiedCount}\n🗡️ أسلحة فُكّت عند: ${r2.modifiedCount} لاعب\n🏪 عروض سوق حُذفت: ${r3.deletedCount}`
+            })
+
+        } catch (err) {
+            console.log('حذف_شوكو error:', err)
+            return safeSend(msg.key.remoteJid, { text: '❌ صار خطأ أثناء الحذف.' })
+        }
+    }
+
+    // 🔁 .ترحيل_زينو_اورورا — للمطور فقط: يرحّل Zeno (Yona of the Dawn) → Zeno S
+    // و Aurora (League of Legends) → Aurora S عند كل اللاعبين.
+    // الشخصية نفسها تُحدَّد بالاسم + الأنمي (المخزّن داخل الشخصية) فما تلمس Zeno دراغون بول ولا Aurora الثانية.
+    // الشظايا/التطوير/المعرض/التشكيلة/السلاح تنخزن بالاسم فقط، فتُرحَّل فقط عند اللاعب اللي ما يملك
+    // شخصية ثانية بنفس الاسم القديم (عشان ما تتلخبط). الأمر آمن لو تكرر تشغيله.
+    if (text === ".ترحيل_زينو_اورورا") {
+
+        if (!isOwner(msg)) return
+
+        const migrations = [
+            { oldName: 'Zeno',   newName: 'Zeno S',   anime: 'Yona of the Dawn' },
+            { oldName: 'Aurora', newName: 'Aurora S', anime: 'League of Legends' }
+        ]
+
+        try {
+            let report = ''
+
+            for (const m of migrations) {
+                const { oldName, newName, anime } = m
+                const oldKey = oldName.replace(/\./g, '．')
+                const newKey = newName.replace(/\./g, '．')
+
+                // 1) اللاعبين اللي يملكون الشخصية المقصودة ولا يملكون شخصية ثانية بنفس الاسم القديم
+                const safeOwners = await Player.collection.find({
+                    $and: [
+                        { characters: { $elemMatch: { name: oldName, anime } } },
+                        { characters: { $not: { $elemMatch: { name: oldName, anime: { $ne: anime } } } } }
+                    ]
+                }, { projection: { _id: 1 } }).toArray()
+                const safeIds = safeOwners.map(p => p._id)
+
+                // اللاعبين اللي يملكون الاثنتين (نرحّل الشخصية فقط ونترك الباقي)
+                const bothCount = await Player.collection.countDocuments({
+                    $and: [
+                        { characters: { $elemMatch: { name: oldName, anime } } },
+                        { characters: { $elemMatch: { name: oldName, anime: { $ne: anime } } } }
+                    ]
+                })
+
+                // 2) تغيير اسم الشخصية نفسها (الاسم + الأنمي فقط)
+                const rChars = await Player.collection.updateMany(
+                    { characters: { $elemMatch: { name: oldName, anime } } },
+                    { $set: { 'characters.$[c].name': newName } },
+                    { arrayFilters: [{ 'c.name': oldName, 'c.anime': anime }] }
+                )
+
+                // 3) الشظايا + التطوير (خرائط بالاسم) — فقط عند safeIds
+                let rKeys = { modifiedCount: 0 }, rGallery = { modifiedCount: 0 }, rTeam = { modifiedCount: 0 }, rWeapons = { modifiedCount: 0 }
+                if (safeIds.length) {
+                    const withShards = await Player.collection.updateMany(
+                        { _id: { $in: safeIds }, [`shards.${oldKey}`]: { $exists: true } },
+                        { $rename: { [`shards.${oldKey}`]: `shards.${newKey}` } }
+                    )
+                    const withDev = await Player.collection.updateMany(
+                        { _id: { $in: safeIds }, [`charDev.${oldKey}`]: { $exists: true } },
+                        { $rename: { [`charDev.${oldKey}`]: `charDev.${newKey}` } }
+                    )
+                    rKeys = { modifiedCount: withShards.modifiedCount + withDev.modifiedCount }
+
+                    // 4) المعرض + تشكيلة التحدي (مصفوفات أسماء)
+                    rGallery = await Player.collection.updateMany(
+                        { _id: { $in: safeIds }, gallery: oldName },
+                        { $set: { 'gallery.$[g]': newName } },
+                        { arrayFilters: [{ g: oldName }] }
+                    )
+                    rTeam = await Player.collection.updateMany(
+                        { _id: { $in: safeIds }, challengeTeam: oldName },
+                        { $set: { 'challengeTeam.$[t]': newName } },
+                        { arrayFilters: [{ t: oldName }] }
+                    )
+
+                    // 5) السلاح المركّب
+                    rWeapons = await Player.collection.updateMany(
+                        { _id: { $in: safeIds }, 'weaponsInventory.equippedTo': oldName },
+                        { $set: { 'weaponsInventory.$[w].equippedTo': newName } },
+                        { arrayFilters: [{ 'w.equippedTo': oldName }] }
+                    )
+                }
+
+                // 6) عروض السوق
+                const rMarket = await Market.collection.updateMany(
+                    { 'character.name': oldName, 'character.anime': anime },
+                    { $set: { 'character.name': newName } }
+                )
+
+                report += `\n🔁 ${oldName} (${anime}) ➜ ${newName}\n` +
+                    `👥 شخصيات انرحّلت عند: ${rChars.modifiedCount} لاعب\n` +
+                    `🧩 شظايا/تطوير: ${rKeys.modifiedCount} | 🖼️ معرض: ${rGallery.modifiedCount} | ⚔️ تشكيلة: ${rTeam.modifiedCount} | 🗡️ سلاح: ${rWeapons.modifiedCount}\n` +
+                    `🏪 عروض سوق: ${rMarket.modifiedCount}\n` +
+                    `⚠️ يملكون الاثنتين (انرحّلت الشخصية فقط): ${bothCount}\n`
+            }
+
+            return safeSend(msg.key.remoteJid, { text: `✅ تم الترحيل.\n${report}` })
+
+        } catch (err) {
+            console.log('ترحيل_زينو_اورورا error:', err)
+            return safeSend(msg.key.remoteJid, { text: '❌ صار خطأ أثناء الترحيل.' })
         }
     }
 

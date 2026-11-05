@@ -10305,7 +10305,7 @@
     "image": "https://res.cloudinary.com/z5krvc27/image/upload/v1792681359/catalog_images/4bb89d8de212aa763d18423e.jpg"
   },
   {
-    "name": "Zeno",
+    "name": "Zeno S",
     "form": "التنين الأصفر",
     "anime": "Yona of the Dawn",
     "power": 6995,
@@ -12159,7 +12159,7 @@
     "image": "https://res.cloudinary.com/z5krvc27/image/upload/v1792681676/catalog_images/075a3d70b7f6c912cc14e8fb.jpg"
   },
   {
-    "name": "Aurora",
+    "name": "Aurora S",
     "form": "رحالة الأرواح",
     "anime": "League of Legends",
     "power": 6800,
@@ -15687,15 +15687,6 @@
     "image": ""
   },
   {
-    "name": "Nishimiya Shouko",
-    "form": "الفتاة الصامتة",
-    "anime": "Koe no Katachi",
-    "power": 6773,
-    "rarity": "SSS",
-    "ability": "قوة الصبر والتسامح",
-    "image": ""
-  },
-  {
     "name": "Ishida Shouya",
     "form": "الفتى النادم",
     "anime": "Koe no Katachi",
@@ -18996,6 +18987,609 @@
     "power": 6950,
     "rarity": "SSS",
     "ability": "نصل الزهرة الذهبية",
+    "image": ""
+  },
+  {
+    "name": "Omi",
+    "form": "فتى الشوارع المتمرد",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "شبكة النبض السيبراني",
+    "image": ""
+  },
+  {
+    "name": "Pumi",
+    "form": "الفتاة الخفيفة",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6763,
+    "rarity": "SSS",
+    "ability": "حركة البرق الحضرية",
+    "image": ""
+  },
+  {
+    "name": "D",
+    "form": "المتمرد الغامض",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6857,
+    "rarity": "SSS",
+    "ability": "اختراق الأنظمة الخارق",
+    "image": ""
+  },
+  {
+    "name": "Roman",
+    "form": "قائد العصابة الذكي",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "خطة الشارع المحكمة",
+    "image": ""
+  },
+  {
+    "name": "King S",
+    "form": "الملك الحديدي",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6931,
+    "rarity": "SSS",
+    "ability": "قبضة الدرع الصلب",
+    "image": ""
+  },
+  {
+    "name": "Talia",
+    "form": "المقاتلة الهادئة",
+    "anime": "Cyberpunk: Edgerunners 2",
+    "power": 6652,
+    "rarity": "SSS",
+    "ability": "دقة الرصاصة الصامتة",
+    "image": ""
+  },
+  {
+    "name": "Kara",
+    "form": "فتاة الفضاء الشجاعة",
+    "anime": "My Adventures with Superman",
+    "power": 6714,
+    "rarity": "SSS",
+    "ability": "قوة الطيران والقوة الخارقة",
+    "image": ""
+  },
+  {
+    "name": "Hulkenberg",
+    "form": "الفارس العملاق",
+    "anime": "Metaphor: ReFantazio",
+    "power": 6907,
+    "rarity": "SSS",
+    "ability": "ثبات الجدار الأعظم",
+    "image": ""
+  },
+  {
+    "name": "Jonathan Joestar",
+    "form": "النبيل الشجاع",
+    "anime": "JoJo",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "طاقة التنفس الدوّامي",
+    "image": ""
+  },
+  {
+    "name": "Joseph Joestar",
+    "form": "الداهية المرح",
+    "anime": "JoJo",
+    "power": 6884,
+    "rarity": "SSS",
+    "ability": "خدعة الحيلة المتوقعة",
+    "image": ""
+  },
+  {
+    "name": "Jotaro Kujo",
+    "form": "الصامت العنيد",
+    "anime": "JoJo",
+    "power": 6815,
+    "rarity": "SSS",
+    "ability": "ستار بلاتينوم وإيقاف الزمن",
+    "image": ""
+  },
+  {
+    "name": "Higashikata Josuke",
+    "form": "صاحب القلب الطيب",
+    "anime": "JoJo",
+    "power": 6893,
+    "rarity": "SSS",
+    "ability": "كريزي دايموند للإصلاح",
+    "image": ""
+  },
+  {
+    "name": "Giorno Giovanna",
+    "form": "صاحب الحلم الذهبي",
+    "anime": "JoJo",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "تجربة الذهب الحي",
+    "image": ""
+  },
+  {
+    "name": "Jolyne Kujo",
+    "form": "الفتاة المثابرة",
+    "anime": "JoJo",
+    "power": 6974,
+    "rarity": "SSS",
+    "ability": "خيوط ستون فري",
+    "image": ""
+  },
+  {
+    "name": "Johnny Joestar",
+    "form": "الفارس المتحدي",
+    "anime": "JoJo",
+    "power": 6997,
+    "rarity": "SSS",
+    "ability": "دوران الأظافر الذهبي",
+    "image": ""
+  },
+  {
+    "name": "Gyro Zeppeli",
+    "form": "الفارس الدوّار",
+    "anime": "JoJo",
+    "power": 6993,
+    "rarity": "SSS",
+    "ability": "كرة الدوران الفولاذية",
+    "image": ""
+  },
+  {
+    "name": "Dio Brando",
+    "form": "الطاغية المتغطرس",
+    "anime": "JoJo",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "ذا وورلد وإيقاف الزمن",
+    "image": ""
+  },
+  {
+    "name": "Kars",
+    "form": "الكائن المثالي",
+    "anime": "JoJo",
+    "power": 6984,
+    "rarity": "SSS",
+    "ability": "شفرات الذراع الحادة",
+    "image": ""
+  },
+  {
+    "name": "Kira Yoshikage",
+    "form": "الرجل الهادئ المخيف",
+    "anime": "JoJo",
+    "power": 6995,
+    "rarity": "SSS",
+    "ability": "لمسة التفجير الخفية",
+    "image": ""
+  },
+  {
+    "name": "Diavolo",
+    "form": "الزعيم الغامض",
+    "anime": "JoJo",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "محو الزمن للحظات",
+    "image": ""
+  },
+  {
+    "name": "Enrico Pucci",
+    "form": "الكاهن الهادئ المهووس",
+    "anime": "JoJo",
+    "power": 6825,
+    "rarity": "SSS",
+    "ability": "تسريع الزمن المتواصل",
+    "image": ""
+  },
+  {
+    "name": "Funny Valentine",
+    "form": "رئيس الأبعاد",
+    "anime": "JoJo",
+    "power": 6722,
+    "rarity": "SSS",
+    "ability": "التنقل بين الأبعاد",
+    "image": ""
+  },
+  {
+    "name": "Kei Kurono",
+    "form": "الفتى المتردد الشجاع",
+    "anime": "Gantz",
+    "power": 6601,
+    "rarity": "SSS",
+    "ability": "بدلة الدرع الأسود",
+    "image": ""
+  },
+  {
+    "name": "Masaru Kato",
+    "form": "الحامي الشهم",
+    "anime": "Gantz",
+    "power": 6914,
+    "rarity": "SSS",
+    "ability": "قوة الدرع المضاعفة",
+    "image": ""
+  },
+  {
+    "name": "Joichiro Nishi",
+    "form": "الشاب الذكي الماكر",
+    "anime": "Gantz",
+    "power": 6641,
+    "rarity": "SSS",
+    "ability": "سرعة التفكير والتخطيط",
+    "image": ""
+  },
+  {
+    "name": "Reika Shimohira",
+    "form": "المقاتلة الأنيقة",
+    "anime": "Gantz",
+    "power": 6656,
+    "rarity": "SSS",
+    "ability": "دقة التصويب البعيد",
+    "image": ""
+  },
+  {
+    "name": "Anzu Yamasaki",
+    "form": "الفتاة المخلصة",
+    "anime": "Gantz",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "عزيمة البقاء الصلبة",
+    "image": ""
+  },
+  {
+    "name": "Eris Greyrat",
+    "form": "الفارسة المندفعة",
+    "anime": "Mushoku Tensei",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "سيف الغضب اللامع",
+    "image": ""
+  },
+  {
+    "name": "Sylphiette Greyrat",
+    "form": "الشافية الرقيقة",
+    "anime": "Mushoku Tensei",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "شفاء الأحبة والعناصر",
+    "image": ""
+  },
+  {
+    "name": "Orsted",
+    "form": "فارس التنين الأسطوري",
+    "anime": "Mushoku Tensei",
+    "power": 6605,
+    "rarity": "SSS",
+    "ability": "قوة التنين المطلقة",
+    "image": ""
+  },
+  {
+    "name": "Nanahoshi",
+    "form": "العالمة الذكية",
+    "anime": "Mushoku Tensei",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "ابتكار الأدوات العلمية",
+    "image": ""
+  },
+  {
+    "name": "Roxy Migurdia",
+    "form": "المعلمة الماهرة",
+    "anime": "Mushoku Tensei",
+    "power": 6947,
+    "rarity": "SSS",
+    "ability": "تحكم المياه المتقن",
+    "image": ""
+  },
+  {
+    "name": "Shinji Ikari",
+    "form": "الفتى المتردد",
+    "anime": "Neon Genesis Evangelion",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "قيادة الوحدة الأرجوانية",
+    "image": ""
+  },
+  {
+    "name": "Kaworu Nagisa",
+    "form": "الفتى الهادئ الغامض",
+    "anime": "Neon Genesis Evangelion",
+    "power": 6707,
+    "rarity": "SSS",
+    "ability": "حقل التناغم الصامت",
+    "image": ""
+  },
+  {
+    "name": "Misato Katsuragi",
+    "form": "القائدة الجريئة",
+    "anime": "Neon Genesis Evangelion",
+    "power": 6803,
+    "rarity": "SSS",
+    "ability": "خطة المعركة الحاسمة",
+    "image": ""
+  },
+  {
+    "name": "Ritsuko Akagi",
+    "form": "العالمة الصارمة",
+    "anime": "Neon Genesis Evangelion",
+    "power": 6728,
+    "rarity": "SSS",
+    "ability": "تحليل الأنظمة الخارق",
+    "image": ""
+  },
+  {
+    "name": "Mari Illustrious",
+    "form": "الطيارة المرحة",
+    "anime": "Neon Genesis Evangelion",
+    "power": 6778,
+    "rarity": "SSS",
+    "ability": "طاقة الوحدة الوردية",
+    "image": ""
+  },
+  {
+    "name": "Gaku Foster",
+    "form": "المقاتل الصامت",
+    "anime": "Sakamoto Days",
+    "power": 6782,
+    "rarity": "SSS",
+    "ability": "ضربة القبضة الحاسمة",
+    "image": ""
+  },
+  {
+    "name": "Slur",
+    "form": "الغامض الهادئ",
+    "anime": "Sakamoto Days",
+    "power": 6792,
+    "rarity": "SSS",
+    "ability": "هجوم الظل السريع",
+    "image": ""
+  },
+  {
+    "name": "Ryon",
+    "form": "المقاتل المراوغ",
+    "anime": "Sakamoto Days",
+    "power": 6981,
+    "rarity": "SSS",
+    "ability": "مراوغة الخصم السريعة",
+    "image": ""
+  },
+  {
+    "name": "Thor S",
+    "form": "حامل المطرقة العاصفة",
+    "anime": "Marvel",
+    "power": 6926,
+    "rarity": "SSS",
+    "ability": "قوة الرعد والبرق",
+    "image": ""
+  },
+  {
+    "name": "Hulk",
+    "form": "العملاق الغاضب",
+    "anime": "Marvel",
+    "power": 6639,
+    "rarity": "SSS",
+    "ability": "قوة الغضب الأخضر",
+    "image": ""
+  },
+  {
+    "name": "Black Widow",
+    "form": "الجاسوسة الماهرة",
+    "anime": "Marvel",
+    "power": 6970,
+    "rarity": "SSS",
+    "ability": "مناورة الخفاء والدقة",
+    "image": ""
+  },
+  {
+    "name": "Deadpool",
+    "form": "المحارب الثرثار",
+    "anime": "Marvel",
+    "power": 6774,
+    "rarity": "SSS",
+    "ability": "التجدد السريع والسيوف",
+    "image": ""
+  },
+  {
+    "name": "Wolverine",
+    "form": "صاحب المخالب الحادة",
+    "anime": "Marvel",
+    "power": 6645,
+    "rarity": "SSS",
+    "ability": "مخالب المعدن والتجدد",
+    "image": ""
+  },
+  {
+    "name": "Star-Lord",
+    "form": "قائد الحراس المرح",
+    "anime": "Marvel",
+    "power": 6885,
+    "rarity": "SSS",
+    "ability": "سرعة البديهة والأسلحة",
+    "image": ""
+  },
+  {
+    "name": "Doctor Doom",
+    "form": "الحاكم المدرع",
+    "anime": "Marvel",
+    "power": 6875,
+    "rarity": "SSS",
+    "ability": "درع الابتكار والطاقة الغامضة",
+    "image": ""
+  },
+  {
+    "name": "Doctor Strange",
+    "form": "حارس الأبعاد",
+    "anime": "Marvel",
+    "power": 6749,
+    "rarity": "SSS",
+    "ability": "فنون الأبعاد الغامضة",
+    "image": ""
+  },
+  {
+    "name": "Jean Kirstein",
+    "form": "الجندي الصريح",
+    "anime": "Attack on Titan",
+    "power": 6834,
+    "rarity": "SSS",
+    "ability": "مناورة المعدات الدقيقة",
+    "image": ""
+  },
+  {
+    "name": "Hange Zoe",
+    "form": "القائدة الفضولية",
+    "anime": "Attack on Titan",
+    "power": 6672,
+    "rarity": "SSS",
+    "ability": "ابتكار أسلحة العمالقة",
+    "image": ""
+  },
+  {
+    "name": "Rick Grimes",
+    "form": "قائد الناجين",
+    "anime": "The Walking Dead",
+    "power": 6930,
+    "rarity": "SSS",
+    "ability": "قيادة البقاء الصلبة",
+    "image": ""
+  },
+  {
+    "name": "Princia Funnybunny",
+    "form": "الرامية المرحة",
+    "anime": "Black Clover",
+    "power": 6960,
+    "rarity": "SSS",
+    "ability": "رماية الأرنب السريعة",
+    "image": ""
+  },
+  {
+    "name": "Magna Swing",
+    "form": "صاحب اللهب الناري",
+    "anime": "Black Clover",
+    "power": 6966,
+    "rarity": "SSS",
+    "ability": "كرة اللهب المتفجرة",
+    "image": ""
+  },
+  {
+    "name": "Zora Ideale",
+    "form": "صاحب الفخاخ الماهر",
+    "anime": "Black Clover",
+    "power": 6895,
+    "rarity": "SSS",
+    "ability": "فخاخ الظل المتقنة",
+    "image": ""
+  },
+  {
+    "name": "Fujita Tatara",
+    "form": "الراقص المبتدئ الموهوب",
+    "anime": "Ballroom e Youkoso",
+    "power": 6758,
+    "rarity": "SSS",
+    "ability": "رقصة الإصرار المتواصل",
+    "image": ""
+  },
+  {
+    "name": "Hiyama Chinatsu",
+    "form": "الراقصة الواثقة",
+    "anime": "Ballroom e Youkoso",
+    "power": 6612,
+    "rarity": "SSS",
+    "ability": "رقصة الأناقة الحادة",
+    "image": ""
+  },
+  {
+    "name": "Akagi Mako",
+    "form": "الراقصة المتألقة",
+    "anime": "Ballroom e Youkoso",
+    "power": 6963,
+    "rarity": "SSS",
+    "ability": "رقصة الإيقاع المتناغم",
+    "image": ""
+  },
+  {
+    "name": "Shizuku Hanaoka",
+    "form": "الراقصة المجتهدة",
+    "anime": "Ballroom e Youkoso",
+    "power": 6788,
+    "rarity": "SSS",
+    "ability": "رقصة الإتقان الهادئ",
+    "image": ""
+  },
+  {
+    "name": "Kang Haesol",
+    "form": "الفتى الصامد",
+    "anime": "Yeonwoo's Innocence",
+    "power": 6786,
+    "rarity": "SSS",
+    "ability": "براءة الإرادة النقية",
+    "image": ""
+  },
+  {
+    "name": "Subin Lee",
+    "form": "الشاب الموهوب",
+    "anime": "Eleceed",
+    "power": 6836,
+    "rarity": "SSS",
+    "ability": "تركيز الطاقة الكهربائية",
+    "image": ""
+  },
+  {
+    "name": "Cana Alberona",
+    "form": "صاحبة بطاقات الحظ",
+    "anime": "Fairy Tail",
+    "power": 6816,
+    "rarity": "SSS",
+    "ability": "بطاقات الحظ المتقلبة",
+    "image": ""
+  },
+  {
+    "name": "Brandish",
+    "form": "المحاربة الحادة",
+    "anime": "Fairy Tail",
+    "power": 6646,
+    "rarity": "SSS",
+    "ability": "قوة الانعكاس المضاعف",
+    "image": ""
+  },
+  {
+    "name": "Ultear Milkovich",
+    "form": "سيدة الزمن",
+    "anime": "Fairy Tail",
+    "power": 6804,
+    "rarity": "SSS",
+    "ability": "تحكم الزمن الأخير",
+    "image": ""
+  },
+  {
+    "name": "Kagura Mikazuchi",
+    "form": "السيّافة الصارمة",
+    "anime": "Fairy Tail",
+    "power": 6899,
+    "rarity": "SSS",
+    "ability": "سيف الجاذبية الثقيل",
+    "image": ""
+  },
+  {
+    "name": "Levy McGarden",
+    "form": "القارئة الذكية",
+    "anime": "Fairy Tail",
+    "power": 6883,
+    "rarity": "SSS",
+    "ability": "كلمات الحروف الحية",
+    "image": ""
+  },
+  {
+    "name": "Wendy Marvell",
+    "form": "الفتاة الشافية",
+    "anime": "Fairy Tail",
+    "power": 6855,
+    "rarity": "SSS",
+    "ability": "رياح الشفاء والحماية",
+    "image": ""
+  },
+  {
+    "name": "Kou Mabuchi",
+    "form": "الفتى الهادئ الصادق",
+    "anime": "Ao Haru Ride",
+    "power": 6823,
+    "rarity": "SSS",
+    "ability": "عزيمة الحب الصادق",
     "image": ""
   }
 ]
