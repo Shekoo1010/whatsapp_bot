@@ -19897,5 +19897,131 @@
     "rarity": "SSS",
     "ability": "درع الإنقاذ",
     "image": ""
+  },
+  {
+    "name": "Yoon Karma",
+    "form": "سيدة المصائر الملعونة",
+    "anime": "Plaything",
+    "power": 6850,
+    "rarity": "SSS",
+    "ability": "ارتداد الكارما المطلق",
+    "image": ""
+  },
+  {
+    "name": "Marie Antoinette",
+    "form": "ملكة الورود الساطعة",
+    "anime": "Fate/Grand Order",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "عرض الزهرة الملكي",
+    "image": ""
+  },
+  {
+    "name": "Tamamo no Mae",
+    "form": "ثعلبة الذيول التسعة",
+    "anime": "Fate/Extra",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "لعنة الذيول التسعة",
+    "image": ""
+  },
+  {
+    "name": "Sakura Matou",
+    "form": "وريثة الظل الأسود",
+    "anime": "Fate/stay night",
+    "power": 6800,
+    "rarity": "SSS",
+    "ability": "ظل الفناء الأسود",
+    "image": ""
+  },
+  {
+    "name": "Atalanta",
+    "form": "صيادة الغابة السريعة",
+    "anime": "Fate/Apocrypha",
+    "power": 6700,
+    "rarity": "SSS",
+    "ability": "سهم الصياد الخاطف",
+    "image": ""
+  },
+  {
+    "name": "Cleopatra",
+    "form": "ملكة النيل الخالدة",
+    "anime": "Fate/Grand Order",
+    "power": 6720,
+    "rarity": "SSS",
+    "ability": "سحر الملكة الأخير",
+    "image": ""
+  },
+  {
+    "name": "Semiramis",
+    "form": "ملكة الحدائق المعلقة",
+    "anime": "Fate/Apocrypha",
+    "power": 6930,
+    "rarity": "SSS",
+    "ability": "حديقة الفناء المعلقة",
+    "image": ""
+  },
+  {
+    "name": "Nitocris",
+    "form": "ملكة الأهرام الغامضة",
+    "anime": "Fate/Grand Order",
+    "power": 6680,
+    "rarity": "SSS",
+    "ability": "لعنة الأهرام الملكية",
+    "image": ""
+  },
+  {
+    "name": "Morgan",
+    "form": "ملكة الظلام العظيمة",
+    "anime": "Fate/Grand Order",
+    "power": 6990,
+    "rarity": "SSS",
+    "ability": "لعنة العرش الأسود",
+    "image": ""
+  },
+  {
+    "name": "Ushiwakamaru",
+    "form": "فارسة الخطوات الخفيفة",
+    "anime": "Fate/Grand Order",
+    "power": 6640,
+    "rarity": "SSS",
+    "ability": "قفزة السيف الخاطفة",
+    "image": ""
+  },
+  {
+    "name": "Kiyohime",
+    "form": "أميرة اللهب الملتهب",
+    "anime": "Fate/Grand Order",
+    "power": 6670,
+    "rarity": "SSS",
+    "ability": "لهيب الحب القاتل",
+    "image": ""
+  },
+  {
+    "name": "BB",
+    "form": "سيدة النظام المتمردة",
+    "anime": "Fate/Extra CCC",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "اختراق النظام الكامل",
+    "image": ""
+  },
+  {
+    "name": "Caren Hortensia",
+    "form": "الراهبة ذات الابتسامة الخفية",
+    "anime": "Fate/hollow ataraxia",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "ضربة الراهبة العقابية",
+    "image": ""
+  },
+  {
+    "name": "Skadi",
+    "form": "ملكة الجليد الأبدي",
+    "anime": "Fate/Grand Order",
+    "power": 6840,
+    "rarity": "SSS",
+    "ability": "عاصفة الجليد الأبدية",
+    "image": ""
   }
 ]
