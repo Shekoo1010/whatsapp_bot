@@ -71,6 +71,19 @@ function getCdCache(fastCd) {
     return fastCd.cdByUser
 }
 
+// 🥊 يضيف ضرر ناكلز المرتد (اللي ما انحسب بعد) إلى ضرر اللاعب: ضرر الزعيم الحالي + الإجمالي + اليومي
+// (يعتمد عليه الترتيب وتوزيع الجوائز). يُستدعى قبل كل حفظ، ولا يحسب نفس الضرر مرتين.
+function creditKnucklesDamage(player) {
+    const total = Number(player._knucklesReflectTotal) || 0
+    const add = total - (Number(player._knucklesCredited) || 0)
+    if (add <= 0) return 0
+    player.bossDamage = (player.bossDamage || 0) + add
+    player.totalBossDamage = (player.totalBossDamage || 0) + add
+    player.dailyBossDamage = (player.dailyBossDamage || 0) + add
+    player._knucklesCredited = total
+    return add
+}
+
 // 🥊 رفيق ناكلز: يعكس على الزعيم نسبة من الضرر اللي ضربك به (يُنفَّذ بكل مصدر ضرر من الزعيم عليك)
 function applyKnucklesReflect(companionsData, player, boss, damageTaken) {
     const reflected = companionsData.getKnucklesReflect(player, damageTaken)
@@ -290,7 +303,7 @@ function createBossAttackSystem(deps) {
         const lite = !!opts.lite
         const boss = getBoss()
         const me = await Player.findOne({ userId })
-            .select('userId name username ' + (lite ? '' : 'characters ') + 'bossHp bossMaxHp bossDead bossRespawn lastBossAttack bossDamage bossHits')
+            .select('userId name username ' + (lite ? '' : 'characters ') + 'companion bossHp bossMaxHp bossDead bossRespawn lastBossAttack bossDamage bossHits') // 🔥 companion مطلوب لحساب تخفيض بليز
             .lean()
         if (!me) return null
 
@@ -968,6 +981,7 @@ function createBossAttackSystem(deps) {
             me.totalBossDamage = (me.totalBossDamage || 0) + damage
             me.bossHits = (me.bossHits || 0) + 1
             me.dailyBossDamage = (me.dailyBossDamage || 0) + damage
+            creditKnucklesDamage(me) // 🥊 ضرر ناكلز المرتد يدخل بالضرر الكلي
             me.dailyBossHits = (me.dailyBossHits || 0) + 1
 
             if (me.dailyMissions) {
@@ -1097,6 +1111,7 @@ function createBossAttackSystem(deps) {
                 }
 
                 // 💾 حفظ دم اللاعب/موته بعد الضربة المرتدة (كان يضيع عند إعادة التشغيل)
+                creditKnucklesDamage(me) // 🥊 ناكلز من الضربة المرتدة
                 try {
                     await me.save()
                 } catch (err) {
