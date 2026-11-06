@@ -26,19 +26,44 @@ function registerCoopSite(app, ctx) {
     } = ctx
 
     const hits = new Map()
-    function rate(userId, max = 40) {
+    function rate(userId, max = 40, bucket = 'a') {
         const now = Date.now()
-        const arr = (hits.get(userId) || []).filter(t => now - t < 60000)
-        if (arr.length >= max) { hits.set(userId, arr); return false }
-        arr.push(now); hits.set(userId, arr); return true
+        const key = userId + ':' + bucket
+        const arr = (hits.get(key) || []).filter(t => now - t < 60000)
+        if (arr.length >= max) { hits.set(key, arr); return false }
+        arr.push(now); hits.set(key, arr); return true
     }
+
+    // تنظيف دوري لخريطة الطلبات حتى لا تكبر مع الوقت
+    setInterval(() => {
+        const now = Date.now()
+        for (const [k, arr] of hits) {
+            const fresh = arr.filter(t => now - t < 60000)
+            if (fresh.length) hits.set(k, fresh); else hits.delete(k)
+        }
+    }, 5 * 60 * 1000).unref()
+
+    // كاش قصير لحالة الكو اوب: كل اللاعبين يستطلعون نفس المستند،
+    // فنقرأه مرة واحدة كل ~700ms بدل استعلام لكل لاعب (ويُمسح فور أي تعديل)
+    const COOP_CACHE_MS = 700
+    let coopCache = null // { t, p }
+    function getCoopDoc() {
+        const now = Date.now()
+        if (coopCache && now - coopCache.t < COOP_CACHE_MS) return coopCache.p
+        const p = CoOp.findOne().lean().catch(err => { coopCache = null; throw err })
+        coopCache = { t: now, p }
+        return p
+    }
+    const dropCoopCache = () => { coopCache = null }
 
     const cleanLog = t => String(t || '').replace(/[*_~`]/g, '').replace(/[╭╰━┃⬣〔〕]/g, '').trim()
 
     // ───────────── حالة آمنة للمتصفح ─────────────
     async function stateOut(userId) {
-        const coop = await CoOp.findOne()
-        const me = await Player.findOne({ userId }).select('coopCoins').lean()
+        const [coop, me] = await Promise.all([
+            getCoopDoc(),
+            Player.findOne({ userId }).select('coopCoins').lean()
+        ])
         const base = { coins: (me && me.coopCoins) || 0, readyMin: coopManager.CONFIG.readyMin }
 
         if (!coop || !coop.active) {
@@ -106,7 +131,10 @@ function registerCoopSite(app, ctx) {
             res.send(coopPageHTML({
                 shell, code,
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
-                data: { state: await stateOut(player.userId), shop: await shop.getShop(player.userId) }
+                data: await (async () => {
+                    const [state, shopData] = await Promise.all([stateOut(player.userId), shop.getShop(player.userId)])
+                    return { state, shop: shopData }
+                })()
             }))
         } catch (err) {
             console.error('coop page error:', err)
@@ -114,7 +142,7 @@ function registerCoopSite(app, ctx) {
         }
     })
 
-    const guard = fn => async (req, res) => {
+    const guard = (fn, limit = 40, bucket = 'a') => async (req, res) => {
         res.set('Cache-Control', 'no-store')
         const fail = (status, code, message) => res.status(status).json({ ok: false, code, message })
         try {
@@ -125,7 +153,7 @@ function registerCoopSite(app, ctx) {
                 if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
                 if (!auth.verifyCsrf(sess, (req.body || {}).csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها.')
             }
-            if (!rate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر قليلاً.')
+            if (!rate(sess.u, limit, bucket)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر قليلاً.')
             await fn(req, res, sess, fail)
         } catch (err) {
             console.error('coop route error:', err)
@@ -133,25 +161,29 @@ function registerCoopSite(app, ctx) {
         }
     }
 
+    // الاستطلاع له حد منفصل أعلى حتى لا يستهلك حد الهجوم والانضمام
     app.get('/coop/state', guard(async (req, res, sess) => {
         res.json({ ok: true, state: await stateOut(sess.u) })
-    }))
+    }, 120, 'state'))
 
     app.post('/coop/join', jsonBody, guard(async (req, res, sess, fail) => {
         const p = await Player.findOne({ userId: sess.u }).select('name username').lean()
         const r = await coopManager.joinPlayer(sess.u, (p && (p.name || p.username)) || 'لاعب')
+        dropCoopCache()
         if (!r.success) return fail(400, 'JOIN', r.message || 'تعذر الانضمام')
         res.json({ ok: true, state: await stateOut(sess.u) })
     }))
 
     app.post('/coop/ready', jsonBody, guard(async (req, res, sess, fail) => {
         const r = await coopManager.setReady(sess.u)
+        dropCoopCache()
         if (!r.success) return fail(400, 'READY', r.message || 'تعذر الاستعداد')
         res.json({ ok: true, state: await stateOut(sess.u) })
     }))
 
     app.post('/coop/attack', jsonBody, guard(async (req, res, sess, fail) => {
         const r = await coopBattle.playerAttack(coopManager.getSock(), sess.u)
+        dropCoopCache()
         if (!r || !r.success) return fail(400, 'ATTACK', (r && r.message) || 'تعذر الهجوم')
         res.json({ ok: true, hit: { damage: r.damage, critical: !!r.critical }, state: await stateOut(sess.u) })
     }))

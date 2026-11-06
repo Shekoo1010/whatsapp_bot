@@ -132,4 +132,25 @@ body{overflow-x:hidden;background:radial-gradient(900px 500px at 50% -10%,#2a124
 .si{display:flex;align-items:center;gap:10px;background:#0d1220;border:1.5px solid #1f2740;border-radius:14px;padding:10px 12px;margin-bottom:8px}.si .nm{flex:1;font-weight:800;font-size:15px}.si .sm{font-size:12px;color:var(--dim);font-weight:600}.si button{font-family:'Cairo';font-weight:800;font-size:14px;padding:8px 14px;border-radius:12px;border:1.5px solid var(--gold);background:linear-gradient(180deg,#ffe28a,#f0c04a 55%,#c48f1a);color:#1a1204;cursor:pointer;direction:ltr}.si button:disabled{filter:grayscale(1) brightness(.55);cursor:not-allowed}.si select{background:#0b0e18;color:var(--text);border:1px solid #2a3150;border-radius:10px;padding:6px;font-family:'Cairo';max-width:130px}
 .coins{text-align:center;font-family:'Oswald';font-size:26px;color:var(--gold);margin:4px 0 12px;direction:ltr}
 .topbar{display:flex;align-items:center;gap:10px;margin-bottom:8px}.topbar .ttl{font-weight:900;font-size:18px}
+
+/* ───── أنميشن الكو اوب (إضافات) ───── */
+.hpghost{position:absolute;inset:0 auto 0 0;background:rgba(255,255,255,.6);transition:width .9s .3s ease-out}
+.hpfill,.shfill{transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.fxf,.fxn,.fxr,.fxp,.fxo,.fxs{position:fixed;left:0;top:0;display:block;pointer-events:none;z-index:45;will-change:transform,opacity}
+.fxf{width:64px;height:64px;border-radius:16px;background:#0b0e18 center 22%/cover;border:2px solid var(--gold);box-shadow:0 0 22px var(--gold)}
+.fxo{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle,#fff 0,var(--c,#ff3d57) 45%,transparent 72%);box-shadow:0 0 22px var(--c,#ff3d57)}
+.fxn{font-family:'Oswald',sans-serif;font-weight:700;font-size:30px;color:#fff;text-shadow:0 0 10px var(--c,#ff3d57),0 2px 0 #000;white-space:nowrap;direction:ltr}
+.fxn.cr{font-size:46px;color:var(--gold)}
+.fxn.foe{color:#ff6b86;font-size:26px}
+.fxn.hl{color:var(--green);--c:#3ddc97}
+.fxr{width:40px;height:40px;border-radius:50%;border:4px solid var(--c,#fff);box-shadow:0 0 20px var(--c,#fff)}
+.fxp{width:8px;height:8px;border-radius:50%;background:var(--c,#fff);box-shadow:0 0 10px var(--c,#fff)}
+.fxs{width:150px;height:6px;border-radius:4px;background:linear-gradient(90deg,transparent,#fff,transparent);box-shadow:0 0 16px #ffe08a}
+.flash.red{background:radial-gradient(circle,transparent 30%,rgba(255,61,87,.55))}
+.tp{transition:.25s}
+.tbar i{will-change:width}
+
+.fxc{position:fixed;left:0;top:0;display:block;pointer-events:none;z-index:46;width:112px;height:144px;border-radius:18px;background:#0b0e18 center 22%/cover;border:2px solid var(--tier,#b83fff);box-shadow:0 0 30px var(--tier,#b83fff),0 0 60px rgba(184,63,255,.35);will-change:transform,opacity}
+.fxc span{position:absolute;left:0;right:0;bottom:0;text-align:center;font-weight:800;font-size:12px;padding:12px 4px 3px;background:linear-gradient(transparent,rgba(5,6,12,.92));border-radius:0 0 16px 16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fxc.g{filter:blur(2px) saturate(1.5);box-shadow:none}
 `
