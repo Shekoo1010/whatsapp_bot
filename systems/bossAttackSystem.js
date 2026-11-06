@@ -64,6 +64,24 @@ function bossRewardsFullText() {
 const COOLDOWN_MS = 30000
 const RESPAWN_MS = 5 * 60 * 1000
 
+// 🔥 رفيق بليز: الكولداون يختلف لكل لاعب — نحفظ آخر كولداون محسوب لكل لاعب
+// بكاش مشترك مع الواتس (يُخزَّن على نفس Map الـ fastCd عشان index.js يقرأه)
+function getCdCache(fastCd) {
+    if (!fastCd.cdByUser) fastCd.cdByUser = new Map()
+    return fastCd.cdByUser
+}
+
+// 🥊 رفيق ناكلز: يعكس على الزعيم نسبة من الضرر اللي ضربك به (يُنفَّذ بكل مصدر ضرر من الزعيم عليك)
+function applyKnucklesReflect(companionsData, player, boss, damageTaken) {
+    const reflected = companionsData.getKnucklesReflect(player, damageTaken)
+    if (!reflected || !boss) return 0
+    boss.hp = Math.max(0, (Number(boss.hp) || 0) - reflected)
+    // لو فيه أتباع نشطين الزعيم ما ينقتل بالانعكاس (القتل يمر بمسار الهجوم المباشر فقط)
+    if (boss.hp <= 0 && boss.activeFollowers && boss.activeFollowers.length > 0) boss.hp = 1
+    player._knucklesReflectTotal = (player._knucklesReflectTotal || 0) + reflected
+    return reflected
+}
+
 function createBossAttackSystem(deps) {
     const {
         Player, Boss, getBoss, setBoss, fastCd,
@@ -73,6 +91,7 @@ function createBossAttackSystem(deps) {
         worlds, isBanned, getSock, getNotifyJid, isAttackOpen, closeWindow,
         xp = {}, allowResummonFollowers = false
     } = deps
+    const cdByUser = getCdCache(fastCd)
 
     const XP_DIVISOR = xp.divisor ?? 1000
     const XP_MIN = xp.min ?? 5
@@ -285,7 +304,9 @@ function createBossAttackSystem(deps) {
             else if (boss._sawFull && !boss.firstHitAt) boss.firstHitAt = now
         }
         const last = Math.max(Number(me.lastBossAttack) || 0, fastCd.get(userId) || 0)
-        const cdLeft = Math.max(0, COOLDOWN_MS - (now - last))
+        const myCdMs = companionsData.getBossCooldownMs(me, COOLDOWN_MS) // 🔥 بليز
+        cdByUser.set(userId, myCdMs)
+        const cdLeft = Math.max(0, myCdMs - (now - last))
 
         let deadLeftMs = 0
         if (me.bossDead) {
@@ -321,6 +342,7 @@ function createBossAttackSystem(deps) {
                 hits: me.bossHits || 0
             },
             cooldownMs: cdLeft,
+            cooldownTotalMs: myCdMs,
             board,
             ...(lite ? {} : {
                 characters: (me.characters || []).map((c, i) => ({
@@ -442,8 +464,9 @@ function createBossAttackSystem(deps) {
             // 🤫 كولداون 30 ثانية (كاش بالذاكرة مشترك مع الواتس)
             const nowT = Date.now()
             const lastFast = fastCd.get(userId) || 0
-            if (nowT - lastFast < COOLDOWN_MS) {
-                return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS - (nowT - lastFast) })
+            const cachedCd = cdByUser.get(userId) || COOLDOWN_MS // 🔥 بليز: آخر كولداون محسوب للاعب
+            if (nowT - lastFast < cachedCd) {
+                return fail('COOLDOWN', 'cooldown', { retryInMs: cachedCd - (nowT - lastFast) })
             }
             fastCd.set(userId, nowT) // حجز فوري قبل أي await (يمنع الضغطتين المتزامنتين)
 
@@ -475,8 +498,11 @@ function createBossAttackSystem(deps) {
 
             const bossNow = Date.now()
 
-            if (me.lastBossAttack && bossNow - me.lastBossAttack < COOLDOWN_MS) {
-                return fail('COOLDOWN', 'cooldown', { retryInMs: COOLDOWN_MS - (bossNow - me.lastBossAttack) })
+            const myCooldownMs = companionsData.getBossCooldownMs(me, COOLDOWN_MS) // 🔥 بليز
+            cdByUser.set(userId, myCooldownMs)
+
+            if (me.lastBossAttack && bossNow - me.lastBossAttack < myCooldownMs) {
+                return fail('COOLDOWN', 'cooldown', { retryInMs: myCooldownMs - (bossNow - me.lastBossAttack) })
             }
 
             fastCd.set(userId, bossNow)
@@ -517,6 +543,9 @@ function createBossAttackSystem(deps) {
                 tigerCritBonus = companionsData.getCompanionBonus('tiger', me.companion.level)
             }
 
+            // 🔮 رفيق سيلفر — ضرر كريت إضافي
+            const silverCritBonus = companionsData.getSilverCritDamage(me)
+
             // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع نسبة الكريت من كل المصادر
             // (معدات/سلاح + نمر + قدرات EX) وضرر الكريت = مجموع ضرر المعدات + EX.
             // الفايض فوق 100% يتحول ضرر كريت إضافي (داخل rollCrit).
@@ -529,7 +558,7 @@ function createBossAttackSystem(deps) {
 
             const totalCrit = rollCrit(
                 (combinedGearBonus.critRate || 0) + tigerCritBonus + (exEarly ? exEarly.critRate : 0),
-                (combinedGearBonus.critDamage || 0) + (exEarly ? exEarly.critDamage : 0)
+                (combinedGearBonus.critDamage || 0) + silverCritBonus + (exEarly ? exEarly.critDamage : 0)
             )
 
             let bossHitWasCrit = false
@@ -621,6 +650,7 @@ function createBossAttackSystem(deps) {
 
                 const hitMe = (title, lines, amount) => {
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - amount)
+                    applyKnucklesReflect(companionsData, me, boss, amount) // 🥊 ناكلز
                     emit({ type: 'fx', anim: 'hit_me', title, lines: [`👑 ${boss.name}`, ...lines], amount })
                 }
                 const note = (title, lines, anim = 'debuff') =>
@@ -747,6 +777,7 @@ function createBossAttackSystem(deps) {
             // ───────────── ملخص الهجوم (نفس أقسام رسالة الواتس) ─────────────
             const companionLines = []
             if (tigerCritBonus) companionLines.push(`🐯 رفيق النمر — حرج +${tigerCritBonus}%`)
+            if (silverCritBonus) companionLines.push(`🔮 رفيق سيلفر — ضرر حرج +${silverCritBonus}%`)
             if (bearHpBonus) companionLines.push(`🐻 رفيق الدب — حد أقصى للدم +${bearHpBonus}%`)
             if (lionBossDamageBonus) companionLines.push(`🦁 رفيق الأسد — ضرر الزعيم +${lionBossDamageBonus}%`)
 
@@ -759,7 +790,9 @@ function createBossAttackSystem(deps) {
                 exSkills: exSkillsText.trim() ? exSkillsText.trim().split('\n').filter(Boolean) : [],
                 equip: gearLines(bossEquipBonus),
                 weapon: gearLines(bossWeaponBonus),
-                companion: companionLines,
+                companion: me._knucklesReflectTotal
+                    ? [...companionLines, `🥊 رفيق ناكلز — انعكس على الزعيم ${me._knucklesReflectTotal.toLocaleString()} ضرر`]
+                    : companionLines,
                 lifesteal: realLifestealHeal > 0
                     ? { lines: lifestealText.trim().split('\n').filter(Boolean), heal: realLifestealHeal }
                     : null,
@@ -797,14 +830,17 @@ function createBossAttackSystem(deps) {
                 if (follower.ability === 'reflect' && Math.random() <= 0.20) {
                     const reflectDamage = Math.floor(damage * 0.30)
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - reflectDamage)
+                    applyKnucklesReflect(companionsData, me, boss, reflectDamage) // 🥊 ناكلز
                     abilityText += `⚫ ${follower.name} — 💥 عكس الضرر ❤️ -${reflectDamage} HP\n`
                 }
                 if (follower.ability === 'bonusDamage' && Math.random() <= 0.20) {
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 1500)
+                    applyKnucklesReflect(companionsData, me, boss, 1500) // 🥊 ناكلز
                     abilityText += `⚔️ ${follower.name} — 💥 هجوم إضافي ❤️ -1500 HP\n`
                 }
                 if (follower.ability === 'critical' && Math.random() <= 0.20) {
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 3000)
+                    applyKnucklesReflect(companionsData, me, boss, 3000) // 🥊 ناكلز
                     abilityText += `🎯 ${follower.name} — 💥 ضربة حرجة ❤️ -3000 HP\n`
                 }
 
@@ -1020,6 +1056,9 @@ function createBossAttackSystem(deps) {
                     }
 
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - bossDamage)
+
+                    // 🥊 رفيق ناكلز: يرجّع على الزعيم نسبة من الضرر اللي ضربك به
+                    applyKnucklesReflect(companionsData, me, boss, bossDamage)
 
                     if (me.urReflect && bossDamage > 0) {
                         const reflected = Math.floor(bossDamage * me.urReflect / 100)

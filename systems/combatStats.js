@@ -73,6 +73,7 @@ function computeCombatStats(player, character) {
     const tiger = compKey === 'tiger' ? compVal : 0
     const lion = compKey === 'lion' ? compVal : 0
     const bear = compKey === 'bear' ? compVal : 0
+    const silver = compKey === 'silver' ? compVal : 0 // 🔮 ضرر الكريت
 
     // ✨ EX (نفس شرط index.js)
     const hasEX = num(character.evolutionLevel) >= 1 &&
@@ -90,11 +91,11 @@ function computeCombatStats(player, character) {
 
     // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع كل المصادر.
     // gear/ex تبقى للتفصيل فقط (مصدر كل رقم)، و total هو اللي يُستخدم بالحساب.
-    const gearCrit = critInfo(num(gear.critRate) + tiger, gear.critDamage)
+    const gearCrit = critInfo(num(gear.critRate) + tiger, num(gear.critDamage) + silver)
     const exCrit = hasEX ? critInfo(ex.critRate, ex.critDamage) : critInfo(0, 0)
     const totalCrit = critInfo(
         num(gear.critRate) + tiger + (hasEX ? num(ex.critRate) : 0),
-        num(gear.critDamage) + (hasEX ? num(ex.critDamage) : 0)
+        num(gear.critDamage) + silver + (hasEX ? num(ex.critDamage) : 0)
     )
 
     const skillPlayer = { specialAbilities: player.specialAbilities }
@@ -166,7 +167,7 @@ function computeCombatStats(player, character) {
         },
         player: { attackBonus: pAtk, bossDamageBonus: pBoss, damageBonus: pDmg, active: hasEX },
         companion: compKey ? { key: compKey, level: num(player.companion.level), value: compVal } : null,
-        companionBonus: { tiger, lion, bear },
+        companionBonus: { tiger, lion, bear, silver },
         crit: {
             total: totalCrit,
             gear: gearCrit,

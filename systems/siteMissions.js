@@ -42,7 +42,7 @@ function createSiteMissions(d) {
         Player, auth, characters, orbs,
         getSaudiDate, getSaudiWeekKey,
         resetDailyMissions, ensureWeeklyMissions, WEEKLY_GOALS,
-        applyDogBonus, checkAndGrantAchievement, isWeeklyBanned,
+        applyDogBonus, applyHappyBonus, checkAndGrantAchievement, isWeeklyBanned,
         dailyLocks, missionsClaimLocks, weeklyLocks,
         getSock, getNotifyJid
     } = d
@@ -70,7 +70,7 @@ function createSiteMissions(d) {
     // ───────── الحالة ─────────
     async function getState(userId) {
         // ⚡ الصفحة تسأل كل 5 ثوانٍ: نجلب الحقول اللازمة فقط (بدل المستند كاملاً ~100KB)
-        const player = await Player.findOne({ userId }).select('userId siteCode dailyMissions weeklyMissions dailyReward weeklyReward')
+        const player = await Player.findOne({ userId }).select('userId siteCode dailyMissions weeklyMissions dailyReward weeklyReward companion')
         if (!player) return null
 
         await resetDailyMissions(player)
@@ -99,7 +99,8 @@ function createSiteMissions(d) {
                 items: dItems,
                 claimed: !!m.claimed,
                 bonusClaimed: !!(player.dailyReward && player.dailyReward.lastClaim === today),
-                reward: DAILY_REWARD,
+                // 🐈 رفيق هابي: الجائزة المعروضة تشمل بونص الرفيق
+                reward: { ...DAILY_REWARD, money: applyHappyBonus ? applyHappyBonus(player, DAILY_REWARD.money) : DAILY_REWARD.money },
                 bonus: DAILY_BONUS
             },
             weekly: {
@@ -183,7 +184,7 @@ function createSiteMissions(d) {
             if (m.claimed) return fail('استلمت مكافأة المهام اليوم')
             if (!DAILY_DEFS.every(df => val(df, m) >= df.m)) return fail('لم تكمل جميع المهام بعد')
 
-            await player.addMoney(DAILY_REWARD.money)
+            await player.addMoney(applyHappyBonus ? applyHappyBonus(player, DAILY_REWARD.money) : DAILY_REWARD.money) // 🐈 رفيق هابي
             player.xp += applyDogBonus(player, DAILY_REWARD.xp)
             if (!player.boxes) player.boxes = {}
             player.boxes.legendary = (player.boxes.legendary || 0) + DAILY_REWARD.legendary

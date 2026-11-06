@@ -152,7 +152,10 @@ function createPullSystem(deps) {
 
                     chance -= luckBonus
 
-                    if (chance <= 5) {
+                    // 🦇 رفيق روج: يرفع النسبة الكلية لـ SSS (مثلاً 8% + 10% = 18%) — بقية الرتب ما تتغير
+                    const rougeBonus = companionsData.getRougeSssBonus(player)
+
+                    if (chance <= 5 + rougeBonus) {
                         rarity = 'SSS'
                     } else if (chance <= 22) {
                         rarity = 'اسطوري'

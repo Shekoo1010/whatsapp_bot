@@ -28,7 +28,7 @@ const MIN_LEVEL = 0 // اللاعب يبدأ برفيقه بمستوى 0 لحظ�
 const EGG_IMAGE = null // 🖼️ يُضاف لاحقاً رابط صورة البيضة
 
 // -----------------------------------------------------------
-// 🐾 بيانات الحيوانات التسعة
+// 🐾 بيانات الحيوانات والرفقاء
 // bonusType: نوع البونص (يُستخدم بالكود اللي يطبّق التأثير فعلياً)
 // bonusAtLevel1 / bonusAtLevel10: طرفي منحنى النسبة (المستويات
 // 2-9 تُحسب تلقائياً بالتدرّج الخطي عبر الدالة getCompanionBonus)
@@ -212,6 +212,117 @@ const ANIMALS = {
         bonusAtLevel10: 75,
         unit: '%',
         description: 'رفيق سريع البرق — لما تسحب شخصيتك المفضّلة، عنده فرصة يجدد لك فرصة سحبها بدل ما تُحسب من رصيدك.'
+    },
+
+    // =====================================================
+    // 🌟 الرفقاء الجدد (قدرات خاصة) — الصور (6 لكل رفيق) تُضاف لاحقاً
+    // لإضافة صورة: استبدل null برابط https داخل مصفوفة images للرفيق.
+    // =====================================================
+
+    rouge: {
+        key: 'rouge',
+        defaultName: 'روج',
+        emoji: '🦇',
+        images: [null, null, null, null, null, null],
+        // نسبة (%) تُضاف على النسبة الكلية لـ SSS في كل سحبة (.اسحب / سحب الموقع / البنر) — مثلاً 8% ← 18%
+        bonusType: 'sssPullBonus',
+        bonusAtLevel1: 1,
+        bonusAtLevel10: 10,
+        unit: '% فرصة SSS إضافية',
+        description: 'Rouge the Bat — تزيد نسبة SSS الكلية لكل سحبة (+10% عند الماكس، مثلاً 8% تصير 18%).'
+    },
+
+    silver: {
+        key: 'silver',
+        defaultName: 'سيلفر',
+        emoji: '🔮',
+        images: [null, null, null, null, null, null],
+        // ضرر كريت إضافي (%) — يُجمع مع ضرر الكريت من المعدات/السلاح/EX (زعيم، مضاربة، PvP...)
+        bonusType: 'critDamageBonus',
+        bonusAtLevel1: 5,
+        bonusAtLevel10: 50,
+        unit: '% ضرر كريت',
+        description: 'Silver the Hedgehog — يزيد ضرر الكريت لشخصياتك (+50% عند الماكس) في الزعيم والمضاربة وبقية المعارك.'
+    },
+
+    blaze: {
+        key: 'blaze',
+        defaultName: 'بليز',
+        emoji: '🔥',
+        images: [null, null, null, null, null, null],
+        // عدد الثواني اللي تنقص من كولداون هجوم الزعيم (30 ث → 15 ث عند الماكس)
+        bonusType: 'bossCooldownReduction',
+        bonusAtLevel1: 1.5,
+        bonusAtLevel10: 15,
+        unit: ' ث تخفيض كولداون الزعيم',
+        description: 'Blaze the Cat — تقلل كولداون هجوم الزعيم من 30 ثانية إلى 15 ثانية عند الماكس.'
+    },
+
+    amy: {
+        key: 'amy',
+        defaultName: 'ايمي',
+        emoji: '🌹',
+        images: [null, null, null, null, null, null],
+        // سحبات أسلحة إضافية يومياً (عدد صحيح)
+        bonusType: 'extraWeaponPulls',
+        levelValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        unit: ' سحبة أسلحة إضافية يومياً',
+        description: 'Amy Rose — تعطيك سحبات أسلحة إضافية كل يوم (10 سحبات إضافية عند الماكس).'
+    },
+
+    happy: {
+        key: 'happy',
+        defaultName: 'هابي',
+        emoji: '🐈',
+        images: [null, null, null, null, null, null],
+        // نسبة زيادة على مال جائزة المهام اليومية (100% عند الماكس: 2.5 مليون → 5 مليون)
+        bonusType: 'missionRewardBonus',
+        bonusAtLevel1: 10,
+        bonusAtLevel10: 100,
+        unit: '% جوائز المهام اليومية',
+        description: 'Happy (Fairy Tail) — يزيد مال جائزة المهام اليومية (من 2.5 مليون إلى 5 مليون عند الماكس).'
+    },
+
+    knuckles: {
+        key: 'knuckles',
+        defaultName: 'ناكلز',
+        emoji: '🥊',
+        images: [null, null, null, null, null, null],
+        // يرجّع على الزعيم نفس الضرر اللي ضربك به + زيادة (%) — الزيادة 30% عند الماكس (130% من الضرر)
+        bonusType: 'bossReflect',
+        bonusAtLevel1: 3,
+        bonusAtLevel10: 30,
+        unit: '% زيادة على الضرر المرتد',
+        description: 'Knuckles the Echidna — يرجّع على الزعيم نفس الضرر اللي ضربك به مع زيادة 30% عند الماكس.'
+    },
+
+    metalsonic: {
+        key: 'metalsonic',
+        defaultName: 'ميتال سونيك',
+        emoji: '🤖',
+        images: [null, null, null, null, null, null],
+        // نسبة زيادة على الأورب اللي تحصله من المهام اليومية
+        bonusType: 'orbBonus',
+        bonusAtLevel1: 1.5,
+        bonusAtLevel10: 15,
+        unit: '% زيادة الأورب اليومي',
+        description: 'Metal Sonic — يزيد الأورب اللي تحصله يومياً من مهام الأورب (15% عند الماكس).'
+    },
+
+    pikachu: {
+        key: 'pikachu',
+        defaultName: 'بيكاتشو',
+        emoji: '⚡',
+        images: [null, null, null, null, null, null],
+        // 🟡 رفيق نادر: أقصى مستوى 5، ونسبة ظهوره أقل من باقي الرفقاء
+        maxLevel: 5,
+        hatchWeight: 0.5,
+        // عند الوصول للماكس: +2 شراء طعام يومياً (من 2 إلى 4) — ويبقى البونص حتى بعد بيعه
+        bonusType: 'dailyFoodBuys',
+        levelValues: [0, 0, 0, 0, 2],
+        unit: ' شراء طعام إضافي يومياً',
+        permanentAfterMax: true,
+        description: 'بيكاتشو (نادر) — عند وصوله للماكس (لفل 5) تشتري 4 طعام يومياً بدل 2، ويبقى البونص لك حتى لو بعته.'
     }
 
 }
@@ -219,6 +330,29 @@ const ANIMALS = {
 const ANIMAL_KEYS = Object.keys(ANIMALS)
 
 const IMAGES_PER_ANIMAL = 6 // 🖼️ عدد خيارات الصور الثابت لكل رفيق
+
+// -----------------------------------------------------------
+// 📏 أقصى مستوى للرفيق (الافتراضي 10 — بيكاتشو 5)
+// -----------------------------------------------------------
+function getMaxLevel(animalKey) {
+    const animal = ANIMALS[animalKey]
+    return (animal && animal.maxLevel) ? animal.maxLevel : MAX_LEVEL
+}
+
+// -----------------------------------------------------------
+// 🎲 اختيار رفيق عشوائي بالأوزان (hatchWeight — الافتراضي 1، بيكاتشو أقل)
+// يُستخدم عند الفقس وأمر الإعطاء العشوائي
+// -----------------------------------------------------------
+function pickRandomAnimalKey() {
+    let total = 0
+    for (const k of ANIMAL_KEYS) total += (ANIMALS[k].hatchWeight || 1)
+    let r = Math.random() * total
+    for (const k of ANIMAL_KEYS) {
+        r -= (ANIMALS[k].hatchWeight || 1)
+        if (r <= 0) return k
+    }
+    return ANIMAL_KEYS[ANIMAL_KEYS.length - 1]
+}
 
 // -----------------------------------------------------------
 // 🖼️ يرجّع رابط صورة معيّنة لرفيق (بالفهرس 0-5)
@@ -244,11 +378,12 @@ function getCompanionBonus(animalKey, level) {
     const animal = ANIMALS[animalKey]
     if (!animal) return 0
 
-    const lvl = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)))
+    const maxLvl = getMaxLevel(animalKey)
+    const lvl = Math.max(1, Math.min(maxLvl, Math.floor(level)))
 
-    // حالة المنحنى المرحلي (الأرنب حالياً)
+    // حالة المنحنى المرحلي (الأرنب، إيمي، بيكاتشو...)
     if (animal.levelValues) {
-        return animal.levelValues[lvl - 1]
+        return animal.levelValues[Math.min(lvl, animal.levelValues.length) - 1]
     }
 
     const { bonusAtLevel1, bonusAtLevel10 } = animal
@@ -302,16 +437,17 @@ function buildCompanionCard(animalKey, level, foodProgress, customName, selected
 
     const bonus = getCompanionBonus(animalKey, level)
     const name = customName || animal.defaultName
-    const isMaxLevel = level >= MAX_LEVEL
+    const maxLvl = getMaxLevel(animalKey)
+    const isMaxLevel = level >= maxLvl
 
     const foodNeeded = isMaxLevel
         ? 0
         : getFoodNeededForNextLevel(level)
 
     // 📊 شريط المستوى (10 خانات)
-    const lvlSafe = Math.max(0, Math.min(MAX_LEVEL, Math.floor(level || 0)))
-    const levelBar = '▰'.repeat(lvlSafe) + '▱'.repeat(MAX_LEVEL - lvlSafe)
-    const levelPct = Math.round((lvlSafe / MAX_LEVEL) * 100)
+    const lvlSafe = Math.max(0, Math.min(maxLvl, Math.floor(level || 0)))
+    const levelBar = '▰'.repeat(lvlSafe) + '▱'.repeat(maxLvl - lvlSafe)
+    const levelPct = Math.round((lvlSafe / maxLvl) * 100)
 
     // 🍖 شريط التقدم بالطعام (خانة لكل وحدة طعام مطلوبة)
     let foodBlock
@@ -333,7 +469,7 @@ function buildCompanionCard(animalKey, level, foodProgress, customName, selected
 ✨ البونص الحالي: +${bonus}${animal.unit}
 
 ━━━━━━━━━━━━━━
-📊 المستوى ${level}/${MAX_LEVEL}
+📊 المستوى ${level}/${maxLvl}
 ${levelBar} ${levelPct}%
 
 ${foodBlock}
@@ -341,6 +477,78 @@ ${foodBlock}
 
 📝 ${animal.description}`
     }
+}
+
+// =========================================================
+// 🌟 دوال قدرات الرفقاء الجدد — تُستدعى من الأنظمة المختلفة
+// كلها تقبل كائن اللاعب (player) وترجّع 0/القيمة الأصلية لو الرفيق غير مناسب
+// =========================================================
+
+// قيمة بونص الرفيق الحالي إذا كان من النوع المطلوب (وإلا 0)
+function activeBonus(player, animalKey) {
+    if (
+        player &&
+        player.companion &&
+        player.companion.key === animalKey &&
+        (player.companion.level || 0) >= 1
+    ) {
+        return Number(getCompanionBonus(animalKey, player.companion.level)) || 0
+    }
+    return 0
+}
+
+// 🦇 روج: فرصة إضافية (%) لتحويل السحبة إلى SSS
+function getRougeSssBonus(player) {
+    return activeBonus(player, 'rouge')
+}
+
+// 🔮 سيلفر: ضرر كريت إضافي (%) — يُضاف لـ critDamage قبل rollCrit
+function getSilverCritDamage(player) {
+    return activeBonus(player, 'silver')
+}
+
+// 🔥 بليز: كولداون هجوم الزعيم بالميلي ثانية (baseMs الافتراضي 30000)
+function getBossCooldownMs(player, baseMs = 30000) {
+    const reduceSec = activeBonus(player, 'blaze')
+    return Math.max(1000, Math.round(baseMs - reduceSec * 1000))
+}
+
+// 🌹 إيمي: عدد سحبات الأسلحة اليومية (الأساسي + الإضافي)
+function getWeaponDailyPulls(player, basePulls = 10) {
+    return basePulls + Math.floor(activeBonus(player, 'amy'))
+}
+
+// 🐈 هابي: يضرب مبلغ جائزة المهام اليومية بالبونص
+function applyHappyBonus(player, amount) {
+    const bonus = activeBonus(player, 'happy')
+    return bonus ? Math.floor(amount * (1 + bonus / 100)) : amount
+}
+
+// 🥊 ناكلز: الضرر اللي يرجع على الزعيم = الضرر اللي ضربك به + زيادة (%) (30% عند الماكس ← ×1.3)
+function getKnucklesReflect(player, damageTaken) {
+    const extraPct = activeBonus(player, 'knuckles')
+    if (!extraPct || !damageTaken || damageTaken <= 0) return 0
+    return Math.floor(damageTaken * (1 + extraPct / 100))
+}
+
+// 🤖 ميتال سونيك: نسبة زيادة الأورب
+function getOrbBonusPercent(player) {
+    return activeBonus(player, 'metalsonic')
+}
+
+// ⚡ بيكاتشو: حد شراء الطعام اليومي (2 افتراضياً، 4 بعد فتح بونص بيكاتشو — يبقى حتى بعد البيع)
+function getDailyFoodBuyLimit(player, baseLimit = 2) {
+    return (player && player.pikachuBonusUnlocked) ? baseLimit + 2 : baseLimit
+}
+
+// ⚡ بيكاتشو: هل وصل الماكس؟ (يستدعى بعد أي رفع مستوى)
+function isPikachuMaxed(player) {
+    return !!(
+        player &&
+        player.companion &&
+        player.companion.key === 'pikachu' &&
+        (player.companion.level || 0) >= getMaxLevel('pikachu')
+    )
 }
 
 module.exports = {
@@ -352,6 +560,18 @@ module.exports = {
     MIN_LEVEL,
     EGG_IMAGE,
     getCompanionBonus,
+    getMaxLevel,
+    pickRandomAnimalKey,
+    activeBonus,
+    getRougeSssBonus,
+    getSilverCritDamage,
+    getBossCooldownMs,
+    getWeaponDailyPulls,
+    applyHappyBonus,
+    getKnucklesReflect,
+    getOrbBonusPercent,
+    getDailyFoodBuyLimit,
+    isPikachuMaxed,
     getFoodNeededForNextLevel,
     getTotalFoodToLevel,
     getCompanionImage,

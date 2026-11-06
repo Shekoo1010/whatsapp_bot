@@ -336,6 +336,8 @@ module.exports = function createSiteChallenge(deps) {
             applyEquip(oS, foeEq)
             equipmentSystem.applyEquipPercentBonus(aS, myEq)
             equipmentSystem.applyEquipPercentBonus(oS, foeEq)
+            // 🔮 رفيق سيلفر: ضرر كريت إضافي للمهاجم
+            try { aS.critDamage = (Number(aS.critDamage) || 0) + require('./companionsData').getSilverCritDamage(playerData) } catch (e) {}
             aS.power = attacker.power
             aS.level = playerData.level
             // 📖 بونص كتاب المجموعة: هجوم في المضاربات (One Piece / Wuthering Waves) — نفس تطبيق أوامر البوت

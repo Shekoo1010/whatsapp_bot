@@ -3835,7 +3835,7 @@ ${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
 <script>
 (function(){
   var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, D=${jsonForScript(data)};
-  var S=D.state, lastId=D.lastId||0, seen={}, busy=false, cdEnd=0, pollTimer=null, respEnd=0, bossDeadShown=false, pubQ=[], pubRun=false;
+  var S=D.state, lastId=D.lastId||0, seen={}, busy=false, cdEnd=0, cdTotal=((D.state&&D.state.cooldownTotalMs)||30000), pollTimer=null, respEnd=0, bossDeadShown=false, pubQ=[], pubRun=false;
   function setResp(b){ respEnd=(b&&b.finished&&b.respawnInMs!=null)?Date.now()+b.respawnInMs:0; }
   function mmss(ms){ var s=Math.ceil(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60; function z(n){ return (n<10?'0':'')+n; } return (h>0?h+':'+z(m):m)+':'+z(r); }
   function $(id){ return document.getElementById(id); }
@@ -4106,7 +4106,7 @@ function setTheme(i){
     renderChar();
   }
   function applyState(st){
-    S.open=st.open; S.boss=st.boss; S.me=st.me; S.cooldownMs=st.cooldownMs;
+    S.open=st.open; S.boss=st.boss; S.me=st.me; S.cooldownMs=st.cooldownMs; cdTotal=st.cooldownTotalMs||30000; /* 🔥 بليز */
     if(st.characters && st.characters.length){ S.characters=st.characters; }
     cdEnd=Date.now()+(st.cooldownMs||0);
     setResp(st.boss);
@@ -4217,7 +4217,7 @@ function setTheme(i){
     if(!S.boss || S.boss.finished){ btn.disabled=true; lbl.textContent='👑 لا يوجد زعيم نشط'; $('cd').style.width='0'; return; }
     if(!S.open){ btn.disabled=true; lbl.textContent='🔴 باب الهجوم مغلق'; $('cd').style.width='0'; return; }
     if(S.me.dead && S.me.deadLeftMs>0){ btn.disabled=true; lbl.textContent='💀 أنت ميت'; return; }
-    if(left>0){ btn.disabled=true; lbl.textContent='⏳ '+Math.ceil(left/1000)+' ث'; $('cd').style.width=(left/${'30000'}*100)+'%'; return; }
+    if(left>0){ btn.disabled=true; lbl.textContent='⏳ '+Math.ceil(left/1000)+' ث'; $('cd').style.width=(left/cdTotal*100)+'%'; return; }
     btn.disabled=false; lbl.textContent='⚔️ هجوم'; $('cd').style.width='0';
   }
 
@@ -4422,7 +4422,7 @@ function setTheme(i){
     if(busy) return;
     vOnAttackClick();
     busy=true; atkSeq++; $('go').disabled=true; $('lbl').textContent='⚔️'; show(null);
-    cdEnd=Date.now()+30000;   // كولداون فوري (تفاؤلي)
+    cdEnd=Date.now()+cdTotal;   // كولداون فوري (تفاؤلي) — حسب كولداون اللاعب (بليز)
     // شحن في المكان (بدون هجوم) حتى يرد السيرفر؛ الهجوم والضرر يظهران معاً بعد الرد
     var chg=null;
     try{ chg=$('fme').animate([{transform:'scale(1)',filter:'brightness(1)'},{transform:'scale(1.1)',filter:'brightness(1.5)'},{transform:'scale(1)',filter:'brightness(1)'}],{duration:650,iterations:Infinity}); }catch(e){}
@@ -4438,7 +4438,7 @@ function setTheme(i){
       if(j.ok){
         await playAttack(j);
       } else {
-        if(j.code==='COOLDOWN'){ cdEnd=Date.now()+(j.retryInMs||${'30000'}); }
+        if(j.code==='COOLDOWN'){ cdEnd=Date.now()+(j.retryInMs||cdTotal); }
         else { cdEnd=0; if(j.code==='DEAD'){ S.me.dead=true; S.me.deadLeftMs=j.retryInMs||0; } show('bad',j.message||'فشل الهجوم'); }
       }
       busy=false; atkSeq++; tick(); setTimeout(poll,900);
@@ -7702,6 +7702,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         return {
             open: st.open,
             cooldownMs: st.cooldownMs,
+            cooldownTotalMs: st.cooldownTotalMs,
             boss: st.boss ? {
                 name: st.boss.name, img: safeImageUrl(st.boss.image),
                 hp: st.boss.hp, maxHp: st.boss.maxHp, enraged: st.boss.enraged, finished: st.boss.finished,

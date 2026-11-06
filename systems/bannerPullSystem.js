@@ -14,6 +14,7 @@ function createBannerPullSystem(deps) {
     const {
         Player,
         pullLocks,
+        companionsData,       // 🦇 بونص رفيق روج
         orbs,                 // systems/orbSystem
         bannerMgr,            // systems/bannerManager
         resetDailyMissions,
@@ -109,7 +110,10 @@ function createBannerPullSystem(deps) {
             charged = true
 
             // 🎲 السحب
-            const rolled = bannerMgr.rollPulls(n, spentDoc, bannerState.character)
+            // 🦇 رفيق روج: نمرر نسبة SSS الإضافية كوسيط رابع (bannerManager.rollPulls يقرأ opts.sssBonus)
+            const rolled = bannerMgr.rollPulls(n, spentDoc, bannerState.character, {
+                sssBonus: companionsData ? companionsData.getRougeSssBonus(player) : 0
+            })
 
             // ✅ تصفير مهام اليوم الجديد قبل حساب السحبات
             await resetDailyMissions(player)

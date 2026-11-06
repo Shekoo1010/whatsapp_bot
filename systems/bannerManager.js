@@ -638,10 +638,11 @@ function sssChance(pullNumber) {
     return SSS_RATE
 }
 
-function rollOne(st, banner) {
+function rollOne(st, banner, sssBonus = 0) {
     const n = st.pity + 1
 
-    if (Math.random() * 100 < sssChance(n)) {
+    // 🦇 رفيق روج: نسبة SSS إضافية فوق نسبة البنر الأساسية (تُجمع وتُقصّ عند 100%)
+    if (Math.random() * 100 < Math.min(100, sssChance(n) + (Number(sssBonus) || 0))) {
         const featured = st.guaranteed || Math.random() < FEATURED_CHANCE
 
         let character = banner
@@ -671,14 +672,15 @@ function rollOne(st, banner) {
     return { character: pickRandom(pool), rarity, featured: false, pityAt: n }
 }
 
-function rollPulls(count, orbDoc, banner) {
+function rollPulls(count, orbDoc, banner, opts = {}) {
     const st = {
         pity: orbDoc?.pity || 0,
         guaranteed: !!orbDoc?.guaranteedFeatured
     }
 
     const results = []
-    for (let i = 0; i < count; i++) results.push(rollOne(st, banner))
+    const sssBonus = Number(opts && opts.sssBonus) || 0
+    for (let i = 0; i < count; i++) results.push(rollOne(st, banner, sssBonus))
 
     return { results, pity: st.pity, guaranteedFeatured: st.guaranteed }
 }

@@ -118,6 +118,9 @@ function create(deps) {
         const tiger = i => (players[i].companion && players[i].companion.key === 'tiger' && (players[i].companion.level || 0) >= 1)
             ? companionsData.getCompanionBonus('tiger', players[i].companion.level) : 0
 
+        // 🔮 رفيق سيلفر: ضرر كريت إضافي
+        const silver = i => companionsData.getSilverCritDamage(players[i])
+
         // 👑 قدرات UR النشطة: 4 عشوائية لكل شخصية (تُحدَّد مبكراً لأن الكريت صار رمية واحدة)
         const active = [
             shuffle(chars[0].urAbilities || []).slice(0, 4),
@@ -132,7 +135,7 @@ function create(deps) {
         for (let i = 0; i < 2; i++) {
             const c = rollCrit(
                 (b[i].critRate || 0) + tiger(i) + sumAbility(active[i], 'critRate'),
-                (b[i].critDamage || 0) + sumAbility(active[i], 'critDamage')
+                (b[i].critDamage || 0) + silver(i) + sumAbility(active[i], 'critDamage')
             )
             if (c.isCrit) {
                 d[i] = Math.floor(d[i] * c.multiplier)

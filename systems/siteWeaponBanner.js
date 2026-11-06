@@ -49,7 +49,7 @@ function safeImg(u) {
 
 function createSiteWeaponBanner({
     Player, weaponsList, weaponPullLocks,
-    dailyPulls, pityCap, successChance,
+    dailyPulls, getDailyPullsFor, pityCap, successChance,
     addCommandXp, commandXp, isBanned, worlds
 }) {
 
@@ -94,8 +94,9 @@ function createSiteWeaponBanner({
             if (!player) return { ok: false, code: 'NO_PLAYER' }
 
             player.weaponsInventory = player.weaponsInventory || []
+            const myDailyPulls = getDailyPullsFor ? getDailyPullsFor(player) : dailyPulls // 🌹 رفيق إيمي
             if (player.weaponPulls === undefined || player.weaponPulls === null) {
-                player.weaponPulls = dailyPulls
+                player.weaponPulls = myDailyPulls
             }
             player.weaponPity = player.weaponPity || 0
 
@@ -106,7 +107,7 @@ function createSiteWeaponBanner({
             // 🔒 خصم ذري بقاعدة البيانات (نفس الأمر)
             await Player.updateOne(
                 { userId, $or: [{ weaponPulls: { $exists: false } }, { weaponPulls: null }] },
-                { $set: { weaponPulls: dailyPulls } },
+                { $set: { weaponPulls: myDailyPulls } },
                 { strict: false }
             )
             const claim = await Player.findOneAndUpdate(
@@ -423,7 +424,7 @@ function createSiteWeaponBanner({
                 if (!CODE_RE.test(code)) return html404(res)
 
                 const player = await Player.findOne({ siteCode: code })
-                    .select('userId name username sessionVersion weaponPulls weaponPity')
+                    .select('userId name username sessionVersion weaponPulls weaponPity companion')
                     .lean()
                 if (!player) return html404(res)
 
@@ -437,10 +438,10 @@ function createSiteWeaponBanner({
                     data: {
                         weapons: weaponsList.map(publicWeapon),
                         state: {
-                            pulls: player.weaponPulls === undefined || player.weaponPulls === null ? dailyPulls : player.weaponPulls,
+                            pulls: player.weaponPulls === undefined || player.weaponPulls === null ? (getDailyPullsFor ? getDailyPullsFor(player) : dailyPulls) : player.weaponPulls,
                             pity: player.weaponPity || 0
                         },
-                        daily: dailyPulls,
+                        daily: getDailyPullsFor ? getDailyPullsFor(player) : dailyPulls,
                         cap: pityCap
                     }
                 }))

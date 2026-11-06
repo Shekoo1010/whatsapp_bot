@@ -144,12 +144,25 @@ async function trackMission(userId, key, opts = {}) {
             return { key, finished: false, progress, target: def.target, earned: 0 }
         }
 
+        // 🤖 رفيق ميتال سونيك: زيادة نسبة على أورب المهمة (15% عند الماكس)
+        let bonusOrbs = 0
+        try {
+            const PlayerModel = require('../models/Player')
+            const companionsData = require('./companionsData')
+            const pl = await PlayerModel.findOne({ userId }).select('companion').lean()
+            const pct = companionsData.getOrbBonusPercent(pl)
+            if (pct > 0) bonusOrbs = Math.floor(def.orbs * pct / 100)
+        } catch (e) {
+            console.log('metal sonic orb bonus error:', e?.message || e)
+        }
+        const grantedOrbs = def.orbs + bonusOrbs
+
         // 2) إغلاق المهمة + منح الأورب (ذري — ما تتكرر الجائزة أبداً)
         const done = await PlayerOrbs.findOneAndUpdate(
             { userId, [doneField]: { $ne: true } },
             {
                 $set: { [doneField]: true, [progField]: def.target },
-                $inc: { orbs: def.orbs, totalEarned: def.orbs }
+                $inc: { orbs: grantedOrbs, totalEarned: grantedOrbs }
             },
             { new: true }
         )
@@ -161,7 +174,8 @@ async function trackMission(userId, key, opts = {}) {
             finished: true,
             progress: def.target,
             target: def.target,
-            earned: def.orbs,
+            earned: grantedOrbs,
+            bonusOrbs,
             balance: done.orbs,
             earnedToday: earnedToday(done),
             doneCount: DAILY_MISSIONS.filter(m => done.missionDone?.[m.key]).length
@@ -173,7 +187,7 @@ async function trackMission(userId, key, opts = {}) {
 
 @${userId.split('@')[0]}
 ✅ ${def.name}
-✨ +${def.orbs} أورب
+✨ +${grantedOrbs} أورب${bonusOrbs ? ` (🤖 +${bonusOrbs} من ميتال سونيك)` : ''}
 
 📅 اليوم ➤ ${result.earnedToday}/${DAILY_ORBS_TOTAL}  (${result.doneCount}/${DAILY_MISSIONS.length})
 💎 رصيدك ➤ ${result.balance.toLocaleString()}`

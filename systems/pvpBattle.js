@@ -145,7 +145,7 @@ function buildFighter(character, side, ctx) {
         hp: maxHp,
         shield: Math.max(0, Math.floor(num(s.shield) / ctx.teamSize + num(eq.shield))),
         critRate: num(s.critRate) + num(eq.critRate) + num(extras.critRate),
-        critDamage: num(s.critDamage, 50) + num(eq.critDamage),
+        critDamage: num(s.critDamage, 50) + num(eq.critDamage) + num(extras.critDamage), // 🔮 رفيق سيلفر
         dodge: clamp(num(s.dodge) + num(eq.dodge), 0, CFG.CAPS.dodge),
         accuracy: num(s.accuracy, 100) + num(eq.accuracy),
         lifesteal: clamp(num(s.lifesteal) + num(eq.lifesteal), 0, CFG.CAPS.lifesteal),
