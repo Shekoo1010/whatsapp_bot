@@ -216,6 +216,27 @@ function applyDogBonus(player, amount) {
     return amount
 }
 
+// 🐈 رفيق هابي — يزيد مال جائزة المهام اليومية
+function applyHappyBonus(player, amount) {
+    return companionsData.applyHappyBonus(player, amount)
+}
+
+// 🥊 رفيق ناكلز — يرجّع على الزعيم نسبة من الضرر اللي ضربك به (نفس منطق site/bossAttackSystem)
+function knucklesReflectApply(player, boss, damageTaken) {
+    const reflected = companionsData.getKnucklesReflect(player, damageTaken)
+    if (!reflected || !boss) return 0
+    boss.hp = Math.max(0, (Number(boss.hp) || 0) - reflected)
+    if (boss.hp <= 0 && boss.activeFollowers && boss.activeFollowers.length > 0) boss.hp = 1
+    player._knucklesReflectTotal = (player._knucklesReflectTotal || 0) + reflected
+    return reflected
+}
+
+// 🔥 رفيق بليز — كاش الكولداون الشخصي للاعب (مشترك مع bossAttackSystem عبر نفس Map)
+function bossCdCache() {
+    if (!bossAttackFastCd.cdByUser) bossAttackFastCd.cdByUser = new Map()
+    return bossAttackFastCd.cdByUser
+}
+
 const CoOp = require('./models/CoOp')
 const coopManager = require('./systems/coopManager')
 
@@ -1762,6 +1783,14 @@ async function scheduleWeaponPullsReset() {
                     {},
                     { $set: { weaponPulls: WEAPON_DAILY_PULLS } }
                 )
+
+                // 🌹 رفيق إيمي: سحبات أسلحة إضافية يومياً حسب مستواها (1-10)
+                for (let amyLvl = 1; amyLvl <= companionsData.MAX_LEVEL; amyLvl++) {
+                    await Player.updateMany(
+                        { 'companion.key': 'amy', 'companion.level': amyLvl },
+                        { $set: { weaponPulls: WEAPON_DAILY_PULLS + companionsData.getCompanionBonus('amy', amyLvl) } }
+                    )
+                }
 
                 console.log('✅ تم تصفير سحبات الأسلحة لجميع اللاعبين —', today)
             }
@@ -5261,6 +5290,7 @@ const { createBannerPullSystem } = require('./systems/bannerPullSystem')
 const bannerPullSystem = createBannerPullSystem({
     Player,
     pullLocks,
+    companionsData, // 🦇 بونص رفيق روج
     orbs,
     bannerMgr,
     resetDailyMissions,
@@ -5421,6 +5451,7 @@ const siteMissions = require('./systems/siteMissions')({
     ensureWeeklyMissions,
     WEEKLY_GOALS,
     applyDogBonus,
+    applyHappyBonus, // 🐈 رفيق هابي
     checkAndGrantAchievement,
     isWeeklyBanned,
     dailyLocks,
@@ -5482,6 +5513,7 @@ const siteWeaponBanner = require('./systems/siteWeaponBanner').createSiteWeaponB
     weaponsList,
     weaponPullLocks,
     dailyPulls: WEAPON_DAILY_PULLS,
+    getDailyPullsFor: p => companionsData.getWeaponDailyPulls(p, WEAPON_DAILY_PULLS), // 🌹 رفيق إيمي
     pityCap: WEAPON_PITY_CAP,
     successChance: WEAPON_PULL_SUCCESS_CHANCE,
     addCommandXp,
@@ -6188,6 +6220,10 @@ const tigerCrit2 =
         ? companionsData.getCompanionBonus('tiger', player2.companion.level)
         : 0
 
+// 🔮 بونص رفيق سيلفر — ضرر كريت إضافي (المضاربة)
+const silverCritDmg1 = companionsData.getSilverCritDamage(player1)
+const silverCritDmg2 = companionsData.getSilverCritDamage(player2)
+
 // قدرات EX النشطة (4 عشوائية) — تُحدَّد مبكراً لأن الكريت صار رمية واحدة
 const activeAbilities1 =
     shuffle(char1.urAbilities || []).slice(0, 4)
@@ -6203,7 +6239,7 @@ const sumAbility = (list, type) =>
 // الفايض فوق 100% يتحول ضرر كريت إضافي (داخل rollCrit).
 const p1Crit = rollCrit(
     (char1EquipBonus.critRate || 0) + tigerCrit1 + sumAbility(activeAbilities1, 'critRate'),
-    (char1EquipBonus.critDamage || 0) + sumAbility(activeAbilities1, 'critDamage')
+    (char1EquipBonus.critDamage || 0) + silverCritDmg1 + sumAbility(activeAbilities1, 'critDamage')
 )
 if (p1Crit.isCrit) {
     dmg1 = Math.floor(dmg1 * p1Crit.multiplier)
@@ -6216,7 +6252,7 @@ if (p1Crit.isCrit) {
 
 const p2Crit = rollCrit(
     (char2EquipBonus.critRate || 0) + tigerCrit2 + sumAbility(activeAbilities2, 'critRate'),
-    (char2EquipBonus.critDamage || 0) + sumAbility(activeAbilities2, 'critDamage')
+    (char2EquipBonus.critDamage || 0) + silverCritDmg2 + sumAbility(activeAbilities2, 'critDamage')
 )
 if (p2Crit.isCrit) {
     dmg2 = Math.floor(dmg2 * p2Crit.multiplier)
@@ -10636,7 +10672,10 @@ if (guaranteedSSS) {
 
     chance -= luckBonus
 
-    if (chance <= 5) {
+    // 🦇 رفيق روج: يرفع النسبة الكلية لـ SSS (مثلاً 8% + 10% = 18%) — بقية الرتب ما تتغير
+    const rougeBonus = companionsData.getRougeSssBonus(player)
+
+    if (chance <= 5 + rougeBonus) {
 
         rarity = 'SSS'
 
@@ -10968,7 +11007,8 @@ if (
 // 🤫 كولداون 30 ثانية صامت: بدون أي رسالة وبدون استعلام قاعدة بيانات
 {
     const fastLast = bossAttackFastCd.get(userId) || 0
-    if (Date.now() - fastLast < 30000) return
+    const cachedBossCd = bossCdCache().get(userId) || 30000 // 🔥 بليز: كولداون اللاعب الشخصي
+    if (Date.now() - fastLast < cachedBossCd) return
 }
 
 if (!currentBoss) {
@@ -11027,9 +11067,13 @@ if (me.bossDead) {
 
 const bossNow = Date.now()
 
+// 🔥 رفيق بليز: كولداون الزعيم الشخصي (30 ث → 15 ث عند الماكس)
+const myBossCooldownMs = companionsData.getBossCooldownMs(me, 30000)
+bossCdCache().set(userId, myBossCooldownMs)
+
 if (
     me.lastBossAttack &&
-    bossNow - me.lastBossAttack < 30000
+    bossNow - me.lastBossAttack < myBossCooldownMs
 ) {
 
     // 🤫 بدون رسالة (منع سبام الرسائل) — الكولداون شغال كالعادة
@@ -11045,7 +11089,7 @@ const cooldownClaim = await Player.findOneAndUpdate(
         $or: [
             { lastBossAttack: { $exists: false } },
             { lastBossAttack: null },
-            { lastBossAttack: { $lte: bossNow - 30000 } }
+            { lastBossAttack: { $lte: bossNow - myBossCooldownMs } }
         ]
     },
     { $set: { lastBossAttack: bossNow } },
@@ -11126,6 +11170,9 @@ if (me.companion && me.companion.key === 'tiger' && (me.companion.level || 0) >=
     tigerCritBonus = companionsData.getCompanionBonus('tiger', me.companion.level)
 }
 
+// 🔮 بونص رفيق سيلفر — ضرر كريت إضافي (هجوم الزعيم)
+const silverCritBonus = companionsData.getSilverCritDamage(me)
+
 // 🎯 حرج المعدات (نظام المعدات الجديد - .هجوم الزعيم)
 // نظام متدرج: الفايض فوق 100% crit rate يتحول crit damage إضافي
 // 🎯 كريت موحّد (مثل Wuthering Waves): رمية واحدة بمجموع المعدات + السلاح + النمر + قدرات EX
@@ -11138,7 +11185,7 @@ const exEarly = hasEXAbilities ? useEXAbilities(strongest) : null
 
 const totalCrit = rollCrit(
     (combinedGearBonus.critRate || 0) + tigerCritBonus + (exEarly ? exEarly.critRate : 0),
-    (combinedGearBonus.critDamage || 0) + (exEarly ? exEarly.critDamage : 0)
+    (combinedGearBonus.critDamage || 0) + silverCritBonus + (exEarly ? exEarly.critDamage : 0)
 )
 
 let bossHitWasCrit = false
@@ -11343,6 +11390,7 @@ if (ability.effect === "megaAttack") {
         (me.bossHp || me.bossMaxHp) -
         extraDamage
     )
+    knucklesReflectApply(me, currentBoss, extraDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11417,6 +11465,7 @@ if (ability.effect === "storm") {
         (me.bossHp || me.bossMaxHp) -
         stormDamage
     )
+    knucklesReflectApply(me, currentBoss, stormDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11459,6 +11508,7 @@ if (ability.effect === "reflect") {
         (me.bossHp || me.bossMaxHp) -
         reflected
     )
+    knucklesReflectApply(me, currentBoss, reflected) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11481,6 +11531,7 @@ if (ability.effect === "burn") {
         (me.bossHp || me.bossMaxHp) -
         burnDamage
     )
+    knucklesReflectApply(me, currentBoss, burnDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11503,6 +11554,7 @@ if (ability.effect === "lightning") {
         (me.bossHp || me.bossMaxHp) -
         lightningDamage
     )
+    knucklesReflectApply(me, currentBoss, lightningDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11616,6 +11668,7 @@ if (ability.effect === "volcano") {
         (me.bossHp || me.bossMaxHp) -
         volcanoDamage
     )
+    knucklesReflectApply(me, currentBoss, volcanoDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11640,6 +11693,7 @@ if (ability.effect === "dimensionCollapse") {
         (me.bossHp || me.bossMaxHp) -
         collapseDamage
     )
+    knucklesReflectApply(me, currentBoss, collapseDamage) // 🥊 رفيق ناكلز
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -11798,6 +11852,7 @@ if (
             (me.bossHp || me.bossMaxHp) -
             reflectDamage
         )
+    knucklesReflectApply(me, currentBoss, reflectDamage) // 🥊 رفيق ناكلز
 
     abilityText += `
 
@@ -11820,6 +11875,7 @@ if (
             (me.bossHp || me.bossMaxHp) -
             bonusDamage
         )
+    knucklesReflectApply(me, currentBoss, bonusDamage) // 🥊 رفيق ناكلز
 
     abilityText += `
 
@@ -11843,6 +11899,7 @@ if (
             (me.bossHp || me.bossMaxHp) -
             criticalDamage
         )
+    knucklesReflectApply(me, currentBoss, criticalDamage) // 🥊 رفيق ناكلز
 
     abilityText += `
 
@@ -12237,6 +12294,7 @@ if (
             (me.bossHp || me.bossMaxHp) -
             bossDamage
         )
+    knucklesReflectApply(me, currentBoss, bossDamage) // 🥊 رفيق ناكلز
 
                 // عكس ضرر UR
 if (
@@ -12506,11 +12564,17 @@ await Boss.updateOne(
             if (tigerCritBonus)
                 lines.push(`🐯 رفيق النمر — حرج +${tigerCritBonus}%`)
 
+            if (silverCritBonus)
+                lines.push(`🔮 رفيق سيلفر — ضرر حرج +${silverCritBonus}%`)
+
             if (bearHpBonus)
                 lines.push(`🐻 رفيق الدب — حد أقصى للدم +${bearHpBonus}%`)
 
             if (lionBossDamageBonus)
                 lines.push(`🦁 رفيق الأسد — ضرر الزعيم +${lionBossDamageBonus}%`)
+
+            if (me._knucklesReflectTotal)
+                lines.push(`🥊 رفيق ناكلز — انعكس على الزعيم ${me._knucklesReflectTotal.toLocaleString()} ضرر`)
 
             return lines.length
                 ? lines.join('\n')
@@ -15537,7 +15601,6 @@ if (
 `✨ ═══════〔 الدمج 〕═══════ ✨
 
 🔥 تم دمج 5 شخصيات من رتبة ${rarityInput}
-
 🎁 حصلت على:
 
 👑 ${reward.name}
@@ -22345,11 +22408,9 @@ if (text === '.فقس_رفيق') {
         })
     }
 
-    // اختيار عشوائي من التسعة
-    const randomKey =
-        companionsData.ANIMAL_KEYS[
-            Math.floor(Math.random() * companionsData.ANIMAL_KEYS.length)
-        ]
+    // اختيار عشوائي بالأوزان
+    // (بيكاتشو نادر: وزن ظهوره أقل من باقي الرفقاء — hatchWeight بملف companionsData)
+    const randomKey = companionsData.pickRandomAnimalKey()
 
     const animal = companionsData.ANIMALS[randomKey]
 
@@ -22524,7 +22585,7 @@ if (text === '.اطعام_رفيق') {
         })
     }
 
-    if (player.companion.level >= companionsData.MAX_LEVEL) {
+    if (player.companion.level >= companionsData.getMaxLevel(player.companion.key)) {
         return safeSend(msg.key.remoteJid, {
             text: '🌟 رفيقك وصل أعلى مستوى بالفعل'
         })
@@ -22555,6 +22616,13 @@ if (text === '.اطعام_رفيق') {
         leveledUp = true
     }
 
+    // ⚡ بيكاتشو: لما يوصل الماكس يُفتح البونص (4 شراءات طعام يومياً) ويبقى دائماً حتى بعد البيع
+    let pikachuUnlockedNow = false
+    if (companionsData.isPikachuMaxed(player) && !player.pikachuBonusUnlocked) {
+        player.pikachuBonusUnlocked = true
+        pikachuUnlockedNow = true
+    }
+
     await player.save()
 
     const animal = companionsData.ANIMALS[player.companion.key]
@@ -22569,8 +22637,8 @@ if (text === '.اطعام_رفيق') {
             text:
 `🍖 أطعمت ${name}
 
-🎉 ارتفع مستواه إلى ${player.companion.level}/${companionsData.MAX_LEVEL}
-✨ البونص الحالي: +${newBonus}${animal.unit}`
+🎉 ارتفع مستواه إلى ${player.companion.level}/${companionsData.getMaxLevel(player.companion.key)}
+✨ البونص الحالي: +${newBonus}${animal.unit}${pikachuUnlockedNow ? '\n\n⚡ فُتح بونص بيكاتشو! صرت تشتري 4 طعام يومياً بدل 2 (ويبقى حتى لو بعته)' : ''}`
         })
     }
 
@@ -22604,7 +22672,7 @@ if (text === '.متجر_رفيق') {
 
 🥫 طعام رفيق — 1000 مال / وحدة
 
-📦 شراؤك اليوم: ${player.companionShop.buysToday}/2
+📦 شراؤك اليوم: ${player.companionShop.buysToday}/${companionsData.getDailyFoodBuyLimit(player)}
 🥫 طعامك الحالي: ${player.companionFood || 0}
 
 🕛 يتجدد يومياً الساعة 12:00 ص (توقيت السعودية)
@@ -22636,13 +22704,15 @@ if (text.startsWith('.شراء_طعام_رفيق')) {
 
     resetCompanionShopIfNeeded(player)
 
+    const dailyFoodLimit = companionsData.getDailyFoodBuyLimit(player) // ⚡ بيكاتشو: 4 بدل 2
+
     const remainingToday =
-        2 - player.companionShop.buysToday
+        dailyFoodLimit - player.companionShop.buysToday
 
     if (remainingToday <= 0) {
         return safeSend(msg.key.remoteJid, {
             text:
-`❌ خلّصت حد الشراء اليومي (2/يوم)
+`❌ خلّصت حد الشراء اليومي (${dailyFoodLimit}/يوم)
 
 🕛 يتجدد الساعة 12:00 ص بتوقيت السعودية`
         })
@@ -22679,7 +22749,7 @@ if (text.startsWith('.شراء_طعام_رفيق')) {
 
 💰 التكلفة: ${totalCost.toLocaleString()}
 🥫 طعامك الآن: ${player.companionFood}
-📦 شراؤك اليوم: ${player.companionShop.buysToday}/2`
+📦 شراؤك اليوم: ${player.companionShop.buysToday}/${dailyFoodLimit}`
     })
 }
 
@@ -26512,7 +26582,6 @@ ${matchingIndexes.length}`
 `✨ ═══════〔 الدمج الشامل 〕═══════ ✨
 
 🔥 تم الحصول على ${rewards.length} شخصية جديدة
-
 `
 
         rewards.forEach((char, index) => {
@@ -30573,19 +30642,25 @@ ${abilitiesText}`
         const maxCompName = maxCompPlayer.companion.customName || maxCompAnimal?.defaultName || maxCompPlayer.companion.key
         const maxCompOld = maxCompPlayer.companion.level || 0
 
-        maxCompPlayer.companion.level = companionsData.MAX_LEVEL
+        const maxCompLevel = companionsData.getMaxLevel(maxCompPlayer.companion.key)
+
+        maxCompPlayer.companion.level = maxCompLevel
         maxCompPlayer.companion.foodProgress = 0
         maxCompPlayer.markModified('companion')
+
+        // ⚡ بيكاتشو: فتح البونص الدائم عند الماكس
+        if (companionsData.isPikachuMaxed(maxCompPlayer)) maxCompPlayer.pikachuBonusUnlocked = true
+
         await maxCompPlayer.save()
 
-        const maxCompBonus = companionsData.getCompanionBonus(maxCompPlayer.companion.key, companionsData.MAX_LEVEL)
+        const maxCompBonus = companionsData.getCompanionBonus(maxCompPlayer.companion.key, maxCompLevel)
 
         return safeSend(msg.key.remoteJid, {
             text:
 `🌟 تم رفع الرفيق لأعلى مستوى
 
 ${maxCompAnimal?.emoji || '🐾'} ${maxCompName}
-📈 المستوى: ${maxCompOld} → ${companionsData.MAX_LEVEL}/${companionsData.MAX_LEVEL}
+📈 المستوى: ${maxCompOld} → ${maxCompLevel}/${maxCompLevel}
 ✨ البونص الحالي: +${maxCompBonus}${maxCompAnimal?.unit || ''}`
         })
     }
@@ -30641,9 +30716,7 @@ ${maxCompAnimal?.emoji || '🐾'} ${maxCompName}
                 })
             }
         } else {
-            giveCompKey = companionsData.ANIMAL_KEYS[
-                Math.floor(Math.random() * companionsData.ANIMAL_KEYS.length)
-            ]
+            giveCompKey = companionsData.pickRandomAnimalKey()
         }
 
         const giveCompAnimal = companionsData.ANIMALS[giveCompKey]
@@ -31150,7 +31223,10 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         bpCharged = true
 
         // 🎲 السحب
-        const rolled = bannerMgr.rollPulls(bpCount, spentDoc, bannerState.character)
+        // 🦇 رفيق روج: نسبة SSS إضافية (bannerManager.rollPulls يقرأ opts.sssBonus)
+        const rolled = bannerMgr.rollPulls(bpCount, spentDoc, bannerState.character, {
+            sssBonus: companionsData.getRougeSssBonus(player)
+        })
 
         // ✅ تصفير مهام اليوم الجديد قبل حساب السحبات
         await resetDailyMissions(player)
@@ -31350,8 +31426,10 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
         player.weaponsInventory = player.weaponsInventory || []
 
+        const myWeaponDaily = companionsData.getWeaponDailyPulls(player, WEAPON_DAILY_PULLS) // 🌹 إيمي
+
         if (player.weaponPulls === undefined || player.weaponPulls === null) {
-            player.weaponPulls = WEAPON_DAILY_PULLS
+            player.weaponPulls = myWeaponDaily
         }
 
         player.weaponPity = player.weaponPity || 0
@@ -31369,7 +31447,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         if (player.isNew) await player.save()
         await Player.updateOne(
             { userId, $or: [{ weaponPulls: { $exists: false } }, { weaponPulls: null }] },
-            { $set: { weaponPulls: WEAPON_DAILY_PULLS } },
+            { $set: { weaponPulls: myWeaponDaily } },
             { strict: false }
         )
         const weaponClaim = await Player.findOneAndUpdate(
@@ -31438,7 +31516,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
 ━━━━━━━━━━━━━━━━━━
 
-🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${WEAPON_DAILY_PULLS}
+🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${myWeaponDaily}
 🎯 عداد الضمان ➤ ${player.weaponPity}/${WEAPON_PITY_CAP}
 📌 المتبقي للضمان ➤ ${pityLeft} سحبة${weaponWorldSuffix}
 
@@ -31459,7 +31537,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
 ━━━━━━━━━━━━━━━━━━
 
-🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${WEAPON_DAILY_PULLS}
+🎟️ سحبات الأسلحة المتبقية ➤ ${player.weaponPulls}/${myWeaponDaily}
 🎯 عداد الضمان ➤ ${player.weaponPity}/${WEAPON_PITY_CAP}
 
 ${guaranteed ? "🎯 حصلت عليه من ضمان الأسلحة!\n\n" : ""}💡 استخدم .تركيب_سلاح لتركيبه على إحدى شخصياتك${weaponWorldSuffix}
@@ -33806,7 +33884,7 @@ ${completed}/6
 
 🎁 الجائزة الكاملة:
 
-💰 2,500,000 مال
+💰 ${applyHappyBonus(player, 2500000).toLocaleString()} مال
 📚 5000 XP
 📦 Legendary Box ×1
 📦 SSS Chance Box ×1
@@ -34029,7 +34107,9 @@ if (!completed) {
 
 // الجوائز
 
-await player.addMoney(2500000)
+const happyMissionMoney = applyHappyBonus(player, 2500000) // 🐈 رفيق هابي
+
+await player.addMoney(happyMissionMoney)
 
 player.xp += applyDogBonus(player, 5000)
 
@@ -34052,7 +34132,7 @@ text:
 
 `🎉 تم استلام مكافأة المهام اليومية
 
-💰 2,500,000 مال
+💰 ${happyMissionMoney.toLocaleString()} مال${happyMissionMoney > 2500000 ? ' 🐈 (بونص رفيق هابي)' : ''}
 
 📚 5000 XP
 
@@ -39668,10 +39748,11 @@ ${listLines.join('\n\n')}
                 // 🧠 بناء الفريقين: شخصيات + معدات + سلاح + إيكو + ستات اللاعب
                 // =========================
                 const pvpCompanionExtras = (p) => {
-                    const out = { critRate: 0, damageReduction: 0 }
+                    const out = { critRate: 0, critDamage: 0, damageReduction: 0 }
                     const c = p.companion
                     if (c && (c.level || 0) >= 1) {
                         if (c.key === 'tiger') out.critRate = companionsData.getCompanionBonus('tiger', c.level)
+                        if (c.key === 'silver') out.critDamage = companionsData.getCompanionBonus('silver', c.level) // 🔮 سيلفر
                         if (c.key === 'bear') out.damageReduction = companionsData.getCompanionBonus('bear', c.level)
                     }
                     return out
