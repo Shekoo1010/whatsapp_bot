@@ -62,6 +62,13 @@ function bossRewardsFullText() {
 }
 
 const COOLDOWN_MS = 30000
+
+// 👹 قوة قدرات/بونصات "ضرر الزعيم" مقارنة بالهجوم: 1 = نفس الهجوم، 1.5 = كل +50% ضرر زعيم تعمل كأنها +75%
+// (تطبق على هجوم الزعيم بالموقع فقط — عدّل الرقم لتغيير قوتها)
+const BOSS_DAMAGE_EFFECT = 1.5
+
+// ⚔️ وزن "هجوم EX" على الزعيم بالموقع: 1 = كامل، 0.5 = نصف قوته (عشان ضرر الزعيم يبقى أقوى من الهجوم)
+const BOSS_EX_ATTACK_WEIGHT = 0.5
 const RESPAWN_MS = 5 * 60 * 1000
 
 // 🔥 رفيق بليز: الكولداون يختلف لكل لاعب — نحفظ آخر كولداون محسوب لكل لاعب
@@ -615,13 +622,13 @@ function createBossAttackSystem(deps) {
             if (hasEXAbilities) {
                 ex = exEarly
 
-                damage = Math.floor(damage * (1 + ex.attackBonus / 100))
-                damage = Math.floor(damage * (1 + ex.bossDamage / 100))
+                damage = Math.floor(damage * (1 + (ex.attackBonus * BOSS_EX_ATTACK_WEIGHT) / 100))
+                damage = Math.floor(damage * (1 + (ex.bossDamage * BOSS_DAMAGE_EFFECT) / 100))
 
                 damage = Math.floor(damage * (1 + ((me.attackBonus || 0) / 100)))
 
                 damage = Math.floor(
-                    damage * (1 + (((me.bossDamageBonus || 0) + (combinedGearBonus.bossDamage || 0)) / 100))
+                    damage * (1 + ((((me.bossDamageBonus || 0) + (combinedGearBonus.bossDamage || 0)) * BOSS_DAMAGE_EFFECT) / 100))
                 )
 
                 damage = Math.floor(damage * (1 + ((me.damageBonus || 0) / 100)))

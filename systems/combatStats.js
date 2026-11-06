@@ -23,6 +23,10 @@ const useEXAbilities = require('../utils/useEXAbilities')
 const num = v => Number(v) || 0
 const r1 = v => Math.round(num(v) * 10) / 10
 
+// ⚠️ لازم تطابق نفس القيم في bossAttackSystem.js
+const BOSS_DAMAGE_EFFECT = 1.5      // قوة ضرر الزعيم مقارنة بالهجوم
+const BOSS_EX_ATTACK_WEIGHT = 0.5   // وزن هجوم EX على الزعيم
+
 // نفس getWeaponBonusForCharacter بـ index.js
 function weaponBonus(player, character) {
     const out = {
@@ -107,10 +111,10 @@ function computeCombatStats(player, character) {
         if (crit) d = Math.floor(d * totalCrit.mult)
         if (compKey === 'lion') d = Math.floor(d * (1 + lion / 100))
         if (hasEX) {
-            d = Math.floor(d * (1 + ex.attackBonus / 100))
-            d = Math.floor(d * (1 + ex.bossDamage / 100))
+            d = Math.floor(d * (1 + (ex.attackBonus * BOSS_EX_ATTACK_WEIGHT) / 100))
+            d = Math.floor(d * (1 + (ex.bossDamage * BOSS_DAMAGE_EFFECT) / 100))
             d = Math.floor(d * (1 + pAtk / 100))
-            d = Math.floor(d * (1 + (pBoss + num(gear.bossDamage)) / 100))
+            d = Math.floor(d * (1 + ((pBoss + num(gear.bossDamage)) * BOSS_DAMAGE_EFFECT) / 100))
             d = Math.floor(d * (1 + pDmg / 100))
         }
         return useAttackAbilities({ player: skillPlayer, character, damage: d }).damage
@@ -131,7 +135,7 @@ function computeCombatStats(player, character) {
 
     // 👹 ضرر الزعيم الفعلي (مضاعف إجمالي)
     const bossMult = (1 + lion / 100) *
-        (hasEX ? (1 + ex.bossDamage / 100) * (1 + (pBoss + num(gear.bossDamage)) / 100) : 1)
+        (hasEX ? (1 + (ex.bossDamage * BOSS_DAMAGE_EFFECT) / 100) * (1 + ((pBoss + num(gear.bossDamage)) * BOSS_DAMAGE_EFFECT) / 100) : 1)
 
     // ✨ مضاعفات قدرات اللاعب (specialAbilities)
     const probe = useAttackAbilities({ player: skillPlayer, character, damage: 1000000 })
