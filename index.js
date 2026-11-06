@@ -1637,6 +1637,11 @@ const WEAPON_PULL_SUCCESS_CHANCE = 0
 const WEAPON_PITY_CAP = 80
 // عدد سحبات الأسلحة اليومية لكل لاعب
 const WEAPON_DAILY_PULLS = 10
+// 💰 سعر بيع أي سلاح (للأمر .بيع_سلاح) — كل الأسلحة 5 نجوم، عدّل الرقم هنا فقط
+const WEAPON_SELL_PRICE = 100000
+function getWeaponSellPrice() {
+    return WEAPON_SELL_PRICE
+}
 
 function getRandomWeapon() {
     return weaponsList[
@@ -9088,6 +9093,8 @@ const commandExplanations = {
         '.تركيب_سلاح': 'يركّب سلاح من مخزونك على إحدى شخصياتك (يفك أي سلاح قديم عليها تلقائياً). استخدم بدون أرقام لعرض القائمة.',
         '.فك_سلاح': 'يفك السلاح المركب على شخصية معينة ويرجعه لحقيبتك دون تركيب غيره.',
         '.سلاحي': 'يعرض السلاح المركب على شخصياتك (أو شخصية محددة برقمها).',
+        '.اسلحتي': 'يعرض كل أسلحتك (مثل .ايكو): الاسم والنوع والهجوم الأساسي والستات (حرج/هجوم/ضرر زعيم...) وسعر البيع.',
+        '.بيع_سلاح': 'يبيع سلاح/أسلحة غير مركّبة برقمها من .اسلحتي. مثال: .بيع_سلاح 1 2 3',
     },
     'البنك': {
         '.البنك': 'يعرض حسابك بالبنك (رصيدك المودَع والفوائد إن وُجدت).',
@@ -23367,6 +23374,7 @@ ${player.money}
             text.startsWith('.بيع') &&
             !text.startsWith('.بيع_الكل') &&
             !text.startsWith('.بيع_ايكو') &&
+            !text.startsWith('.بيع_سلاح') &&
             !text.startsWith('.sellitem')
         ) {
 
@@ -31542,6 +31550,155 @@ ${equippedListText}💡 اكتب .سلاحي رقم_الشخصية لعرض ال
 
         return safeSend(msg.key.remoteJid, { text: allCaption })
     }
+    // -------------------------
+    // .اسلحتي — يعرض كل أسلحتك (مثل .ايكو) مع ستاتات كل سلاح
+    // الأرقام هي نفس أرقام .تركيب_سلاح و .بيع_سلاح
+    // -------------------------
+    if (text === '.اسلحتي' || text === '.weapons') {
+
+        const player = await Player.findOne({ userId }).lean()
+
+        const inv = (player && Array.isArray(player.weaponsInventory)) ? player.weaponsInventory : []
+
+        if (!inv.length) {
+            return safeSend(msg.key.remoteJid, {
+                text: '🗡️ حقيبة الأسلحة (0)\n\nحقيبتك فاضية، استخدم .سحب_سلاح للحصول على سلاح!'
+            })
+        }
+
+        const weaponLine = (w, i) => {
+            const label = WEAPON_STAT_LABELS[w.subStatType] || w.subStatType
+            const owner = w.equippedTo ? `🔗 ${w.equippedTo}` : '🆓 غير مركب'
+            return `[${i + 1}] 🗡️ ${w.name} | ${w.type}\n` +
+                   `     ⚡ هجوم أساسي ${w.baseAtk} | ${label} +${w.subStatValue}%\n` +
+                   `     ${owner} | 💰 ${getWeaponSellPrice().toLocaleString()}`
+        }
+
+        const equippedLines = []
+        const freeLines = []
+
+        inv.forEach((w, i) => {
+            if (!w) return
+            ;(w.equippedTo ? equippedLines : freeLines).push(weaponLine(w, i))
+        })
+
+        let message = `🗡️ حقيبة الأسلحة (${inv.length})\n\n`
+
+        if (equippedLines.length) {
+            message += `🔗 مركّبة (${equippedLines.length}):\n${equippedLines.join('\n')}\n\n`
+        }
+
+        if (freeLines.length) {
+            message += `🆓 غير مركّبة (${freeLines.length}):\n${freeLines.join('\n')}\n\n`
+        }
+
+        message +=
+`━━━━━━━━━━━━━━
+📌 للتركيب: .تركيب_سلاح رقم_السلاح رقم_الشخصية
+📌 للفك: .فك_سلاح رقم_الشخصية
+📌 للبيع: .بيع_سلاح رقم_السلاح`
+
+        return safeSend(msg.key.remoteJid, { text: message })
+    }
+
+    // -------------------------
+    // .بيع_سلاح رقم [رقم ...] — بيع سلاح/أسلحة من حقيبتك (غير المركّبة فقط)
+    // -------------------------
+    if (text === '.بيع_سلاح' || text.startsWith('.بيع_سلاح ')) {
+
+        const sellArgs = text.trim().split(/\s+/).slice(1)
+
+        if (!sellArgs.length) {
+            return safeSend(msg.key.remoteJid, {
+                text:
+`📌 الاستخدام
+.بيع_سلاح رقم_السلاح
+
+مثال:
+.بيع_سلاح 1
+أو
+.بيع_سلاح 1 2 3
+
+(الأرقام من .اسلحتي — السلاح المركّب لازم تفكه أولاً بـ .فك_سلاح)`
+            })
+        }
+
+        const player = await Player.findOne({ userId })
+
+        if (!player) {
+            return safeSend(msg.key.remoteJid, { text: '❌ لا يوجد حساب.' })
+        }
+
+        player.weaponsInventory = player.weaponsInventory || []
+
+        // ترتيب تنازلي عشان الحذف ما يغيّر أرقام باقي الأسلحة أثناء الحلقة
+        const sellIndices =
+            [...new Set(sellArgs.map(a => Number(a)).filter(n => Number.isInteger(n) && n > 0))]
+                .sort((a, b) => b - a)
+
+        if (!sellIndices.length) {
+            return safeSend(msg.key.remoteJid, { text: '❌ أرقام غير صحيحة.' })
+        }
+
+        let totalGold = 0
+        const soldNames = []
+        const skippedEquipped = []
+        const invalidNumbers = []
+
+        for (const idx of sellIndices) {
+
+            const weapon = player.weaponsInventory[idx - 1]
+
+            if (!weapon) {
+                invalidNumbers.push(idx)
+                continue
+            }
+
+            if (weapon.equippedTo) {
+                skippedEquipped.push(`${weapon.name} (مركّب على ${weapon.equippedTo})`)
+                continue
+            }
+
+            totalGold += getWeaponSellPrice()
+            soldNames.push(weapon.name)
+            player.weaponsInventory.splice(idx - 1, 1)
+        }
+
+        let extra = ''
+        if (skippedEquipped.length) {
+            extra += `\n\n🔒 ما انباع (مركّب — استخدم .فك_سلاح):\n${skippedEquipped.join('\n')}`
+        }
+        if (invalidNumbers.length) {
+            extra += `\n\n❌ أرقام غير صحيحة: ${invalidNumbers.sort((a, b) => a - b).join('، ')}`
+        }
+
+        if (!soldNames.length) {
+            return safeSend(msg.key.remoteJid, {
+                text: `❌ ما قدرت أبيع أي سلاح.${extra}`
+            })
+        }
+
+        player.money = (player.money || 0) + totalGold
+        player.markModified('weaponsInventory')
+
+        try {
+            await player.save()
+        } catch (err) {
+            console.log('Weapon sell save error:', err?.message || err)
+            return safeSend(msg.key.remoteJid, { text: '❌ صار خطأ أثناء البيع، حاول مرة ثانية.' })
+        }
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`✅ تم بيع ${soldNames.length} سلاح
+🗡️ ${soldNames.join('، ')}
+💰 حصلت على: ${totalGold.toLocaleString()}
+💳 رصيدك الحالي: ${player.money.toLocaleString()}${extra}
+
+💡 الأرقام تغيّرت بعد البيع، استخدم .اسلحتي لعرض القائمة الجديدة`
+        })
+    }
+
     // =========================
     // Domain System - عرض الدومينات + الستامينا
     // =========================
