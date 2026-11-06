@@ -89,8 +89,8 @@ const ANIMALS = {
             'https://i.postimg.cc/qBK4vCZj/88fc891cbda3303beb19806de48e6025.jpg'
         ],
         bonusType: 'extraFights', // عدد محاولات قتال إضافية يومياً (رقم صحيح، مو نسبة)
-        // منحنى مرحلي (مو خطي): +1 من مستوى 1 إلى 6، ثم يرتفع +1 كل مستوى لين +5 عند مستوى 10
-        levelValues: [1, 1, 1, 1, 1, 1, 2, 3, 4, 5],
+        // منحنى مرحلي (مو خطي): +1 من مستوى 1 إلى 6، ثم يرتفع تدريجياً لين +10 عند مستوى 10
+        levelValues: [1, 1, 1, 1, 1, 1, 4, 6, 8, 10],
         unit: 'محاولة',
         description: 'رفيق نشيط يرجّع لك محاولة قتال إضافية يومياً.'
     },
@@ -109,7 +109,7 @@ const ANIMALS = {
         ],
         bonusType: 'bossDamageBonus', // يُضاف مباشرة على bossDamageBonus بالـ Player
         bonusAtLevel1: 5,
-        bonusAtLevel10: 10,
+        bonusAtLevel10: 25,
         unit: '%',
         description: 'رفيق قوي يرفع ضررك على الزعيم العالمي.'
     },
@@ -128,7 +128,7 @@ const ANIMALS = {
         ],
         bonusType: 'critRateBonus',
         bonusAtLevel1: 2,
-        bonusAtLevel10: 20,
+        bonusAtLevel10: 30,
         unit: '%',
         description: 'رفيق شرس يرفع فرصة الضربة الحرجة بالـ PvP.'
     },
@@ -166,7 +166,7 @@ const ANIMALS = {
         ],
         bonusType: 'boxLuckBonus', // نسبة رفع جودة الصندوق عند الفتح (rare → epic/legendary...)
         bonusAtLevel1: 5,
-        bonusAtLevel10: 10,
+        bonusAtLevel10: 20,
         unit: '%',
         description: 'رفيق محظوظ يرفع فرصة حصولك على جودة أعلى عند فتح الصناديق.'
     },
