@@ -19582,5 +19582,320 @@
     "rarity": "SSS",
     "ability": "عزيمة الحب الصادق",
     "image": ""
+  },
+  {
+    "name": "Lucia",
+    "form": "فارسة السيفين",
+    "anime": "Punishing: Gray Raven",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "رقصة الشفرتين",
+    "image": ""
+  },
+  {
+    "name": "Liv",
+    "form": "حارسة الشفاء",
+    "anime": "Punishing: Gray Raven",
+    "power": 6763,
+    "rarity": "SSS",
+    "ability": "نور الشفاء",
+    "image": ""
+  },
+  {
+    "name": "Bianca",
+    "form": "فارسة البرق",
+    "anime": "Punishing: Gray Raven",
+    "power": 6857,
+    "rarity": "SSS",
+    "ability": "عاصفة الرعد",
+    "image": ""
+  },
+  {
+    "name": "Karenina",
+    "form": "حارسة اللهب",
+    "anime": "Punishing: Gray Raven",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "انفجار اللهب",
+    "image": ""
+  },
+  {
+    "name": "Nanami S",
+    "form": "الحارسة الصامدة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6652,
+    "rarity": "SSS",
+    "ability": "درع النجوم",
+    "image": ""
+  },
+  {
+    "name": "Rosetta",
+    "form": "حارسة الحصن",
+    "anime": "Punishing: Gray Raven",
+    "power": 6714,
+    "rarity": "SSS",
+    "ability": "جدار لا يُكسر",
+    "image": ""
+  },
+  {
+    "name": "Qu",
+    "form": "صائدة الظلال",
+    "anime": "Punishing: Gray Raven",
+    "power": 6907,
+    "rarity": "SSS",
+    "ability": "قفزة الظل",
+    "image": ""
+  },
+  {
+    "name": "Vera",
+    "form": "حارسة الجمرة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "رمح البرق",
+    "image": ""
+  },
+  {
+    "name": "Ayla",
+    "form": "فنانة الألوان",
+    "anime": "Punishing: Gray Raven",
+    "power": 6884,
+    "rarity": "SSS",
+    "ability": "موجة الألوان",
+    "image": ""
+  },
+  {
+    "name": "Alisa",
+    "form": "حاملة الصدى",
+    "anime": "Punishing: Gray Raven",
+    "power": 6815,
+    "rarity": "SSS",
+    "ability": "صدى الأمل",
+    "image": ""
+  },
+  {
+    "name": "Lamia",
+    "form": "حارسة الأغنية الحزينة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6893,
+    "rarity": "SSS",
+    "ability": "لحن الوداع",
+    "image": ""
+  },
+  {
+    "name": "Ishmael",
+    "form": "حارسة الوهج",
+    "anime": "Punishing: Gray Raven",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "شعاع الشفق",
+    "image": ""
+  },
+  {
+    "name": "Hanying",
+    "form": "عازفة العزاء",
+    "anime": "Punishing: Gray Raven",
+    "power": 6974,
+    "rarity": "SSS",
+    "ability": "لحن السكينة",
+    "image": ""
+  },
+  {
+    "name": "Helentine",
+    "form": "حارسة الدموع",
+    "anime": "Punishing: Gray Raven",
+    "power": 6997,
+    "rarity": "SSS",
+    "ability": "ترنيمة الحزن",
+    "image": ""
+  },
+  {
+    "name": "Lilith",
+    "form": "سيدة الليل",
+    "anime": "Punishing: Gray Raven",
+    "power": 6993,
+    "rarity": "SSS",
+    "ability": "ظلال الليل",
+    "image": ""
+  },
+  {
+    "name": "Luna",
+    "form": "فارسة الغار",
+    "anime": "Punishing: Gray Raven",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "إكليل النصر",
+    "image": ""
+  },
+  {
+    "name": "No.21",
+    "form": "المقاتلة الجامحة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6984,
+    "rarity": "SSS",
+    "ability": "مخالب جامحة",
+    "image": ""
+  },
+  {
+    "name": "Adelyde",
+    "form": "قائدة الرحلة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6995,
+    "rarity": "SSS",
+    "ability": "زحف لا يتوقف",
+    "image": ""
+  },
+  {
+    "name": "Haicma",
+    "form": "ستار النجوم",
+    "anime": "Punishing: Gray Raven",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "حجاب النجوم",
+    "image": ""
+  },
+  {
+    "name": "Leia",
+    "form": "نجمة الحظ",
+    "anime": "Punishing: Gray Raven",
+    "power": 6825,
+    "rarity": "SSS",
+    "ability": "ضربة الحظ",
+    "image": ""
+  },
+  {
+    "name": "Nirvatia",
+    "form": "منشدة الرثاء",
+    "anime": "Punishing: Gray Raven",
+    "power": 6722,
+    "rarity": "SSS",
+    "ability": "لحن الرثاء",
+    "image": ""
+  },
+  {
+    "name": "Pulao",
+    "form": "حارسة التنين",
+    "anime": "Punishing: Gray Raven",
+    "power": 6601,
+    "rarity": "SSS",
+    "ability": "زئير التنين",
+    "image": ""
+  },
+  {
+    "name": "Teddy",
+    "form": "دمية الظلال",
+    "anime": "Punishing: Gray Raven",
+    "power": 6914,
+    "rarity": "SSS",
+    "ability": "هجوم الشبح",
+    "image": ""
+  },
+  {
+    "name": "Veronica",
+    "form": "درع الحماية",
+    "anime": "Punishing: Gray Raven",
+    "power": 6641,
+    "rarity": "SSS",
+    "ability": "حاجز الدرع",
+    "image": ""
+  },
+  {
+    "name": "Lee",
+    "form": "المحارب العبقري",
+    "anime": "Punishing: Gray Raven",
+    "power": 6656,
+    "rarity": "SSS",
+    "ability": "حساب الفوضى",
+    "image": ""
+  },
+  {
+    "name": "Kamui",
+    "form": "فارس الظلام",
+    "anime": "Punishing: Gray Raven",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "هجوم الظلام المزدوج",
+    "image": ""
+  },
+  {
+    "name": "Watanabe",
+    "form": "الحارس الناري",
+    "anime": "Punishing: Gray Raven",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "درع اللهب",
+    "image": ""
+  },
+  {
+    "name": "Chrome",
+    "form": "قائد فرقة الصقر",
+    "anime": "Punishing: Gray Raven",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "رماية الصقر",
+    "image": ""
+  },
+  {
+    "name": "Camu",
+    "form": "صياد الظلال",
+    "anime": "Punishing: Gray Raven",
+    "power": 6605,
+    "rarity": "SSS",
+    "ability": "عواء الليل",
+    "image": ""
+  },
+  {
+    "name": "Noan",
+    "form": "حارس الفلك",
+    "anime": "Punishing: Gray Raven",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "ضربة الفلك",
+    "image": ""
+  },
+  {
+    "name": "Roland",
+    "form": "فارس الشعلة",
+    "anime": "Punishing: Gray Raven",
+    "power": 6947,
+    "rarity": "SSS",
+    "ability": "شعلة المبارزة",
+    "image": ""
+  },
+  {
+    "name": "Wanshi",
+    "form": "حارس الأحلام",
+    "anime": "Punishing: Gray Raven",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "قناص الأحلام",
+    "image": ""
+  },
+  {
+    "name": "Nero Claudius",
+    "form": "فارسة الورد",
+    "anime": "Fate/Grand Order",
+    "power": 6707,
+    "rarity": "SSS",
+    "ability": "سيف الورد الذهبي",
+    "image": ""
+  },
+  {
+    "name": "Mash Kyrielight",
+    "form": "حاملة الدرع",
+    "anime": "Fate/Grand Order",
+    "power": 6803,
+    "rarity": "SSS",
+    "ability": "درع الأمل",
+    "image": ""
+  },
+  {
+    "name": "Irisviel von Einzbern",
+    "form": "الأميرة الحارسة",
+    "anime": "Fate/Zero",
+    "power": 6778,
+    "rarity": "SSS",
+    "ability": "درع الإنقاذ",
+    "image": ""
   }
 ]
