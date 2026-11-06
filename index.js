@@ -512,7 +512,7 @@ const Player = require('./models/Player')
 // ☁️ صور .استبدال تترفع مباشرة لـ Cloudinary (رابط دائم لا يتأثر
 // بريستارت/إعادة نشر البوت) — ما عاد نحتاج نسخة احتياطية base64 جوا
 // مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
-const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage } = require('./utils/cloudinary')
+const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage, uploadCompanionImage } = require('./utils/cloudinary')
 const { handleMigrateCommand } = require('./utils/migrateImages')
 const { handleMigrateQuestionsCommand } = require('./utils/migrateQuestions')
 
@@ -2415,6 +2415,7 @@ const xo =
     require('./xo')
 const characters = require('./characters.json')
 const catalogImages = require('./systems/catalogImages')
+const companionImages = require('./systems/companionImages') // 🐾 صور الرفقاء (.صو)
 
 // ═══════════════════════════════════════════════
 // ⚡ فهارس مسبقة الحساب لكتالوج الشخصيات الثابت (characters.json)
@@ -7397,6 +7398,7 @@ ${topKillers.map(p => `@${p.userId.split('@')[0]}`).join('\n')}
 
 async function startBot() {
     await catalogImages.loadAndApply(characters)
+    await companionImages.loadAndApply(companionsData) // 🐾 صور الرفقاء المحفوظة
 console.log('🚀 START BOT', Date.now())
     console.log("START BOT")
 
@@ -9388,6 +9390,13 @@ const handleSingleMessage = async (msg) => {
     // (حتى لو أجزاء ثانية لكل فحص) يتراكم ويُحتسب ظلماً كجزء من وقت إجابة
     // اللاعب على الكويز. هذا المتغير لا يُستخدم إلا بحساب وقت الكويز فقط.
     const messageReceivedAt = Date.now()
+
+    // 🐾 .صو — (للمطور) صور الرفقاء: 6 صور لكل رفيق (systems/companionImages.js)
+    if (await companionImages.handleCompanionImageCommand(msg, {
+        sock, safeSend, downloadMediaMessage, uploadCompanionImage, isOwner, companionsData
+    })) {
+        return
+    }
 
     // 🖼️ .ص — (للمطور) صور الكتالوج العامة للشخصيات اللي بدون صورة (systems/catalogImages.js)
     if (await catalogImages.handleCatalogImageCommand(msg, {
