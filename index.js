@@ -6809,6 +6809,7 @@ async function spawnBoss(sock, index = 0) {
 
     console.log('🔥 SPAWN BOSS CALLED')
     console.trace()
+    global.lastBossSpawnAt = Date.now() // 🛡️ يمنع السباون المزدوج (حلقة الموقع + سباون رأس الساعة)
 
     const randomAbilities = []
 
@@ -8625,12 +8626,22 @@ if (!global.bossSpawnInterval) {
 
         const now = new Date()
 
+        // 🛡️ مفتاح الساعة عام (global) — قبل كان lastBossHour محلي ويتصفّر مع كل إعادة اتصال
+        const _spawnHourKey = Math.floor(Date.now() / 3600000)
+
         if (
             now.getMinutes() === 0 &&
-            now.getHours() !== lastBossHour
+            global.lastBossSpawnHourKey !== _spawnHourKey
         ) {
 
+            global.lastBossSpawnHourKey = _spawnHourKey
             lastBossHour = now.getHours()
+
+            // 🛡️ لو الزعيم انولد قبل أقل من 5 دقايق (مثلاً رسبن حلقة الموقع رأس الساعة) لا نبدّله بزعيم جديد
+            if (Date.now() - (global.lastBossSpawnAt || 0) < 5 * 60 * 1000) {
+                console.log('⏭️ تخطي سباون رأس الساعة: زعيم جديد انولد قبل قليل')
+                return
+            }
 
             // 🔧 إصلاح: كان يستخدم متغير غير معرّف GROUP_ID
             // ويشترط !currentBoss اللي يمنع السباون الساعي غالبًا للأبد
