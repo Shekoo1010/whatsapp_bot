@@ -11,7 +11,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/vjcj5v.jpg",
 
-    hp: 700000000,
+    hp: 300000000,
 
     playersLimit: 5,
 
@@ -38,7 +38,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/jxjwgm.jpg",
 
-    hp: 700000000,
+    hp: 300000000,
 
     playersLimit: 5,
 
@@ -65,7 +65,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/wf1bsj.jpg",
 
-    hp: 700000000,
+    hp: 300000000,
 
     playersLimit: 5,
 
@@ -96,7 +96,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/odwksk.jpg",
 
-    hp: 950000000,
+    hp: 425000000,
 
     playersLimit: 5,
 
@@ -127,7 +127,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/z52pwf.jpg",
 
-    hp: 950000000,
+    hp: 425000000,
 
     playersLimit: 5,
 
@@ -158,7 +158,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/0qymf4.jpg",
 
-    hp: 950000000,
+    hp: 425000000,
 
     playersLimit: 5,
 
@@ -189,7 +189,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/4x34rs.jpg",
 
-    hp: 950000000,
+    hp: 425000000,
 
     playersLimit: 5,
 
@@ -224,7 +224,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/ynhv1g.jpg",
 
-    hp: 1200000000,
+    hp: 550000000,
 
     playersLimit: 8,
 
@@ -278,7 +278,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/hwv9o9.jpg",
 
-    hp: 1200000000,
+    hp: 550000000,
 
     playersLimit: 8,
 
@@ -332,7 +332,7 @@ module.exports = [
 
     image: "https://files.catbox.moe/q3m07f.jpg",
 
-    hp: 1200000000,
+    hp: 550000000,
 
     playersLimit: 8,
 
