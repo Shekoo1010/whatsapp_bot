@@ -9224,6 +9224,8 @@ const commandExplanations = {
         '.اعطاء_EX': 'أمر للمطور فقط - يعطي عملة/مورد EX للاعب معيّن.',
         '.شخصية': 'أمر للمطور فقط - يعطيك نسخة EX من شخصية SSS بقدرات عشوائية (7 قدرات). مثال: .شخصية Joy Boy Luffy. بالرد أو المنشن تروح للاعب الآخر.',
         '.ماكس_رفيق': 'أمر للمطور فقط - يرفع رفيقك لأعلى مستوى. بالرد أو المنشن يرفع رفيق اللاعب الآخر.',
+        '.اعطاء_رفيق': 'أمر للمطور فقط - يعطيك رفيقاً (بعد ما تبيع رفيقك). .اعطاء_رفيق للعشوائي، أو .اعطاء_رفيق اسد لمحدد. بالرد أو المنشن يروح للاعب الآخر.',
+        '.اعطاء_وحش': 'أمر للمطور فقط - يعطيك الوحوش الناقصة من التسعة (ثم الجوبي لو اكتملت). بالرد أو المنشن يروح للاعب الآخر.',
         '.شظية': 'أمر للمطور فقط - يعطيك عدداً من شظايا شخصية SSS. مثال: .شظية 12 Luffy. بالرد أو المنشن تروح للاعب الآخر.',
         '.تعديل_اوميقا': 'أمر للمطور فقط - يغيّر نوع قدرة أوميقا على شخصيتك (مثلاً دفاع ← هجوم) ويسري بكل الأنظمة. .تعديل_اوميقا 2 يعرض القدرات، و .تعديل_اوميقا 2 5 هجوم [القيمة] يعدّل القدرة رقم 5 للشخصية رقم 2.',
         '.اعطاء_هيوكي': 'أمر للمطور فقط - يعطي عملة "هيوكي" للاعب معيّن.',
@@ -30587,6 +30589,170 @@ ${maxCompAnimal?.emoji || '🐾'} ${maxCompName}
 ✨ البونص الحالي: +${maxCompBonus}${maxCompAnimal?.unit || ''}`
         })
     }
+
+    // ─── .اعطاء_رفيق (للمطور) — يعطيك رفيق (بعد ما تبيع رفيقك)، أو للمنشن/الرد ───
+    // الاستخدام: .اعطاء_رفيق          ← رفيق عشوائي
+    //            .اعطاء_رفيق اسد      ← رفيق محدد (بالاسم أو المفتاح)
+    if (text === '.اعطاء_رفيق' || text.startsWith('.اعطاء_رفيق ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const giveCompTargetId = resolveBanTarget(msg) || userId
+        const giveCompPlayer = await Player.findOne({ userId: giveCompTargetId })
+
+        if (!giveCompPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        if (giveCompPlayer.companion && giveCompPlayer.companion.key) {
+            const haveAnimal = companionsData.ANIMALS[giveCompPlayer.companion.key]
+            const haveName = giveCompPlayer.companion.customName || haveAnimal?.defaultName || giveCompPlayer.companion.key
+            return safeSend(msg.key.remoteJid, {
+                text: `❌ عنده رفيق بالفعل: ${haveName}\n\n💡 يبيعه أولاً بـ .بيع_رفيق ثم أعد الأمر`
+            })
+        }
+
+        // الاسم المطلوب (إن وجد) بعد تجاهل المنشن
+        const giveCompArg = text
+            .split(/\s+/)
+            .slice(1)
+            .filter(w => w && !w.startsWith('@'))
+            .join(' ')
+            .trim()
+            .toLowerCase()
+
+        let giveCompKey = null
+
+        if (giveCompArg) {
+            giveCompKey = companionsData.ANIMAL_KEYS.find(k => {
+                const a = companionsData.ANIMALS[k]
+                return k.toLowerCase() === giveCompArg ||
+                    (a.defaultName || '').toLowerCase() === giveCompArg
+            }) || null
+
+            if (!giveCompKey) {
+                const list = companionsData.ANIMAL_KEYS
+                    .map(k => `${companionsData.ANIMALS[k].emoji} ${companionsData.ANIMALS[k].defaultName}`)
+                    .join('\n')
+                return safeSend(msg.key.remoteJid, {
+                    text: `❌ رفيق غير معروف.\n\nالمتاح:\n${list}`
+                })
+            }
+        } else {
+            giveCompKey = companionsData.ANIMAL_KEYS[
+                Math.floor(Math.random() * companionsData.ANIMAL_KEYS.length)
+            ]
+        }
+
+        const giveCompAnimal = companionsData.ANIMALS[giveCompKey]
+
+        giveCompPlayer.companion = {
+            key: giveCompKey,
+            customName: null,
+            level: 0,
+            foodProgress: 0,
+            imageIndex: Math.floor(Math.random() * companionsData.IMAGES_PER_ANIMAL),
+            obtainedAt: Date.now()
+        }
+        giveCompPlayer.markModified('companion')
+        await giveCompPlayer.save()
+
+        const giveCompText =
+`🎁 تم إعطاء رفيق
+
+${giveCompAnimal.emoji} ${giveCompAnimal.defaultName}
+📈 المستوى: 0
+
+💡 لرفعه لأعلى مستوى: .ماكس_رفيق`
+
+        const giveCompImage = companionsData.getCompanionImage(giveCompKey, giveCompPlayer.companion.imageIndex)
+
+        if (giveCompImage) {
+            return safeSend(msg.key.remoteJid, { image: { url: giveCompImage }, caption: giveCompText })
+        }
+
+        return safeSend(msg.key.remoteJid, { text: giveCompText })
+    }
+
+    // ─── .اعطاء_وحش (للمطور) — يعطيك الوحوش الناقصة من الـ9 (ثم الجوبي لو اكتملت) ───
+    // بالرد أو المنشن يروح للاعب الآخر
+    if (text === '.اعطاء_وحش' || text.startsWith('.اعطاء_وحش ')) {
+
+        if (!isOwner(msg)) {
+            return safeSend(msg.key.remoteJid, { text: '❌ هذا الأمر للمطور فقط' })
+        }
+
+        const giveBeastTargetId = resolveBanTarget(msg) || userId
+        const giveBeastPlayer = await Player.findOne({ userId: giveBeastTargetId })
+
+        if (!giveBeastPlayer) {
+            return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
+        }
+
+        if (!Array.isArray(giveBeastPlayer.ownedBeasts)) {
+            giveBeastPlayer.ownedBeasts = []
+        }
+
+        const giveBeastRequired = [
+            'shukaku',
+            'matatabi',
+            'isobu',
+            'son_goku',
+            'kokuo',
+            'saiken',
+            'chomei',
+            'gyuki',
+            'kurama'
+        ]
+
+        const giveBeastMissing = giveBeastRequired.filter(
+            id => !giveBeastPlayer.ownedBeasts.includes(id)
+        )
+
+        const giveBeastNeedsJuubi = !giveBeastPlayer.ownedBeasts.includes('juubi')
+
+        if (giveBeastMissing.length === 0 && !giveBeastNeedsJuubi) {
+            return safeSend(msg.key.remoteJid, { text: '✅ يملك كل الوحوش بالفعل (مع الجوبي).' })
+        }
+
+        for (const id of giveBeastMissing) {
+            giveBeastPlayer.ownedBeasts.push(id)
+        }
+
+        giveBeastPlayer.beastCollection =
+            (giveBeastPlayer.beastCollection || 0) + giveBeastMissing.length
+
+        // 🌌 الجوبي عند اكتمال التسعة (نفس منطق الشراء وفتح البيض)
+        let giveBeastJuubiText = ''
+        if (giveBeastNeedsJuubi) {
+            giveBeastPlayer.ownedBeasts.push('juubi')
+            giveBeastJuubiText = '\n\n🌌 اكتملت الوحوش — تم إعطاء الجوبي 👑'
+        }
+
+        giveBeastPlayer.markModified('ownedBeasts')
+        await giveBeastPlayer.save()
+
+        let giveBeastList = []
+        try {
+            const beastsAll = require('./systems/beasts')
+            giveBeastList = beastsAll
+        } catch (e) {}
+
+        const giveBeastNames = giveBeastMissing.map(id => {
+            const b = giveBeastList.find(x => x.id === id)
+            return `🦴 ${b?.name || id}`
+        })
+
+        return safeSend(msg.key.remoteJid, {
+            text:
+`🎁 تم إعطاء الوحوش الناقصة
+
+${giveBeastNames.length ? giveBeastNames.join('\n') : '(ما كان ناقصه شيء من التسعة)'}${giveBeastJuubiText}`
+        })
+    }
+
 
     if (text === ".اعطاء_EX") {
 
