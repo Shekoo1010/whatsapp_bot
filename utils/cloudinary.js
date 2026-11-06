@@ -82,6 +82,21 @@ function uploadCatalogImageFromUrl(url, key) {
     }).then(result => ({ url: result.secure_url, publicId: result.public_id }))
 }
 
+// 🐾 صور الرفقاء (أمر المطور .صو) — مجلد منفصل، المفتاح = رفيق|خانة (مثل rouge|1)
+function uploadCompanionImage(buffer, key) {
+    const id = require('crypto').createHash('sha1').update(String(key)).digest('hex').slice(0, 24)
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder: 'companion_images', public_id: id, overwrite: true, invalidate: true, resource_type: 'image' },
+            (err, result) => {
+                if (err) return reject(err)
+                resolve({ url: result.secure_url, publicId: result.public_id })
+            }
+        )
+        stream.end(buffer)
+    })
+}
+
 // ❓ صور أسئلة التخمين (imageQuestions.js) — مجلد منفصل، والمفتاح = الرابط القديم
 function uploadQuestionImage(buffer, key) {
     const id = require('crypto').createHash('sha1').update(String(key)).digest('hex').slice(0, 24)
@@ -109,6 +124,7 @@ module.exports = {
     deleteCustomCharacterImage,
     uploadCatalogImage,
     uploadCatalogImageFromUrl,
+    uploadCompanionImage,
     uploadQuestionImage,
     uploadQuestionImageFromUrl
 }
