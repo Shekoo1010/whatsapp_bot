@@ -9,7 +9,7 @@ const bosses = [
     "followers": [
       {
         "name": "Gin",
-        "hp": 60000000,
+        "hp": 150000000,
         "ability": "poison",
         "image": "https://i.postimg.cc/PrHmLXHc/e7fcde08945493ce824c0e2a26465c86.jpg",
         "abilities": [
@@ -19,7 +19,7 @@ const bosses = [
       },
       {
         "name": "Tosen",
-        "hp": 60000000,
+        "hp": 150000000,
         "ability": "blind",
         "image": "https://i.postimg.cc/wjTLVw7F/42f3accb5e639d3515f7e08c8f5b5841-(1).jpg",
         "abilities": [
@@ -60,7 +60,7 @@ const bosses = [
     "followers": [
       {
         "name": "Jugram",
-        "hp": 66000000,
+        "hp": 144000000,
         "ability": "reflect",
         "image": "https://i.postimg.cc/5tXvcj5z/0075c3dc645323b4cee3e60be0b79920-(2).jpg",
         "abilities": [
@@ -70,7 +70,7 @@ const bosses = [
       },
       {
         "name": "Uryu",
-        "hp": 66000000,
+        "hp": 144000000,
         "ability": "dodge",
         "image": "https://i.postimg.cc/SKH9mqVD/33381cdf77d9c49d5b1ea80cf23bda8f.jpg",
         "abilities": [
@@ -81,13 +81,13 @@ const bosses = [
     ],
     "image": "https://i.ibb.co/HW8VPVx/52432833eade63aa7067622060e66183.jpg",
     "ability": {
-      "name": "The Almighty",
+      "name": "Future Sight",
       "description": "رأى يوهاباخ المستقبل وتجنب الهجمة بالكامل",
       "effect": "dodge"
     },
     "abilities": [
       {
-        "name": "The Almighty",
+        "name": "Future Sight",
         "description": "رأى يوهاباخ المستقبل وتجنب الهجمة بالكامل",
         "effect": "dodge"
       },
@@ -111,7 +111,7 @@ const bosses = [
     "followers": [
       {
         "name": "Hikone",
-        "hp": 82000000,
+        "hp": 134000000,
         "ability": "bonusDamage",
         "image": "https://i.postimg.cc/pT8FT71w/cc1932e20e9a6cb5f04606800ed245eb-(1).jpg",
         "abilities": [
@@ -121,7 +121,7 @@ const bosses = [
       },
       {
         "name": "Aura",
-        "hp": 82000000,
+        "hp": 134000000,
         "ability": "healBoss",
         "image": "https://i.postimg.cc/J05H3X8q/c6231805e68261298f9813c0d32dcb76.jpg",
         "abilities": [
@@ -162,7 +162,7 @@ const bosses = [
     "followers": [
       {
         "name": "Saturn",
-        "hp": 60000000,
+        "hp": 150000000,
         "ability": "healBoss",
         "image": "https://i.postimg.cc/WpGZcBZz/520dc23ffe96b0d72f827430c4002e36-(1).jpg",
         "abilities": [
@@ -172,7 +172,7 @@ const bosses = [
       },
       {
         "name": "Garling",
-        "hp": 60000000,
+        "hp": 150000000,
         "ability": "bonusDamage",
         "image": "https://i.postimg.cc/3J9Dd2nW/22d9e421a4d24659222126244119ccbf-(1).jpg",
         "abilities": [
@@ -213,7 +213,7 @@ const bosses = [
     "followers": [
       {
         "name": "Zoro",
-        "hp": 80000000,
+        "hp": 140000000,
         "ability": "bonusDamage",
         "image": "https://i.postimg.cc/QdtK5Vyg/2b7579b629c4edd81e5e6f995742727f.jpg",
         "abilities": [
@@ -223,7 +223,7 @@ const bosses = [
       },
       {
         "name": "Sanji",
-        "hp": 80000000,
+        "hp": 140000000,
         "ability": "healBoss",
         "image": "https://i.postimg.cc/52RYm1hg/0278746f6933b1c289bd7f2564ed1678.jpg",
         "abilities": [
@@ -264,7 +264,7 @@ const bosses = [
     "followers": [
       {
         "name": "Obito",
-        "hp": 80000000,
+        "hp": 118000000,
         "ability": "dodge",
         "image": "https://i.postimg.cc/26p1PG8q/a2ef69a608eb7eacf8f89b4df1098a4b.jpg",
         "abilities": [
@@ -274,7 +274,7 @@ const bosses = [
       },
       {
         "name": "Pain",
-        "hp": 80000000,
+        "hp": 118000000,
         "ability": "reflect",
         "image": "https://i.postimg.cc/D0n8zzG1/c4aae53579d7026a8894a01fb22a8c4b-(4).jpg",
         "abilities": [
@@ -315,7 +315,7 @@ const bosses = [
     "followers": [
       {
         "name": "King",
-        "hp": 80000000,
+        "hp": 126000000,
         "ability": "reduceDamage",
         "image": "https://i.postimg.cc/3rFkcgMq/9c6e1efe477b8471177188caedd1fc2b-(1).jpg",
         "abilities": [
@@ -325,7 +325,7 @@ const bosses = [
       },
       {
         "name": "Queen",
-        "hp": 80000000,
+        "hp": 126000000,
         "ability": "poison",
         "image": "https://i.postimg.cc/DyC82nwZ/9912f2a02a2076b8d9c168e712a0f6cf-(1).jpg",
         "abilities": [
@@ -366,7 +366,7 @@ const bosses = [
     "followers": [
       {
         "name": "Rayleigh",
-        "hp": 100000000,
+        "hp": 130000000,
         "ability": "bonusDamage",
         "image": "https://i.postimg.cc/5tz0qzqf/91d59ef4bafacaf87004be232498c7c4-(1).jpg",
         "abilities": [
@@ -376,7 +376,7 @@ const bosses = [
       },
       {
         "name": "Gaban",
-        "hp": 100000000,
+        "hp": 130000000,
         "ability": "reflect",
         "image": "https://i.postimg.cc/mgthkJP0/78831eae80634cedc043efda76284c38.jpg",
         "abilities": [
@@ -403,8 +403,8 @@ const bosses = [
         "effect": "markHunt"
       },
       {
-        "name": "Divine Departure",
-        "description": "ضربة إلهية أصابت المهاجم",
+        "name": "Grand Departure",
+        "description": "ضربة ساحقة أصابت المهاجم",
         "effect": "dimensionCollapse"
       }
     ]
@@ -417,7 +417,7 @@ const bosses = [
     "followers": [
       {
         "name": "Youpi",
-        "hp": 60000000,
+        "hp": 100000000,
         "ability": "bonusDamage",
         "image": "https://i.postimg.cc/CLvHWyyj/fccac1cad24ec38c1f6575f5c9d2528f.jpg",
         "abilities": [
@@ -427,7 +427,7 @@ const bosses = [
       },
       {
         "name": "Pouf",
-        "hp": 60000000,
+        "hp": 100000000,
         "ability": "healBoss",
         "image": "https://i.postimg.cc/d1mVgKf1/d7b51b93c9a1ff8ace6b303d5ed005e0.jpg",
         "abilities": [
@@ -468,7 +468,7 @@ const bosses = [
     "followers": [
       {
         "name": "Shiryu",
-        "hp": 80000000,
+        "hp": 110000000,
         "ability": "dodge",
         "image": "https://i.postimg.cc/SRgNNfqf/4a4411a0c5fbd643b2849f92fbd591c6.jpg",
         "abilities": [
@@ -478,7 +478,7 @@ const bosses = [
       },
       {
         "name": "Burgess",
-        "hp": 80000000,
+        "hp": 110000000,
         "ability": "critical",
         "image": "https://i.postimg.cc/7P9LVw7V/f804b10aefd3626a3112e22fd2e50e58.jpg",
         "abilities": [
