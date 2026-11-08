@@ -519,7 +519,24 @@ function statsPaneHTML(st) {
     </div>`
 }
 
-function detailHTML(char) {
+// 🖼️ تبويب الصورة (استبدال صورة الشخصية من المعرض) — نفس منطق .استبدال و.استبدال حذف بالبوت
+function imagePaneHTML(char) {
+    const cur = safeImageUrl(char.image)
+    const letter = esc((Array.from(String(char.name || '?'))[0] || '?').toUpperCase())
+    const oldStyle = cur ? ` style="background-image:url('${esc(cur)}')"` : ''
+    return `<div class="im-cmp">
+      <figure><div class="im-pv" data-im="old"${oldStyle}>${cur ? '' : letter}</div><figcaption data-im="cap">${char.__custom ? 'الحالية (مخصصة)' : 'الأساسية'}</figcaption></figure>
+      <figure><div class="im-pv ph" data-im="new">اختر صورة<br>لتظهر هنا</div><figcaption>الجديدة</figcaption></figure>
+    </div>
+    <div class="im-btns">
+      <button class="im-b pick" type="button" data-im="pick">📁 اختر من المعرض</button>
+      <button class="im-b gold" type="button" data-im="save" disabled>💾 حفظ الصورة</button>
+      <button class="im-b ghost" type="button" data-im="reset"${char.__custom ? '' : ' hidden'}>↩️ ترجيع الصورة الأساسية</button>
+    </div>
+    <p class="im-note">الصورة تظهر لك أنت فقط بالعرض والمعرض والبطاقات<br>JPG / PNG / WEBP — تُصغَّر تلقائياً قبل الرفع</p>`
+}
+
+function detailHTML(char, isOwner) {
     const tierKey = resolveTierKey(char.rarity, char.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['SSS']
     const isOmega = tierKey === 'Ω OMEGA'
@@ -544,13 +561,15 @@ function detailHTML(char) {
         <button class="tab on" type="button" data-t="st">📊 الإحصائيات</button>
         <button class="tab" type="button" data-t="ab">⚡ القدرات</button>
         <button class="tab" type="button" data-t="ec">🎐 الإيكوز</button>
-        <button class="tab" type="button" data-t="wp">⚔️ السلاح</button>
+        <button class="tab" type="button" data-t="wp">⚔️ السلاح</button>${isOwner ? `
+        <button class="tab new" type="button" data-t="im">🖼️ الصورة</button>` : ''}
       </div>
       <div class="body">
         <div class="pane" data-p="st">${statsPaneHTML(char.__stats)}</div>
         <div class="pane" data-p="ab" hidden>${abilityPaneHTML(char, evo, tierKey)}</div>
         <div class="pane" data-p="ec" hidden>${echoPaneHTML(char)}</div>
-        <div class="pane" data-p="wp" hidden>${weaponPaneHTML(char.__weapon)}</div>
+        <div class="pane" data-p="wp" hidden>${weaponPaneHTML(char.__weapon)}</div>${isOwner ? `
+        <div class="pane" data-p="im" data-n="${char.__num}" data-k="${esc(char.__cid || '')}" data-name="${esc(char.name)}" hidden>${imagePaneHTML(char)}</div>` : ''}
       </div>
     </div></template>`
 }
@@ -1973,9 +1992,39 @@ function companionPageHTML({ viewer, code, state, cat }) {
 body.hatching .cp-card{pointer-events:none;opacity:.55}
 body.cp-none .cp-holder,body.cp-none .cp-shadow,body.cp-none .cp-petonly{display:none}
 .cp-note{font-size:11px;color:var(--text-dim);text-align:center;margin-top:14px;line-height:1.8}
+.cp-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;margin:4px 0 6px;border-radius:16px;background:#0f1422;border:1px solid #222a42}
+.cp-tab{position:relative;font:800 14px 'Cairo',sans-serif;color:var(--text-dim);background:transparent;border:0;border-radius:12px;padding:10px 6px;cursor:pointer}
+.cp-tab.on{color:#1a1400;background:linear-gradient(180deg,#ffe38a,var(--gold))}
+.cp-tab.new::after{content:"جديد";position:absolute;top:-6px;left:8px;font-size:9px;font-weight:900;color:#fff;background:#ff3860;border-radius:8px;padding:0 6px;line-height:15px}
+.cp-pane[hidden]{display:none}
+.cg-head{text-align:center;margin:14px 0 14px}
+.cg-head b{display:block;font-size:19px;font-weight:900;color:var(--gold)}
+.cg-head span{display:block;margin-top:4px;font-size:12px;color:var(--text-dim);line-height:1.7}
+.cg-head em{font-style:normal;font:700 12px 'Oswald',sans-serif;color:#1a1400;background:var(--gold);border-radius:10px;padding:1px 10px;margin-inline-start:6px;direction:ltr;display:inline-block}
+.cg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.cg{--c:#f0c04a;position:relative;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#141b30,#0e1322);border:2px solid color-mix(in srgb,var(--c) 70%,transparent);box-shadow:0 8px 20px rgba(0,0,0,.4),0 0 18px color-mix(in srgb,var(--c) 26%,transparent)}
+.cg-img{position:relative;aspect-ratio:1;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 40%,#1a2036),#0b0f1c) center/cover no-repeat;display:grid;place-items:center;font-size:72px;line-height:1}
+.cg-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(10,13,22,.92))}
+.cg-no{position:absolute;top:8px;left:8px;z-index:2;font:600 11px 'Oswald',sans-serif;color:#fff;background:rgba(8,10,18,.72);border:1px solid var(--c);border-radius:8px;padding:1px 8px;direction:ltr}
+.cg-mine{position:absolute;top:8px;right:8px;z-index:2;font-weight:900;font-size:10px;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:10px;padding:2px 8px}
+.cg-nm{position:relative;z-index:2;margin-top:-34px;height:34px;padding:0 10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff;text-shadow:0 2px 8px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cg-ds{padding:4px 10px 0;text-align:center;font-size:11.5px;line-height:1.6;color:var(--text-dim);min-height:2.4em}
+.cg-st{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 8px 12px}
+.cg-st div{text-align:center;border-radius:12px;padding:6px 2px 7px;background:color-mix(in srgb,var(--c) 8%,#0f1422);border:1px solid color-mix(in srgb,var(--c) 28%,transparent)}
+.cg-st div.mx{background:color-mix(in srgb,var(--c) 20%,#0f1422);border-color:var(--c);box-shadow:0 0 12px -3px var(--c)}
+.cg-st i{display:block;font:600 10.5px 'Oswald',sans-serif;letter-spacing:.12em;color:var(--text-dim);font-style:normal;direction:ltr}
+.cg-st b{display:block;margin-top:1px;font:700 18px 'Oswald',sans-serif;color:var(--c);direction:ltr;white-space:nowrap}
+.cg-st small{font:700 11px 'Cairo',sans-serif;opacity:.85}
+.cg-emp{grid-column:1/-1;text-align:center;color:var(--text-dim);padding:36px 10px;font-size:14px}
+@media (min-width:560px){.cg-grid{grid-template-columns:repeat(3,1fr)}}
 @media (prefers-reduced-motion:reduce){.cp-egg.shk,.cp-egg.glow svg{animation:none}.cp-toast{transition:none}}
 </style>
   <div class="cp">
+    <div class="cp-tabs" role="tablist">
+      <button class="cp-tab on" type="button" role="tab" data-cpt="main">🐾 رفيقي</button>
+      <button class="cp-tab new" type="button" role="tab" data-cpt="guide">📖 دليل الرفقاء</button>
+    </div>
+    <div class="cp-pane" id="cp-main" data-cpp="main">
     <div class="cp-bar"><div><small>💳 رصيدك</small><b id="cp-money">0</b></div><div><small>🥫 طعامك</small><b id="cp-foodn">0</b></div></div>
 
     <div class="cp-stage" id="cp-stage">
@@ -2011,6 +2060,11 @@ body.cp-none .cp-holder,body.cp-none .cp-shadow,body.cp-none .cp-petonly{display
       <div class="cp-pick" id="cp-pick"></div>
     </div>
     <div class="cp-note">الرصيد والطعام وحد الشراء اليومي نفسها بالواتس — أي تغيير هنا يظهر هناك والعكس.</div>
+    </div>
+    <div class="cp-pane" id="cp-guide" data-cpp="guide" hidden>
+      <div class="cg-head"><b>📖 دليل الرفقاء</b><span>كل الرفقاء وأول صورة لكل واحد وبونصه عند اللفل 1 واللفل 10 — للمشاهدة فقط<em id="cg-n"></em></span></div>
+      <div class="cg-grid" id="cg-grid"></div>
+    </div>
   </div>
   <div class="cp-toast" id="cp-toast"></div>
 <script>window.__CP=${boot};</script>
@@ -2252,6 +2306,35 @@ function poll(force){
 }
 setInterval(poll,25000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)poll(true)});
+
+/* 📖 دليل الرفقاء: كل الرفقاء (للعرض فقط) */
+function fb(n){n=Number(n)||0;return String(Math.round(n*100)/100)}
+function buildGuide(){
+  var ks=Object.keys(CAT).filter(function(k){return CAT[k]&&CAT[k].real}),h='';
+  $('cg-n').textContent=ks.length;
+  if(!ks.length){$('cg-grid').innerHTML='<div class="cg-emp">لا توجد رفقاء حالياً</div>';return}
+  ks.forEach(function(k,i){
+    var c=CAT[k],u=c.imgs&&c.imgs[0],mine=(S&&S.has&&S.key===k);
+    h+='<div class="cg" style="--c:'+esc(c.c)+'">'
+      +'<div class="cg-img"'+(u?' style="background-image:url(&quot;'+esc(u)+'&quot;)"':'')+'>'+(u?'':esc(c.e))
+      +'<span class="cg-no">#'+(i+1)+'</span>'+(mine?'<span class="cg-mine">🐾 رفيقك</span>':'')+'</div>'
+      +'<div class="cg-nm">'+esc(c.e)+' '+esc(c.n)+'</div>'
+      +'<div class="cg-ds">'+esc(c.d||'')+'</div>'
+      +'<div class="cg-st"><div><i>LV 1</i><b>+'+fb(c.b1)+'<small>'+esc(c.u)+'</small></b></div>'
+      +'<div class="mx"><i>LV '+(Number(c.l2)||10)+'</i><b>+'+fb(c.b2)+'<small>'+esc(c.u)+'</small></b></div></div>'
+      +'</div>';
+  });
+  $('cg-grid').innerHTML=h;
+}
+function cpTab(t){
+  document.querySelectorAll('.cp-tab').forEach(function(b){var on=b.getAttribute('data-cpt')===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
+  document.querySelectorAll('.cp-pane').forEach(function(p){p.hidden=p.getAttribute('data-cpp')!==t});
+  try{history.replaceState(null,'',t==='guide'?'#guide':location.pathname+location.search)}catch(e){}
+  window.scrollTo(0,0);
+}
+document.querySelector('.cp-tabs').addEventListener('click',function(e){var b=e.target.closest('.cp-tab');if(b)cpTab(b.getAttribute('data-cpt'))});
+buildGuide();
+if(location.hash==='#guide')cpTab('guide');
 
 buildPick();render();setPetImage(false);
 if(cur()){setTimeout(function(){var c=cur();say(S.level>=1?(c.e+' '+(S.name||c.n)+': +'+S.bonus+c.u):lines().chat[0]);lastTalk=performance.now()},600)}
@@ -3237,9 +3320,36 @@ a.chip{text-decoration:none;display:inline-block}
 .stx-chips{display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 8px}
 .stx-chips span{font-size:12.5px; font-weight:700; color:#fff; padding:4px 10px; border-radius:20px; background:color-mix(in srgb,var(--tier) 14%,#0f1422); border:1px solid color-mix(in srgb,var(--tier) 35%,transparent)}
 .stx .note{margin-top:10px; text-align:right}
+/* ===== 🖼️ تبويب الصورة (نفس تصميم النموذج) ===== */
+.tabs{overflow-x:auto; scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs .tab{flex:1 0 auto; padding:9px 8px}
+.tab.new{position:relative}
+.tab.new::after{content:"جديد"; position:absolute; top:0; left:0; font-size:8.5px; font-weight:900; color:#0a0d16; background:var(--gold); border-radius:8px; padding:0 5px; line-height:14px}
+.cd .mine{position:absolute; top:34px; right:8px; z-index:2; font-weight:900; font-size:10.5px; color:#0a0d16; background:linear-gradient(90deg,var(--gold-dim),var(--gold)); border-radius:10px; padding:2px 9px}
+.im-cmp{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.im-cmp figure{margin:0; text-align:center}
+.im-cmp figcaption{font-size:12px; color:var(--text-dim); margin-top:6px; font-weight:800}
+.im-pv{aspect-ratio:3/4; border-radius:14px; border:1.5px solid color-mix(in srgb,var(--tier) 35%,transparent); display:grid; place-items:center; font:900 46px 'Cairo',sans-serif; color:rgba(255,255,255,.9); background-size:cover; background-position:center top; background-color:#0a0d16}
+.im-pv.new{border-color:var(--tier); box-shadow:0 0 18px -4px var(--tier)}
+.im-pv.ph{font-size:13px; font-weight:400; color:var(--text-dim); border-style:dashed; line-height:1.8; padding:8px; text-align:center}
+.im-btns{display:grid; gap:10px; margin-top:14px}
+.im-b{font:900 15px 'Cairo',sans-serif; border:0; border-radius:14px; padding:13px; cursor:pointer}
+.im-b:disabled{opacity:.45; cursor:not-allowed}
+.im-b[hidden]{display:none}
+.im-b.gold{color:#0a0d16; background:var(--tier)}
+.im-b.pick{color:var(--text); background:#151b2e; border:1.5px solid rgba(255,255,255,.18)}
+.im-b.ghost{color:#ff7a95; background:transparent; border:1.5px solid rgba(255,56,96,.5); font-size:13px}
+.im-note{color:var(--text-dim); font-size:12.5px; line-height:1.8; margin-top:12px; text-align:center}
+.im-spin{display:inline-block; width:14px; height:14px; border:2px solid #0a0d16; border-top-color:transparent; border-radius:50%; animation:imsp .7s linear infinite; vertical-align:-2px; margin-inline-end:6px}
+@keyframes imsp{to{transform:rotate(360deg)}}
+.im-toast{position:fixed; left:50%; bottom:calc(30px + env(safe-area-inset-bottom,0px)); transform:translate(-50%,30px); opacity:0; pointer-events:none; background:#151b2e; border:1px solid var(--gold-dim); color:#eef1f8; border-radius:14px; padding:12px 16px; font:700 14px 'Cairo',sans-serif; transition:.3s; max-width:92%; text-align:center; z-index:99}
+.im-toast.on{transform:translate(-50%,0); opacity:1}
+.im-toast.good{border-color:#4fe08a}
+.im-toast.bad{border-color:#ff6b6b; color:#ff9aa6}
 `
 
-function homeCardHTML(char) {
+function homeCardHTML(char, isOwner) {
     const tierKey = resolveTierKey(char.rarity, char.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['عادي']
     const top = t.idx >= FIRST_IMAGE_TIER
@@ -3260,11 +3370,105 @@ function homeCardHTML(char) {
       <div class="ar"${artStyle}>${src ? '' : letter}</div>
       <span class="rt">${esc(isOmega ? 'Ω OMEGA' : tierKey)}</span>
       <span class="pw">${power}</span>
-      <span class="no">#${char.__num}</span>
+      <span class="no">#${char.__num}</span>${(isOwner && top && char.__custom) ? '<span class="mine">🖼️ مخصصة</span>' : ''}
       <div class="pl"><div class="n">${esc(char.name)}</div><div class="a">${esc(char.anime || '')}</div>${pips}</div>
     </div>`
 }
 
+
+// 🖼️ منطق تبويب الصورة بالمتصفح: اختيار من المعرض → تصغير (1024px / JPEG) → POST /char-image/set
+// (CSP يمنع blob: بالصور، لذلك القراءة عبر FileReader ← data URL)
+function imageTabScript(csrf) {
+    return `<script>
+(function(){
+  var CSRF=${jsonForScript(csrf)}, sheet=document.getElementById('sheet'), fileEl=document.getElementById('im-file');
+  if(!sheet||!fileEl) return;
+  var pane=null, picked=null, tt=0;
+  window.__imBusy=false;
+  function toast(m,k){
+    var t=document.getElementById('im-toast');
+    if(!t){ t=document.createElement('div'); t.id='im-toast'; document.body.appendChild(t); }
+    t.textContent=m; t.className='im-toast on '+(k||'');
+    clearTimeout(tt); tt=setTimeout(function(){ t.className='im-toast'; },2400);
+  }
+  function q(sel){ return pane&&pane.querySelector('[data-im="'+sel+'"]'); }
+  function ident(){ return {csrf:CSRF,k:pane.getAttribute('data-k')||'',n:+pane.getAttribute('data-n'),name:pane.getAttribute('data-name')||''}; }
+  function post(url,body){
+    return fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'تعذّر الاتصال بالخادم'}; }); });
+  }
+  // تحديث البطاقة + قالب النافذة بعد النجاح (عشان تظهر الصورة الجديدة فوراً بدون ريفريش)
+  function syncUI(n,img,custom){
+    var ar=document.querySelector('.cd[data-d="'+n+'"] .ar');
+    if(ar&&img){ ar.style.backgroundImage="url('"+img+"')"; ar.textContent=''; }
+    var card=document.querySelector('.cd[data-d="'+n+'"]');
+    if(card){
+      var m=card.querySelector('.mine');
+      if(custom&&!m){ m=document.createElement('span'); m.className='mine'; m.textContent='🖼️ مخصصة'; card.insertBefore(m,card.querySelector('.pl')); }
+      if(!custom&&m) m.remove();
+    }
+    var tp=document.getElementById('d-'+n);
+    if(tp&&tp.content){
+      var o=tp.content.querySelector('[data-im="old"]'), c=tp.content.querySelector('[data-im="cap"]'), r=tp.content.querySelector('[data-im="reset"]');
+      if(o&&img) o.style.backgroundImage="url('"+img+"')";
+      if(c) c.textContent=custom?'الحالية (مخصصة)':'الأساسية';
+      if(r){ if(custom) r.removeAttribute('hidden'); else r.setAttribute('hidden',''); }
+    }
+  }
+  sheet.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-im]'); if(!b||window.__imBusy) return;
+    pane=b.closest('.pane'); if(!pane) return;
+    var a=b.getAttribute('data-im');
+    if(a==='pick'){ fileEl.value=''; fileEl.click(); }
+    else if(a==='save') save();
+    else if(a==='reset') reset();
+  });
+  fileEl.addEventListener('change',function(){
+    var f=fileEl.files&&fileEl.files[0]; if(!f||!pane) return;
+    var myPane=pane;
+    if(!/^image\\/(jpeg|png|webp)$/.test(f.type)){ toast('❌ اختر صورة JPG أو PNG أو WEBP','bad'); return; }
+    if(f.size>15*1024*1024){ toast('❌ الصورة كبيرة جداً (الحد 15 ميجا)','bad'); return; }
+    var rd=new FileReader();
+    rd.onerror=function(){ toast('❌ تعذّر قراءة الصورة','bad'); };
+    rd.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var m=1024, r=Math.min(1,m/Math.max(im.width,im.height)), cv=document.createElement('canvas');
+        cv.width=Math.max(1,Math.round(im.width*r)); cv.height=Math.max(1,Math.round(im.height*r));
+        var cx=cv.getContext('2d'); cx.fillStyle='#0a0d16'; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height);
+        picked=cv.toDataURL('image/jpeg',.85);
+        if(!myPane.isConnected) return;
+        var nw=myPane.querySelector('[data-im="new"]'), sv=myPane.querySelector('[data-im="save"]');
+        nw.className='im-pv new'; nw.textContent=''; nw.style.backgroundImage='url("'+picked+'")';
+        sv.disabled=false;
+      };
+      im.onerror=function(){ toast('❌ تعذّر قراءة الصورة','bad'); };
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+  function save(){
+    if(!picked||!pane) return;
+    var sv=q('save'), id=ident(), n=id.n; id.img=picked;
+    window.__imBusy=true; sv.innerHTML='<span class="im-spin"></span>جارٍ الحفظ…'; sv.disabled=true;
+    post('/char-image/set',id).then(function(j){
+      window.__imBusy=false;
+      if(!j||!j.ok){ sv.innerHTML='💾 حفظ الصورة'; sv.disabled=false; toast('❌ '+((j&&j.message)||'حدث خطأ، حاول مرة أخرى'),'bad'); return; }
+      picked=null; syncUI(n,j.img,true); window.__openSheet(n,'im'); toast(j.message||'✅ تم استبدال الصورة','good');
+    }).catch(function(){ window.__imBusy=false; sv.innerHTML='💾 حفظ الصورة'; sv.disabled=false; toast('❌ تعذّر الاتصال بالخادم','bad'); });
+  }
+  function reset(){
+    if(!pane) return;
+    var id=ident(), n=id.n; window.__imBusy=true;
+    post('/char-image/reset',id).then(function(j){
+      window.__imBusy=false;
+      if(!j||!j.ok){ toast('❌ '+((j&&j.message)||'حدث خطأ، حاول مرة أخرى'),'bad'); return; }
+      picked=null; syncUI(n,j.img,false); window.__openSheet(n,'im'); toast(j.message||'↩️ رجعت الصورة الأساسية','good');
+    }).catch(function(){ window.__imBusy=false; toast('❌ تعذّر الاتصال بالخادم','bad'); });
+  }
+})();
+</script>`
+}
 function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips, backTo, q, fk, pb }) {
     const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
     const isOwner = !!(viewer && viewer.isOwner)
@@ -3284,7 +3488,7 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
         `<a class="chip${c.on ? ' on' : ''}${c.n ? '' : ' zero'}" href="${esc(c.href)}">${esc(c.label)}<small>${c.n}</small></a>`).join('')
 
     const cardsHTML = items.length
-        ? items.map(homeCardHTML).join('')
+        ? items.map(c => homeCardHTML(c, isOwner)).join('')
         : `<div class="emp">${q ? 'لا توجد نتائج للبحث' : 'لا توجد شخصيات في هذه الخانة بعد'}</div>`
 
     // 🔎 مربع البحث (يحافظ على الخانة المختارة وزر الرجوع)
@@ -3327,8 +3531,9 @@ ${HOME_CSS}
   <div class="grid" id="grid">${cardsHTML}</div>
   ${pagerHTML(base, page, pages)}
 </div>
-<div id="tpls" hidden>${withImg.map(detailHTML).join('')}</div>
+<div id="tpls" hidden>${withImg.map(c => detailHTML(c, isOwner)).join('')}</div>
 <div class="overlay" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+${isOwner ? '<input id="im-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>' : ''}
 <script>
 (function(){
 var c=document.getElementById('bg'),x=c.getContext('2d'),W,H,P=[];
@@ -3340,8 +3545,12 @@ tick();
 })();
 (function(){
   var ov=document.getElementById('ov'), sheet=document.getElementById('sheet');
-  function closeSheet(){ ov.hidden=true; sheet.innerHTML=''; document.body.style.overflow=''; }
-  function openSheet(n){
+  function closeSheet(){ if(window.__imBusy) return; ov.hidden=true; sheet.innerHTML=''; document.body.style.overflow=''; }
+  function showTab(t){
+    sheet.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-t')===t); });
+    sheet.querySelectorAll('.pane').forEach(function(p){ p.hidden = (p.getAttribute('data-p') !== t); });
+  }
+  function openSheet(n,tab){
     var t=document.getElementById('d-'+n); if(!t||!t.content) return;
     var root=t.content.firstElementChild; if(!root) return;
     sheet.innerHTML=root.innerHTML;
@@ -3349,7 +3558,9 @@ tick();
     sheet.className='sheet'+(root.getAttribute('data-omega')==='1'?' omega':'');
     ov.hidden=false; document.body.style.overflow='hidden';
     var b=sheet.querySelector('.body'); if(b) b.scrollTop=0;
+    if(tab) showTab(tab);
   }
+  window.__openSheet=openSheet;
   document.addEventListener('click',function(e){
     var card=e.target.closest&&e.target.closest('.cd[data-d]');
     if(card && ov.hidden){ openSheet(card.getAttribute('data-d')); return; }
@@ -3368,8 +3579,9 @@ tick();
   });
 })();
 </script>
+${isOwner ? imageTabScript(viewer.csrf) : ''}
 ${inboxPopupHTML(viewer)}
-${backTo ? `<a class="backfab" href="${esc(backTo)}">← اللاعبون</a>` : ''}
+${backTo ? `<a class="backfab\" href="${esc(backTo)}">← اللاعبون</a>` : ''}
 </body>
 </html>`
 }
@@ -6201,6 +6413,7 @@ function securityHeaders(res) {
  *   usernameCost,             // 20000
  *   notifyDm(userId, text),   // رسالة خاصة بالبوت (آمنة: لا ترمي أخطاء)
  *   notifyOwner(text)         // إشعار المالك
+ *   customImage: { upload(buffer, userId, idx) → {url, publicId}, remove(publicId) } // صور .استبدال (Cloudinary)
  * }
  * يسجّل المسارات: /u/:code و /login و /logout و /gift ...
  */
@@ -6262,6 +6475,13 @@ function registerCharacterSite(app, Player, opts = {}) {
 
     const urlenc = express.urlencoded({ extended: false, limit: '4kb' })
     const jsonBody = express.json({ limit: '8kb' })
+    // 🖼️ رفع صورة .استبدال من الموقع: الصورة تُصغَّر بالمتصفح (≤1024px JPEG) فتصل غالباً أقل من 600KB، والحد 3MB
+    const imgBodyRaw = express.json({ limit: '3mb' })
+    const imgBody = (req, res, next) => imgBodyRaw(req, res, err => {
+        if (!err) return next()
+        const big = err.status === 413 || err.type === 'entity.too.large'
+        res.status(big ? 413 : 400).json({ ok: false, message: big ? 'الصورة كبيرة جداً' : 'طلب غير صالح' })
+    })
 
     if (!auth.authEnabled()) {
         console.log('⚠️ SESSION_SECRET غير مضبوط (أو أقصر من 16 حرف) — تسجيل الدخول والإهداء من الموقع معطّلان')
@@ -6578,6 +6798,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                 .map(x => ({
                     ...resolveDisplayChar(x.c, catIdx),
                     __num: x.num,
+                    __custom: !!x.c.customImage,
+                    __cid: x.c._id ? String(x.c._id) : '',
                     __weapon: (player.weaponsInventory || []).find(w => w && w.equippedTo === x.c.name) || null,
                     // 📊 الإحصائيات تُحسب من الشخصية الأصلية (مو المعروضة) عشان تطابق ضرب الزعيم
                     __stats: (() => { try { return computeCombatStats ? computeCombatStats(player, x.c) : null } catch (e) { return null } })()
@@ -8044,7 +8266,13 @@ function registerCharacterSite(app, Player, opts = {}) {
         for (const k of keys) {
             const a = A[k] || {}
             const m = compMeta(k)
+            // 📖 دليل الرفقاء: البونص عند لفل 1 وعند لفل 10 (أو أعلى لفل لو أقل من 10) — نفس دالة البوت
+            let lm = 10, b1 = 0, b2 = 0
+            try { if (companionsData.getMaxLevel) lm = compNum(companionsData.getMaxLevel(k), 10) } catch (e) {}
+            const l2 = Math.max(1, Math.min(10, lm))
+            try { if (companionsData.getCompanionBonus) { b1 = compNum(companionsData.getCompanionBonus(k, 1)); b2 = compNum(companionsData.getCompanionBonus(k, l2)) } } catch (e) {}
             catalog[k] = {
+                real: !!A[k], b1: Math.round(b1 * 100) / 100, b2: Math.round(b2 * 100) / 100, l2,
                 n: String(a.defaultName || m.n),
                 e: String(a.emoji || m.e),
                 c: String(m.c),
@@ -9814,6 +10042,147 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('gallery remove error:', err)
             g.fail(500, 'خطأ بالخادم')
+        }
+    })
+
+    // ─────────────── 🖼️ استبدال صورة الشخصية من الموقع (نفس .استبدال / .استبدال حذف بالبوت) ───────────────
+    // نفس خطوات الأمر بالضبط: رفع للـ Cloudinary ← player.setCharacterCustomImage(idx, url, publicId)
+    // وللترجيع player.removeCharacterCustomImage(idx) ← حذف الصورة من Cloudinary بالخلفية.
+    // الصورة لصاحب الحساب فقط (جلسة + CSRF)، وتحديد الشخصية بالـ _id (ما يتأثر بإعادة الترتيب)
+    // مع بديل احتياطي (الرقم + الاسم) للنسخ القديمة اللي ما عندها _id.
+    const ciCloud = (() => {
+        if (opts.customImage && typeof opts.customImage.upload === 'function') return opts.customImage
+        try {
+            const m = require('../utils/cloudinary')
+            return { upload: m.uploadCustomCharacterImage, remove: m.deleteCustomCharacterImage }
+        } catch (e) { return null }
+    })()
+    const ciHits = new Map()
+    function ciRate(userId) {
+        const now = Date.now()
+        const arr = (ciHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 10) { ciHits.set(userId, arr); return false }
+        arr.push(now); ciHits.set(userId, arr); return true
+    }
+
+    async function ciGuard(req, res) {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, message, extra = {}) => res.status(status).json({ ok: false, message, ...extra })
+        try {
+            if (!ciCloud) return fail(503, 'رفع الصور غير مفعّل حالياً.')
+            if (!auth.authEnabled()) return fail(503, 'تسجيل الدخول غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'طلب غير مسموح.')
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+            const body = req.body || {}
+            if (!auth.verifyCsrf(sess, body.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!ciRate(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+            return { sess, body, fail }
+        } catch (err) {
+            console.error('char image guard error:', err)
+            return fail(500, 'خطأ بالخادم')
+        }
+    }
+
+    // يحدد الشخصية ويرجع { idx (ترتيب التخزين = نفس idx بالبوت), ch (نسخة lean) }
+    async function ciResolve(userId, body) {
+        const p = await galEnsureIds(userId)
+        if (!p || !Array.isArray(p.characters)) return null
+        let ch = null
+        const k = String(body.k || '')
+        if (/^[a-f0-9]{24}$/.test(k)) {
+            ch = p.characters.find(c => c && c._id && String(c._id) === k) || null
+        } else {
+            const n = parseInt(body.n, 10)
+            const sorted = sortChars(p.characters.slice())
+            const cand = Number.isInteger(n) && n >= 1 ? sorted[n - 1] : null
+            if (cand && String(cand.name) === String(body.name || '')) ch = cand
+        }
+        if (!ch || !ch._id) return null
+        const idx = p.characters.findIndex(c => c && c._id && String(c._id) === String(ch._id))
+        return idx < 0 ? null : { idx, ch }
+    }
+
+    app.post('/char-image/set', imgBody, async (req, res) => {
+        const g = await ciGuard(req, res)
+        if (!g || !g.sess) return
+        try {
+            const img = String(g.body.img || '')
+            const PREFIX = 'data:image/jpeg;base64,'
+            if (!img.startsWith(PREFIX)) return g.fail(400, 'صيغة الصورة غير صحيحة')
+            const buf = Buffer.from(img.slice(PREFIX.length), 'base64')
+            if (buf.length < 500 || buf.length > 2.5 * 1024 * 1024) return g.fail(400, 'حجم الصورة غير مناسب')
+            if (!(buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF)) return g.fail(400, 'الملف ليس صورة JPEG صالحة')
+
+            const t = await ciResolve(g.sess.u, g.body)
+            if (!t) return g.fail(409, 'هذي الشخصية ما عاد عندك (أو تغيّر ترتيبها) — حدّث الصفحة.')
+
+            // ☁️ رفع مباشر للـ Cloudinary (رابط دائم) — نفس uploadCustomCharacterImage اللي يستخدمه .استبدال
+            const { url, publicId } = await ciCloud.upload(buf, g.sess.u, t.idx)
+
+            // 🔒 تحديث ذري للشخصية المقصودة فقط (بالـ _id) بدل doc.save() اللي يكتب مصفوفة الشخصيات كلها:
+            // لو انباعت/انهدت أثناء الرفع ما يُكتب شيء ولا ترجع الشخصية. نفس حقول setCharacterCustomImage.
+            const before = await Player.findOneAndUpdate(
+                { userId: g.sess.u, characters: { $elemMatch: { _id: t.ch._id } } },
+                {
+                    $set: { 'characters.$.customImage': url, 'characters.$.customImageId': publicId },
+                    $unset: { 'characters.$.customImageData': '' }
+                },
+                { strict: false, new: false, projection: { characters: 1 } }
+            ).lean()
+            if (before) {
+                // 🧹 نحذف الصورة السابقة من Cloudinary بالخلفية (الاسم صار فريد لكل رفع)
+                const prev = (before.characters || []).find(c => c && c._id && String(c._id) === String(t.ch._id))
+                if (prev && prev.customImageId && prev.customImageId !== publicId && typeof ciCloud.remove === 'function') {
+                    Promise.resolve(ciCloud.remove(prev.customImageId)).catch(() => {})
+                }
+            } else {
+                Promise.resolve(ciCloud.remove && ciCloud.remove(publicId)).catch(() => {}) // تنظيف الصورة اللي انرفعت
+                return g.fail(409, 'تغيّرت مجموعتك للتو — حدّث الصفحة وأعد المحاولة.')
+            }
+
+            res.json({
+                ok: true,
+                img: safeImageUrl(url),
+                message: `✅ تم استبدال صورة ${t.ch.name} بنجاح`
+            })
+        } catch (err) {
+            console.error('char image set error:', err)
+            g.fail(500, 'حدث خطأ أثناء حفظ الصورة، حاول مرة أخرى')
+        }
+    })
+
+    app.post('/char-image/reset', imgBody, async (req, res) => {
+        const g = await ciGuard(req, res)
+        if (!g || !g.sess) return
+        try {
+            const t = await ciResolve(g.sess.u, g.body)
+            if (!t) return g.fail(409, 'هذي الشخصية ما عاد عندك (أو تغيّر ترتيبها) — حدّث الصفحة.')
+
+            // 🔒 إزالة ذرية لحقول الصورة من الشخصية المقصودة فقط (بالـ _id) — يرجع المستند قبل التعديل لنعرف cloudinaryId
+            const before = await Player.findOneAndUpdate(
+                { userId: g.sess.u, characters: { $elemMatch: { _id: t.ch._id, customImage: { $exists: true, $ne: null } } } },
+                { $unset: { 'characters.$.customImage': '', 'characters.$.customImageId': '', 'characters.$.customImageData': '' } },
+                { strict: false, new: false, projection: { characters: 1 } }
+            ).lean()
+            if (!before) return g.fail(400, 'هذي الشخصية ما عندها صورة مستبدلة أصلاً')
+
+            // 🧹 حذف الصورة من Cloudinary بالخلفية (تنظيف اختياري — ما نستنى نتيجته)
+            const old = (before.characters || []).find(c => c && c._id && String(c._id) === String(t.ch._id))
+            if (old && old.customImageId && typeof ciCloud.remove === 'function') {
+                Promise.resolve(ciCloud.remove(old.customImageId)).catch(() => {})
+            }
+
+            // الصورة الأساسية = نفس منطق resolveDisplayChar (أحدث صورة بالكتالوج ثم صورة النسخة)
+            const latest = getCatalogIndex(getCatalog).get(`${t.ch.name}|${t.ch.rarity}|${t.ch.form}`)
+            const base = safeImageUrl(latest ? latest.image : t.ch.image)
+
+            res.json({ ok: true, img: base, message: `↩️ رجعت صورة ${t.ch.name} الأساسية` })
+        } catch (err) {
+            console.error('char image reset error:', err)
+            g.fail(500, 'حدث خطأ، حاول مرة أخرى')
         }
     })
 
