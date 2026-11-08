@@ -20023,5 +20023,167 @@
     "rarity": "SSS",
     "ability": "عاصفة الجليد الأبدية",
     "image": ""
+  },
+  {
+    "name": "Jellal",
+    "form": "ساحر الأجرام السماوية",
+    "anime": "Fairy Tail",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "نيزك الأجرام العظيم",
+    "image": ""
+  },
+  {
+    "name": "Gajeel",
+    "form": "تنين الحديد الأسود",
+    "anime": "Fairy Tail",
+    "power": 6720,
+    "rarity": "SSS",
+    "ability": "قبضة العمود الحديدي",
+    "image": ""
+  },
+  {
+    "name": "Mavis",
+    "form": "الجنية التكتيكية الأولى",
+    "anime": "Fairy Tail",
+    "power": 6980,
+    "rarity": "SSS",
+    "ability": "بريق الجنيات المطلق",
+    "image": ""
+  },
+  {
+    "name": "Meredy",
+    "form": "ساحرة الرابط الحسي",
+    "anime": "Fairy Tail",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "ربط الحواس المشترك",
+    "image": ""
+  },
+  {
+    "name": "Silver Fullbuster",
+    "form": "سيّد الجليد القديم",
+    "anime": "Fairy Tail",
+    "power": 6780,
+    "rarity": "SSS",
+    "ability": "رمح الجليد الأبدي",
+    "image": ""
+  },
+  {
+    "name": "Sting",
+    "form": "تنين النور الأبيض",
+    "anime": "Fairy Tail",
+    "power": 6740,
+    "rarity": "SSS",
+    "ability": "ضوء التنين المتألق",
+    "image": ""
+  },
+  {
+    "name": "Rouge S",
+    "form": "تنين الظل الأسود",
+    "anime": "Fairy Tail",
+    "power": 6730,
+    "rarity": "SSS",
+    "ability": "ظلال التنين المتسللة",
+    "image": ""
+  },
+  {
+    "name": "Cobra",
+    "form": "تنين السم الأحمر",
+    "anime": "Fairy Tail",
+    "power": 6640,
+    "rarity": "SSS",
+    "ability": "سمّ الأفعى وسمع الأفكار",
+    "image": ""
+  },
+  {
+    "name": "Loke",
+    "form": "روح الأسد الذهبي",
+    "anime": "Fairy Tail",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "ضوء الأسد الساطع",
+    "image": ""
+  },
+  {
+    "name": "Aquarius",
+    "form": "روح حاملة الماء",
+    "anime": "Fairy Tail",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "طوفان الأمواج العارم",
+    "image": ""
+  },
+  {
+    "name": "Taurus",
+    "form": "روح الثور الذهبي",
+    "anime": "Fairy Tail",
+    "power": 6680,
+    "rarity": "SSS",
+    "ability": "فأس الثور الهائج",
+    "image": ""
+  },
+  {
+    "name": "Virgo",
+    "form": "روح الخادمة الذهبية",
+    "anime": "Fairy Tail",
+    "power": 6620,
+    "rarity": "SSS",
+    "ability": "حفر الأرض الخاطف",
+    "image": ""
+  },
+  {
+    "name": "Happy",
+    "form": "القط الأزرق المجنح",
+    "anime": "Fairy Tail",
+    "power": 6610,
+    "rarity": "SSS",
+    "ability": "أجنحة التحليق السريع",
+    "image": ""
+  },
+  {
+    "name": "Panther Lili",
+    "form": "الفهد المحارب الأكبر",
+    "anime": "Fairy Tail",
+    "power": 6710,
+    "rarity": "SSS",
+    "ability": "سيف الفهد الأسود",
+    "image": ""
+  },
+  {
+    "name": "Carla",
+    "form": "قطة الرؤى المستقبلية",
+    "anime": "Fairy Tail",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "رؤية المستقبل",
+    "image": ""
+  },
+  {
+    "name": "Elfman",
+    "form": "الرجل الوحش",
+    "anime": "Fairy Tail",
+    "power": 6690,
+    "rarity": "SSS",
+    "ability": "تحول الوحش الكامل",
+    "image": ""
+  },
+  {
+    "name": "Revy",
+    "form": "ذات اليدين الراقصة",
+    "anime": "Black Lagoon",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "رقصة المسدسين المزدوجة",
+    "image": ""
+  },
+  {
+    "name": "Zabuza",
+    "form": "سيّاف ضباب القرية الخفية",
+    "anime": "Naruto",
+    "power": 6670,
+    "rarity": "SSS",
+    "ability": "سيف الجلاد الضخم",
+    "image": ""
   }
 ]
