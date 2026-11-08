@@ -226,10 +226,30 @@ async function announceCoOp(sock) {
 
 }
 // =========================
+// Lock: يمنع تعارض الانضمام المتزامن (كان يسبب وصول الفريق 15/15 بدون أن ينتبه أحد لاكتماله)
+// =========================
+
+let lockChain = Promise.resolve()
+
+function withLock(fn) {
+    const run = lockChain.then(fn, fn)
+    lockChain = run.catch(() => {})
+    return run
+}
+
+function joinPlayer(userId, name) {
+    return withLock(() => _joinPlayer(userId, name))
+}
+
+function setReady(userId) {
+    return withLock(() => _setReady(userId))
+}
+
+// =========================
 // Join Player
 // =========================
 
-async function joinPlayer(userId, name) {
+async function _joinPlayer(userId, name) {
 
     const coop = await CoOp.findOne()
 
@@ -430,7 +450,7 @@ async function joinPlayer(userId, name) {
 // Ready (استعداد) — يظهر عند 8 لاعبين
 // =========================
 
-async function setReady(userId) {
+async function _setReady(userId) {
 
     const coop = await CoOp.findOne()
 
@@ -610,18 +630,49 @@ async function scheduleNextCoOp(sock) {
     // إذا كان هناك Co-Op نشط فلا ننشئ واحداً جديداً
     if (coop.active) {
 
-        // البوت أُعيد تشغيله والفريق مكتمل: نكمل البدء التلقائي
-        if (
-            coop.status === "waiting" &&
-            coop.players.length >=
-                (CONFIG.maxPlayers[coop.boss.rank] || 5)
-        ) {
-            scheduleStart(sock, Math.max(0, (coop.startAt || 0) - Date.now()))
+        try {
+
+            const max = CONFIG.maxPlayers[coop.boss && coop.boss.rank] || 15
+
+            // 🛟 الفريق مكتمل أو الكل ضغط استعداد لكن القتال ما بدأ (تعارض/إعادة تشغيل): نبدأه
+            if (coop.status === "waiting" && coop.players.length > 0) {
+
+                const full = coop.players.length >= max
+
+                const allReady =
+                    coop.players.length >= CONFIG.readyMin &&
+                    coop.players.every(p => (coop.ready || []).includes(p.userId))
+
+                if (full || allReady) {
+
+                    if (!coop.startAt) {
+                        coop.startAt = Date.now() + (allReady && !full ? 0 : CONFIG.startDelay)
+                        await coop.save()
+                    }
+
+                    scheduleStart(sock, Math.max(0, coop.startAt - Date.now()))
+
+                }
+
+            }
+
+            // 🛟 القتال واقف (مؤقت الدور ضاع بإعادة تشغيل/خطأ): نكمل بهجوم تلقائي
+            if (
+                coop.status === "battle" &&
+                coop.turnEnd > 0 &&
+                Date.now() > coop.turnEnd + 8000
+            ) {
+                console.log('Co-Op watchdog: القتال واقف، نكمل الدور')
+                await battle.autoAttack(sock || sockRef)
+            }
+
+        } catch (err) {
+            console.log('Co-Op watchdog Error:', err)
         }
 
         coopTimer = setTimeout(() => {
             scheduleNextCoOp(sock).catch(console.log)
-        }, 30000) // يفحص كل 30 ثانية
+        }, 15000) // يفحص كل 15 ثانية
 
         return
     }
@@ -638,6 +689,11 @@ const updated = await CoOp.findOne()
 updated.nextSpawn = now + CONFIG.spawnEvery
 
 await updated.save()
+
+// ⚠️ كان هنا return بدون إعادة تشغيل الحلقة فتموت المراقبة بعد أول ظهور
+coopTimer = setTimeout(() => {
+    scheduleNextCoOp(sock).catch(console.log)
+}, 15000)
 
 return
     }
@@ -684,6 +740,8 @@ async function forceSpawn(sock) {
 current.nextSpawn = Date.now() + CONFIG.spawnEvery
 
 await current.save()
+
+scheduleNextCoOp(sock).catch(console.log)
 
     return true
 
