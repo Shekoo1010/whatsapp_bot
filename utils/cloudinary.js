@@ -23,8 +23,11 @@ function uploadCustomCharacterImage(buffer, playerId, characterIndex) {
         const stream = cloudinary.uploader.upload_stream(
             {
                 folder: 'custom_images',
-                public_id: `${playerId.replace(/[^a-zA-Z0-9]/g, '_')}_${characterIndex}`,
-                overwrite: true,
+                // 🔒 اسم فريد لكل رفع: رقم الخانة يتغير بالبيع/الإهداء، فاسم ثابت كان يخلي
+                // صورة شخصية تستبدل صورة شخصية ثانية. الصورة القديمة تُحذف عند الاستبدال
+                // (شوف .استبدال بالبوت و/char-image/set بالموقع).
+                public_id: `${playerId.replace(/[^a-zA-Z0-9]/g, '_')}_${characterIndex}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+                overwrite: false,
                 resource_type: 'image'
             },
             (err, result) => {
