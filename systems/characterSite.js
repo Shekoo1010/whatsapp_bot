@@ -15,6 +15,7 @@ const { nextPayoutAt } = require('./galleryRewards') // موعد تصفير لا
 const { getGalleryCharacters, resolveLiveCharacterData, MAX_GALLERY } = require('./gallerySystem') // نفس اختيار .المعرض (player.gallery)
 const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة الترتيب = أول N شخصية (ترتيب .شخصياتي) حسب سعة المخزون
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
+const COMPANION_CHAT = require('./companionChat') // 🐾 رسائل تفاعل الرفقاء (8 لكل رفيق)
 const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
 // 📊 إحصائيات الهجوم على الزعيم — نفس مصدر أمر .احصائيات_كاملة (systems/combatStats.js)
@@ -1077,6 +1078,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['favorite', '⭐', 'المفضلة', `/u/${c}/favorite`],
+        ['companion', '🐾', 'رفيقي', `/u/${c}/companion`],
         ['shards', '🧩', 'الشظايا والتطوير', `/u/${c}/shards`],
         ['echoes', '🎐', 'الإيكوز والدومين', `/u/${c}/echoes`],
         ['players', '👥', 'اللاعبون', `/u/${c}/players`],
@@ -1879,6 +1881,382 @@ function favoritePageHTML({ viewer, code, state }) {
   setInterval(tick,1000); setInterval(poll,20000);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden) poll(true); });
 })();
+</script></body></html>`
+}
+
+// =====================================================================
+// 🐾 صفحة الرفيق  /u/<code>/companion  (نفس أوامر الرفيق بالواتس: إطعام / شراء طعام / تسمية / صورة / بيع / فقس)
+// المنطق والرصيد كله بالسيرفر (companionSystem) — الصفحة للعرض والتفاعل فقط
+// =====================================================================
+function companionPageHTML({ viewer, code, state, cat }) {
+    const boot = jsonForScript({ code, csrf: viewer.csrf, state, cat: cat.catalog, chat: cat.chat })
+    return `${shellHead('رفيقي')}
+<body><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">🐾 رفيقي</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'companion', viewer.name)}
+<style>
+.cp{max-width:520px;margin:0 auto;--c:#f0c04a}
+.cp-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}
+.cp-bar div{background:#0f1422;border:1px solid #222a42;border-radius:14px;padding:8px 10px;text-align:center}
+.cp-bar small{display:block;color:var(--text-dim);font-size:11px}
+.cp-bar b{display:block;font:700 20px 'Oswald',sans-serif;color:var(--gold);direction:ltr}
+.cp-stage{position:relative;height:330px;border-radius:24px;border:1px solid rgba(255,255,255,.1);background:radial-gradient(260px 200px at 50% 55%,color-mix(in srgb,var(--c) 30%,#0f1422),#0b0f1c 75%);overflow:hidden;perspective:900px;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.cp-stage:active{cursor:grabbing}
+.cp-floor{position:absolute;left:50%;bottom:34px;width:230px;height:46px;transform:translateX(-50%) rotateX(70deg);border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 55%,transparent),transparent 72%)}
+.cp-shadow{position:absolute;left:50%;bottom:44px;width:170px;height:22px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),transparent)}
+.cp-holder{position:absolute;left:50%;top:50%;width:230px;height:230px;margin:-130px 0 0 -115px;transform-style:preserve-3d}
+.cp-pet{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+.cp-ly{position:absolute;inset:0;border-radius:34px;background:color-mix(in srgb,var(--c) 28%,#0b0f1c) center/cover no-repeat}
+.cp-ly.back{filter:brightness(.28) saturate(.8)}
+.cp-ly.front{box-shadow:0 0 0 3px var(--c),0 0 28px color-mix(in srgb,var(--c) 70%,transparent);overflow:hidden}
+.cp-ly.front.emo{display:grid;place-items:center;font-size:120px;line-height:1;background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--c) 45%,#1a2036),#0b0f1c)}
+.cp-ly.front::after{content:"";position:absolute;inset:0;border-radius:34px;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);transform:translateX(var(--sh,-130%));mix-blend-mode:overlay}
+.swap{animation:cpswp .7s ease}@keyframes cpswp{50%{transform:scale(.6)}}
+.chomp{animation:cpchomp .5s ease}@keyframes cpchomp{30%{scale:1.18 .8}60%{scale:.9 1.12}}
+.cp-bub{position:absolute;top:14px;left:50%;max-width:92%;transform:translateX(-50%) scale(.6);opacity:0;background:#fff;color:#111;font:800 13px 'Cairo',sans-serif;padding:7px 14px;border-radius:16px;text-align:center;transition:.25s;z-index:5;pointer-events:none}
+.cp-bub.show{opacity:1;transform:translateX(-50%) scale(1)}
+.cp-bub::after{content:"";position:absolute;bottom:-6px;left:50%;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#fff}
+.cp-fx{position:absolute;pointer-events:none;font-size:22px;z-index:6;animation:cpfly 1.1s ease-out forwards}
+@keyframes cpfly{to{transform:translate(var(--dx),var(--dy)) scale(.4) rotate(var(--r));opacity:0}}
+.cp-food{position:absolute;font-size:34px;z-index:7;pointer-events:none;animation:cpeat .8s ease-in forwards}
+@keyframes cpeat{0%{transform:translate(var(--sx),var(--sy)) scale(1)}100%{transform:translate(0,0) scale(.3);opacity:0}}
+.cp-lvup{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:900 34px 'Oswald',sans-serif;color:var(--gold);text-shadow:0 0 20px var(--gold);pointer-events:none;opacity:0;z-index:8}
+.cp-lvup.go{animation:cplu 1.6s ease}
+@keyframes cplu{0%{opacity:0;transform:scale(.4)}25%{opacity:1;transform:scale(1.15)}80%{opacity:1}100%{opacity:0;transform:scale(1.3) translateY(-30px)}}
+.cp-hint{position:absolute;bottom:8px;width:100%;text-align:center;font-size:11px;color:var(--text-dim);pointer-events:none}
+.cp-card{margin-top:12px;padding:14px;border-radius:18px;background:rgba(15,20,34,.78);border:1px solid rgba(255,255,255,.09)}
+.cp-nm{display:flex;align-items:center;gap:10px}
+.cp-nm b{font-size:20px;font-weight:900}
+.cp-lv{margin-inline-start:auto;font:700 14px 'Oswald',sans-serif;color:#1a1400;background:linear-gradient(180deg,#ffe38a,var(--gold));border-radius:12px;padding:3px 12px;direction:ltr}
+.cp-lv:empty{display:none}
+.cp-sub{font-size:12px;color:var(--text-dim);margin-top:2px;line-height:1.7}
+.cp-barx{height:10px;border-radius:6px;background:rgba(255,255,255,.1);margin-top:12px;overflow:hidden}
+.cp-barx i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ea8ff,var(--gold));transition:width .6s}
+.cp-bl{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-top:5px}
+.cp-bonus{margin-top:10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--c) 14%,#0f1422);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);font-weight:800;font-size:13px}
+.cp-acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.cp-btn{font:800 14px 'Cairo',sans-serif;color:var(--text);background:#151b2e;border:1.5px solid rgba(255,255,255,.14);border-radius:14px;padding:11px 8px;cursor:pointer;line-height:1.4}
+.cp-btn:active{transform:scale(.96)}
+.cp-btn.main{grid-column:1/-1;color:#1a1400;background:linear-gradient(180deg,#ffe38a,var(--gold));border-color:var(--gold);font-size:16px}
+.cp-btn small{display:block;font-weight:600;font-size:11px;opacity:.75}
+.cp-btn.red{grid-column:1/-1;border-color:rgba(255,56,96,.55);color:#ff7a95}
+.cp-btn.egg{grid-column:1/-1;border-color:rgba(120,220,255,.55);color:#9fe6ff}
+.cp-btn:disabled{opacity:.4;cursor:default}
+.cp-pick{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:8px}
+.cp-pick button{aspect-ratio:1;border-radius:12px;border:2px solid rgba(255,255,255,.14);background:#0f1422 center/cover no-repeat;cursor:pointer;position:relative;padding:0;font-size:20px;color:var(--text-dim)}
+.cp-pick button:disabled{opacity:.45;cursor:default}
+.cp-pick button.on{border-color:var(--gold);box-shadow:0 0 12px rgba(240,192,74,.6)}
+.cp-pick button span{position:absolute;bottom:2px;right:4px;font:700 10px 'Oswald',sans-serif;background:rgba(0,0,0,.65);border-radius:6px;padding:0 5px;color:#fff}
+.cp-h3{font-size:14px;font-weight:900;color:var(--gold);margin-bottom:2px}
+.cp-row{display:none;gap:8px;margin-top:10px}.cp-row.on{display:flex}
+.cp-row input{flex:1;min-width:0;font:700 14px 'Cairo',sans-serif;color:var(--text);background:#0f1422;border:1.5px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 12px;outline:0}
+.cp-row input:focus{border-color:var(--gold)}
+.cp-toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid var(--gold-dim);border-radius:14px;padding:12px 16px;font-weight:700;font-size:14px;transition:.3s;max-width:92%;text-align:center;z-index:90}
+.cp-toast.on{transform:translate(-50%,0);opacity:1}.cp-toast.good{border-color:#4fe08a}.cp-toast.bad{border-color:#ff6b6b;color:#ff9aa6}
+.cp-egg{position:absolute;left:50%;top:50%;width:120px;height:150px;margin:-95px 0 0 -60px;z-index:7;display:none;transform-origin:50% 90%;filter:drop-shadow(0 0 18px color-mix(in srgb,var(--c) 60%,transparent))}
+.cp-egg.on{display:block}
+.cp-egg svg{width:100%;height:100%;overflow:visible}
+.cp-egg .crk{stroke:#3a2a10;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:260;stroke-dashoffset:260;transition:stroke-dashoffset .9s}
+.cp-egg.crack .crk{stroke-dashoffset:0}
+.cp-egg.glow svg{animation:cpeglow .5s ease-in-out infinite alternate}
+@keyframes cpeglow{to{filter:brightness(1.7) saturate(1.3)}}
+@keyframes cpeggin{0%{transform:translateY(-260px) scale(.7);opacity:0}60%{transform:translateY(12px) scale(1.04,.94);opacity:1}100%{transform:none;opacity:1}}
+@keyframes cpeggshake{0%,100%{transform:rotate(0)}15%{transform:rotate(-9deg)}30%{transform:rotate(8deg)}45%{transform:rotate(-12deg)}60%{transform:rotate(11deg)}75%{transform:rotate(-6deg)}90%{transform:rotate(4deg)}}
+.cp-egg.in{animation:cpeggin .7s ease-out both}
+.cp-egg.shk{animation:cpeggshake .55s ease-in-out infinite}
+.cp-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+.cp-flash.go{animation:cpfl .9s ease-out}
+@keyframes cpfl{0%{opacity:0}18%{opacity:.95}100%{opacity:0}}
+body.hatching .cp-card{pointer-events:none;opacity:.55}
+body.cp-none .cp-holder,body.cp-none .cp-shadow,body.cp-none .cp-petonly{display:none}
+.cp-note{font-size:11px;color:var(--text-dim);text-align:center;margin-top:14px;line-height:1.8}
+@media (prefers-reduced-motion:reduce){.cp-egg.shk,.cp-egg.glow svg{animation:none}.cp-toast{transition:none}}
+</style>
+  <div class="cp">
+    <div class="cp-bar"><div><small>💳 رصيدك</small><b id="cp-money">0</b></div><div><small>🥫 طعامك</small><b id="cp-foodn">0</b></div></div>
+
+    <div class="cp-stage" id="cp-stage">
+      <div class="cp-bub" id="cp-bub"></div>
+      <div class="cp-floor"></div><div class="cp-shadow" id="cp-shd"></div>
+      <div class="cp-holder" id="cp-holder"><div class="cp-pet" id="cp-pet"></div></div>
+      <div class="cp-egg" id="cp-egg"><svg viewBox="0 0 100 125"><defs><radialGradient id="cpeg" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fffbe9"/><stop offset=".55" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a55"/></radialGradient></defs><path d="M50 4C22 4 6 54 6 80c0 26 20 42 44 42s44-16 44-42C94 54 78 4 50 4Z" fill="url(#cpeg)" stroke="#b78a45" stroke-width="2"/><circle cx="33" cy="70" r="7" fill="#e9c17a" opacity=".7"/><circle cx="66" cy="52" r="5" fill="#e9c17a" opacity=".7"/><circle cx="62" cy="92" r="8" fill="#e9c17a" opacity=".7"/><polyline class="crk" points="50,6 44,30 58,46 40,64 62,80 46,98 56,120"/></svg></div>
+      <div class="cp-flash" id="cp-flash"></div>
+      <div class="cp-lvup" id="cp-lvup">LEVEL UP!</div>
+      <div class="cp-hint">اسحب لتدويره · اضغط عليه — له 8 تفاعلات مختلفة! 🎭</div>
+    </div>
+
+    <div class="cp-card">
+      <div class="cp-nm"><span id="cp-em" style="font-size:26px"></span><div><b id="cp-pname"></b><div class="cp-sub" id="cp-pdesc"></div></div><span class="cp-lv" id="cp-lvl"></span></div>
+      <div class="cp-petonly">
+        <div class="cp-barx"><i id="cp-bari"></i></div>
+        <div class="cp-bl"><span id="cp-prog"></span></div>
+        <div class="cp-bonus" id="cp-bonus"></div>
+      </div>
+      <div class="cp-acts">
+        <button type="button" class="cp-btn main cp-petonly" id="cp-feed">🍖 إطعام الرفيق<small id="cp-feed-sub"></small></button>
+        <button type="button" class="cp-btn cp-petonly" id="cp-shop">🛒 شراء طعام<small id="cp-shop-sub"></small></button>
+        <button type="button" class="cp-btn cp-petonly" id="cp-name-btn">✏️ تسمية الرفيق<small>مرة وحدة فقط</small></button>
+        <button type="button" class="cp-btn egg" id="cp-hatch">🥚 فقس بيضة<small id="cp-egg-n"></small></button>
+        <button type="button" class="cp-btn red cp-petonly" id="cp-sell"><span id="cp-sell-t">💰 بيع الرفيق</span><small id="cp-sell-sub"></small></button>
+      </div>
+      <div class="cp-row" id="cp-name-row"><input id="cp-name-in" maxlength="20" placeholder="اسم الرفيق (حد أقصى 20 حرف)" autocomplete="off"><button type="button" class="cp-btn" id="cp-name-ok">حفظ</button></div>
+    </div>
+
+    <div class="cp-card cp-petonly">
+      <h3 class="cp-h3">🎴 صورة الرفيق</h3>
+      <div class="cp-sub">اختر صورة من 1 إلى 6 — تتغير مباشرة على الرفيق</div>
+      <div class="cp-pick" id="cp-pick"></div>
+    </div>
+    <div class="cp-note">الرصيد والطعام وحد الشراء اليومي نفسها بالواتس — أي تغيير هنا يظهر هناك والعكس.</div>
+  </div>
+  <div class="cp-toast" id="cp-toast"></div>
+<script>window.__CP=${boot};</script>
+<script>
+(function(){
+var D=window.__CP, S=D.state, CAT=D.cat, CHAT=D.chat;
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function toast(m,k){var t=$('cp-toast');t.textContent=m;t.className='cp-toast on '+(k||'');clearTimeout(toast.t);toast.t=setTimeout(function(){t.className='cp-toast'},2600)}
+function J(a,b){
+  return fetch('/companion/'+a,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({csrf:D.csrf},b||{}))})
+  .then(function(r){return r.json().catch(function(){return {ok:false,message:'رد غير صالح من السيرفر'}}).then(function(j){return {s:r.status,j:j}})});
+}
+function cur(){return S&&S.has?CAT[S.key]:null}
+function fmt(n){return Math.floor(Number(n)||0).toLocaleString('en-US')}
+var busy=false,hatching=false,lastTalk=0,lastChat='',pokes=[],dizzyT=0,rOrder=[],rLast=-1;
+var flyT=-1,rx=0,ry=0,tx=0,ty=0,drag=false,lx=0,ly=0,vy=0,jy=0,moved=0;
+var pet=$('cp-pet'),stage=$('cp-stage');
+
+/* بناء الرفيق: طبقات متراصة تعطي سماكة 3D */
+(function(){var h='',i;for(i=9;i>=1;i--)h+='<div class="cp-ly back" style="transform:translateZ('+(-i*3)+'px)"></div>';h+='<div class="cp-ly front" id="cp-front" style="transform:translateZ(6px)"></div>';pet.innerHTML=h})();
+function setPetImage(animate){
+  var c=cur();if(!c)return;
+  var url=c.imgs&&c.imgs[S.img]||null;
+  var apply=function(){
+    var ls=pet.querySelectorAll('.cp-ly'),i;
+    for(i=0;i<ls.length;i++){ls[i].style.backgroundImage=url?'url("'+url+'")':'';ls[i].textContent=(!url&&ls[i].id==='cp-front')?c.e:''}
+    $('cp-front').classList.toggle('emo',!url);
+    var bs=$('cp-pick').querySelectorAll('button');for(i=0;i<bs.length;i++)bs[i].classList.toggle('on',i===S.img);
+  };
+  if(animate){pet.classList.remove('swap');void pet.offsetWidth;pet.classList.add('swap');setTimeout(apply,300)}else apply();
+}
+function buildPick(){
+  var c=cur(),h='',i;if(!c){$('cp-pick').innerHTML='';return}
+  for(i=0;i<6;i++){var u=c.imgs&&c.imgs[i];h+='<button type="button" data-i="'+i+'"'+(u?'':' disabled')+(u?' style="background-image:url(&quot;'+esc(u)+'&quot;)"':'')+'><span>'+(i+1)+'</span>'+(u?'':c.e)+'</button>'}
+  $('cp-pick').innerHTML=h;
+}
+function render(){
+  var c=cur(),has=!!c;
+  document.body.classList.toggle('cp-none',!has);
+  document.documentElement.style.setProperty('--c',has?c.c:'#f0c04a');
+  $('cp-money').textContent=fmt(S.money);$('cp-foodn').textContent=fmt(S.food);
+  $('cp-egg-n').textContent=S.eggs>0?('عندك '+S.eggs+' بيضة'):'ما عندك بيض';
+  $('cp-hatch').disabled=hatching||S.eggs<1;
+  if(!has){$('cp-em').textContent='🥚';$('cp-pname').textContent='ما عندك رفيق';$('cp-pdesc').textContent='افقس بيضة عشان يطلع لك رفيق جديد';$('cp-lvl').textContent='';
+    $('cp-egg').className='cp-egg on';return}
+  if(!hatching)$('cp-egg').className='cp-egg';
+  $('cp-em').textContent=c.e;$('cp-pname').textContent=S.name||c.n;$('cp-pdesc').textContent=c.d;
+  $('cp-lvl').textContent='LV '+S.level+'/'+S.max;
+  var maxed=S.level>=S.max,pct=maxed?100:Math.round(S.prog/Math.max(1,S.need)*100);
+  $('cp-bari').style.width=pct+'%';
+  $('cp-prog').textContent=maxed?'🌟 أعلى مستوى':('التقدم: '+S.prog+'/'+S.need+' طعام للمستوى القادم');
+  $('cp-bonus').textContent=S.level>=1?(c.e+' البونص الحالي: +'+S.bonus+c.u):'⏳ يبدأ البونص من المستوى 1 — أطعمه!';
+  $('cp-feed-sub').textContent='طعامك: '+fmt(S.food);
+  $('cp-shop-sub').textContent=fmt(S.foodPrice)+' مال · اليوم '+S.buys+'/'+S.buyLimit;
+  $('cp-sell-sub').textContent='تحصل '+fmt(S.sellGain)+' مال (يُحذف الرفيق)';
+  $('cp-name-btn').disabled=!!S.named;
+  if(S.named)$('cp-name-row').classList.remove('on');
+}
+function setState(ns,keepImg){var oldKey=S.has?S.key:null;S=ns;if(!S.has||S.key!==oldKey){buildPick()}render();setPetImage(false)}
+
+/* حركة 3D */
+stage.addEventListener('pointerdown',function(e){drag=true;lx=e.clientX;ly=e.clientY;moved=0;try{stage.setPointerCapture(e.pointerId)}catch(x){}});
+stage.addEventListener('pointermove',function(e){
+  if(drag){var dx=e.clientX-lx,dy=e.clientY-ly;moved+=Math.abs(dx)+Math.abs(dy);ty+=dx*.6;tx-=dy*.4;tx=Math.max(-35,Math.min(35,tx));lx=e.clientX;ly=e.clientY}
+  else if(e.pointerType==='mouse'){var r=stage.getBoundingClientRect();ty=((e.clientX-r.left)/r.width-.5)*50;tx=-((e.clientY-r.top)/r.height-.5)*30}
+});
+stage.addEventListener('pointerup',function(){drag=false;if(moved<8)poke()});
+stage.addEventListener('pointercancel',function(){drag=false});
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+function frame(t){
+  t/=1000;var fy=0;
+  var idleY=reduce?0:Math.sin(t*.9)*10,idleX=reduce?0:Math.cos(t*.7)*3;
+  if(!drag){ty*=.985;tx*=.985}
+  var tyT=ty+(drag?0:idleY),txT=tx+(drag?0:idleX);
+  rx+=(txT-rx)*.12;ry+=(tyT-ry)*.12;
+  jy+=vy;vy+=.9;if(jy>0){jy=0;vy=0}
+  var fl=reduce?0:Math.sin(t*1.7)*7;
+  pet.style.transform='translateY('+(fl+jy+fy)+'px) rotateX('+rx+'deg) rotateY('+ry+'deg)';
+  $('cp-shd').style.transform='translateX(-50%) scale('+(1-(fl+jy)/160)+')';
+  var f=$('cp-front');if(f)f.style.setProperty('--sh',(Math.sin(t*.8+ry/30)*130)+'%');
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function say(t){var b=$('cp-bub');b.textContent=t;b.classList.add('show');clearTimeout(say.t);say.t=setTimeout(function(){b.classList.remove('show')},2400)}
+function burst(emoji,n,pos){
+  var r=stage.getBoundingClientRect(),i;
+  for(i=0;i<n;i++){
+    var s=document.createElement('span');s.className='cp-fx';s.textContent=emoji;
+    s.style.left=(r.width/2-10)+'px';s.style.top=(pos||r.height/2)+'px';
+    s.style.setProperty('--dx',((Math.random()-.5)*220)+'px');s.style.setProperty('--dy',(-60-Math.random()*130)+'px');s.style.setProperty('--r',((Math.random()-.5)*120)+'deg');
+    stage.appendChild(s);setTimeout(function(x){x.remove()},1100,s);
+  }
+}
+function nextReact(){
+  if(!rOrder.length){
+    rOrder=[0,1,2,3,4,5,6,7];
+    for(var i=7;i>0;i--){var k=Math.floor(Math.random()*(i+1)),t=rOrder[i];rOrder[i]=rOrder[k];rOrder[k]=t}
+    if(rOrder[rOrder.length-1]===rLast){var t2=rOrder[0];rOrder[0]=rOrder[rOrder.length-1];rOrder[rOrder.length-1]=t2}
+  }
+  rLast=rOrder.pop();return rLast;
+}
+function anim(el,kf,ms,ease){try{return el.animate(kf,{duration:ms,easing:ease||'ease-in-out'})}catch(e){}}
+function lines(){var k=S.has?S.key:'';return CHAT[k]||{chat:['...'],annoy:['...']}}
+// 8 تفاعلات: كل واحد حركة + إيموجي + جملة من محادثة الرفيق
+function react(){
+  if(!cur())return;
+  var H=lines().chat,i=nextReact();
+  pet.getAnimations().forEach(function(a){a.cancel()});
+  var fr=$('cp-front');
+  switch(i){
+    case 0: vy=-16;anim(pet,[{scale:'1 1'},{scale:'1.12 .88',offset:.25},{scale:'.94 1.08',offset:.6},{scale:'1 1'}],600);break;
+    case 1: anim(pet,[{rotate:'0 1 0 0deg'},{rotate:'0 1 0 360deg'}],750,'cubic-bezier(.3,.7,.3,1)');break;
+    case 2: anim(pet,[{scale:'1 1'},{scale:'1.3 .7',offset:.3},{scale:'.8 1.25',offset:.65},{scale:'1 1'}],650);break;
+    case 3: anim(pet,[{rotate:'0deg'},{rotate:'-14deg'},{rotate:'12deg'},{rotate:'-9deg'},{rotate:'6deg'},{rotate:'0deg'}],700);break;
+    case 4: anim(pet,[{scale:'1'},{scale:'1.28'},{scale:'1.28',offset:.6},{scale:'1'}],800);break;
+    case 5: anim(pet,[{translate:'0'},{translate:'-16px'},{translate:'16px'},{translate:'-12px'},{translate:'12px'},{translate:'-6px'},{translate:'0'}],550,'linear');break;
+    case 6: anim(pet,[{rotate:'1 0 0 0deg'},{rotate:'1 0 0 360deg'}],800,'cubic-bezier(.3,.7,.3,1)');vy=-10;break;
+    case 7: if(fr)anim(fr,[{filter:'brightness(1)'},{filter:'brightness(2.1) saturate(1.5)'},{filter:'brightness(1)'}],700);break;
+  }
+  var em=['💖','🌀','🎈','💫','💪','😵','🤸','✨'][i];
+  burst(S.level>=S.max?'⭐':em,i===7?8:5);
+  lastTalk=performance.now();lastChat=H[i%H.length];say(lastChat);
+}
+function poke(){
+  if(hatching||!cur())return;
+  var now=performance.now();
+  pokes.push(now);pokes=pokes.filter(function(x){return now-x<2500});
+  // ضغط كثير ورا بعض: الرفيق ينزعج بلطف لكن يبقى مكانه
+  if(pokes.length>=6){
+    if(now-dizzyT>1600){
+      dizzyT=now;var A=lines().annoy;
+      pet.getAnimations().forEach(function(a){a.cancel()});
+      anim(pet,[{rotate:'0deg'},{rotate:'-10deg'},{rotate:'10deg'},{rotate:'-8deg'},{rotate:'8deg'},{rotate:'0deg'}],900);
+      burst('💫',6);say(A[Math.floor(Math.random()*A.length)]);lastTalk=now;
+    }
+    return;
+  }
+  if(pokes.length===4){var B=lines().annoy;vy=-8;burst('💢',3);say(B[Math.floor(Math.random()*B.length)]);lastTalk=now;return}
+  react();
+}
+// 💬 الرفيق يسولف لوحده كل فترة
+setInterval(function(){
+  if(hatching||document.hidden||!cur())return;
+  if(performance.now()-lastTalk<12000)return;
+  var H=lines().chat,line,tries=0;
+  do{line=H[Math.floor(Math.random()*H.length)];tries++}while(line===lastChat&&tries<5);
+  lastTalk=performance.now();lastChat=line;say(line);
+},6000);
+
+/* ───── الأوامر (كلها تمر على السيرفر: نفس منطق أوامر الواتس والرصيد) ───── */
+function call(a,b,ok){
+  if(busy||hatching)return;busy=true;
+  J(a,b).then(function(x){
+    busy=false;
+    if(x.s===401){location.href='/login?code='+D.code;return}
+    if(x.j&&x.j.ok){if(x.j.state)setState(x.j.state);ok&&ok(x.j)}
+    else{toast((x.j&&x.j.message)||'تعذّر تنفيذ العملية','bad');poll(true)}
+  }).catch(function(){busy=false;toast('لم يصلنا رد من السيرفر — حدّث الصفحة وتأكد من رصيدك قبل إعادة المحاولة.','bad')});
+}
+$('cp-feed').onclick=function(){
+  if(!cur())return;
+  if(S.level>=S.max){toast('🌟 رفيقك وصل أعلى مستوى بالفعل');return}
+  if(S.food<1){toast('❌ ما عندك طعام — اشترِ من المتجر','bad');return}
+  call('feed',{},function(j){
+    var f=document.createElement('span');f.className='cp-food';f.textContent='🍖';
+    var r=stage.getBoundingClientRect();f.style.left=(r.width/2-17)+'px';f.style.top=(r.height/2-20)+'px';
+    f.style.setProperty('--sx',(Math.random()>.5?120:-120)+'px');f.style.setProperty('--sy','90px');
+    stage.appendChild(f);setTimeout(function(){f.remove()},800);
+    pet.classList.remove('chomp');void pet.offsetWidth;pet.classList.add('chomp');vy=-9;burst('✨',6);
+    if(j.leveled){var u=$('cp-lvup');u.textContent='LEVEL '+S.level+'!';u.classList.remove('go');void u.offsetWidth;u.classList.add('go');burst('⭐',12);say('🎉 ارتفع مستواي! +'+S.bonus+(cur()?cur().u:''));toast('🎉 ارتفع المستوى إلى '+S.level+'/'+S.max,'good')}
+    else say('ياممي 😋 باقي '+Math.max(0,S.need-S.prog)+' طعام للمستوى '+(S.level+1));
+    lastTalk=performance.now();
+  });
+};
+$('cp-shop').onclick=function(){call('buy',{},function(j){toast(j.message||'✅ اشتريت طعام رفيق','good')})};
+$('cp-name-btn').onclick=function(){if(!S.named)$('cp-name-row').classList.toggle('on')};
+$('cp-name-ok').onclick=function(){
+  var v=$('cp-name-in').value.trim();
+  if(!v||v.length>20){toast('❌ اكتب اسم صحيح (حد أقصى 20 حرف)','bad');return}
+  call('rename',{name:v},function(j){$('cp-name-row').classList.remove('on');$('cp-name-in').value='';toast(j.message||('✅ تم تسمية رفيقك: '+v),'good')});
+};
+$('cp-pick').onclick=function(e){
+  var b=e.target.closest&&e.target.closest('button');if(!b||b.disabled)return;
+  var i=parseInt(b.getAttribute('data-i'),10);if(i===S.img)return;
+  call('image',{i:i},function(j){setPetImage(true);toast(j.message||('✅ تم اختيار الصورة رقم '+(i+1)),'good')});
+};
+var sellArm=0;
+$('cp-sell').onclick=function(){
+  if(!cur())return;
+  var lab=$('cp-sell-t');
+  if(!sellArm){sellArm=1;lab.textContent='⚠️ اضغط مرة ثانية للتأكيد';setTimeout(function(){sellArm=0;lab.textContent='💰 بيع الرفيق'},2800);return}
+  sellArm=0;lab.textContent='💰 بيع الرفيق';
+  call('sell',{},function(j){toast(j.message||'✅ تم بيع الرفيق','good');say('وداعاً... كان وقتاً جميلاً 🥹')});
+};
+// 🥚 فقس بيضة — النتيجة (الرفيق) يحددها السيرفر بنفس أوزان البوت
+$('cp-hatch').onclick=function(){
+  if(busy||hatching||S.eggs<1)return;busy=true;
+  J('hatch').then(function(x){
+    busy=false;
+    if(x.s===401){location.href='/login?code='+D.code;return}
+    if(!(x.j&&x.j.ok&&x.j.state&&x.j.state.has)){toast((x.j&&x.j.message)||'تعذّر الفقس','bad');poll(true);return}
+    playHatch(x.j.state);
+  }).catch(function(){busy=false;toast('لم يصلنا رد من السيرفر — حدّث الصفحة قبل إعادة المحاولة.','bad')});
+};
+function playHatch(ns){
+  hatching=true;document.body.classList.add('hatching');
+  var egg=$('cp-egg'),holder=$('cp-holder'),bub=$('cp-bub');
+  pokes=[];bub.classList.remove('show');holder.style.opacity=0;
+  egg.className='cp-egg on in';
+  setTimeout(function(){egg.classList.remove('in');egg.classList.add('shk');say('🥚 ...شيء يتحرك بالداخل!')},750);
+  setTimeout(function(){egg.classList.add('crack');burst('✨',4)},1700);
+  setTimeout(function(){egg.classList.add('glow');say('💥 بدأت تتشقق!')},2400);
+  setTimeout(function(){
+    var f=$('cp-flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');
+    egg.className='cp-egg';
+    buildPickFor(ns);S=ns;buildPick();render();setPetImage(false);
+    holder.style.opacity=1;
+    anim(holder,[{transform:'scale(.05) rotate(-200deg)',opacity:0},{transform:'scale(1.25) rotate(12deg)',opacity:1,offset:.6},{transform:'scale(1) rotate(0)',opacity:1}],900,'cubic-bezier(.2,.9,.3,1.1)');
+    var c=cur();burst('🎉',8);burst('⭐',8);burst(c.e,6);
+    var nm=S.name||c.n,H=lines().chat;
+    toast('🎉 فقست بيضتك وطلع '+nm+'!','good');
+    var ls=['🐣 أخيراً طلعت! أنا '+nm+' '+c.e,H[0]];
+    ls.forEach(function(t,n){setTimeout(function(){say(t);lastTalk=performance.now()},500+n*2400)});
+    setTimeout(function(){hatching=false;document.body.classList.remove('hatching');render()},500+ls.length*2400);
+  },3300);
+}
+function buildPickFor(){}
+
+/* مزامنة الرصيد/الطعام مع الواتس */
+var polling=false;
+function poll(force){
+  if(polling||busy||hatching||(document.hidden&&!force))return;polling=true;
+  fetch('/companion/state',{credentials:'same-origin',cache:'no-store'})
+  .then(function(r){if(r.status===401){location.href='/login?code='+D.code;return null}return r.json()})
+  .then(function(j){polling=false;if(j&&j.ok&&j.state&&!busy&&!hatching)setState(j.state)})
+  .catch(function(){polling=false});
+}
+setInterval(poll,25000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)poll(true)});
+
+buildPick();render();setPetImage(false);
+if(cur()){setTimeout(function(){var c=cur();say(S.level>=1?(c.e+' '+(S.name||c.n)+': +'+S.bonus+c.u):lines().chat[0]);lastTalk=performance.now()},600)}
+})();
+
 </script></body></html>`
 }
 
@@ -7631,6 +8009,148 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('favorite set error:', err)
             return g.fail(500, 'SERVER', favMessage({ code: 'SERVER' }))
+        }
+    })
+
+    // ─────────────── 🐾 الرفيق  /u/:code/companion (نفس أوامر الرفيق بالواتس) ───────────────
+    // كل العمليات (إطعام / شراء طعام + حد يومي / تسمية / صورة / بيع / فقس) تمر على opts.companionSystem —
+    // نفس دوال أوامر الواتس والخصم الذري من الرصيد (money)، فالموقع والواتس دايماً متطابقين.
+    // الواجهة المطلوبة من companionSystem (كلها async وتُرجع { ok, state?, message?, code?, leveled? }):
+    //   getState(userId)            → { ok, companion:{key,level,prog,name,img}|null, food, money, eggs, buys, buyLimit, foodPrice, sellGain }
+    //   feed(userId)                → إطعام (يخصم طعام، يرفع التقدم/المستوى)
+    //   buyFood(userId)             → شراء طعام (يخصم foodPrice من money + يحترم الحد اليومي)
+    //   rename(userId, name)        → تسمية مرة وحدة
+    //   setImage(userId, index)     → اختيار صورة 0-5
+    //   sell(userId)                → بيع الرفيق (يضيف sellGain للرصيد)
+    //   hatch(userId)               → فقس بيضة (pickRandomAnimalKey بنفس أوزان البوت)
+    const companionSystem = opts.companionSystem
+    const COMP_ACTIONS = { feed: 'feed', buy: 'buyFood', rename: 'rename', image: 'setImage', sell: 'sell', hatch: 'hatch' }
+    const compHits = new Map()
+    function compRate(userId) {
+        const now = Date.now()
+        const arr = (compHits.get(userId) || []).filter(t => now - t < 60 * 1000)
+        if (arr.length >= 90) { compHits.set(userId, arr); return false }
+        arr.push(now); compHits.set(userId, arr); return true
+    }
+    const compNum = (v, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d }
+    const compMeta = k => (COMPANION_CHAT.META && COMPANION_CHAT.META[k]) || { c: '#f0c04a', n: String(k), e: '🐾' }
+
+    function compCatalog() {
+        const A = (companionsData && companionsData.ANIMALS) || {}
+        const keys = Object.keys(COMPANION_CHAT.CHAT)
+        for (const k of Object.keys(A)) if (!keys.includes(k)) keys.push(k)
+        const catalog = {}
+        const chat = {}
+        for (const k of keys) {
+            const a = A[k] || {}
+            const m = compMeta(k)
+            catalog[k] = {
+                n: String(a.defaultName || m.n),
+                e: String(a.emoji || m.e),
+                c: String(m.c),
+                d: String(a.description || ''),
+                u: String(a.unit || ''),
+                imgs: Array.from({ length: 6 }, (_, i) => safeImageUrl((a.images || [])[i]) || null)
+            }
+            chat[k] = COMPANION_CHAT.getChat(k)
+        }
+        return { catalog, chat }
+    }
+
+    // يحوّل نتيجة companionSystem إلى حالة آمنة للمتصفح (حقول محددة فقط)
+    function compOut(raw) {
+        const r = raw || {}
+        const c = r.companion
+        const out = {
+            has: false, money: Math.max(0, Math.floor(compNum(r.money))), food: Math.max(0, Math.floor(compNum(r.food))),
+            eggs: Math.max(0, Math.floor(compNum(r.eggs))), buys: Math.max(0, Math.floor(compNum(r.buys))),
+            buyLimit: Math.max(0, Math.floor(compNum(r.buyLimit, 2))), foodPrice: Math.max(0, Math.floor(compNum(r.foodPrice))),
+            sellGain: Math.max(0, Math.floor(compNum(r.sellGain)))
+        }
+        if (!c || !c.key) return out
+        const key = String(c.key)
+        const level = Math.max(0, Math.floor(compNum(c.level)))
+        let max = 10, bonus = 0, need = 0
+        try { if (companionsData.getMaxLevel) max = compNum(companionsData.getMaxLevel(key), 10) } catch (e) {}
+        try { if (level >= 1 && companionsData.getCompanionBonus) bonus = compNum(companionsData.getCompanionBonus(key, level)) } catch (e) {}
+        try { if (level < max && companionsData.getFoodNeededForNextLevel) need = compNum(companionsData.getFoodNeededForNextLevel(level)) } catch (e) {}
+        const nm = typeof c.name === 'string' ? c.name.slice(0, 20) : ''
+        return Object.assign(out, {
+            has: true, key, level: Math.min(level, max), max, bonus, need, prog: Math.max(0, Math.floor(compNum(c.prog))),
+            name: nm, named: !!nm, img: Math.max(0, Math.min(5, Math.floor(compNum(c.img))))
+        })
+    }
+
+    app.get('/u/:code/companion', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            if (!companionSystem || typeof companionSystem.getState !== 'function') return res.status(503).send('ميزة الرفيق غير مفعّلة حالياً')
+            const raw = await companionSystem.getState(player.userId)
+            res.send(companionPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                code,
+                state: compOut(raw),
+                cat: compCatalog()
+            }))
+        } catch (err) {
+            console.error('companion page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.get('/companion/state', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        try {
+            if (!auth.authEnabled() || !companionSystem || typeof companionSystem.getState !== 'function') return res.status(503).json({ ok: false })
+            const sess = auth.readSession(req)
+            if (!sess) return res.status(401).json({ ok: false })
+            if (!compRate(sess.u)) return res.status(429).json({ ok: false })
+            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
+            res.json({ ok: true, state: compOut(await companionSystem.getState(sess.u)) })
+        } catch (err) {
+            console.error('companion state error:', err)
+            res.status(500).json({ ok: false })
+        }
+    })
+
+    app.post('/companion/:action', jsonBody, async (req, res) => {
+        const fnName = COMP_ACTIONS[String(req.params.action || '')]
+        const g = await tradeGuard(req, res, fnName && companionSystem ? companionSystem[fnName] : null)
+        if (!g || !g.sess) return
+        try {
+            let r
+            if (fnName === 'rename') {
+                const name = String(g.body.name || '').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069<>]/g, '').trim()
+                if (!name || name.length > 20) return g.fail(400, 'BAD_NAME', '❌ اكتب اسم صحيح (حد أقصى 20 حرف)')
+                r = await companionSystem.rename(g.sess.u, name)
+            } else if (fnName === 'setImage') {
+                const i = parseInt(g.body.i, 10)
+                if (!Number.isInteger(i) || i < 0 || i > 5) return g.fail(400, 'BAD_IMAGE', '❌ رقم الصورة من 1 إلى 6')
+                r = await companionSystem.setImage(g.sess.u, i)
+            } else {
+                r = await companionSystem[fnName](g.sess.u)
+            }
+            if (!r || !r.ok) {
+                const msg = r && typeof r.message === 'string' ? r.message.slice(0, 200) : '❌ تعذّر تنفيذ العملية'
+                return g.fail(r && r.code === 'SERVER' ? 500 : 400, String((r && r.code) || 'FAIL'), msg)
+            }
+            const st = r.state || await companionSystem.getState(g.sess.u)
+            res.json({
+                ok: true,
+                message: typeof r.message === 'string' ? r.message.slice(0, 200) : '',
+                leveled: !!r.leveled,
+                state: compOut(st)
+            })
+        } catch (err) {
+            console.error('companion action error:', err)
+            return g.fail(500, 'SERVER', '❌ حدث خطأ بالخادم، حاول مرة ثانية')
         }
     })
 
