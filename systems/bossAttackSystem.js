@@ -71,6 +71,28 @@ const BOSS_DAMAGE_EFFECT = 1.5
 const BOSS_EX_ATTACK_WEIGHT = 0.5
 const RESPAWN_MS = 5 * 60 * 1000
 
+// 🆕 قدرات الأتباع/الزعماء الجديدة — كل الأرقام هنا للتعديل
+const FX = {
+    FOLLOWER_CHANCE: 0.20,                 // احتمال تفعيل كل قدرة تابع عند ضربه
+    SHIELD_PCT: 3, SHIELD_CAP_PCT: 6,      // درع الزعيم: +3% من maxHp لكل تفعيل، حد أقصى 6%
+    REGEN_PCT: 0.3,                        // علاج الزعيم (% من maxHp)
+    BUFF_PCT: 15,                          // +% هجوم الزعيم في الضربة الجماعية القادمة
+    WEAKEN_PCT: 20, BLIND_PCT: 25, REDUCE_PCT: 20, // تخفيض ضرر المهاجم
+    DRAIN: 2000, POISON: 2000,             // سرقة/سم من دم المهاجم
+    LAST_STAND_DMG: 4000, LAST_STAND_HEAL_PCT: 1,
+    MARK_MULT: 2,                          // ضربة العلامة = هجوم الزعيم × هذا الرقم
+    ADAPT_STEP: 10, ADAPT_MAX: 50          // تأقلم ميروم: -10% تراكمياً حتى 50%
+}
+
+// 🛡️ درع الزعيم (يمتص قبل الدم) — بالذاكرة فقط
+function addBossShield(boss) {
+    const max = Number(boss.maxHp) || 0
+    const add = Math.floor(max * FX.SHIELD_PCT / 100)
+    const cap = Math.floor(max * FX.SHIELD_CAP_PCT / 100)
+    boss._shield = Math.min(cap, (boss._shield || 0) + add)
+    return boss._shield
+}
+
 // 🔥 رفيق بليز: الكولداون يختلف لكل لاعب — نحفظ آخر كولداون محسوب لكل لاعب
 // بكاش مشترك مع الواتس (يُخزَّن على نفس Map الـ fastCd عشان index.js يقرأه)
 function getCdCache(fastCd) {
@@ -229,6 +251,17 @@ function createBossAttackSystem(deps) {
         return (f && f.image) || null
     }
 
+    // قدرات التابع دائماً من bosses.js (آخر نسخة) — تدعم abilities[] أو ability المفردة القديمة
+    function latestFollowerAbilities(boss, f) {
+        try {
+            if (!_bossesList) _bossesList = require('../bosses')
+            const b = _bossesList.find(x => x.name === boss.name)
+            const ff = b && (b.followers || []).find(x => x.name === f.name)
+            if (ff) return (ff.abilities && ff.abilities.length) ? ff.abilities : (ff.ability ? [ff.ability] : [])
+        } catch (_) {}
+        return f && f.ability ? [f.ability] : []
+    }
+
     function followersView(boss) {
         return (boss.activeFollowers || []).map(f => ({
             name: f.name, hp: Math.max(0, Number(f.hp) || 0), image: latestFollowerImage(boss, f)
@@ -350,6 +383,9 @@ function createBossAttackSystem(deps) {
                     ? Math.max(0, new Date(boss.respawnAt).getTime() - now)
                     : null,
                 followers: followersView(boss),
+                shield: Math.max(0, Number(boss._shield) || 0),
+                // 👑 قدرات الزعيم (لشريط القدرات بالموقع)
+                abilities: (boss.abilities || []).map(a => ({ name: a.name, description: a.description, effect: a.effect })),
                 // كم مضى على أول هجوم (null = غير معروف)
                 firstHitAgoMs: boss.firstHitAt ? Math.max(0, now - boss.firstHitAt) : null
             } : null,
@@ -658,6 +694,31 @@ function createBossAttackSystem(deps) {
 
             boss.turnCounter = (boss.turnCounter || 0) + 1
 
+            // 🆕 حالة زمنية بالذاكرة (علامات/ضعف/تأقلم) — تُصفّر مع كل زعيم جديد
+            boss._marks = boss._marks || new Set()
+            boss._weak = boss._weak || new Set()
+            boss._adapt = boss._adapt || new Map()
+
+            // يخفض دم المهاجم (لا يقل عن 1 حتى لا يُحسب كأنه دم كامل عند القراءة) + ناكلز
+            const hurtMe = (amount) => {
+                amount = Math.max(0, Math.floor(amount))
+                me.bossHp = Math.max(1, (me.bossHp || me.bossMaxHp) - amount)
+                applyKnucklesReflect(companionsData, me, boss, amount)
+                return amount
+            }
+            const fxHit = (title, lines, amount) => {
+                amount = hurtMe(amount)
+                emit({ type: 'fx', anim: 'hit_me', title, lines: [`👑 ${boss.name}`, ...lines], amount })
+            }
+            const fxNote = (title, lines, anim = 'debuff') =>
+                emit({ type: 'fx', anim, title, lines: [`👑 ${boss.name}`, ...lines] })
+
+            // 🎯 علامة سابقة: الزعيم يضرب المُعلَّم ضربة إضافية في هجمته التالية
+            if (boss._marks.has(userId)) {
+                boss._marks.delete(userId)
+                fxHit('🎯 ضربة العلامة', ['💥 ضربك الزعيم ضربة مضاعفة!'], (boss.attack || 3000) * FX.MARK_MULT)
+            }
+
             // ───────────── قدرة الزعيم الخاصة (كل 4 أدوار، 60%) ─────────────
             if (boss.turnCounter % 4 === 0 && Math.random() <= 0.60) {
 
@@ -668,13 +729,14 @@ function createBossAttackSystem(deps) {
                     lines: ['✨ فعل القدرة الخاصة', `⚡ ${ability.name}`, `📖 ${ability.description}`]
                 })
 
+                const tt = t => `${String(t).split(' ')[0]} ${ability.name}` // الأيقونة + اسم القدرة
                 const hitMe = (title, lines, amount) => {
                     me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - amount)
                     applyKnucklesReflect(companionsData, me, boss, amount) // 🥊 ناكلز
-                    emit({ type: 'fx', anim: 'hit_me', title, lines: [`👑 ${boss.name}`, ...lines], amount })
+                    emit({ type: 'fx', anim: 'hit_me', title: tt(title), lines: [`👑 ${boss.name}`, ...lines], amount })
                 }
                 const note = (title, lines, anim = 'debuff') =>
-                    emit({ type: 'fx', anim, title, lines: [`👑 ${boss.name}`, ...lines] })
+                    emit({ type: 'fx', anim, title: tt(title), lines: [`👑 ${boss.name}`, ...lines] })
 
                 if (ability.effect === 'heal') boss.hp += 5000
                 if (ability.effect === 'bigHeal') boss.hp += 10000
@@ -747,6 +809,52 @@ function createBossAttackSystem(deps) {
 
                 if (ability.effect === 'volcano') hitMe('🌋 ثوران الجحيم', ['💥 انفجار مدمر', '❤️ -6000 HP'], 6000)
 
+                // ───── 🆕 تأثيرات جديدة خفيفة (بدون قراءة قاعدة بيانات) ─────
+                if (ability.effect === 'regen') {
+                    const h = Math.floor(boss.maxHp * FX.REGEN_PCT / 100)
+                    boss.hp = Math.min(boss.maxHp, boss.hp + h)
+                    note('💚 تجدد', [`❤️ استعاد ${h.toLocaleString()} HP`], 'buff')
+                }
+                if (ability.effect === 'bossShield') {
+                    const sh = addBossShield(boss)
+                    note('🛡️ درع', [`🛡️ درع يمتص ${sh.toLocaleString()} ضرر قبل الدم`], 'buff')
+                }
+                if (ability.effect === 'warcry') {
+                    boss._buff = true
+                    note('📣 صرخة حرب', [`⚔️ هجوم الضربة الجماعية القادمة +${FX.BUFF_PCT}%`], 'buff')
+                }
+                if (ability.effect === 'drainLife') {
+                    const d = hurtMe(FX.DRAIN)
+                    boss.hp = Math.min(boss.maxHp, boss.hp + d)
+                    emit({ type: 'fx', anim: 'hit_me', title: tt('🩸 سرقة'), lines: [`👑 ${boss.name}`, `🩸 سرق ${d} HP منك وعالج نفسه`], amount: d })
+                }
+                if (ability.effect === 'reflectHeal') {
+                    const r = hurtMe(Math.floor(damage * 0.25))
+                    const h = Math.floor(damage * 0.05)
+                    boss.hp = Math.min(boss.maxHp, boss.hp + h)
+                    emit({ type: 'fx', anim: 'hit_me', title: tt('🪞 انعكاس'), lines: [`👑 ${boss.name}`, `💥 ارتد إليك ${r} ضرر`, `💚 وعالج نفسه ${h.toLocaleString()}`], amount: r })
+                }
+                if (ability.effect === 'critSeal' && bossHitWasCrit && totalCrit.multiplier > 1) {
+                    damage = Math.floor(damage / totalCrit.multiplier)
+                    bossHitWasCrit = false
+                    note('🌊 كتم الحرج', ['❌ ضربتك الحرجة فقدت مفعولها'])
+                }
+                if (ability.effect === 'markHunt') {
+                    boss._marks.add(userId)
+                    note('🎯 علامة', ['⚠️ تم تعليمك — ضربتك القادمة سيرد عليها بضربة مضاعفة'])
+                }
+                if (ability.effect === 'doubleDamage') {
+                    hitMe('💥 ضربة إضافية', [`💥 ضربك ضربة إضافية ❤️ -${boss.attack || 3000}`], boss.attack || 3000)
+                }
+                if (ability.effect === 'adapt') {
+                    const key = strongest.name
+                    const n = (boss._adapt.get(key) || 0) + 1
+                    boss._adapt.set(key, n)
+                    const cut = Math.min(FX.ADAPT_MAX, FX.ADAPT_STEP * n)
+                    damage = Math.floor(damage * (1 - cut / 100))
+                    note('🧬 تأقلم', [`📉 تأقلم مع ${strongest.name} — ضرر -${cut}%`])
+                }
+
                 if (ability.effect === 'dimensionCollapse') {
                     hitMe('🌌 انهيار الأبعاد', ['☠️ قدرة أسطورية أصابتك', '❤️ -10000 HP'], 10000)
                 }
@@ -757,6 +865,13 @@ function createBossAttackSystem(deps) {
             }
 
             if (!damage || isNaN(damage)) damage = 0
+
+            // 😵 ضعف من تابع على هذه الضربة
+            if (boss._weak.has(userId)) {
+                boss._weak.delete(userId)
+                damage = Math.floor(damage * (1 - FX.WEAKEN_PCT / 100))
+                fxNote('😵 ضعف', [`📉 ضربتك ضعفت ${FX.WEAKEN_PCT}%`])
+            }
 
             // 🐉 مساعدة الوحش المركب
             let beastAssist = null
@@ -831,7 +946,8 @@ function createBossAttackSystem(deps) {
                 respawnInMs: boss.respawnAt
                     ? Math.max(0, new Date(boss.respawnAt).getTime() - Date.now())
                     : null,
-                followers: followersView(boss)
+                followers: followersView(boss),
+                shield: Math.max(0, Number(boss._shield) || 0)
             })
 
             // ───────────── هجوم على تابع ─────────────
@@ -839,29 +955,70 @@ function createBossAttackSystem(deps) {
 
                 const follower = boss.activeFollowers[0]
 
-                if (follower.ability === 'dodge' && Math.random() <= 0.20) {
-                    damage = 0
-                    abilityText += `🌀 ${follower.name} — 💨 تفادى الهجمة بالكامل\n`
-                }
-                if (follower.ability === 'healBoss' && Math.random() <= 0.20) {
-                    boss.hp = Math.min(boss.maxHp, boss.hp + 3000)
-                    abilityText += `❤️ ${follower.name} — ✨ عالج الزعيم +3000 HP\n`
-                }
-                if (follower.ability === 'reflect' && Math.random() <= 0.20) {
-                    const reflectDamage = Math.floor(damage * 0.30)
-                    me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - reflectDamage)
-                    applyKnucklesReflect(companionsData, me, boss, reflectDamage) // 🥊 ناكلز
-                    abilityText += `⚫ ${follower.name} — 💥 عكس الضرر ❤️ -${reflectDamage} HP\n`
-                }
-                if (follower.ability === 'bonusDamage' && Math.random() <= 0.20) {
-                    me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 1500)
-                    applyKnucklesReflect(companionsData, me, boss, 1500) // 🥊 ناكلز
-                    abilityText += `⚔️ ${follower.name} — 💥 هجوم إضافي ❤️ -1500 HP\n`
-                }
-                if (follower.ability === 'critical' && Math.random() <= 0.20) {
-                    me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 3000)
-                    applyKnucklesReflect(companionsData, me, boss, 3000) // 🥊 ناكلز
-                    abilityText += `🎯 ${follower.name} — 💥 ضربة حرجة ❤️ -3000 HP\n`
+                const fAbilities = latestFollowerAbilities(boss, follower)
+
+                for (const ab of fAbilities) {
+                    if (Math.random() > FX.FOLLOWER_CHANCE) continue
+
+                    if (ab === 'dodge') {
+                        damage = 0
+                        abilityText += `🌀 ${follower.name} — 💨 تفادى الهجمة بالكامل\n`
+                    }
+                    if (ab === 'healBoss') {
+                        boss.hp = Math.min(boss.maxHp, boss.hp + 3000)
+                        abilityText += `❤️ ${follower.name} — ✨ عالج الزعيم +3000 HP\n`
+                    }
+                    if (ab === 'reflect') {
+                        const reflectDamage = Math.floor(damage * 0.30)
+                        me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - reflectDamage)
+                        applyKnucklesReflect(companionsData, me, boss, reflectDamage) // 🥊 ناكلز
+                        abilityText += `⚫ ${follower.name} — 💥 عكس الضرر ❤️ -${reflectDamage} HP\n`
+                    }
+                    if (ab === 'bonusDamage') {
+                        me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 1500)
+                        applyKnucklesReflect(companionsData, me, boss, 1500) // 🥊 ناكلز
+                        abilityText += `⚔️ ${follower.name} — 💥 هجوم إضافي ❤️ -1500 HP\n`
+                    }
+                    if (ab === 'critical') {
+                        me.bossHp = Math.max(0, (me.bossHp || me.bossMaxHp) - 3000)
+                        applyKnucklesReflect(companionsData, me, boss, 3000) // 🥊 ناكلز
+                        abilityText += `🎯 ${follower.name} — 💥 ضربة حرجة ❤️ -3000 HP\n`
+                    }
+
+                    // ───── 🆕 قدرات الأتباع الجديدة ─────
+                    if (ab === 'shieldBoss') {
+                        const sh = addBossShield(boss)
+                        abilityText += `🛡️ ${follower.name} — درع للزعيم (${sh.toLocaleString()})\n`
+                    }
+                    if (ab === 'buffBoss') {
+                        boss._buff = true
+                        abilityText += `📣 ${follower.name} — الزعيم +${FX.BUFF_PCT}% هجوم بالضربة الجماعية القادمة\n`
+                    }
+                    if (ab === 'weaken') {
+                        boss._weak.add(userId)
+                        abilityText += `😵 ${follower.name} — ضربتك القادمة -${FX.WEAKEN_PCT}%\n`
+                    }
+                    if (ab === 'blind') {
+                        damage = Math.floor(damage * (1 - FX.BLIND_PCT / 100))
+                        abilityText += `🙈 ${follower.name} — أعماك: ضربتك -${FX.BLIND_PCT}%\n`
+                    }
+                    if (ab === 'reduceDamage') {
+                        damage = Math.floor(damage * (1 - FX.REDUCE_PCT / 100))
+                        abilityText += `🛡️ ${follower.name} — خفض ضربتك ${FX.REDUCE_PCT}%\n`
+                    }
+                    if (ab === 'poison') {
+                        const d = hurtMe(FX.POISON)
+                        abilityText += `☠️ ${follower.name} — سم ❤️ -${d} HP\n`
+                    }
+                    if (ab === 'drainHp') {
+                        const d = hurtMe(FX.DRAIN)
+                        boss.hp = Math.min(boss.maxHp, boss.hp + d)
+                        abilityText += `🩸 ${follower.name} — سرق ${d} HP وعالج الزعيم\n`
+                    }
+                    if (ab === 'mark') {
+                        boss._marks.add(userId)
+                        abilityText += `🎯 ${follower.name} — علّمك: الزعيم سيضربك في هجمتك القادمة\n`
+                    }
                 }
 
                 let followerDamage = damage
@@ -895,6 +1052,14 @@ function createBossAttackSystem(deps) {
                     }
 
                     boss.activeFollowers.splice(killedFollowerIndex, 1)
+
+                    // 💣 lastStand: ينفجر عند موته
+                    if (fAbilities.includes('lastStand')) {
+                        const d = hurtMe(FX.LAST_STAND_DMG)
+                        const h = Math.floor(boss.maxHp * FX.LAST_STAND_HEAL_PCT / 100)
+                        boss.hp = Math.min(boss.maxHp, boss.hp + h)
+                        abilityText += `💣 ${follower.name} — انفجر عند موته ❤️ -${d} HP وعالج الزعيم ${h.toLocaleString()}\n`
+                    }
 
                     const allFollowersDead = boss.activeFollowers.length === 0
                     if (allFollowersDead) boss.followersDefeated = true
@@ -950,7 +1115,15 @@ function createBossAttackSystem(deps) {
             // ───────────── هجوم على الزعيم ─────────────
             // 🔊 أول ضربة على الزعيم: نسجّل وقتها بدقة
             if (!boss.firstHitAt && damage > 0 && (Number(boss.hp) || 0) >= (Number(boss.maxHp) || 0)) boss.firstHitAt = Date.now()
-            boss.hp = Math.max(0, (boss.hp || 0) - damage)
+            // 🛡️ الدرع يمتص أولاً (الضرر الكامل يُحسب للاعب)
+            if ((boss._shield || 0) > 0 && damage > 0) {
+                const absorbed = Math.min(boss._shield, damage)
+                boss._shield -= absorbed
+                emit({ type: 'fx', anim: 'debuff', title: '🛡️ درع الزعيم', lines: [`🛡️ امتص ${absorbed.toLocaleString()} ضرر`, `باقي الدرع: ${Math.max(0, boss._shield).toLocaleString()}`] })
+                boss.hp = Math.max(0, (boss.hp || 0) - (damage - absorbed))
+            } else {
+                boss.hp = Math.max(0, (boss.hp || 0) - damage)
+            }
 
             persistBossSoon()
 
@@ -1027,7 +1200,9 @@ function createBossAttackSystem(deps) {
                     bossHits: { $gt: 0 }
                 }).select('userId name username bossHp bossMaxHp bossRespawn').lean()
 
-                const raidDamage = Math.floor((boss.attack || 3000) * 1.5)
+                const buffMult = boss._buff ? 1 + FX.BUFF_PCT / 100 : 1
+                boss._buff = false
+                const raidDamage = Math.floor((boss.attack || 3000) * 1.5 * buffMult)
 
                 const raidRespawn = new Date(Date.now() + RESPAWN_MS)
                 const raidOps = players.map(p => {
@@ -1066,7 +1241,7 @@ function createBossAttackSystem(deps) {
 
                 if (Math.random() <= 0.85) {
 
-                    let bossDamage = boss.attack || 3000
+                    let bossDamage = Math.floor((boss.attack || 3000) * buffMult)
 
                     if (me.urShield) {
                         bossDamage = Math.floor(bossDamage * (1 - me.urShield / 100))

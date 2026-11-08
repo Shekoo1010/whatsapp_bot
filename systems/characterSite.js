@@ -3644,7 +3644,7 @@ function pullCardData(disp) {
 
 const BOSS_CSS = `:root{--bg:#0b0710;--red:#ff3860;--gold:#f0c04a;--text:#eef1f8;--dim:#9a8fa8;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;overflow-x:hidden;min-height:100%}
+html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;overflow-x:hidden;overflow-x:clip;min-height:100%}
 #bg{position:fixed;inset:0;width:100%;height:100%;z-index:0}
 .mist{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(500px 340px at 50% 15%,rgba(255,56,96,.2),transparent 70%),radial-gradient(500px 300px at 10% 90%,rgba(192,74,255,.14),transparent 70%)}
 .wrap{position:relative;z-index:1;max-width:520px;margin:0 auto;padding:12px 12px 36px}
@@ -3698,7 +3698,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;
 .bn b{font-family:'Oswald',sans-serif;color:var(--gold);direction:ltr;font-weight:500}
 .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:2px;overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:hsl(var(--h) 80% 60%);transition:width .4s}
-.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%) translateY(-20px);opacity:0;z-index:20;background:#1b0d26;border:1.5px solid var(--gold);color:var(--gold);font-weight:900;padding:10px 20px;border-radius:14px;transition:.4s;text-align:center}
+.toast{position:fixed;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%) translateY(-20px);opacity:0;z-index:50;background:#1b0d26;border:1.5px solid var(--gold);color:var(--gold);font-weight:900;padding:10px 20px;border-radius:14px;transition:.4s;text-align:center;max-width:90%}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
 .themes{display:flex;gap:8px;margin-bottom:10px}
@@ -3789,6 +3789,27 @@ button.live{font-family:inherit;cursor:pointer;line-height:1.4}
 .bnav a.on{color:var(--gold)}
 .bnav i{display:block;font-style:normal;font-size:20px}
 @media (prefers-reduced-motion:reduce){.fol,.boss{animation:none!important}}
+
+/* ═══ شريط قدرات الزعيم الثابت ═══ */
+.wrap{padding-bottom:130px!important}
+.abstick{position:sticky;top:env(safe-area-inset-top,0px);z-index:25;margin:10px -4px 0;padding:8px 4px;background:linear-gradient(180deg,rgba(11,7,16,.97) 70%,rgba(11,7,16,0));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.abstick[hidden]{display:none}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.chip{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;border-radius:14px;border:1px solid rgba(240,192,74,.28);background:linear-gradient(160deg,rgba(40,22,54,.95),rgba(16,8,24,.95));cursor:pointer;overflow:hidden;transition:.3s;font-family:inherit;color:inherit}
+.chip::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.7}
+.chip .ic{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:19px;background:radial-gradient(circle at 30% 25%,rgba(255,56,96,.45),rgba(255,56,96,.08));border:1px solid rgba(255,56,96,.45)}
+.chip b{font-size:11px;font-weight:900;color:var(--gold);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.chip.fire{border-color:var(--red);box-shadow:0 0 22px rgba(255,56,96,.65);transform:translateY(-2px)}
+.chip.fire .ic{animation:abpulse .5s 3}
+.chip.open{border-color:var(--gold)}
+@keyframes abpulse{50%{transform:scale(1.2)}}
+.adesc{display:none;margin-top:7px;padding:9px 12px;border-radius:12px;background:rgba(20,10,24,.95);border:1px solid rgba(240,192,74,.4);font-size:12.5px;line-height:1.8;animation:bsin .25s ease-out}
+.adesc.on{display:block}
+.adesc b{color:var(--gold);font-weight:900}
+/* ═══ زر الهجوم العائم ═══ */
+.fab{position:fixed;z-index:40;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(calc(100% - 24px),496px)}
+.fab .fabbg{position:absolute;inset:-14px -12px calc(-14px - env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(11,7,16,.95) 55%,rgba(11,7,16,0));pointer-events:none;z-index:-1}
+.fab .btn{margin-top:0;font-size:18px;padding:15px;border:1.5px solid rgba(255,255,255,.25);border-radius:16px;box-shadow:0 8px 28px rgba(255,56,96,.55),0 0 0 4px rgba(255,56,96,.12)}
 `
 
 function bossPageHTML({ viewer, code, data }) {
@@ -3819,10 +3840,11 @@ ${TITLES.HEAD}${PWA.HEAD}${NOTIFY.HEAD}${PTR.HEAD}
     <div class="hp"><i id="bhp"></i></div>
     <div class="crowd" id="crowd"><div class="pl me" id="mecell" style="--h:45"><div class="av" id="fme"></div><div class="nm" id="fmen">أنت</div><div class="ph"><i id="mhp"></i></div><div class="mh" id="mhpt"></div></div></div>
   </div>
+  <div class="abstick" id="abstick" hidden><div class="chips" id="chips"></div><div class="adesc" id="adesc"></div></div>
   <select class="bs-sel" id="sel" aria-label="اختيار الشخصية"></select>
   <div class="bs-resp" id="resp" hidden></div>
   <div class="gp-msg" id="msg" hidden></div>
-  <button class="btn" id="go" type="button"><span id="lbl">هجوم</span><div class="bs-cd" id="cd"></div></button>
+  <div class="fab"><div class="fabbg"></div><button class="btn" id="go" type="button"><span id="lbl">هجوم</span><div class="bs-cd" id="cd"></div></button></div>
   <div class="lb">
     <div class="lbh">الضرر على هذا الزعيم<span id="lbn"></span></div>
     <div class="rows" id="lbrows"></div>
@@ -4005,8 +4027,36 @@ function setTheme(i){
     $('bhp').style.width=pct(b.hp,b.maxHp)+'%';
     $('bhpt').textContent=fmt(b.hp)+' / '+fmt(b.maxHp);
     renderFollowers(b.followers||[]);
+    renderAbilities(b.abilities||[]);
     $('fboss').classList.toggle('shield',Object.keys(fmap).length>0);
     vCheck(b);
+  }
+
+  // ───── قدرات الزعيم (شريط ثابت أعلى الشاشة عند التمرير) ─────
+  var abKey='';
+  var AB_ICONS={halfDamage:'🛡️',dodge:'🌀',reduceDamage:'🐉',heal:'💚',bigHeal:'💚',regen:'💚',bossShield:'🛡️',reflect:'🪞',reflectHeal:'🪞',burn:'🔥',lightning:'⚡',storm:'🌪️',freeze:'❄️',rage:'😡',warcry:'📣',volcano:'☄️',dimensionCollapse:'🌌',drainLife:'🩸',lifesteal:'🩸',curse:'☠️',critSeal:'🌊',markHunt:'🎯',doubleDamage:'💥',adapt:'🧬',summon:'👥',megaAttack:'💀'};
+  function renderAbilities(list){
+    var box=$('abstick'); if(!box) return;
+    if(!list.length){ box.hidden=true; abKey=''; return; }
+    box.hidden=false;
+    var key=list.map(function(a){ return a.name; }).join('|');
+    if(key===abKey) return; abKey=key;
+    var c=$('chips'), d=$('adesc'); c.innerHTML=''; d.className='adesc'; d.textContent='';
+    list.forEach(function(a){
+      var b=el('button','chip'); b.type='button'; b.setAttribute('data-n',a.name);
+      b.appendChild(el('div','ic',AB_ICONS[a.effect]||'✨')); b.appendChild(el('b','',a.name));
+      b.onclick=function(){
+        var open=d.getAttribute('data-n')===a.name && d.classList.contains('on');
+        Array.prototype.forEach.call(c.children,function(x){ x.classList.remove('open'); });
+        if(open){ d.classList.remove('on'); d.removeAttribute('data-n'); return; }
+        d.setAttribute('data-n',a.name); d.textContent=''; var t=el('b','',a.name); d.appendChild(t); d.appendChild(document.createTextNode(' — '+(a.description||''))); d.classList.add('on'); b.classList.add('open');
+      };
+      c.appendChild(b);
+    });
+  }
+  function abFire(name){
+    if(!name) return; var c=$('chips'); if(!c) return;
+    Array.prototype.forEach.call(c.children,function(x){ if(x.getAttribute('data-n')===name){ x.classList.add('fire'); setTimeout(function(){ x.classList.remove('fire'); },1600); } });
   }
 
   // ───── الأتباع: يظهرون بجوانب الزعيم (2.5D) — نزول من فوق / HP / موت مثل موت الزعيم ─────
@@ -4364,7 +4414,7 @@ function setTheme(i){
   async function playEvent(ev){
     if(ev.id) addPub(ev); else addTo($('log'),eventNode(ev,false),10);
     if(ev.anim==='hit_me'){ var hb=bossStrike($('fme')); await wait(380); flash(); hurtAv($('fme')); if(ev.amount) floatNum($('fme'),'-'+fmt(ev.amount),'#ff6b86',22); await hb.finished; }
-    else if(ev.anim==='ability'){ $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],{duration:600}); }
+    else if(ev.anim==='ability'){ abFire(String((ev.lines&&ev.lines[1])||'').replace('⚡','').trim()); $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],{duration:600}); }
     else if(ev.anim==='buff'){ $('fboss').animate([{filter:'brightness(1)'},{filter:'brightness(1.8)'},{filter:'brightness(1)'}],{duration:600}); }
     else if(ev.anim==='kill'){ /* موت التابع يُعرض على بطاقته (renderFollowers) */ }
     else if(ev.anim==='enrage'){ toast('الزعيم غاضب!'); $('fboss').animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:700}); $('fboss').style.animation='bsrage 1.2s 3'; setTimeout(function(){ $('fboss').style.animation=''; },3700); }
@@ -7708,7 +7758,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                 hp: st.boss.hp, maxHp: st.boss.maxHp, enraged: st.boss.enraged, finished: st.boss.finished,
                 respawnInMs: st.boss.respawnInMs,
                 firstHitAgoMs: st.boss.firstHitAgoMs == null ? null : st.boss.firstHitAgoMs,
-                followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) }))
+                followers: (st.boss.followers || []).map(f => ({ name: f.name, hp: f.hp, img: safeImageUrl(f.image) })),
+                abilities: (st.boss.abilities || []).map(a => ({ name: String(a.name || ''), description: String(a.description || ''), effect: String(a.effect || '') }))
             } : null,
             me: st.me,
             board: st.board ? {
