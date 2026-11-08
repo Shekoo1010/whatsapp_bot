@@ -33315,7 +33315,7 @@ ${coop.boss.hp.toLocaleString()} / ${coop.boss.maxHp.toLocaleString()}`
 
 }
 
-    if (COOP_WA_ENABLED && text === '.spawncoop') {
+    if (text === '.spawncoop') {
 
     if (!isOwner(msg)) {
 
