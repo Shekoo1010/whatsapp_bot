@@ -29970,7 +29970,7 @@ const giftTokens = text.trim().split(/\s+/)
 const rawTargetWord = giftTokens[giftTokens.length - 1]
 const rawIndexTokens = giftTokens.slice(1, giftTokens.length - 1)
 
-({ target, viaUsername } =
+;({ target, viaUsername } =
     await resolveTarget(msg, rawTargetWord))
 
 if (!target || rawIndexTokens.length === 0) {
