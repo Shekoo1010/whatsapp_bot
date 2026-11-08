@@ -2052,6 +2052,10 @@ const lastRolls = new Map()
 // بالدورة الحالية.
 const MAX_DAILY_ROLLS = 10
 const ROLL_RESET_HOURS = 24
+// 🚫 تعطيل نظام الرول/الويفو بالكامل (.رول .مطالبة .مجموعتي .زوجاتي .زواج .طلاق .تبادل .كاكيرا ...)
+// غيّرها إلى false لإعادة تفعيل كل شيء
+const WAIFU_SYSTEM_DISABLED = true
+const WAIFU_DISABLED_TEXT = '🚫 نظام الرول والويفو معطّل حالياً.'
 const PvP = require('./models/PvP')
 
 // =========================
@@ -6837,7 +6841,10 @@ async function spawnBoss(sock, index = 0) {
 currentBoss = {
     ...bosses[nextIndex],
 
-    abilities: randomAbilities,
+    // 👑 قدرات ثابتة لكل زعيم من bosses.js — وإلا عشوائي كاحتياط
+    abilities: (bosses[nextIndex].abilities && bosses[nextIndex].abilities.length)
+        ? bosses[nextIndex].abilities
+        : randomAbilities,
 
     enraged: false,
     turnCounter: 0,
@@ -9744,6 +9751,15 @@ if (!text) return;
     }
 
     const userId = userIdPrivate
+    // 🚫 حارس تعطيل نظام الرول/الويفو — يمنع كل أوامره قبل أي معالجة
+    if (WAIFU_SYSTEM_DISABLED) {
+        const _wt = text.trim()
+        const _exact = ['.رول', '.مطالبة', '.مجموعتي', '.زوجاتي', '.توب_ويفو']
+        const _prefix = ['.اعرض ', '.اعرضوايفو ', '.زواج ', '.طلاق ', '.تبادل', '.كاكيرا ']
+        if (_exact.includes(_wt) || _prefix.some(p => _wt.startsWith(p))) {
+            return sock.sendMessage(msg.key.remoteJid, { text: WAIFU_DISABLED_TEXT })
+        }
+    }
 
     // 🔒 .كلمة_السر تعمل بالخاص فقط — بالقروب نرفض ونحاول نحذف الرسالة (لو البوت مشرف)
     if (text.trim() === '.كلمة_السر' || text.startsWith('.كلمة_السر ')) {
@@ -38286,6 +38302,7 @@ ${target.split('@')[0]}
     )
 }
 if (text === '.اقبل' || text === '.قبول') {
+    if (WAIFU_SYSTEM_DISABLED) return sock.sendMessage(msg.key.remoteJid, { text: WAIFU_DISABLED_TEXT })
 
     const trade =
         await WaifuTrade.findOne({
@@ -38783,6 +38800,7 @@ await sock.sendMessage(
 
 
 if (text === '.تأكيد') {
+    if (WAIFU_SYSTEM_DISABLED) return sock.sendMessage(msg.key.remoteJid, { text: WAIFU_DISABLED_TEXT })
 
 const trade =
     await WaifuTrade.findOne({
@@ -38943,6 +38961,7 @@ ${trade.kakera2}
 }
 
     if (text === '.الغاء') {
+    if (WAIFU_SYSTEM_DISABLED) return
 
     const trade =
         await WaifuTrade.findOne({
