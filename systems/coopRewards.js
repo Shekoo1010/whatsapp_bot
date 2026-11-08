@@ -53,6 +53,9 @@ async function giveRewards(coop) {
 
         const row = leaderboard[i]
 
+        // 🛡️ فشل لاعب واحد (بياناته/حفظه) ما يوقف جوائز البقية ولا ينهي القتال بخطأ
+        try {
+
         const player =
 
             await Player.findOne({
@@ -100,7 +103,7 @@ async function giveRewards(coop) {
         // Equipment Boxes
         // =========================
 
-        for (const box of table.boxes) {
+        for (const box of (table.boxes || [])) {
 
             if (
 
@@ -211,6 +214,12 @@ async function giveRewards(coop) {
             rewards: reward
 
         })
+
+        } catch (err) {
+
+            console.log('Co-Op reward error for', row.userId, err && err.message)
+
+        }
 
     }
 

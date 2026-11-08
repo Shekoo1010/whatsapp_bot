@@ -935,9 +935,18 @@ async function endBattle(sock, victory) {
 
     if (victory) {
 
-        rewardResults = await coopRewards.giveRewards(
-            coop
-        )
+        // 🛡️ أي خطأ بالجوائز لا يمنع إنهاء القتال وتصفير الكو اوب
+        try {
+
+            rewardResults = await coopRewards.giveRewards(
+                coop
+            )
+
+        } catch (err) {
+
+            console.log('Co-Op giveRewards Error:', err)
+
+        }
 
     }
 
@@ -1043,6 +1052,44 @@ ${player.rewards.coins}
 
     }
 
+    coop.active = false
+
+    coop.status = "idle"
+
+    coop.players = []
+
+    coop.leaderboard = []
+
+    coop.battleLog = []
+
+    coop.rewardsClaimed = []
+
+    coop.currentTurn = 0
+
+    coop.round = 1
+
+    coop.boss = {}
+
+    coop.turnEnd = 0
+
+    coop.startAt = 0
+    coop.ready = []
+    coop.joinEnd = 0
+
+    coop.nextSpawn =
+    Date.now() +
+    (4 * 60 * 60 * 1000)
+
+await coop.save()
+
+const coopManager = require('./coopManager')
+
+coopManager.startLoop(sock)
+
+// 📨 رسالة النتيجة بالواتس تُرسل بعد التصفير وبدون انتظار:
+// لو تعلّقت sendMessage (اتصال واتساب سيء) ما يبقى الكو اوب عالقاً على finished
+;(async () => {
+
     for (const group of GROUPS) {
 
         if (!sock) break
@@ -1077,39 +1124,7 @@ ${player.rewards.coins}
 
     }
 
-    coop.active = false
-
-    coop.status = "idle"
-
-    coop.players = []
-
-    coop.leaderboard = []
-
-    coop.battleLog = []
-
-    coop.rewardsClaimed = []
-
-    coop.currentTurn = 0
-
-    coop.round = 1
-
-    coop.boss = {}
-
-    coop.turnEnd = 0
-
-    coop.startAt = 0
-    coop.ready = []
-    coop.joinEnd = 0
-
-    coop.nextSpawn =
-    Date.now() +
-    (4 * 60 * 60 * 1000)
-
-await coop.save()
-
-const coopManager = require('./coopManager')
-
-coopManager.startLoop(sock)
+})().catch(err => console.log('Co-Op Result send:', err && err.message))
 
 }
 // =========================
