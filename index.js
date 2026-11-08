@@ -5442,7 +5442,7 @@ const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharB
 // 📖 كتاب المجموعة (SSS فقط) — systems/siteCodexBook.js
 const siteCodexBook = require('./systems/siteCodexBook').createSiteCodexBook({ Player, getCatalog: () => characters })
 // 🌟 قائمة شخصيات SSS (A-Z) — systems/siteSssList.js (تقرأ الكتالوج الحي characters بما فيه صور .ص)
-const siteSssList = require('./systems/siteSssList').createSiteSssList({ Player, getCatalog: () => characters })
+const siteSssList = require('./systems/siteSssList').createSiteSssList({ Player, getCatalog: () => characters, isDeveloper: uid => String(uid || '').split('@')[0] === ownerId }) // 🛠️ المطور فقط: تغيير صور الكتالوج من الموقع
 
 // 🎯 المهام اليومية والأسبوعية بالموقع (/missions) — نفس بيانات وأقفال وجوائز أوامر الواتساب (systems/siteMissions.js)
 const siteMissions = require('./systems/siteMissions')({
