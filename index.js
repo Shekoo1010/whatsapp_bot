@@ -1580,6 +1580,42 @@ const axios = require('axios')
 const eventManager =
     require('./eventManager')
 const pendingSwaps = new Map()
+
+// 🎁 تأكيد .اهداء: userId -> { target, viaUsername, indices, names, powers, expiresAt }
+const pendingGifts = new Map()
+const GIFT_CONFIRM_MS = 60 * 1000
+
+async function getGiftPicks(userId, indices) {
+
+    const row = (await Player.aggregate([
+        { $match: { userId } },
+        {
+            $project: {
+                _id: 0,
+                picks: {
+                    $map: {
+                        input: indices,
+                        as: 'i',
+                        in: {
+                            $let: {
+                                vars: { c: { $arrayElemAt: ['$characters', '$$i'] } },
+                                in: {
+                                    name: '$$c.name',
+                                    rarity: '$$c.rarity',
+                                    power: '$$c.power',
+                                    evolutionLevel: '$$c.evolutionLevel'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]))[0]
+
+    return row ? row.picks : []
+
+}
 const Waifu = require('./models/Waifu')
 const {
     checkRespawn,
@@ -1599,6 +1635,51 @@ const QRCode = require("qrcode")
 // - أمان: لو أمر سابق علق أكثر من USER_QUEUE_MAX_WAIT_MS ما ننتظره أكثر من كذا
 const _userQueues = new Map() // userId -> آخر مهمة (Promise ما ترفض أبداً)
 const USER_QUEUE_MAX_WAIT_MS = 20000
+
+// 🛡️ منع معالجة نفس الرسالة مرتين (إعادة تسليم بعد انقطاع الاتصال) + تجاهل رسائل append القديمة
+const _seenMsgKeys = new Set()
+const _seenMsgOrder = []
+
+function skipDuplicateOrStaleMessage(m, upsertType) {
+
+    try {
+
+        const id = m?.key?.id
+
+        if (id) {
+
+            const k = (m.key.remoteJid || '') + '|' + id
+
+            if (_seenMsgKeys.has(k)) return true
+
+            _seenMsgKeys.add(k)
+            _seenMsgOrder.push(k)
+
+            if (_seenMsgOrder.length > 1000) {
+                _seenMsgKeys.delete(_seenMsgOrder.shift())
+            }
+
+        }
+
+        // رسائل append (تاريخ قديم) أقدم من دقيقتين لا تُنفَّذ كأوامر
+        if (upsertType === 'append') {
+
+            const raw = m?.messageTimestamp
+
+            const ts =
+                raw && typeof raw === 'object' && typeof raw.toNumber === 'function'
+                    ? raw.toNumber()
+                    : Number(raw)
+
+            if (ts && Date.now() / 1000 - ts > 120) return true
+
+        }
+
+    } catch (e) { /* لا يوقف المعالجة */ }
+
+    return false
+
+}
 
 function runPerUser(m, task) {
 
@@ -29792,7 +29873,25 @@ ${body}`,
         })
     }
 
-    if (text.startsWith('.اهداء')) {
+    if (
+        text.startsWith('.اهداء') ||
+        ((text === '.ت' || text === '.ل') && pendingGifts.has(userId))
+    ) {
+
+// 🎁 .ل = إلغاء الهدية المعلّقة
+if (text === '.ل') {
+
+    pendingGifts.delete(userId)
+
+    return safeSend(
+        msg.key.remoteJid,
+        { text: '❌ تم إلغاء الإهداء.' }
+    )
+
+}
+
+const isGiftConfirm = text === '.ت'
+
 
 // ⚡ هنا نحتاج فقط عدد الشخصيات والرصيد (للتحقق المبدئي ورسالة NO_MONEY) — بدل تحميل مستند اللاعب كامل.
 // التنفيذ الفعلي وكل التحققات تتكرر داخل giftCharacters بقراءة جديدة داخل الـ transaction.
@@ -29828,12 +29927,51 @@ if (!player) {
 // systems/giftSystem.js — القواعد واحدة بالأمر والموقع
 const MAX_GIFT_CHARACTERS = 5
 
+let target, viaUsername, uniqueIndices
+
+if (isGiftConfirm) {
+
+    const _pg = pendingGifts.get(userId)
+
+    pendingGifts.delete(userId)
+
+    if (!_pg || Date.now() > _pg.expiresAt) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '⌛ انتهت مهلة التأكيد، أعد كتابة أمر .اهداء.' }
+        )
+
+    }
+
+    // نتأكد أن نفس الشخصيات ما تغيّرت أماكنها/قوتها منذ عرض التأكيد
+    const _now = await getGiftPicks(userId, _pg.indices)
+
+    const _same =
+        _now.length === _pg.names.length &&
+        _now.every((c, i) => c && c.name === _pg.names[i] && c.power === _pg.powers[i])
+
+    if (!_same) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '⚠️ تغيّرت شخصياتك منذ طلب الإهداء، أعد كتابة أمر .اهداء.' }
+        )
+
+    }
+
+    target = _pg.target
+    viaUsername = _pg.viaUsername
+    uniqueIndices = _pg.indices
+
+} else {
+
 const giftTokens = text.trim().split(/\s+/)
 const rawTargetWord = giftTokens[giftTokens.length - 1]
 const rawIndexTokens = giftTokens.slice(1, giftTokens.length - 1)
 
-const { target, viaUsername } =
-    await resolveTarget(msg, rawTargetWord)
+({ target, viaUsername } =
+    await resolveTarget(msg, rawTargetWord))
 
 if (!target || rawIndexTokens.length === 0) {
 
@@ -29886,7 +30024,7 @@ if (parsedIndices.some(i => isNaN(i) || i < 0 || i >= player.characters.length))
 
 }
 
-const uniqueIndices = [...new Set(parsedIndices)]
+uniqueIndices = [...new Set(parsedIndices)]
 
 if (uniqueIndices.length !== parsedIndices.length) {
 
@@ -29897,6 +30035,69 @@ if (uniqueIndices.length !== parsedIndices.length) {
 '❌ فيه رقم شخصية مكرر بالطلب، اكتب كل رقم مرة وحدة.'
         }
     )
+
+}
+
+
+// 🎁 عرض شاشة التأكيد (لا يُنفَّذ الإهداء قبل .ت)
+{
+    const _picks = await getGiftPicks(userId, uniqueIndices)
+
+    if (_picks.length !== uniqueIndices.length || _picks.some(c => !c || !c.name)) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '❌ رقم شخصية غير صحيح ضمن الأرقام اللي كتبتها.' }
+        )
+
+    }
+
+    for (const [k, v] of pendingGifts) {
+        if (Date.now() > v.expiresAt) pendingGifts.delete(k)
+    }
+
+    pendingGifts.set(userId, {
+        target,
+        viaUsername,
+        indices: uniqueIndices,
+        names: _picks.map(c => c.name),
+        powers: _picks.map(c => c.power),
+        expiresAt: Date.now() + GIFT_CONFIRM_MS
+    })
+
+    const _list = _picks
+        .map((c, i) =>
+`${i + 1}) #${uniqueIndices[i] + 1} 🧿 ${c.name}
+🌟 ${c.rarity}${c.evolutionLevel ? ' | ✨ تطور ' + c.evolutionLevel : ''}
+⚔️ ${Number(c.power || 0).toLocaleString()}`)
+        .join('\n\n')
+
+    return safeSend(
+        msg.key.remoteJid,
+        {
+            text:
+`🎁 تأكيد الإهداء
+
+👤 @${userId.split('@')[0]}
+➡️
+👤 @${target.split('@')[0]}
+
+━━━━━━━━━━━━━━
+
+${_list}
+
+━━━━━━━━━━━━━━${viaUsername ? `\n\n💰 سيُخصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}
+
+تأكد أن هذي الشخصيات هي المقصودة:
+
+✅ للتأكيد: *.ت*
+❌ للإلغاء: *.ل*
+
+⏳ صالح ${GIFT_CONFIRM_MS / 1000} ثانية`,
+            mentions: [userId, target]
+        }
+    )
+}
 
 }
 
@@ -33957,7 +34158,7 @@ dailyLocks.add(userId)
 
 const dailyLockTimeout = setTimeout(() => {
     dailyLocks.delete(userId)
-}, 20000)
+}, 120000)
 
 try {
 
@@ -33995,6 +34196,21 @@ today
 '❌ استلمت اليومي بالفعل\n\n⏳ انتظر حتى 12 صباحاً بتوقيت السعودية'
         }
     )
+}
+
+// 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة (يمنع التكرار لو فشل حفظ لاحق)
+{
+    const _dailyClaim = await Player.updateOne(
+        { userId, 'dailyReward.lastClaim': { $ne: today } },
+        { $set: { 'dailyReward.lastClaim': today } }
+    )
+
+    if (!_dailyClaim.modifiedCount) {
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '❌ استلمت اليومي بالفعل\n\n⏳ انتظر حتى 12 صباحاً بتوقيت السعودية' }
+        )
+    }
 }
 
 const rewardMoney = 250000
@@ -34084,7 +34300,7 @@ missionsClaimLocks.add(userId)
 
 const missionsClaimTimeout = setTimeout(() => {
     missionsClaimLocks.delete(userId)
-}, 20000)
+}, 120000)
 
 try {
 
@@ -34150,6 +34366,21 @@ if (!completed) {
 }
 
 // الجوائز
+
+// 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة
+{
+    const _missionsClaim = await Player.updateOne(
+        { userId, 'dailyMissions.claimed': { $ne: true } },
+        { $set: { 'dailyMissions.claimed': true } }
+    )
+
+    if (!_missionsClaim.modifiedCount) {
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '❌ استلمت مكافأة المهام اليوم' }
+        )
+    }
+}
 
 const happyMissionMoney = applyHappyBonus(player, 2500000) // 🐈 رفيق هابي
 
@@ -34223,7 +34454,7 @@ if (text === '.اسبوعي') {
 
     const weeklyLockTimeout = setTimeout(() => {
         weeklyLocks.delete(userId)
-    }, 20000)
+    }, 120000)
 
     try {
 
@@ -34252,6 +34483,21 @@ if (text === '.اسبوعي') {
 🕒 المتبقي: ${getWeeklyResetText()}`
                 }
             )
+        }
+
+        // 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة
+        {
+            const _weeklyClaim = await Player.updateOne(
+                { userId, 'weeklyReward.lastClaim': { $ne: weekKey } },
+                { $set: { 'weeklyReward.lastClaim': weekKey } }
+            )
+
+            if (!_weeklyClaim.modifiedCount) {
+                return safeSend(
+                    msg.key.remoteJid,
+                    { text: '❌ استلمت الاسبوعي بالفعل' }
+                )
+            }
         }
 
         const weeklyMoney = 1000000
@@ -34388,7 +34634,7 @@ if (text === '.استلام_الاسبوعية') {
 
     const weeklyClaimTimeout = setTimeout(() => {
         weeklyLocks.delete(userId)
-    }, 20000)
+    }, 120000)
 
     try {
 
@@ -34428,6 +34674,21 @@ if (text === '.استلام_الاسبوعية') {
         }
 
         // 🌟 اختيار شخصية SSS عشوائية
+        // 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة
+        {
+            const _weeklyMissionsClaim = await Player.updateOne(
+                { userId, 'weeklyMissions.claimed': { $ne: true } },
+                { $set: { 'weeklyMissions.claimed': true } }
+            )
+
+            if (!_weeklyMissionsClaim.modifiedCount) {
+                return safeSend(
+                    msg.key.remoteJid,
+                    { text: '❌ استلمت جائزة المهام الأسبوعية هذا الأسبوع' }
+                )
+            }
+        }
+
         const sssPool =
             getCharsByRarityFast('SSS')
 
@@ -41921,6 +42182,7 @@ sock.ev.on('messages.upsert', (upsert) => {
         ? ((upsert && upsert.messages) || [])
         : (first ? [first] : [])
     for (const m of list) {
+        if (skipDuplicateOrStaleMessage(m, upsert && upsert.type)) continue
         const startedAt = Date.now()
         const trace = perfTrace.begin(m) // ⏱️ قياس فقط
         const watchdog = setTimeout(() => {
