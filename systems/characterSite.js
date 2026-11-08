@@ -1091,7 +1091,8 @@ function navDrawerHTML(code, csrf, current, name) {
         ['worlds', '🌌', 'عوالم الأنمي', `/u/${c}/worlds`],
         ['worldhall', '🏛️', 'قاعة التصنيف', `/u/${c}/worlds/hall`],
         ['notifications', '🔔', 'الإشعارات', `/u/${c}/notifications`],
-        ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions']
+        ['missions', '🎯', 'المهام اليومية والأسبوعية', '/missions'],
+        ['support', '💜', 'ادعم المشروع', `/u/${c}/support`]
     ]
     const list = items.map(([k, ic, label, href]) =>
         `<a class="nvit${k === current ? ' on' : ''}" href="${href}"${k === current ? ' aria-current="page"' : ''}><span class="nvic">${ic}</span>${label}${k === 'boss' && current !== 'boss' ? '<small class="nvcd" id="nv-bcd" hidden></small>' : ''}${k === 'notifications' ? '<small class="nvcd" id="nv-nb" hidden></small>' : ''}</a>`
@@ -1237,6 +1238,64 @@ function rewardsPageHTML({ log, code, csrf }) {
 <div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">🎁 سجل الجوائز (آخر 30)</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
 ${navDrawerHTML(code, csrf, 'rewards')}
 <div class="lg-wrap">${rows || '<div class="lg-empty">ما وصلتك جوائز بعد — جرّب عجلة الحظ 🎡</div>'}</div>
+</body></html>`
+}
+
+// 💜 صفحة «ادعم المشروع» — بطاقة STC Bank بأزرار نسخ (عدّل البيانات من DONATE فقط)
+const DONATE = {
+    name: 'ELSHIEKH ABDELRAHMAN',
+    phone: '0536471289',
+    iban: 'SA6478000000001174238778'
+}
+function supportPageHTML({ code, csrf }) {
+    const rows = [
+        ['اسم العميل', 'Customer name', DONATE.name],
+        ['رقم الجوال', 'Mobile number', DONATE.phone],
+        ['رقم الحساب ايبان', 'Account IBAN', DONATE.iban]
+    ].map(([ar, en, v]) => `<div class="dn-r"><div class="dn-lab">${ar}<small>${en}</small></div><div class="dn-val"><button type="button" class="dn-cp" data-v="${esc(v)}">نسخ</button><span>${esc(v)}</span></div></div>`).join('')
+    return shellHead('ادعم المشروع') + `
+<style>
+.dn-wrap{max-width:520px;margin:0 auto;padding:16px 14px 40px}
+.dn-wrap h1{text-align:center;font-weight:900;font-size:20px}
+.dn-sub{text-align:center;color:#9a8fa8;font-size:13.5px;line-height:1.9;margin:6px 6px 16px}
+.dn-card{border-radius:22px;background:#4f008c;border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 40px rgba(79,0,140,.55);overflow:hidden}
+.dn-hd{display:flex;align-items:center;justify-content:space-between;padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,.85)}
+.dn-logo{font-family:'Oswald',sans-serif;font-weight:700;font-size:30px;direction:ltr;letter-spacing:-1px}
+.dn-logo span{color:#21c39a;font-size:20px;margin-inline-start:3px;vertical-align:top}
+.dn-ht{text-align:right;line-height:1.5}.dn-ht b{display:block;font-size:16px;font-weight:700}.dn-ht small{font-size:13px;direction:ltr;display:block}
+.dn-rows{padding:16px 14px 18px;display:grid;gap:12px}
+.dn-r{display:grid;grid-template-columns:112px 1fr;gap:10px;align-items:center}
+.dn-lab{grid-column:1;grid-row:1;color:#b9a3d8;font-size:12.5px;line-height:1.5}.dn-lab small{display:block;font-size:11px;direction:ltr;text-align:right}
+.dn-val{grid-column:2;grid-row:1;display:flex;align-items:center;gap:6px;min-height:54px;padding:6px 8px;border-radius:12px;background:#64229e}
+.dn-val span{flex:1;min-width:0;text-align:center;font-family:'Oswald',sans-serif;font-size:15px;direction:ltr;word-break:break-all;letter-spacing:.3px}
+.dn-cp{flex:none;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;color:#2a0048;background:#f0c04a;border:0;border-radius:9px;padding:7px 10px;cursor:pointer}
+.dn-cp:active{transform:scale(.94)}.dn-cp.ok{background:#7dffb0}
+.dn-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;z-index:70;background:#1b0d26;border:1.5px solid #f0c04a;color:#f0c04a;font-weight:900;padding:10px 20px;border-radius:14px;transition:.35s}
+.dn-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+<body>
+<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">💜 ادعم المشروع</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
+${navDrawerHTML(code, csrf, 'support')}
+<div class="dn-toast" id="dn-toast"></div>
+<div class="dn-wrap">
+  <h1>💜 ادعم المشروع</h1>
+  <p class="dn-sub">دعمك يساعدنا على تطوير البوت والموقع وإضافة فعاليات جديدة. التبرع اختياري وشكراً لك.</p>
+  <div class="dn-card">
+    <div class="dn-hd"><div class="dn-ht"><b>معلومات حساب العميل</b><small>Customer account information</small></div><div class="dn-logo">STC<span>Bank</span></div></div>
+    <div class="dn-rows">${rows}</div>
+  </div>
+</div>
+<script>
+(function(){
+  function toast(t){var e=document.getElementById('dn-toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1600)}
+  function legacy(v){var a=document.createElement('textarea');a.value=v;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}a.remove();return ok}
+  document.querySelectorAll('.dn-cp').forEach(function(b){b.onclick=function(){
+    var v=b.getAttribute('data-v');
+    function done(ok){if(ok){b.classList.add('ok');b.textContent='تم ✓';toast('تم النسخ');setTimeout(function(){b.classList.remove('ok');b.textContent='نسخ'},1500)}else toast('انسخ الرقم يدوياً')}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v).then(function(){done(true)},function(){done(legacy(v))})}else done(legacy(v));
+  }});
+})();
+</script>
 </body></html>`
 }
 
@@ -8200,6 +8259,25 @@ function registerCharacterSite(app, Player, opts = {}) {
             res.send(rewardsPageHTML({ log, code, csrf: auth.csrfForSession(sess) }))
         } catch (err) {
             console.error('rewards page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // 💜 ادعم المشروع — /u/:code/support
+    app.get('/u/:code/support', async (req, res) => {
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            res.send(supportPageHTML({ code, csrf: auth.csrfForSession(sess) }))
+        } catch (err) {
+            console.error('support page error:', err)
             res.status(500).send('خطأ بالخادم')
         }
     })
