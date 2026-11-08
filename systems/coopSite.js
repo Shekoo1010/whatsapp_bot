@@ -41,6 +41,9 @@ function registerCoopSite(app, ctx) {
             const fresh = arr.filter(t => now - t < 60000)
             if (fresh.length) hits.set(k, fresh); else hits.delete(k)
         }
+        for (const [k, c] of coinsCache) {
+            if (now - c.t >= 60000) coinsCache.delete(k)
+        }
     }, 5 * 60 * 1000).unref()
 
     // كاش قصير لحالة الكو اوب: كل اللاعبين يستطلعون نفس المستند،
@@ -56,15 +59,30 @@ function registerCoopSite(app, ctx) {
     }
     const dropCoopCache = () => { coopCache = null }
 
+    // كاش قصير لرصيد العملات: الاستطلاع يسأل عنه لكل لاعب كل ثانية تقريباً وهو نادراً يتغير.
+    // يُمسح فور الشراء أو فتح الصفحة/المتجر، وأقصى تأخير بعد جوائز نهاية الريد ~3 ثواني
+    const COINS_CACHE_MS = 3000
+    const coinsCache = new Map() // userId -> { t, v }
+    async function getCoins(userId) {
+        const now = Date.now()
+        const hit = coinsCache.get(userId)
+        if (hit && now - hit.t < COINS_CACHE_MS) return hit.v
+        const me = await Player.findOne({ userId }).select('coopCoins').lean()
+        const v = (me && me.coopCoins) || 0
+        coinsCache.set(userId, { t: now, v })
+        return v
+    }
+    const dropCoins = userId => { coinsCache.delete(userId) }
+
     const cleanLog = t => String(t || '').replace(/[*_~`]/g, '').replace(/[╭╰━┃⬣〔〕]/g, '').trim()
 
     // ───────────── حالة آمنة للمتصفح ─────────────
     async function stateOut(userId) {
-        const [coop, me] = await Promise.all([
+        const [coop, coins] = await Promise.all([
             getCoopDoc(),
-            Player.findOne({ userId }).select('coopCoins').lean()
+            getCoins(userId)
         ])
-        const base = { coins: (me && me.coopCoins) || 0, readyMin: coopManager.CONFIG.readyMin }
+        const base = { coins, readyMin: coopManager.CONFIG.readyMin }
 
         if (!coop || !coop.active) {
             const last = coopBattle.getLastResult()
@@ -132,6 +150,7 @@ function registerCoopSite(app, ctx) {
                 shell, code,
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
                 data: await (async () => {
+                    dropCoins(player.userId)
                     const [state, shopData] = await Promise.all([stateOut(player.userId), shop.getShop(player.userId)])
                     return { state, shop: shopData }
                 })()
@@ -189,12 +208,14 @@ function registerCoopSite(app, ctx) {
     }))
 
     app.get('/coop/shop', guard(async (req, res, sess) => {
+        dropCoins(sess.u)
         res.json({ ok: true, shop: await shop.getShop(sess.u), targets: await shop.getShardTargets(sess.u) })
     }))
 
     app.post('/coop/shop/buy', jsonBody, guard(async (req, res, sess, fail) => {
         const b = req.body || {}
         const r = await shop.buy(sess.u, String(b.id || ''), { character: typeof b.character === 'string' ? b.character.slice(0, 80) : '' })
+        dropCoins(sess.u)
         if (!r.ok) return fail(400, r.code, r.message)
         res.json({ ok: true, item: r.item, shop: r.shop })
     }))

@@ -140,12 +140,66 @@ async function nextTurn(sock, coop) {
 
     }
 
-    // نهاية الجولة: نرجع لأول لاعب ونزيد رقم الجولة
+    // نهاية الجولة (الكل ضرب): هجمة جماعية من الزعيم على الشخصية الحالية لكل لاعب،
+    // ثم نرجع لأول لاعب ونزيد رقم الجولة
     if (coop.currentTurn >= players.length) {
+
+        const group = coopSkills.cast(
+            coop,
+            coopSkills.rollGroupSkill(coop)
+        )
+
+        if (group && group.message) {
+
+            coop.battleLog.push(group.message)
+
+            await broadcast(
+                sock,
+                `👹 *${coop.boss.name}*\n${group.message}`
+            )
+
+        }
+
+        if (!alivePlayers(coop).length) {
+
+            await coop.save()
+
+            return endBattle(sock, false)
+
+        }
+
+        const expired = coopSkills.tickBossBuffs(coop)
+
+        if (expired) {
+
+            coop.battleLog.push(expired)
+
+            await broadcast(sock, `👹 *${coop.boss.name}*\n${expired}`)
+
+        }
 
         coop.currentTurn = 0
 
         coop.round++
+
+    }
+
+    // ❄️ لو شخصية صاحب الدور متجمدة: يضيع دوره وننتقل للي بعده
+    const upNext = alivePlayers(coop)[coop.currentTurn]
+
+    const frozenMsg = upNext ? coopSkills.consumeFreeze(upNext) : null
+
+    if (frozenMsg) {
+
+        coop.battleLog.push(frozenMsg)
+
+        await broadcast(sock, frozenMsg)
+
+        coop.currentTurn++
+
+        await coop.save()
+
+        return nextTurn(sock, coop)
 
     }
 
@@ -377,6 +431,9 @@ async function playerAttack(sock, userId) {
 
     damage = Math.floor(damage)
 
+    // ⛓️ ختم القوة / 😨 الخوف يقللون ضرر الشخصية
+    damage = Math.floor(damage * coopSkills.damageMultiplier(character))
+
     // =========================
 // Boss Shield
 // =========================
@@ -420,6 +477,13 @@ if (
     coop.boss.hp = 0
 
 }
+
+    // 🪞 انعكاس الضرر (يتطبق داخل bossAttack) + نقص عدّاد ختم القوة/الخوف
+    pendingReflect = (coop.boss.hp > 0 && coopSkills.reflectAmount(coop, damage) > 0)
+        ? { userId, amount: coopSkills.reflectAmount(coop, damage) }
+        : null
+
+    coopSkills.tickAttackDebuffs(character)
 
     player.damage += damage
 
@@ -471,6 +535,9 @@ return {
 // =========================
 
 const SKILL_CHANCE = 0.3
+
+// 🪞 انعكاس ضرر هجوم اللاعب: يضبطه playerAttack/autoAttack مباشرة قبل bossAttack، ويقرأه bossAttack ويصفّره
+let pendingReflect = null
 
 // ضربة الزعيم العادية: 18% – 30% من HP الشخصية
 function normalStrike(coop, player) {
@@ -534,6 +601,11 @@ function advanceTurn(coop, orderIds, actingId) {
 
 async function bossAttack(sock) {
 
+    // انعكاس ضرر هجوم اللاعب (يضبطه playerAttack/autoAttack قبل الاستدعاء)
+    const reflectNow = pendingReflect
+
+    pendingReflect = null
+
     const coop = await CoOp.findOne()
 
     if (!coop || coop.status !== "battle") return
@@ -559,9 +631,46 @@ async function bossAttack(sock) {
 
     if (player) {
 
+        // الشخصية سقطت بهالدور (انعكاس/سم) → الزعيم ما يرد عليها
+        let spared = false
+
+        // 🪞 انعكاس ضرر اللاعب عليه
+        if (reflectNow && reflectNow.userId === actingId) {
+
+            const r = coopSkills.applyReflectDamage(player, reflectNow.amount)
+
+            if (r) {
+
+                coop.battleLog.push(r.message)
+
+                await broadcast(sock, `👹 *${coop.boss.name}*\n${r.message}`)
+
+                if (r.died) spared = true
+
+            }
+
+        }
+
+        // ☠️ السم يشتغل على الشخصية الحالية
+        if (!spared) {
+
+            const poison = coopSkills.tickPoison(player)
+
+            if (poison) {
+
+                coop.battleLog.push(poison.message)
+
+                await broadcast(sock, `👹 *${coop.boss.name}*\n${poison.message}`)
+
+                if (poison.died) spared = true
+
+            }
+
+        }
+
         const character = currentCharacter(player)
 
-        if (character && character.alive) {
+        if (!spared && character && character.alive) {
 
             let result = null
 
@@ -569,7 +678,7 @@ async function bossAttack(sock) {
 
                 result = coopSkills.cast(
                     coop,
-                    coopSkills.rollSkill(coop),
+                    coopSkills.rollSkill(coop, player),
                     player
                 )
 
@@ -643,14 +752,12 @@ async function checkBossPhase(coop, sock) {
 
     }
 
-    // الطور 3 (40%): هجوم جماعي
+    // الطور 3 (40%): الهجمات الجماعية تصير أقوى (تنزل نهاية كل جولة)
     else if (percent <= 40 && coop.boss.phase === 2) {
 
         coop.boss.phase = 3
 
-        const r = coopSkills.useSkill(coop, "aoe")
-
-        messages.push(`🔥 الطور 3!\n${r.message}`)
+        messages.push(`🔥 الطور 3!\nالهجمات الجماعية صارت أقوى.`)
 
     }
 
@@ -724,6 +831,9 @@ async function autoAttack(sock) {
 
     if (autoHit) damage = Math.floor(autoHit.damage * 0.7)
 
+    // ⛓️ ختم القوة / 😨 الخوف يقللون ضرر الشخصية
+    damage = Math.floor(damage * coopSkills.damageMultiplier(character))
+
     if (
 
         coop.boss.shield > 0
@@ -759,6 +869,13 @@ async function autoAttack(sock) {
         coop.boss.hp = 0
 
     }
+
+    // 🪞 انعكاس الضرر (يتطبق داخل bossAttack) + نقص عدّاد ختم القوة/الخوف
+    pendingReflect = (coop.boss.hp > 0 && coopSkills.reflectAmount(coop, damage) > 0)
+        ? { userId: player.userId, amount: coopSkills.reflectAmount(coop, damage) }
+        : null
+
+    coopSkills.tickAttackDebuffs(character)
 
     player.damage += damage
 
