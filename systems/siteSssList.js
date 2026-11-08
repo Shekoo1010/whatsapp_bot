@@ -16,7 +16,13 @@ const path = require('path')
 const A_Z = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('')
 const tok = l => (l === '#' ? '0' : l)   // رمز الحرف بالرابط: ?l=A ... ?l=0 لقسم #
 
-function createSiteSssList({ Player, getCatalog }) {
+// 🔑 نفس مفتاح catalogImages.js بالضبط (name|rarity|form) — لازم يتطابق عشان نفس الصورة تنحفظ/تنقرأ
+const keyOf = c => `${c.name}|${c.rarity}|${c.form}`
+
+// 🛠️ للمطور فقط: تغيير صورة الكتالوج العامة من الموقع (نفس أمر .ص بالبوت)
+//   isDeveloper(userId) → true/false  (يمرَّر من index.js)
+function createSiteSssList({ Player, getCatalog, isDeveloper }) {
+    const isDev = typeof isDeveloper === 'function' ? isDeveloper : () => false
     let cache = { at: 0, data: null }
     let view = null            // HTML الجاهز (شريط الحروف + الأقسام) — يُبنى مرة واحدة
     let lastMissing = -1
@@ -53,7 +59,8 @@ function createSiteSssList({ Player, getCatalog }) {
                 name: String(c.name),
                 anime: String(c.anime || ''),
                 power: Number(c.power) || 0,
-                image: imgOf(c.image)
+                image: imgOf(c.image),
+                key: keyOf(c)
             })
         }
         list.sort((a, b) => {
@@ -100,6 +107,9 @@ function createSiteSssList({ Player, getCatalog }) {
                 // مسجّل دخول؟ → قائمة جانبية. غير ذلك → معاينة فقط
                 let sess = null
                 try { sess = ownerSession(req, player) } catch (e) { sess = null }
+                // 🛠️ المطور = مسجّل دخول على صفحته + معرّفه ضمن المطورين (لا يظهر لأي أحد غيره)
+                const dev = !!(sess && isDev(player.userId))
+                const devUI = dev ? devPanel(esc, auth.csrfForSession(sess)) : ''
 
                 if (!view) {
                     const { list, groups } = build(imgOf)
@@ -109,7 +119,7 @@ function createSiteSssList({ Player, getCatalog }) {
                         const jump = A_Z.map(x => groups.has(x)
                             ? `<a href="?l=${tok(x)}"${x === l ? ' class="on" aria-current="page"' : ''}>${x}</a>`
                             : `<span>${x}</span>`).join('')
-                        const cards = groups.get(l).map(c => `<div class="s3c"><div class="s3a"><span class="s3p">${esc(c.name.charAt(0).toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</div><div class="s3w">${c.power.toLocaleString('en')}</div><div class="s3t"><b dir="auto">${esc(c.name)}</b><small dir="auto">${esc(c.anime)}</small></div></div>`).join('')
+                        const cards = groups.get(l).map(c => `<div class="s3c" data-k="${esc(c.key)}"><div class="s3a"><span class="s3p">${esc(c.name.charAt(0).toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</div><div class="s3w">${c.power.toLocaleString('en')}</div><div class="s3t"><b dir="auto">${esc(c.name)}</b><small dir="auto">${esc(c.anime)}</small></div></div>`).join('')
                         const prev = keys[idx - 1], next = keys[idx + 1]
                         const pager = `<div class="s3n">${prev ? `<a href="?l=${tok(prev)}">السابق (${prev})</a>` : '<span></span>'}<b>${idx + 1} / ${keys.length}</b>${next ? `<a href="?l=${tok(next)}">التالي (${next})</a>` : '<span></span>'}</div>`
                         pages.set(l, { jump, pager, n: groups.get(l).length, html: `<section class="s3l"><h2>${l}<span>${groups.get(l).length}</span></h2><div class="s3g">${cards}</div></section>` })
@@ -133,7 +143,7 @@ function createSiteSssList({ Player, getCatalog }) {
 ${sess ? navDrawerHTML(code, auth.csrfForSession(sess), 'sss', name) : ''}
 <div class="ssl">
   <div class="topbar">${top}<a class="pill" href="/u/${esc(code)}">← رجوع للعرض</a></div>
-  <div class="ssl-h">شخصيات SSS في البوت <b>${count}</b></div>
+  <div class="ssl-h">شخصيات SSS في البوت <b>${count}</b></div>${dev ? '<div class="sx-hint">🛠️ وضع المطور — اضغط أي شخصية لتغيير صورتها لكل اللاعبين</div>' : ''}
   <nav class="s3j" aria-label="الحروف">${pg.jump}</nav>
   ${count ? pg.html + pg.pager : '<p class="ssl-e">لا توجد شخصيات SSS حالياً.</p>'}
 </div>
@@ -168,15 +178,221 @@ html{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 <script>document.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='IMG')t.style.display='none'},true)</script>
+${devUI}
 </body></html>`)
             } catch (err) {
                 console.error('sss list page error:', err)
                 res.status(500).send('خطأ بالخادم')
             }
         })
+
+        // ─────────────────────────────────────────────────────────────
+        // 🖼️ POST /sss-image/set — (للمطور فقط) نفس .ص رقم + صورة:
+        //   رفع Cloudinary (نفس public_id = يستبدل نفس الصورة) → حفظ بقاعدة البيانات (CatalogImage)
+        //   → تحديث كائن الكتالوج بالذاكرة → يظهر للجميع بالبوت والموقع ويبقى بعد الريستارت.
+        // ─────────────────────────────────────────────────────────────
+        const express = require('express')
+        const bodyRaw = express.json({ limit: '4mb' })
+        const body = (req, res, next) => bodyRaw(req, res, err => {
+            if (!err) return next()
+            const big = err.status === 413 || err.type === 'entity.too.large'
+            res.status(big ? 413 : 400).json({ ok: false, message: big ? 'الصورة كبيرة جداً' : 'طلب غير صالح' })
+        })
+
+        const hits = new Map()
+        const rateOk = uid => {
+            const now = Date.now()
+            const arr = (hits.get(uid) || []).filter(t => now - t < 60 * 1000)
+            if (arr.length >= 20) { hits.set(uid, arr); return false }
+            arr.push(now); hits.set(uid, arr); return true
+        }
+
+        app.post('/sss-image/set', body, async (req, res) => {
+            res.set('Cache-Control', 'no-store')
+            const fail = (status, message) => res.status(status).json({ ok: false, message })
+            try {
+                if (!auth.authEnabled()) return fail(503, 'تسجيل الدخول غير مفعّل حالياً.')
+                if (!auth.sameOrigin(req)) return fail(403, 'طلب غير مسموح.')
+                const sess = auth.readSession(req)
+                if (!sess) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+                const b = req.body || {}
+                if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+                // 🔒 المطور فقط (يُفحص على السيرفر — إخفاء الزر وحده ما يكفي)
+                if (!isDev(sess.u)) return fail(403, 'هذي الميزة للمطور فقط.')
+                if (!rateOk(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
+                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+                // الصورة: JPEG مصغّرة من المتصفح
+                const img = String(b.img || '')
+                const PREFIX = 'data:image/jpeg;base64,'
+                if (!img.startsWith(PREFIX)) return fail(400, 'صيغة الصورة غير صحيحة')
+                const buf = Buffer.from(img.slice(PREFIX.length), 'base64')
+                if (buf.length < 500 || buf.length > 3 * 1024 * 1024) return fail(400, 'حجم الصورة غير مناسب')
+                if (!(buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF)) return fail(400, 'الملف ليس صورة JPEG صالحة')
+
+                // الشخصية: نبحث عنها بالكتالوج الحي بالمفتاح (ما نثق بأي اسم من العميل)
+                const key = String(b.k || '')
+                let cat = []
+                try { cat = (typeof getCatalog === 'function' ? getCatalog() : []) || [] } catch (e) { cat = [] }
+                const target = cat.find(c => c && c.rarity === 'SSS' && keyOf(c) === key)
+                if (!target) return fail(404, 'الشخصية ما عادت بالكتالوج — حدّث الصفحة.')
+
+                // ☁️ نفس uploadCatalogImage اللي يستخدمه .ص (public_id ثابت من المفتاح → يستبدل القديمة)
+                const { uploadCatalogImage } = require('../utils/cloudinary')
+                const { CatalogImage } = require('./catalogImages')
+                const { url, publicId } = await uploadCatalogImage(buf, key)
+
+                await CatalogImage.updateOne({ key }, { $set: { url, publicId } }, { upsert: true })
+                target.image = url          // كائن الكتالوج المشترك → يظهر فوراً بالبوت والموقع
+                invalidate()                // أعد بناء قائمة SSS عند أول زيارة
+
+                res.json({ ok: true, img: imgOf(url) || url, message: `✅ تم تغيير صورة ${target.name} للجميع` })
+            } catch (err) {
+                console.error('sss image set error:', err)
+                fail(500, 'حدث خطأ أثناء حفظ الصورة، حاول مرة أخرى')
+            }
+        })
     }
 
     return { mount, invalidate }
+}
+
+// 🛠️ واجهة المطور (نافذة تغيير الصورة) — تُحقن بالصفحة للمطور فقط
+function devPanel(esc, csrf) {
+    const csrfJs = JSON.stringify(String(csrf || '')).replace(/</g, '\\u003c')
+    return `<div class="sx-ov" id="sx-ov" hidden>
+  <div class="sx-box" role="dialog" aria-modal="true" aria-labelledby="sx-name">
+    <button class="sx-x" id="sx-x" type="button" aria-label="إغلاق">✕</button>
+    <div class="sx-badge">SSS · IMAGE</div>
+    <div class="sx-name" id="sx-name" dir="auto"></div>
+    <div class="sx-sub">🌐 تغيير صورة الكتالوج لكل اللاعبين</div>
+    <div class="sx-cmp">
+      <figure><div class="sx-pv" id="sx-old"></div><figcaption>الحالية</figcaption></figure>
+      <figure><div class="sx-pv ph" id="sx-new">اختر صورة<br>لتظهر هنا</div><figcaption>الجديدة</figcaption></figure>
+    </div>
+    <div class="sx-btns">
+      <button class="sx-b pick" id="sx-pick" type="button">📁 اختر من المعرض</button>
+      <button class="sx-b gold" id="sx-save" type="button" disabled>💾 حفظ الصورة</button>
+    </div>
+    <p class="sx-note">الصورة تظهر لكل اللاعبين وتبقى للأبد حتى تغيّرها (نفس أمر .ص)<br>JPG / PNG / WEBP — تُصغَّر تلقائياً قبل الرفع</p>
+  </div>
+</div>
+<input id="sx-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+<style>
+.sx-hint{margin:0 2px 10px;padding:8px 12px;border:1px dashed rgba(240,192,74,.45);border-radius:12px;color:var(--gold,#f0c04a);font:700 13px 'Cairo',sans-serif}
+.s3c[data-k]{cursor:pointer}
+.s3c.sx-no::before{content:"🖼️ بدون صورة";position:absolute;top:8px;right:8px;z-index:3;background:#ff3860;color:#fff;border-radius:10px;padding:2px 8px;font:800 11px 'Cairo',sans-serif}
+.sx-ov{position:fixed;inset:0;z-index:200;background:rgba(4,6,12,.78);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.sx-ov[hidden]{display:none}
+.sx-box{position:relative;width:100%;max-width:440px;background:#0f1422;border:2px solid var(--gold,#f0c04a);border-radius:22px;padding:22px 16px 16px;font-family:'Cairo',sans-serif;color:var(--text,#eef1f8);box-shadow:0 0 40px -8px rgba(240,192,74,.45)}
+.sx-x{position:absolute;top:12px;inset-inline-start:12px;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--gold-dim,#8a6d24);background:transparent;color:#fff;font-size:18px;cursor:pointer}
+.sx-badge{width:max-content;margin:0 auto 8px;border:1.5px solid var(--gold-dim,#8a6d24);border-radius:20px;padding:3px 16px;font:600 13px 'Oswald',sans-serif;letter-spacing:.2em;color:var(--gold,#f0c04a);direction:ltr}
+.sx-name{text-align:center;font:700 26px 'Oswald','Cairo',sans-serif;color:#fff;margin:4px 0}
+.sx-sub{text-align:center;color:var(--text-dim,#8f98ad);font-size:13px;margin-bottom:14px}
+.sx-cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sx-cmp figure{margin:0;text-align:center}
+.sx-cmp figcaption{font-size:12px;color:var(--text-dim,#8f98ad);margin-top:6px;font-weight:800}
+.sx-pv{aspect-ratio:3/4;border-radius:14px;border:1.5px solid rgba(240,192,74,.35);display:grid;place-items:center;font:900 46px 'Cairo',sans-serif;color:rgba(255,255,255,.9);background-size:cover;background-position:center top;background-color:#0a0d16}
+.sx-pv.new{border-color:var(--gold,#f0c04a);box-shadow:0 0 18px -4px var(--gold,#f0c04a)}
+.sx-pv.ph{font-size:13px;font-weight:400;color:var(--text-dim,#8f98ad);border-style:dashed;line-height:1.8;padding:8px;text-align:center}
+.sx-btns{display:grid;gap:10px;margin-top:14px}
+.sx-b{font:900 15px 'Cairo',sans-serif;border:0;border-radius:14px;padding:13px;cursor:pointer}
+.sx-b:disabled{opacity:.45;cursor:not-allowed}
+.sx-b.gold{color:#0a0d16;background:var(--gold,#f0c04a)}
+.sx-b.pick{color:var(--text,#eef1f8);background:#151b2e;border:1.5px solid rgba(255,255,255,.18)}
+.sx-note{color:var(--text-dim,#8f98ad);font-size:12.5px;line-height:1.8;margin-top:12px;text-align:center}
+.sx-spin{display:inline-block;width:14px;height:14px;border:2px solid #0a0d16;border-top-color:transparent;border-radius:50%;animation:sxsp .7s linear infinite;vertical-align:-2px;margin-inline-end:6px}
+@keyframes sxsp{to{transform:rotate(360deg)}}
+.sx-toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid var(--gold-dim,#8a6d24);color:#eef1f8;border-radius:14px;padding:12px 16px;font:700 14px 'Cairo',sans-serif;transition:.3s;max-width:92%;text-align:center;z-index:300}
+.sx-toast.on{transform:translate(-50%,0);opacity:1}
+.sx-toast.good{border-color:#4fe08a}
+.sx-toast.bad{border-color:#ff6b6b;color:#ff9aa6}
+</style>
+<script>
+(function(){
+  var CSRF=${csrfJs};
+  var ov=document.getElementById('sx-ov'), file=document.getElementById('sx-file');
+  var nameEl=document.getElementById('sx-name'), oldEl=document.getElementById('sx-old'), newEl=document.getElementById('sx-new');
+  var pickBtn=document.getElementById('sx-pick'), saveBtn=document.getElementById('sx-save');
+  var cur=null, picked=null, busy=false, tt=0;
+  var SAVE_LABEL='💾 حفظ الصورة', PH='اختر صورة<br>لتظهر هنا';
+
+  // علّم الشخصيات اللي بدون صورة (عشان تعرف الجديدة بسرعة)
+  var cards=document.querySelectorAll('.s3c[data-k]');
+  for(var i=0;i<cards.length;i++){ if(!cards[i].querySelector('.s3a img')) cards[i].classList.add('sx-no'); }
+
+  function toast(m,k){
+    var t=document.getElementById('sx-toast');
+    if(!t){ t=document.createElement('div'); t.id='sx-toast'; document.body.appendChild(t); }
+    t.textContent=m; t.className='sx-toast on '+(k||'');
+    clearTimeout(tt); tt=setTimeout(function(){ t.className='sx-toast'; },2600);
+  }
+  function setBg(el,src){ el.style.backgroundImage='url("'+src+'")'; }
+  function resetNew(){
+    picked=null; newEl.className='sx-pv ph'; newEl.innerHTML=PH; newEl.style.backgroundImage=''; saveBtn.disabled=true;
+  }
+  function openBox(card){
+    cur=card; resetNew();
+    var nm=card.querySelector('.s3t b'); nameEl.textContent=nm?nm.textContent:'';
+    var im=card.querySelector('.s3a img'), src=im&&im.style.display!=='none'?(im.currentSrc||im.src):'';
+    if(src){ oldEl.textContent=''; setBg(oldEl,src); } else { oldEl.style.backgroundImage=''; oldEl.textContent=(nameEl.textContent||'?').charAt(0).toUpperCase(); }
+    ov.hidden=false; document.body.style.overflow='hidden';
+  }
+  function closeBox(){ if(busy) return; ov.hidden=true; document.body.style.overflow=''; cur=null; resetNew(); }
+
+  document.addEventListener('click',function(e){
+    if(busy) return;
+    if(ov.contains(e.target)){ if(e.target===ov) closeBox(); return; }
+    var c=e.target.closest&&e.target.closest('.s3c[data-k]');
+    if(c) openBox(c);
+  });
+  document.getElementById('sx-x').addEventListener('click',closeBox);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!ov.hidden) closeBox(); });
+  pickBtn.addEventListener('click',function(){ if(busy) return; file.value=''; file.click(); });
+
+  file.addEventListener('change',function(){
+    var f=file.files&&file.files[0]; if(!f||!cur) return;
+    if(!/^image\\/(jpeg|png|webp)$/.test(f.type)){ toast('❌ اختر صورة JPG أو PNG أو WEBP','bad'); return; }
+    if(f.size>20*1024*1024){ toast('❌ الصورة كبيرة جداً (الحد 20 ميجا)','bad'); return; }
+    var rd=new FileReader();
+    rd.onerror=function(){ toast('❌ تعذّر قراءة الصورة','bad'); };
+    rd.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var m=1280, r=Math.min(1,m/Math.max(im.width,im.height)), cv=document.createElement('canvas');
+        cv.width=Math.max(1,Math.round(im.width*r)); cv.height=Math.max(1,Math.round(im.height*r));
+        var cx=cv.getContext('2d'); cx.fillStyle='#0a0d16'; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height);
+        picked=cv.toDataURL('image/jpeg',.88);
+        newEl.className='sx-pv new'; newEl.textContent=''; setBg(newEl,picked);
+        saveBtn.disabled=false;
+      };
+      im.onerror=function(){ toast('❌ تعذّر قراءة الصورة','bad'); };
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+
+  saveBtn.addEventListener('click',function(){
+    if(!picked||!cur||busy) return;
+    var card=cur;
+    busy=true; saveBtn.disabled=true; pickBtn.disabled=true;
+    saveBtn.innerHTML='<span class="sx-spin"></span>جارٍ الحفظ…';
+    fetch('/sss-image/set',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({csrf:CSRF,k:card.getAttribute('data-k'),img:picked})})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'تعذّر الاتصال بالخادم'}; }); })
+      .then(function(j){
+        busy=false; pickBtn.disabled=false; saveBtn.innerHTML=SAVE_LABEL;
+        if(!j||!j.ok){ saveBtn.disabled=false; toast('❌ '+((j&&j.message)||'حدث خطأ، حاول مرة أخرى'),'bad'); return; }
+        var a=card.querySelector('.s3a'), im=a.querySelector('img');
+        if(!im){ im=document.createElement('img'); im.alt=''; im.decoding='async'; im.referrerPolicy='no-referrer'; a.appendChild(im); }
+        im.style.display=''; im.src=j.img; card.classList.remove('sx-no');
+        picked=null; toast(j.message||'✅ تم تغيير الصورة','good'); closeBox();
+      })
+      .catch(function(){ busy=false; pickBtn.disabled=false; saveBtn.disabled=false; saveBtn.innerHTML=SAVE_LABEL; toast('❌ تعذّر الاتصال بالخادم','bad'); });
+  });
+})();
+</script>`
 }
 
 module.exports = { createSiteSssList }
