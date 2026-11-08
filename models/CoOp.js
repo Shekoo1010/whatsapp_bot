@@ -44,7 +44,19 @@ const CharacterSchema = new mongoose.Schema({
 
     rarity: String,
 
-    anime: String
+    anime: String,
+
+    // تأثيرات الزعيم على الشخصية (تجميد / خوف / ختم القوة / سم) — coopSkills.js
+    // لازم تكون هنا، وإلا mongoose (strict) يتجاهلها ولا تنحفظ
+    buffs: {
+        type: Array,
+        default: []
+    },
+
+    debuffs: {
+        type: Array,
+        default: []
+    }
 
 }, { _id: false })
 
