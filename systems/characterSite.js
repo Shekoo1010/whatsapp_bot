@@ -2009,12 +2009,13 @@ body.cp-none .cp-holder,body.cp-none .cp-shadow,body.cp-none .cp-petonly{display
 .cg-mine{position:absolute;top:8px;right:8px;z-index:2;font-weight:900;font-size:10px;color:#0a0d16;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:10px;padding:2px 8px}
 .cg-nm{position:relative;z-index:2;margin-top:-34px;height:34px;padding:0 10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff;text-shadow:0 2px 8px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cg-ds{padding:4px 10px 0;text-align:center;font-size:11.5px;line-height:1.6;color:var(--text-dim);min-height:2.4em}
-.cg-st{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 8px 12px}
-.cg-st div{text-align:center;border-radius:12px;padding:6px 2px 7px;background:color-mix(in srgb,var(--c) 8%,#0f1422);border:1px solid color-mix(in srgb,var(--c) 28%,transparent)}
+.cg-st{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px 8px 12px}
+.cg-st div{min-width:0;text-align:center;border-radius:12px;padding:6px 2px 7px;background:color-mix(in srgb,var(--c) 8%,#0f1422);border:1px solid color-mix(in srgb,var(--c) 28%,transparent)}
 .cg-st div.mx{background:color-mix(in srgb,var(--c) 20%,#0f1422);border-color:var(--c);box-shadow:0 0 12px -3px var(--c)}
 .cg-st i{display:block;font:600 10.5px 'Oswald',sans-serif;letter-spacing:.12em;color:var(--text-dim);font-style:normal;direction:ltr}
 .cg-st b{display:block;margin-top:1px;font:700 18px 'Oswald',sans-serif;color:var(--c);direction:ltr;white-space:nowrap}
 .cg-st small{font:700 11px 'Cairo',sans-serif;opacity:.85}
+.cg-st small.ul{display:block;margin-top:2px;padding:0 4px;font-size:10px;line-height:1.35;white-space:normal;color:var(--text)}
 .cg-emp{grid-column:1/-1;text-align:center;color:var(--text-dim);padding:36px 10px;font-size:14px}
 @media (min-width:560px){.cg-grid{grid-template-columns:repeat(3,1fr)}}
 @media (prefers-reduced-motion:reduce){.cp-egg.shk,.cp-egg.glow svg{animation:none}.cp-toast{transition:none}}
@@ -2314,14 +2315,14 @@ function buildGuide(){
   $('cg-n').textContent=ks.length;
   if(!ks.length){$('cg-grid').innerHTML='<div class="cg-emp">لا توجد رفقاء حالياً</div>';return}
   ks.forEach(function(k,i){
-    var c=CAT[k],u=c.imgs&&c.imgs[0],mine=(S&&S.has&&S.key===k);
+    var c=CAT[k],u=c.imgs&&c.imgs[0],mine=(S&&S.has&&S.key===k),ul=String(c.u||'').trim().length>3?' class="ul"':'';
     h+='<div class="cg" style="--c:'+esc(c.c)+'">'
       +'<div class="cg-img"'+(u?' style="background-image:url(&quot;'+esc(u)+'&quot;)"':'')+'>'+(u?'':esc(c.e))
       +'<span class="cg-no">#'+(i+1)+'</span>'+(mine?'<span class="cg-mine">🐾 رفيقك</span>':'')+'</div>'
       +'<div class="cg-nm">'+esc(c.e)+' '+esc(c.n)+'</div>'
       +'<div class="cg-ds">'+esc(c.d||'')+'</div>'
-      +'<div class="cg-st"><div><i>LV 1</i><b>+'+fb(c.b1)+'<small>'+esc(c.u)+'</small></b></div>'
-      +'<div class="mx"><i>LV '+(Number(c.l2)||10)+'</i><b>+'+fb(c.b2)+'<small>'+esc(c.u)+'</small></b></div></div>'
+      +'<div class="cg-st"><div><i>LV 1</i><b>+'+fb(c.b1)+'<small'+ul+'>'+esc(c.u)+'</small></b></div>'
+      +'<div class="mx"><i>LV '+(Number(c.l2)||10)+'</i><b>+'+fb(c.b2)+'<small'+ul+'>'+esc(c.u)+'</small></b></div></div>'
       +'</div>';
   });
   $('cg-grid').innerHTML=h;
