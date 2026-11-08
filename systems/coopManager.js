@@ -599,6 +599,7 @@ async function finishCoOp(sock) {
 // =========================
 
 let coopTimer = null
+let finishedSeenAt = 0
 
 async function scheduleNextCoOp(sock) {
 
@@ -631,6 +632,23 @@ async function scheduleNextCoOp(sock) {
     if (coop.active) {
 
         try {
+
+            // 🛟 القتال انتهى لكن التنظيف/الجوائز تعطّل فبقيت الحالة "finished" والكو اوب نشط للأبد:
+            // لو بقيت كذلك أكثر من 90 ثانية نصفّر الكو اوب ليظهر التالي
+            if (coop.status === "finished") {
+
+                if (!finishedSeenAt) {
+                    finishedSeenAt = Date.now()
+                } else if (Date.now() - finishedSeenAt > 90000) {
+                    console.log('Co-Op watchdog: عالق على finished (hp=' + (coop.boss && coop.boss.hp) + ')، تصفير الكو اوب')
+                    finishedSeenAt = 0
+                    await finishCoOp(sock || sockRef)
+                    return
+                }
+
+            } else {
+                finishedSeenAt = 0
+            }
 
             const max = CONFIG.maxPlayers[coop.boss && coop.boss.rank] || 15
 

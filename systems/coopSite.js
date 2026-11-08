@@ -84,7 +84,8 @@ function registerCoopSite(app, ctx) {
         ])
         const base = { coins, readyMin: coopManager.CONFIG.readyMin }
 
-        if (!coop || !coop.active) {
+        // status 'finished' = القتال انتهى (بانتظار التنظيف) → نعرضه كمنتهي لا كصالة انتظار
+        if (!coop || !coop.active || coop.status === 'finished') {
             const last = coopBattle.getLastResult()
             return {
                 ...base, phase: 'idle',
