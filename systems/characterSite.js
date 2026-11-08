@@ -2670,6 +2670,11 @@ a.coins{text-decoration:none;font-family:'Cairo',sans-serif;font-weight:800;font
 .av{overflow:hidden;background-size:cover;background-position:center top}
 .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
 a.chip{text-decoration:none;display:inline-block}
+.hsrch{display:flex;gap:8px;align-items:center;margin:4px 0 10px}
+.hsrch input[type=search]{flex:1;min-width:0;font:700 14px 'Cairo',sans-serif;color:var(--text);background:rgba(15,20,34,.85);border:1.5px solid rgba(255,255,255,.14);border-radius:14px;padding:11px 14px;outline:0}
+.hsrch input[type=search]:focus{border-color:var(--gold)}
+.hsrch button{flex:0 0 auto;width:44px;height:44px;border-radius:12px;border:1px solid rgba(240,192,74,.45);background:rgba(15,20,34,.7);color:var(--gold);font-size:18px;cursor:pointer}
+.hsrch .hclr{flex:0 0 auto;width:36px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--dim);text-decoration:none;font-size:16px}
 .chip small{font-family:'Oswald',sans-serif;font-size:11px;margin-inline-start:6px;opacity:.75;direction:ltr;display:inline-block}
 .chip.zero:not(.on){opacity:.5}
 .chips{padding-top:6px}
@@ -2882,7 +2887,7 @@ function homeCardHTML(char) {
     </div>`
 }
 
-function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips, backTo }) {
+function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips, backTo, q, fk, pb }) {
     const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
     const isOwner = !!(viewer && viewer.isOwner)
     const h = hero || {}
@@ -2902,7 +2907,15 @@ function pageHTML({ title, total, counts, items, page, pages, base, viewer, code
 
     const cardsHTML = items.length
         ? items.map(homeCardHTML).join('')
-        : '<div class="emp">لا توجد شخصيات في هذه الخانة بعد</div>'
+        : `<div class="emp">${q ? 'لا توجد نتائج للبحث' : 'لا توجد شخصيات في هذه الخانة بعد'}</div>`
+
+    // 🔎 مربع البحث (يحافظ على الخانة المختارة وزر الرجوع)
+    const clearHref = `/u/${esc(code)}${(fk && fk !== 'all') ? '?t=' + esc(fk) : ''}${pb ? ((fk && fk !== 'all') ? '&' : '?') + 'pb=' + esc(pb) : ''}`
+    const searchHTML = `<form class="hsrch" method="get" action="/u/${esc(code)}" role="search">
+    ${(fk && fk !== 'all') ? `<input type="hidden" name="t" value="${esc(fk)}">` : ''}${pb ? `<input type="hidden" name="pb" value="${esc(pb)}">` : ''}
+    <input name="q" type="search" value="${esc(q || '')}" placeholder="ابحث: اسم شخصية / أنمي / رتبة (مثل SSS)…" maxlength="40" autocomplete="off" enterkeyhint="search">
+    <button type="submit" aria-label="بحث">🔎</button>${q ? `<a class="hclr" href="${clearHref}" aria-label="مسح البحث">✕</a>` : ''}
+  </form>`
 
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -2931,6 +2944,7 @@ ${HOME_CSS}
   </div></div>
   <div class="stats">${statsHTML}</div>
   ${isOwner ? `<a class="plbtn" href="/u/${esc(code)}/players"><span>👥 شخصيات اللاعبين<small>تصفّح مجموعات الآخرين بيوزرهم — بدون رابط</small></span><span class="ar">‹</span></a>` : ''}
+  ${searchHTML}
   <div class="chips" id="chips">${chipsHTML}</div>
   <div class="grid" id="grid">${cardsHTML}</div>
   ${pagerHTML(base, page, pages)}
@@ -6157,11 +6171,27 @@ function registerCharacterSite(app, Player, opts = {}) {
             const F = HOME_FILTERS.find(f => f.k === String(req.query.t || 'all')) || HOME_FILTERS[0]
             // 👥 جاي من صفحة اللاعبين: pb = كود صفحة الزائر لزر الرجوع
             const pb = (!sess && CODE_RE.test(String(req.query.pb || ''))) ? String(req.query.pb) : null
-            const withPb = u => pb ? u + (u.includes('?') ? '&' : '?') + 'pb=' + pb : u
+            const withPb0 = u => pb ? u + (u.includes('?') ? '&' : '?') + 'pb=' + pb : u
+            // 🔎 البحث: اسم الشخصية / الأنمي / الرتبة (مثل sss أو ur أو omega)
+            const qRaw = String(req.query.q || '').trim().slice(0, 40)
+            const normQ = v => String(v || '').toLowerCase()
+                .replace(/[\u064B-\u0652\u0640]/g, '')
+                .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+            const qN = normQ(qRaw)
+            const matchQ = c => {
+                if (!qN) return true
+                const tk = HOME_TIER_KEY(c)
+                const hay = normQ([c.name, c.form, c.anime, c.rarity, tk, tk === 'Ω OMEGA' ? 'omega اوميقا' : ''].join(' '))
+                return qN.split(/\s+/).every(w => hay.includes(w))
+            }
+            const withPb = u => {
+                u = withPb0(u)
+                return qRaw ? u + (u.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(qRaw) : u
+            }
             const catIdx = getCatalogIndex(getCatalog)
             // الرقم يبقى رقم الشخصية الحقيقي بقائمتك (حتى مع التصفية)
             const numbered = all.map((c, i) => ({ c, num: i + 1 }))
-            const filtered = numbered.filter(x => F.test(x.c))
+            const filtered = numbered.filter(x => F.test(x.c) && matchQ(x.c))
 
             const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
             const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
@@ -6226,7 +6256,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                 title, total: all.length, counts: [], items, page, pages,
                 base: withPb(`/u/${code}${F.k === 'all' ? '' : '?t=' + F.k}`),
                 viewer, code, hero, stats, chips,
-                backTo: pb ? `/u/${pb}/players` : null
+                backTo: pb ? `/u/${pb}/players` : null,
+                q: qRaw, fk: F.k, pb
             }))
         } catch (err) {
             console.error('character site error:', err)
