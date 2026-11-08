@@ -5557,6 +5557,8 @@ const siteBoxes = require('./systems/siteBoxes').create({
     getNotifyJid: async uid => lastChatByUser.get(uid) || await resolveDmJid(uid)
 })
 
+const companionSystem = require('./systems/companionSystem').create({ Player, companionsData, getSaudiDate }) // 🐾 منطق الرفيق للموقع (نفس أوامر الواتس)
+
 registerCharacterSite(app, Player, {
     boxes: siteBoxes,
     worldsPage: siteWorldsPage,
@@ -5591,6 +5593,7 @@ registerCharacterSite(app, Player, {
     bossAttack: bossAttackSystem,
     coopShop,
     companionsData, // ⭐ المفضلة بالموقع: بونص رفيق سونيك
+    companionSystem, // 🐾 صفحة الرفيق بالموقع
     usernameCost: USERNAME_ACTION_COST,
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
