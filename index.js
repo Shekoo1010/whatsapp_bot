@@ -5595,6 +5595,8 @@ registerCharacterSite(app, Player, {
     companionsData, // ⭐ المفضلة بالموقع: بونص رفيق سونيك
     companionSystem, // 🐾 صفحة الرفيق بالموقع
     usernameCost: USERNAME_ACTION_COST,
+    // 🖼️ استبدال الصورة من الموقع (تبويب «الصورة») — نفس دوال Cloudinary اللي يستخدمها .استبدال
+    customImage: { upload: uploadCustomCharacterImage, remove: deleteCustomCharacterImage },
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
 })
@@ -9599,9 +9601,12 @@ const handleSingleMessage = async (msg) => {
             // ☁️ نرفع الصورة مباشرة لـ Cloudinary (بدون كتابتها محليًا
             // وبدون حفظ نسخة base64 بقاعدة البيانات) — رابط دائم لا
             // يتأثر بريستارت/إعادة نشر البوت، ومستند اللاعب يبقى صغير
+            const oldImageId = replacePlayer.characters[idx].customImageId // 🧹 الصورة السابقة (نحذفها بعد نجاح الاستبدال)
             const { url, publicId } = await uploadCustomCharacterImage(buffer, replaceUserId, idx)
 
             await replacePlayer.setCharacterCustomImage(idx, url, publicId)
+
+            if (oldImageId && oldImageId !== publicId) deleteCustomCharacterImage(oldImageId).catch(() => {})
 
             await safeSend(msg.key.remoteJid, {
                 text: `✅ تم استبدال صورة ${replacePlayer.characters[idx].name} بنجاح\n\nتظهر الآن بـ .عرض و.المعرض وباقي البطاقات — لك أنت فقط\n\n↩️ ترجيعها للأساسية: .استبدال حذف ${idx + 1}`
