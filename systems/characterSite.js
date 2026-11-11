@@ -1085,6 +1085,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['challenge', '⚔️', 'التحدي (PvP)', `/u/${c}/challenge`],
         ['arena', '🏟️', 'الأرينا PvP', `/u/${c}/pvp`],
         ['arenachallenge', '⚔️', 'تحدي ارينا', `/u/${c}/arena-challenge`],
+        ['draftarena', '🎭', 'درافت الأنمي (PvP)', `/u/${c}/draft-arena`],
         ['brawl', '🥊', 'المضاربة', `/u/${c}/brawl`],
         ['xo', '❌', 'XO أونلاين', `/u/${c}/xo`],
         ['kingdom', '🏰', 'غزو المملكة', `/u/${c}/kingdom`],
@@ -6605,6 +6606,16 @@ function registerCharacterSite(app, Player, opts = {}) {
                 navDrawerHTML, NAV_BTN, charView: siteCharView
             })
         } catch (e) { console.error('site arena challenge mount error:', e) }
+    }
+
+    // 🎭 درافت الأنمي PvP (arena-11 + باند) — /u/:code/draft-arena (systems/siteDraftArena.js)
+    // لوبي المتصلين + دعوة 30ث + 10 شخصيات عشوائية + من يبدأ ظاهر + باند + اختيار + معركة متزامنة بنفس البذرة
+    if (opts.draftArena) {
+        try {
+            opts.draftArena.mount(app, {
+                auth, jsonBody, securityHeaders, CODE_RE, html404, ownerSession, esc
+            })
+        } catch (e) { console.error('site draft arena mount error:', e) }
     }
 
     // 🥊 المضاربة — /u/:code/brawl (systems/siteBrawl.js)
