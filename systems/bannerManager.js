@@ -1,9 +1,12 @@
 // =====================================================
 // 🌌 نظام البنر الجديد (مثل Genshin Impact)
-// - يتجدد كل خميس 12:00 ص بتوقيت السعودية
+// - قبل 2026-11-12: أسبوعي كل خميس 12:00 ص (النظام القديم)
+// - من 2026-11-12 (بنر Dazai): تجديد بأيام ثابتة: الخميس 12:00 ص والأحد 12:00 ص (3 أيام ثم 4 أيام)
+//   والتصويت دائماً آخر يومين قبل التجديد: الثلاثاء–الأربعاء (للخميس) والجمعة–السبت (للأحد)،
+//   ويقفل قبل التجديد بساعة (غيّر الإعدادات في قسم «النظام الجديد» تحت)
 // - السحب بالأورب: 160 / 1600
 // - الضمان 50 (soft pity من 40) + 70% للبنر + ضمان 50/50 بعد الخسارة
-// - البوت يرسل 3 مرشحين للقروبات والأعضاء يصوّتون على بنر الأسبوع القادم
+// - البوت يرسل 3 مرشحين للقروبات والأعضاء يصوّتون على البنر القادم
 // =====================================================
 
 const fs = require('fs')
@@ -31,6 +34,15 @@ const RARITY_EMOJI = { 'SSS': '🌟', 'اسطوري': '🔶', 'ممتاز': '�
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 // =========================
+// 🆕 النظام الجديد: بنر كل 3 أيام (إعدادات)
+// =========================
+const NEW_SCHEDULE_START = '2026-11-12'   // أول بنر بالنظام الجديد (بنر Dazai، الخميس 12:00 ص). قبله = النظام القديم بدون تغيير
+const NEW_BANNER_DAYS = [4, 0]           // أيام التجديد 12:00 ص بتوقيت السعودية: 4=الخميس، 0=الأحد
+const NEW_VOTE_DAYS = 2                  // التصويت مفتوح آخر يومين قبل التجديد
+const NEW_VOTE_CLOSE_BEFORE_HOURS = 1    // يقفل قبل التجديد بساعة
+const DAY_MS = 24 * 3600 * 1000
+
+// =========================
 // التواريخ
 // =========================
 
@@ -38,16 +50,63 @@ function getSaudiDate() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
 }
 
-// مفتاح البنر = تاريخ آخر خميس (شامل اليوم لو خميس) بتوقيت الرياض
+// أدوات التواريخ (YYYY-MM-DD)
+function addDaysKey(key, n) {
+    return new Date(Date.parse(key + 'T00:00:00Z') + n * DAY_MS).toISOString().slice(0, 10)
+}
+
+function weekdayOfKey(key) {
+    return new Date(key + 'T00:00:00Z').getUTCDay()
+}
+
+// تاريخ أول يوم تجديد بعد هذا التاريخ (الخميس أو الأحد)
+function nextBoundaryKey(key) {
+    for (let i = 1; i <= 7; i++) {
+        const k = addDaysKey(key, i)
+        if (NEW_BANNER_DAYS.includes(weekdayOfKey(k))) return k
+    }
+}
+
+// مفتاح البنر = تاريخ بداية البنر الحالي بتوقيت الرياض
+// • قبل NEW_SCHEDULE_START: تاريخ آخر خميس (النظام الأسبوعي القديم)
+// • من NEW_SCHEDULE_START: تاريخ آخر يوم تجديد (خميس أو أحد) شامل اليوم
 function getBannerWeekKey() {
-    const d = new Date(getSaudiDate() + 'T00:00:00Z')
+    const today = getSaudiDate()
+
+    if (today >= NEW_SCHEDULE_START) {
+        for (let i = 0; i < 7; i++) {
+            const k = addDaysKey(today, -i)
+            if (NEW_BANNER_DAYS.includes(weekdayOfKey(k))) return k
+        }
+    }
+
+    const d = new Date(today + 'T00:00:00Z')
     const diff = (d.getUTCDay() - BANNER_RESET_WEEKDAY + 7) % 7
     d.setUTCDate(d.getUTCDate() - diff)
     return d.toISOString().slice(0, 10)
 }
 
+// وقت نهاية البنر (= بداية البنر التالي)
 function getBannerEndsAtMs(weekKey) {
-    return Date.parse(weekKey + 'T00:00:00+03:00') + 7 * 24 * 3600 * 1000
+    if (weekKey >= NEW_SCHEDULE_START) return Date.parse(nextBoundaryKey(weekKey) + 'T00:00:00+03:00')
+
+    // النظام القديم: أسبوع كامل، لكن لا يتعدى بداية النظام الجديد
+    return Math.min(
+        Date.parse(weekKey + 'T00:00:00+03:00') + 7 * DAY_MS,
+        Date.parse(NEW_SCHEDULE_START + 'T00:00:00+03:00')
+    )
+}
+
+// نصوص الوقت بتوقيت السعودية (مثال: «الخميس 12:00 ص»)
+function fmtRiyadh(ms) {
+    return new Date(ms)
+        .toLocaleString('ar-EG-u-nu-latn', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Riyadh' })
+        .replace(/[\u200e\u200f\u202f\u00a0]/g, ' ')
+        .replace(/ +/g, ' ')
+}
+
+function fmtDay(ms) {
+    return new Date(ms).toLocaleString('ar-EG-u-nu-latn', { weekday: 'long', timeZone: 'Asia/Riyadh' })
 }
 
 // =========================
@@ -106,7 +165,7 @@ function pickFresh(pool, recent, count, alsoExclude = []) {
 }
 
 // =========================
-// توقيت التصويت (الأحد 5 م → الاثنين 5 م بتوقيت السعودية)
+// توقيت التصويت — النظام القديم (الأحد 5 م → الاثنين 5 م بتوقيت السعودية)
 // =========================
 
 const RIYADH_OFFSET_MS = 3 * 3600 * 1000   // السعودية UTC+3 ثابت بدون توقيت صيفي
@@ -126,6 +185,39 @@ function latestVoteStartMs(nowMs = Date.now()) {
 
 function voteIdFromStart(startMs) {
     return new Date(startMs + RIYADH_OFFSET_MS).toISOString().slice(0, 10)
+}
+
+// بداية التصويت للبنر الذي ينتهي/يتجدد بعد بداية هذا المفتاح (آخر NEW_VOTE_DAYS قبل التجديد)
+const newVoteStartOf = key => getBannerEndsAtMs(key) - NEW_VOTE_DAYS * DAY_MS
+
+// نافذة التصويت الحالية { startMs, closesMs, voteId }
+// • قبل NEW_SCHEDULE_START: الأحد 5 م → الاثنين 5 م (قديم)
+// • من NEW_SCHEDULE_START: آخر يومين قبل كل تجديد (الثلاثاء–الأربعاء للخميس، الجمعة–السبت للأحد)
+function currentVoteWindow(nowMs = Date.now()) {
+    const key = getBannerWeekKey()
+
+    if (key >= NEW_SCHEDULE_START) {
+        const startMs = newVoteStartOf(key)
+        const closesMs = getBannerEndsAtMs(key) - NEW_VOTE_CLOSE_BEFORE_HOURS * 3600 * 1000
+        return { startMs, closesMs, voteId: voteIdFromStart(startMs) }
+    }
+
+    const startMs = latestVoteStartMs(nowMs)
+    return { startMs, closesMs: startMs + VOTE_DURATION_HOURS * 3600 * 1000, voteId: voteIdFromStart(startMs) }
+}
+
+// أقرب فتح تصويت قادم (لنص «لا يوجد تصويت حالياً»)
+function nextVoteOpenMs(nowMs = Date.now()) {
+    const key = getBannerWeekKey()
+
+    if (key >= NEW_SCHEDULE_START) {
+        const startMs = newVoteStartOf(key)
+        return nowMs < startMs ? startMs : newVoteStartOf(nextBoundaryKey(key))
+    }
+
+    const legacyNext = latestVoteStartMs(nowMs) + 7 * DAY_MS
+    const firstNew = newVoteStartOf(NEW_SCHEDULE_START)
+    return legacyNext < Date.parse(NEW_SCHEDULE_START + 'T00:00:00+03:00') ? legacyNext : firstNew
 }
 
 // =========================
@@ -196,7 +288,7 @@ async function buildVoteText(userId) {
     const cands = v.candidates || []
 
     if (!cands.length || !v.voteId) {
-        return '❌ لا يوجد تصويت حالياً\n\n🗳️ يفتح كل أحد 5:00 م 🇸🇦'
+        return `❌ لا يوجد تصويت حالياً\n\n🗳️ يفتح ${fmtRiyadh(nextVoteOpenMs())} 🇸🇦`
     }
 
     const counts = await getVoteCounts(v.voteId, cands.length)
@@ -211,7 +303,7 @@ async function buildVoteText(userId) {
     })
 
     const status = open
-        ? `⏳ يغلق بعد ➤ ${formatDuration(new Date(v.closesAt).getTime() - Date.now())}\n🕔 الاثنين 5:00 م 🇸🇦\n\n🎮 للتصويت:\n.تص 1  |  .تص 2  |  .تص 3`
+        ? `⏳ يغلق بعد ➤ ${formatDuration(new Date(v.closesAt).getTime() - Date.now())}\n🕔 ${fmtRiyadh(new Date(v.closesAt).getTime())} 🇸🇦\n\n🎮 للتصويت:\n.تص 1  |  .تص 2  |  .تص 3`
         : `🔒 التصويت مغلق${v.result?.winner ? `\n🏆 البنر القادم ➤ ${v.result.winner}` : ''}`
 
     return (
@@ -227,21 +319,19 @@ ${status}`
 }
 
 // =========================
-// دورة التصويت (فتح الأحد 5 م / قفل الاثنين 5 م)
+// دورة التصويت (قديم: الأحد 5 م → الاثنين 5 م | جديد: آخر يومين من عمر كل بنر)
 // =========================
 
 async function processVote(sock) {
     const now = Date.now()
-    const startMs = latestVoteStartMs(now)
-    const closesMs = startMs + VOTE_DURATION_HOURS * 3600 * 1000
-    const voteId = voteIdFromStart(startMs)
+    const { startMs, closesMs, voteId } = currentVoteWindow(now)
 
     let state = await getState()
 
     // ===== 1) فتح تصويت جديد =====
     // لو البوت كان مطفي ورجع بعد انتهاء نافذة التصويت، ما نفتح تصويت متأخر
     // (تجديد الخميس يختار عشوائياً كبديل)
-    if (state.vote?.voteId !== voteId && now < closesMs && state.character) {
+    if (state.vote?.voteId !== voteId && now >= startMs && now < closesMs && state.character) {
 
         const pool = getBannerCharacters()
 
@@ -311,21 +401,29 @@ async function processVote(sock) {
         const winner =
             getBannerCharacters().find(c => c.name === cands[idx].name) || cands[idx]
 
+        const setClose = {
+            'vote.closed': true,
+            'vote.result': {
+                winner: winner.name,
+                counts,
+                total,
+                method,
+                winnerVotes: counts[idx]
+            }
+        }
+
+        if (state.vote.used) {
+            // التصويت استُهلك فعلاً بالتجديد (البوت كان مطفي وقت القفل):
+            // نقفله بدون تعيين بنر قادم وبدون إعلان نتيجة قديمة
+            setClose['vote.announcedOpen'] = true
+            setClose['vote.announcedClose'] = true
+        } else {
+            setClose.nextCharacter = winner
+        }
+
         const claimed = await BannerState.findOneAndUpdate(
             { _id: state._id, 'vote.voteId': state.vote.voteId, 'vote.closed': false },
-            {
-                $set: {
-                    'vote.closed': true,
-                    'vote.result': {
-                        winner: winner.name,
-                        counts,
-                        total,
-                        method,
-                        winnerVotes: counts[idx]
-                    },
-                    nextCharacter: winner
-                }
-            },
+            { $set: setClose },
             { new: true }
         )
 
@@ -364,7 +462,7 @@ async function processVote(sock) {
 }
 
 // =========================
-// تجديد البنر (كل خميس)
+// تجديد البنر (قديم: كل خميس | جديد: كل 3 أيام)
 // =========================
 
 async function applyRotation(prev, weekKey) {
@@ -456,12 +554,12 @@ async function refreshBanner(sock) {
         }
     }
 
-    // إعلان بداية البنر (خميس) — مرة واحدة لكل تجديد
+    // إعلان بداية البنر — مرة واحدة لكل تجديد
     if (sock && state.announcedWeek !== state.weekKey && !announcing) {
         announceBanner(sock).catch(e => console.log('announceBanner error:', e))
     }
 
-    // دورة التصويت (فتح الأحد 5 م / قفل الاثنين 5 م)
+    // دورة التصويت
     try {
         state = await processVote(sock)
     } catch (e) {
@@ -540,8 +638,8 @@ ${list}
 🎮 للتصويت اكتب:
 .تص 1  |  .تص 2  |  .تص 3
 
-⏳ يغلق الاثنين 5:00 م 🇸🇦 (24 ساعة)
-🌌 الأكثر أصواتاً يصير بنر الخميس`
+⏳ يغلق ${fmtRiyadh(new Date(state.vote.closesAt).getTime())} 🇸🇦
+🌌 الأكثر أصواتاً يصير بنر ${fmtDay(getBannerEndsAtMs(state.weekKey))}`
 
     // منشن خفي: رسالة واحدة فقط، الأسماء ما تظهر بالنص (mentions فقط)
     await sock.sendMessage(jid, tagIds.length ? { text: body, mentions: tagIds } : { text: body })
@@ -564,13 +662,13 @@ async function announceVoteResult(sock, jid, state) {
 👑 ${c.name}
 ${how}
 
-🌌 بنر الأسبوع القادم
-📅 يبدأ الخميس 12:00 ص 🇸🇦`
+🌌 البنر القادم
+📅 يبدأ ${fmtRiyadh(getBannerEndsAtMs(state.weekKey))} 🇸🇦`
 
     await sendCharacterMessage(sock, jid, c, caption)
 }
 
-// 🌌 الخميس 12 ص — بداية البنر الجديد
+// 🌌 12 ص — بداية البنر الجديد
 async function announceBannerToGroup(sock, jid, state) {
     const b = state.character
     const rot = state.lastRotation || {}
@@ -597,7 +695,7 @@ async function announceBannerToGroup(sock, jid, state) {
 🎯 ضمان SSS ➤ ${HARD_PITY} سحبة
 ⭐ ${Math.round(FEATURED_CHANCE * 100)}% الـ SSS تكون شخصية البنر
 
-⏳ حتى الخميس القادم 12:00 ص 🇸🇦
+⏳ حتى ${fmtRiyadh(getBannerEndsAtMs(state.weekKey))} 🇸🇦
 
 🎮 .بنر  •  .سحب_بنر  •  .اورب`
 
@@ -755,7 +853,7 @@ ${nextPullHint(orbDoc)}
 ━━━━━━━━━━━━━━
 
 ⏳ ينتهي بعد ➤ ${formatDuration(left)}
-🕛 الخميس 12:00 ص 🇸🇦
+🕛 ${fmtRiyadh(getBannerEndsAtMs(state.weekKey))} 🇸🇦
 ${voteSummary ? `\n${voteSummary}\n` : ''}
 🎮 .سحب_بنر  ➤  ${PULL_COST} 🔮
 🎮 .سحب_بنر 10  ➤  ${MULTI_COST} 🔮
@@ -835,6 +933,8 @@ module.exports = {
     announceBanner,
     processVote,
     latestVoteStartMs,
+    currentVoteWindow,
+    nextVoteOpenMs,
     isVoteOpen,
 
     castVote,
