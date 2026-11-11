@@ -141,7 +141,14 @@ function createSiteMissions(d) {
 
             if (player.dailyReward && player.dailyReward.lastClaim === today) return fail('استلمت اليومي بالفعل')
 
-            await player.addMoney(DAILY_BONUS.money)
+            // 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة (نفس .يومي بالبوت)
+            const _dailyClaim = await Player.updateOne(
+                { userId, 'dailyReward.lastClaim': { $ne: today } },
+                { $set: { 'dailyReward.lastClaim': today } }
+            )
+            if (!_dailyClaim.modifiedCount) return fail('استلمت اليومي بالفعل')
+
+            await player.addMoney(DAILY_BONUS.money, { save: false })
             player.xp += applyDogBonus(player, DAILY_BONUS.xp)
 
             player.dailyMissions.login = true
@@ -184,7 +191,14 @@ function createSiteMissions(d) {
             if (m.claimed) return fail('استلمت مكافأة المهام اليوم')
             if (!DAILY_DEFS.every(df => val(df, m) >= df.m)) return fail('لم تكمل جميع المهام بعد')
 
-            await player.addMoney(applyHappyBonus ? applyHappyBonus(player, DAILY_REWARD.money) : DAILY_REWARD.money) // 🐈 رفيق هابي
+            // 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة (نفس .استلام_المهام بالبوت)
+            const _missionsClaim = await Player.updateOne(
+                { userId, 'dailyMissions.claimed': { $ne: true } },
+                { $set: { 'dailyMissions.claimed': true } }
+            )
+            if (!_missionsClaim.modifiedCount) return fail('استلمت مكافأة المهام اليوم')
+
+            await player.addMoney(applyHappyBonus ? applyHappyBonus(player, DAILY_REWARD.money) : DAILY_REWARD.money, { save: false }) // 🐈 رفيق هابي
             player.xp += applyDogBonus(player, DAILY_REWARD.xp)
             if (!player.boxes) player.boxes = {}
             player.boxes.legendary = (player.boxes.legendary || 0) + DAILY_REWARD.legendary
@@ -208,7 +222,14 @@ function createSiteMissions(d) {
             const weekKey = getSaudiWeekKey()
             if (player.weeklyReward && player.weeklyReward.lastClaim === weekKey) return fail('استلمت الاسبوعي بالفعل')
 
-            await player.addMoney(WEEKLY_BONUS.money)
+            // 🛡️ تسجيل الاستلام بعملية ذرّية قبل دفع الجائزة (نفس .اسبوعي بالبوت)
+            const _weeklyClaim = await Player.updateOne(
+                { userId, 'weeklyReward.lastClaim': { $ne: weekKey } },
+                { $set: { 'weeklyReward.lastClaim': weekKey } }
+            )
+            if (!_weeklyClaim.modifiedCount) return fail('استلمت الاسبوعي بالفعل')
+
+            await player.addMoney(WEEKLY_BONUS.money, { save: false })
             player.weeklyReward = { lastClaim: weekKey }
             await player.save()
 
@@ -241,7 +262,7 @@ function createSiteMissions(d) {
                 sssChar = { ...picked, originalPower: picked.power, evolutionLevel: 0, urAbilities: [] }
             }
 
-            await player.addMoney(WEEKLY_REWARD.money)
+            await player.addMoney(WEEKLY_REWARD.money, { save: false })
             player.xp += applyDogBonus(player, WEEKLY_REWARD.xp)
             if (!player.boxes) player.boxes = {}
             player.boxes.legendary = (player.boxes.legendary || 0) + WEEKLY_REWARD.legendary
