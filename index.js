@@ -512,7 +512,7 @@ const Player = require('./models/Player')
 // ☁️ صور .استبدال تترفع مباشرة لـ Cloudinary (رابط دائم لا يتأثر
 // بريستارت/إعادة نشر البوت) — ما عاد نحتاج نسخة احتياطية base64 جوا
 // مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
-const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage, uploadCompanionImage } = require('./utils/cloudinary')
+const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage, uploadCompanionImage, uploadArenaImage, uploadArenaVideo, deleteArenaAsset } = require('./utils/cloudinary')
 const { handleMigrateCommand } = require('./utils/migrateImages')
 const { handleMigrateQuestionsCommand } = require('./utils/migrateQuestions')
 
@@ -2501,6 +2501,7 @@ const xo =
 const characters = require('./characters.json')
 const catalogImages = require('./systems/catalogImages')
 const companionImages = require('./systems/companionImages') // 🐾 صور الرفقاء (.صو)
+const arenaMedia = require('./systems/arenaMedia') // 🎬 صور (قبل/بعد) + فيديوهات درافت الأنمي (.صا / .فد)
 
 // ═══════════════════════════════════════════════
 // ⚡ فهارس مسبقة الحساب لكتالوج الشخصيات الثابت (characters.json)
@@ -5514,6 +5515,13 @@ const siteArenaChallenge = require('./systems/siteArenaChallenge')({
     orbs
 })
 
+// ⚔️ درافت الأنمي PvP (arena-11) على الموقع — لوبي + دعوة + باند + اختيار + معركة متزامنة (systems/siteDraftArena.js)
+// onFinish: يُستدعى مرة واحدة عند تأكيد الفائز (winnerIdx/loserIdx/players[{code,userId,name}]) — ضع هنا المكافآت لو تبي
+const siteDraftArena = require('./systems/siteDraftArena')({
+    Player,
+    getMedia: arenaMedia.getMedia
+})
+
 // 🎡 عجلة الحظ اليومية من الموقع (systems/siteWheel.js)
 const rewardLog = require('./systems/rewardLog') // 🎁 سجل آخر 10 جوائز بالموقع
 rewardLog.init(Player)
@@ -5654,6 +5662,7 @@ registerCharacterSite(app, Player, {
     challenge: siteChallenge,
     arena: siteArena,
     arenaChallenge: siteArenaChallenge,
+    draftArena: siteDraftArena,
     brawl: siteBrawl,
     xo: siteXO,
     shopSystem: characterShopSystem,
@@ -9498,6 +9507,13 @@ const handleSingleMessage = async (msg) => {
     // 🐾 .صو — (للمطور) صور الرفقاء: 6 صور لكل رفيق (systems/companionImages.js)
     if (await companionImages.handleCompanionImageCommand(msg, {
         sock, safeSend, downloadMediaMessage, uploadCompanionImage, isOwner, companionsData
+    })) {
+        return
+    }
+
+    // 🎬 .صا / .فد — (للمطور) صور قبل/بعد التحوّل + فيديو التحوّل لشخصيات درافت الأنمي (systems/arenaMedia.js)
+    if (await arenaMedia.handleArenaMediaCommand(msg, {
+        sock, safeSend, downloadMediaMessage, isOwner, uploadArenaImage, uploadArenaVideo, deleteArenaAsset
     })) {
         return
     }
