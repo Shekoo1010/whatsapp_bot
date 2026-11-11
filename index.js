@@ -9340,7 +9340,6 @@ const commandExplanations = {
         '.موافق': 'يوافق على دعوة مباراة (مثل XO) مرسلة لك.',
         '.نعم': 'يؤكد عملية بيع شخصية معلّقة (بعد أمر .بيع).',
         '.لا': 'يلغي عملية بيع شخصية معلّقة (بعد أمر .بيع).',
-        '.card': 'يرسل بطاقة (صورة) عشوائية لشخصية من نظام البطاقات.',
         '.ذكاء': 'يسأل البوت سؤالاً عاماً ويرد بالذكاء الاصطناعي. مثال: .ذكاء ما هو كذا',
     },
     'المطور': {
@@ -9387,7 +9386,6 @@ const commandExplanations = {
         '.اصلاح_الالقاب': 'أمر للمطور فقط - يصلح ألقاب/رتب اللاعبين التالفة.',
         '.لقب_اداره': 'أمر للمطور فقط - يهدي لقب «سيد القصر» للاعب بالرد على رسالته أو بمنشنه.',
         '.ايديات_اللاعبين': 'أمر للمطور فقط - يعرض قائمة آيديات كل اللاعبين المسجّلين.',
-        '.update waifus images': 'أمر للمطور فقط - يحدّث صور الويفوز من مصدر AniList.',
         '.نقل_حساب': 'أمر للمطور فقط - يبدّل كل بيانات حسابين مع بعض بالكامل (مستوى، فلوس، شخصيات، ألقاب، صناديق...). مثال: .نقل_حساب @الحساب_القديم @الحساب_الجديد',
         '.نقل_حساب_قديم': 'أمر للمطور فقط - ينقل كل بيانات حساب قديم لحساب جديد باتجاه واحد (الحساب القديم يُحذف نهائياً). مثال: .نقل_حساب_قديم @الحساب_القديم @الحساب_الجديد',
         '.استرجاع_sss': 'أمر للمطور فقط - يسترجع شخصية من رتبة SSS تم بيعها بالخطأ.',
@@ -16555,8 +16553,6 @@ if (
     player1Data.challengeFights = 5
     player1Data.lastChallengeReset =
         currentChallengePeriod
-
-    await player1Data.save()
 }
 
 if ((player1Data.challengeFights || 0) <= 0) {
@@ -18661,7 +18657,7 @@ ${char2.name}`
 if (text === '.رانكي') {
 
     const player =
-    await Player.findOne({ userId })
+    await Player.findOne({ userId }).select('mmr rank').lean()
 
     if (!player) {
         return safeSend(msg.key.remoteJid, {
@@ -18675,10 +18671,10 @@ if (text === '.رانكي') {
 
 👤 @${userId.split('@')[0]}
 
-📊 MMR: ${player.mmr}
+📊 MMR: ${player.mmr ?? 1000}
 
 🎖️ الرتبة:
-${player.rank}`,
+${player.rank ?? 'برونزي'}`,
         mentions: [userId]
     })
 }
@@ -25867,6 +25863,7 @@ cooldowns.set(key, now)
     }
 
     if (text === '.تصحيح_القتالات') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     const result = await Player.updateMany(
         {},
@@ -25883,6 +25880,7 @@ cooldowns.set(key, now)
 }
 
     if (text === '.تصحيح_لفل200') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     const result = await Player.updateMany(
         { level: { $gt: Player.MAX_LEVEL } },
@@ -25900,6 +25898,7 @@ cooldowns.set(key, now)
 }
 
     if (text === '.ريست_مجموع') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
     battleLocks.clear();
 
     return safeSend(msg.key.remoteJid, {
@@ -26761,6 +26760,7 @@ return safeSend(
 }
 
     if (text === '.بدا_قناص') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     if (quickEvents.sniper) {
 
@@ -26776,6 +26776,7 @@ return safeSend(
 
 }
     if (text === '.انهاء_قناص') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     if (!quickEvents.sniper) {
 
@@ -27223,7 +27224,7 @@ if (text === ".قتل_البوس") {
         })
 
     player.characters = kept
-    await player.addMoney(money)
+    await player.addMoney(money, { save: false })
 
     await player.save()
 
@@ -31095,6 +31096,7 @@ ${giveBeastNames.length ? giveBeastNames.join('\n') : '(ما كان ناقصه �
 
 
     if (text === ".اعطاء_EX") {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     const userId = "85126839013435@lid"
 
@@ -33684,7 +33686,7 @@ ${minutes} دقيقة`
 
     }
 
-    await player.addMoney(100000000)
+    await player.addMoney(100000000, { save: false })
 
     await player.save()
 
@@ -34524,7 +34526,7 @@ if (text === '.اسبوعي') {
 
         const weeklyMoney = 1000000
 
-        await player.addMoney(weeklyMoney)
+        await player.addMoney(weeklyMoney, { save: false })
 
         player.weeklyReward = { lastClaim: weekKey }
 
@@ -35312,12 +35314,12 @@ p.team === 'blue'
 
 if (won) {
 
-await playerData.addMoney(5000)
+await playerData.addMoney(5000, { save: false })
 playerData.xp += applyDogBonus(playerData, 1000)
 
 } else {
 
-await playerData.addMoney(2000)
+await playerData.addMoney(2000, { save: false })
 playerData.xp += applyDogBonus(playerData, 300)
 }
 
@@ -36020,6 +36022,7 @@ return sock.sendMessage(
         
     
 if (text === '.استرجاع_sss') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     const players = await Player.find({})
     let updated = 0
@@ -36857,6 +36860,7 @@ if (text === '.تغيير_فورم' || text.startsWith('.تغيير_فورم '))
 }
 
 if (text === '.اصلاح_المخزون') {
+    if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
     const players = await Player.find({})
 
@@ -37668,19 +37672,19 @@ if (!player) {
 
         if (i === 0) {
 
-            await player.addMoney(500000)
+            await player.addMoney(500000, { save: false })
             player.xp += applyDogBonus(player, 100000)
             player.boxes.sss_high += 1
 
         } else if (i === 1) {
 
-            await player.addMoney(250000)
+            await player.addMoney(250000, { save: false })
             player.xp += applyDogBonus(player, 50000)
             player.boxes.sss_chance += 1
 
         } else if (i === 2) {
 
-            await player.addMoney(100000)
+            await player.addMoney(100000, { save: false })
             player.xp += applyDogBonus(player, 25000)
             player.boxes.legendary += 1
         }
@@ -38400,7 +38404,7 @@ return sock.sendMessage(
 )
 }
     
-    if (text === ".card") {
+    if (false && text === ".card") { // 🔌 معطّل بطلب المطور (generateCard غير معرّفة)
 
     const buffer =
     await generateCard(1)
@@ -38632,7 +38636,7 @@ if (text === '.اقبل' || text === '.قبول') {
     )
 }
 
-if (text === '.update waifus images') {
+if (false && text === '.update waifus images') { // 🔌 معطّل بطلب المطور (updateAnimeImages غير معرّفة)
 
     await sock.sendMessage(
         msg.key.remoteJid,
@@ -40837,7 +40841,7 @@ if (text === '.نعم') {
 
     const moneyBefore = player.money || 0
 
-    await player.addMoney(confirm.price)
+    await player.addMoney(confirm.price, { save: false })
 
     await player.save()
 
