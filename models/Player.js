@@ -273,16 +273,6 @@ renameClanTicket: {
     default: 0
 },
 
-clanStorageBonus: {
-    type: Number,
-    default: 0
-},
-
-clanStorageExpire: {
-    type: Number,
-    default: 0
-},
-
 pendingClanLeave: {
     type: Number,
     default: null
@@ -823,6 +813,18 @@ lastBrawlReset: {
     default: 0
 },
 
+// ⚔️ التحدي (.تحدي PvP) — 5 محاولات تتجدد كل ساعتين بتوقيت السعودية
+// (كانت غير معرّفة بالسكيما فكان Mongoose يتجاهلها والعداد يرجع 5/5 دائماً)
+challengeFights: {
+    type: Number,
+    default: 5
+},
+
+lastChallengeReset: {
+    type: Number,
+    default: 0
+},
+
 pendingBrawl: {
     type: Object,
     default: null
@@ -1327,7 +1329,8 @@ PlayerSchema.methods.removeAllCustomImages = async function() {
     return { count, cloudinaryIds }
 }
 
-PlayerSchema.methods.addMoney = async function(amount) {
+// opts.save === false: يحسب المال/الدين بالذاكرة فقط ويترك الحفظ للمستدعي (يستخدم حين يتبعه save() مباشرة)
+PlayerSchema.methods.addMoney = async function(amount, opts) {
 
     amount = Number(amount)
 
@@ -1358,7 +1361,7 @@ PlayerSchema.methods.addMoney = async function(amount) {
     this.totalEarnedMoney =
         (this.totalEarnedMoney || 0) + earnedAmount
 
-    await this.save()
+    if (!(opts && opts.save === false)) await this.save()
 
     return amount
 }
