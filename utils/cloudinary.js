@@ -122,6 +122,43 @@ function uploadQuestionImageFromUrl(url, key) {
     }).then(result => ({ url: result.secure_url, publicId: result.public_id }))
 }
 
+// 🎬 صور وفيديوهات درافت الأنمي (أوامر المطور .صا / .فد) — مجلد منفصل، public_id ثابت = معرّف الشخصية + النوع
+// (إعادة الرفع تستبدل نفس الملف). الفيديو يُرفع على دفعات (upload_large_stream) لأن فيديوهات واتساب قد تكون كبيرة.
+function uploadArenaImage(buffer, id, slot) {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder: 'arena_media', public_id: `${id}_${slot}`, overwrite: true, invalidate: true, resource_type: 'image' },
+            (err, result) => {
+                if (err) return reject(err)
+                resolve({ url: result.secure_url, publicId: result.public_id })
+            }
+        )
+        stream.end(buffer)
+    })
+}
+
+function uploadArenaVideo(buffer, id) {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_large_stream(
+            { folder: 'arena_media', public_id: `${id}_video`, overwrite: true, invalidate: true, resource_type: 'video', chunk_size: 6000000 },
+            (err, result) => {
+                if (err) return reject(err)
+                resolve({ url: result.secure_url, publicId: result.public_id })
+            }
+        )
+        stream.end(buffer)
+    })
+}
+
+async function deleteArenaAsset(publicId, type = 'image') {
+    if (!publicId) return
+    try {
+        await cloudinary.uploader.destroy(publicId, { resource_type: type, invalidate: true })
+    } catch (err) {
+        console.log('⚠️ فشل حذف ملف أرينا من Cloudinary:', publicId, err.message)
+    }
+}
+
 module.exports = {
     uploadCustomCharacterImage,
     deleteCustomCharacterImage,
@@ -129,5 +166,8 @@ module.exports = {
     uploadCatalogImageFromUrl,
     uploadCompanionImage,
     uploadQuestionImage,
-    uploadQuestionImageFromUrl
+    uploadQuestionImageFromUrl,
+    uploadArenaImage,
+    uploadArenaVideo,
+    deleteArenaAsset
 }
