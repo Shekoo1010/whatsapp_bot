@@ -1,0 +1,87 @@
+<h1>⚔️ درافت الأنمي — تحدّي الأساطير</h1>
+<div class="sub">10 أساطير عشوائية من البوت • باند لكل لاعب • اختر 3 من المتبقي • معركة محاكاة بذكاء كامل</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab on" data-tab="lobby">⚔️ التحدّي</button>
+  <button class="tab" data-tab="rank">🏆 أقوى الشخصيات</button>
+  <button class="tab" data-tab="live">📺 مباشر <span class="tbadge hide" id="liveBadge">0</span></button>
+</div>
+
+<section id="s-lobby" class="panel">
+  <div class="quota" id="quota"></div>
+  <div class="lobbyTop"><div style="font-weight:800">🟢 المتصلون الآن: <span id="onlineCount">0</span></div>
+  <input class="nm" id="search" placeholder="ابحث باسم لاعب" style="width:180px"></div>
+  <div id="onlineList"></div>
+  <div class="mut" style="margin-top:10px;font-size:13px;line-height:1.7">قواعد التحدي: البوت يختار 10 شخصيات عشوائية • الحظ يحدد من يبدأ (يظهر للطرفين) • كل لاعب يحظر شخصية واحدة لا تُستعمل • ثم تتناوبان على اختيار 3 من المتبقي.</div>
+</section>
+
+<section id="s-rank" class="panel hide">
+  <div class="lobbyTop"><div style="font-weight:800">🏆 الشخصيات من الأقوى إلى الأضعف</div>
+  <input class="nm" id="rankSearch" placeholder="ابحث باسم شخصية" style="width:180px"></div>
+  <div class="mut" style="font-size:13px;line-height:1.7;margin-bottom:12px">الترتيب حسب <b>منطق الشخصية</b> في الدرافت: قدراتها (الضربات القاتلة، الضرر، التخدير، العلاج، التقوية) ومناعاتها ومقاوماتها، مع الإحياء وعدم الموت والتكيّف. ⚔️ هجوم • 🛡️ دفاع • ✨ مهارات (كلٌّ من 100).</div>
+  <div id="rankList"></div>
+</section>
+
+<section id="s-live" class="panel hide">
+  <div style="font-weight:800;margin-bottom:6px">📺 المباريات الحيّة الآن</div>
+  <div class="mut" style="font-size:13px;line-height:1.7;margin-bottom:12px">شاهد أي معركة بين لاعبين — تُعرض لك بنفس الأحداث تماماً. المشاهدة لا تستهلك من قتالاتك اليومية.</div>
+  <div id="liveList"></div>
+</section>
+
+<section id="s-wait" class="panel center hide">
+  <div style="font-size:20px;font-weight:800;margin-bottom:8px">📨 أُرسلت الدعوة</div>
+  <div id="waitTxt" style="margin-bottom:14px"></div>
+  <button class="btn ghost" id="btnCancelInv">إلغاء الدعوة</button>
+</section>
+
+<section id="s-draft" class="hide">
+  <div class="panel">
+    <div class="firstBanner" id="firstBanner"></div>
+    <div class="phaseT" id="phaseT"></div>
+    <div class="draftbar">
+      <div class="turn" id="turn"></div>
+      <div class="row"><span class="timer" id="timer"></span><span class="mut" style="font-size:14px">الخطوة <b id="pickNo">1</b></span></div>
+    </div>
+    <div class="pool" id="pool"></div>
+    <div class="teams">
+      <div class="tbox p1"><h3><span id="tn1"></span></h3><div class="bans" id="bn1"></div><div class="slots" id="sl1"></div></div>
+      <div class="tbox p2"><h3><span id="tn2"></span></h3><div class="bans" id="bn2"></div><div class="slots" id="sl2"></div></div>
+    </div>
+  </div>
+</section>
+
+ <!-- 4: مواجهة الفريقين -->
+ <section id="s-intro" class="hide">
+  <div class="istage" id="istage"></div>
+ </section>
+
+ <!-- 5: المعركة -->
+ <section id="s-battle" class="hide">
+  <div class="panel">
+   <div class="draftbar">
+    <div id="roundInfo" style="font-weight:800"></div>
+    <div class="row">
+     <button class="btn ghost" id="btnSpeed" style="padding:6px 14px;font-size:14px">السرعة ×1</button>
+     <button class="btn ghost" id="btnSkip" style="padding:6px 14px;font-size:14px">تخطّي ⏭</button>
+    </div>
+   </div>
+   <div id="arena" class="arenaBox">
+    <div class="arena">
+     <div class="fighter" id="f1"></div><div class="vs">VS</div><div class="fighter" id="f2"></div>
+    </div>
+    <div class="arena" style="margin-top:4px"><div class="mini p1" id="m1"></div><div></div><div class="mini p2" id="m2"></div></div>
+   </div>
+   <div class="log" id="log"></div>
+   <div id="endBox" class="hide">
+    <div class="winner" id="winner"></div><div class="mut center" id="verdict" style="margin:8px 0"></div>
+    <div class="row"><button class="btn" id="btnAgain">العودة للوبي 🔁</button></div>
+   </div>
+  </div>
+ </section>
+<div id="inv" class="invModal hide"><div class="invBox">
+  <div style="font-size:42px">⚔️</div>
+  <div style="font-size:19px;font-weight:800;margin:6px 0"><span id="invName"></span> يتحدّاك!</div>
+  <div class="mut" style="margin-bottom:12px">درافت الأنمي مع الباند — <b id="invTime"></b></div>
+  <div class="row"><button class="btn" id="invYes">✅ قبول</button><button class="btn ghost" id="invNo">❌ رفض</button></div>
+</div></div>
+<div id="toast" class="toast hide"></div>
