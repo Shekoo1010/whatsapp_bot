@@ -802,6 +802,13 @@ lastPvpReset: {
     default: 0
 },
 
+// 🎭 درافت الأنمي PvP — الحد اليومي: 5 قتالات (day = يوم السعودية YYYY-MM-DD، يتصفّر تلقائياً مع يوم جديد)
+// يُحدَّث ذرّياً من systems/siteDraftArena.js (useFight)
+draftDaily: {
+    day: { type: String, default: '' },
+    count: { type: Number, default: 0 }
+},
+
     // =========================
 // BRAWL SYSTEM (المضاربة)
 // =========================
