@@ -6005,11 +6005,15 @@ function createPlayer() {
 // 🔒 قفل: لو استدعاها الموقع والبوت بنفس اللحظة تعمل مرة واحدة فقط (بدون توليد مزدوج 20 عنصر)
 // 💾 وقت آخر توليد ناجح للمتجر (يبقى بعد إعادة التشغيل) — لا يعتمد على وجود عناصر بالمتجر
 const SHOP_META_FILE = path.join(__dirname, 'shopMeta.json')
+let _shopGenAtCache = null
 function readShopGenAt() {
-    try { return JSON.parse(fs.readFileSync(SHOP_META_FILE, 'utf8')).lastGenAt || 0 }
-    catch { return 0 }
+    if (_shopGenAtCache !== null) return _shopGenAtCache
+    try { _shopGenAtCache = JSON.parse(fs.readFileSync(SHOP_META_FILE, 'utf8')).lastGenAt || 0 }
+    catch { _shopGenAtCache = 0 }
+    return _shopGenAtCache
 }
 function writeShopGenAt(t) {
+    _shopGenAtCache = t
     try { fs.writeFileSync(SHOP_META_FILE, JSON.stringify({ lastGenAt: t })) }
     catch (e) { console.log('shopMeta write error:', e) }
 }
@@ -16007,7 +16011,7 @@ ${player.favoriteObtained}/2
         return sock.sendMessage(
             msg.key.remoteJid,
             {
-                image: await fs.promises.readFile(imagePath),
+                image: await localImageForSend(imagePath),
                 caption
             }
         )
@@ -18681,7 +18685,7 @@ ${player.rank}`,
 
 // ─── .الترتيب ───
 
-    if (text === '.الترتيب') {
+    if (text === '.الترتيب' && false /* معطل على الواتس — موجود بالموقع */) {
 
 if (!isOwner(msg)) {
         return sock.sendMessage(
@@ -23216,13 +23220,15 @@ ${WA_BOX_OPEN_DISABLED ? '🌐 الفتح من الموقع فقط — اكتب 
     await checkAndGrantAchievement(player, 'boxes', player.boxesOpened, sock, msg.key.remoteJid)
     await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
 
-    const imagePath =
-        path.join(
+    const _isUrlImg = /^https?:\/\//i.test(character.image || '')
+    const imagePath = _isUrlImg
+        ? character.image
+        : path.join(
             __dirname,
             character.image
         )
 
-    if (!(await fileExists(imagePath))) {
+    if (!_isUrlImg && !(await fileExists(imagePath))) {
 
         return sock.sendMessage(
             msg.key.remoteJid,
@@ -23242,7 +23248,7 @@ ${WA_BOX_OPEN_DISABLED ? '🌐 الفتح من الموقع فقط — اكتب 
     return sock.sendMessage(
         msg.key.remoteJid,
         {
-            image: await fs.promises.readFile(imagePath),
+            image: _isUrlImg ? { url: imagePath } : await localImageForSend(imagePath),
 
             caption:
 `🎁 ═══〔 تم فتح البكج 〕═══
@@ -23351,7 +23357,7 @@ if (text === '.متجر') {
 
     try {
 
-        await cleanMarket()
+        // (التنظيف الدوري كل 10 دقائق يكفي)
 
         const market = await Market.find().sort({
             price: 1
@@ -23449,7 +23455,7 @@ if (text === '.متجر') {
 
     try {
 
-        await cleanMarket()
+        // (التنظيف الدوري كل 10 دقائق يكفي)
 
         const args = text.split(' ')
         const itemNumber = Number(args[1]) - 1
@@ -25986,7 +25992,7 @@ ${maxPower.toLocaleString()}`
     const player =
         await Player.findOne({
             userId: target
-        })
+        }).lean() // ⚡ عرض فقط
 
     if (!player || !player.characters.length) {
 
@@ -29755,7 +29761,7 @@ ${oldUsername ? `من: ${oldUsername}\n` : ''}إلى: *${raw}*
     }
 
     // ─── .اليوزرات ─── (قائمة بجميع اللاعبين المسجّلين بيوزرنيم، بمنشن فعلي، تُبنى حيّة من القاعدة فتتحدث تلقائياً)
-    if (text.startsWith('.اليوزرات')) {
+    if (text.startsWith('.اليوزرات') && false /* معطل على الواتس — موجود بالموقع */) {
 
         const usersWithUsername =
             await Player.find({
@@ -34009,7 +34015,7 @@ ${abilitiesText}╚════════════════════�
         return sock.sendMessage(
             msg.key.remoteJid,
             {
-                image: await fs.promises.readFile(imagePath),
+                image: await localImageForSend(imagePath),
                 caption
             }
         )
@@ -40894,6 +40900,25 @@ if (text === '.لا') {
 
         if (text.startsWith('.قتال_مجموع')) {
 
+// 🔒 حالة القتال: تُعرَّف خارج try ليراها catch/finally (القفل، الاسترجاع)
+let battleTimeout = null
+let groupBattleLocked = false
+let groupBattleTargetId = null
+let groupBattleFightDeducted = false
+let groupBattleUsernameCharged = false
+let groupBattleRewardSaved = false
+
+const releaseGroupBattleLock = () => {
+    if (battleTimeout) {
+        clearTimeout(battleTimeout)
+        battleTimeout = null
+    }
+    if (!groupBattleLocked) return
+    groupBattleLocked = false
+    battleLocks.delete(userId)
+    if (groupBattleTargetId) battleLocks.delete(groupBattleTargetId)
+}
+
 try {
     
     
@@ -40909,9 +40934,37 @@ try {
         });
     }
 
+// 🔒 منع تشغيل أكثر من قتال بنفس الوقت
+// الفحص أولاً قبل أي استعلام، والقفل يُضاف فوراً بنفس اللحظة (بدون await بينهما)
+if (battleLocks.has(userId) || battleLocks.has(targetId)) {
+    return safeSend(msg.key.remoteJid, {
+        text: "⏳ انتظر حتى ينتهي القتال الحالي."
+    });
+}
+
+battleLocks.add(userId)
+battleLocks.add(targetId)
+groupBattleLocked = true
+groupBattleTargetId = targetId
+
+battleTimeout = setTimeout(() => {
+    if (groupBattleLocked) {
+        groupBattleLocked = false
+        battleLocks.delete(userId)
+        battleLocks.delete(targetId)
+    }
+
+    safeSend(msg.key.remoteJid, {
+        text: '⌛ انتهى وقت القتال وتم إلغاؤه تلقائيًا.'
+    }).catch(() => {});
+}, 30000);
+
 let [me, enemy] = await Promise.all([
     Player.findOne({ userId }),
+    // ⚡ الخصم للقراءة فقط (قوة + نقاط العوالم): lean + حقول محددة بدل تحميل المستند كاملاً
     Player.findOne({ userId: targetId })
+        .select('userId world worldPoints maxCharacters characters.power')
+        .lean()
 ]); // ⚡ (تحسين سرعة) استعلامان مستقلان — نفّذناهم بالتوازي بدل التتابع
 
 if (!me || !enemy) {
@@ -40928,15 +40981,6 @@ if (groupFightViaUsername && (me.money || 0) < USERNAME_ACTION_COST) {
 💰 رصيدك الحالي: ${(me.money || 0).toLocaleString()}`
     });
 }
-
-// 🔒 منع تشغيل أكثر من قتال بنفس الوقت
-if (battleLocks.has(userId) || battleLocks.has(targetId)) {
-    return safeSend(msg.key.remoteJid, {
-        text: "⏳ انتظر حتى ينتهي القتال الحالي."
-    });
-}
-
-
 
 me.rewardedLevels = me.rewardedLevels || [];
 me.specialAbilities = me.specialAbilities || [];
@@ -40991,22 +41035,61 @@ if (now - me.lastFightReset >= fightCooldown) {
         });
     }
 
-if (groupFightViaUsername) {
-    me.money -= USERNAME_ACTION_COST;
-    await me.save();
+// 💾 لو كانت قيم المحاولات الافتراضية معيّنة بالذاكرة فقط (لاعب قديم)، نثبّتها بالقاعدة
+// أولاً حتى ينجح الخصم الذري تحته (نفس ما كان يحصل ضمناً مع حفظ المكافأة سابقاً)
+// (اللاعب القديم اللي ما عنده الحقل بالقاعدة يأخذ القيمة الافتراضية من الـschema بالذاكرة فقط،
+// وMongoose يحفظ هذه القيم الافتراضية مع أول save)
+if (
+    me.isModified('fights') || me.isModified('lastFightReset') ||
+    me.$isDefault('fights') || me.$isDefault('lastFightReset')
+) {
+    await me.save()
 }
 
-battleLocks.add(userId);
-battleLocks.add(targetId);
+// ⚔️ خصم المحاولة (ومال اليوزرنيم لو استُخدم) ذرّياً بعملية واحدة قبل أي مكافأة،
+// فإن فشل يتوقف القتال بدون أي أثر. الفلتر يفحص الرصيد والمحاولات الفعلية لحظة الخصم.
+const groupBattleClaimCost = groupFightViaUsername ? USERNAME_ACTION_COST : 0
+const groupBattleClaimFilter = { userId, fights: { $gt: 0 } }
+const groupBattleClaimInc = { fights: -1 }
 
-const battleTimeout = setTimeout(() => {
-    battleLocks.delete(userId);
-    battleLocks.delete(targetId);
+if (groupBattleClaimCost) {
+    groupBattleClaimFilter.money = { $gte: groupBattleClaimCost }
+    groupBattleClaimInc.money = -groupBattleClaimCost
+}
 
-    safeSend(msg.key.remoteJid, {
-        text: '⌛ انتهى وقت القتال وتم إلغاؤه تلقائيًا.'
-    }).catch(() => {});
-}, 30000);
+const fightClaim = await Player.findOneAndUpdate(
+    groupBattleClaimFilter,
+    { $inc: groupBattleClaimInc },
+    { new: true, projection: { fights: 1, money: 1 } }
+)
+
+if (!fightClaim) {
+    // نحدد سبب الفشل لنعرض الرسالة الصحيحة (قراءة تحدث عند الفشل فقط)
+    const failState = await Player.findOne({ userId }, { fights: 1, money: 1 }).lean()
+
+    if (groupBattleClaimCost && failState && (failState.fights || 0) > 0 && (failState.money || 0) < groupBattleClaimCost) {
+        return safeSend(msg.key.remoteJid, {
+            text:
+`❌ تحتاج ${USERNAME_ACTION_COST.toLocaleString()} مال لاستخدام اليوزرنيم بهذه العملية.
+💰 رصيدك الحالي: ${(failState.money || 0).toLocaleString()}`
+        });
+    }
+
+    return safeSend(msg.key.remoteJid, {
+        text: '❌ لا تملك قتالات متبقية.'
+    });
+}
+
+groupBattleFightDeducted = true
+if (groupBattleClaimCost) groupBattleUsernameCharged = true
+
+me.fights = fightClaim.fights // ⚡ بدون findOne إضافي
+me.unmarkModified('fights') // لا نكتب fights مرة ثانية عند save حتى لا نطغى على القيمة المخصومة
+
+if (groupBattleClaimCost) {
+    me.money = fightClaim.money // الرصيد بعد الخصم (من القاعدة)، وحفظ المكافأة لاحقاً يبني عليه
+}
+
     // 📦 نفس منطق .الترتيب: القوة = مجموع شخصيات المخزون فقط (بحدّ سعة المخزون)
     // وليس كل الشخصيات اللي يملكها اللاعب
     let myPower = Number(cappedPower(me)) || 0;
@@ -41109,10 +41192,19 @@ if (tierChance <= 50) {
 
     let enemyPool;
 
-    if (enemyTierChance <= 50) enemyPool = common;
-    else if (enemyTierChance <= 80) enemyPool = rare;
-    else if (enemyTierChance <= 95) enemyPool = legendary;
-    else enemyPool = epic;
+    if (enemyTierChance <= 50) {
+        enemyPool = common;
+        enemyAbilityTier = 'عادية';
+    } else if (enemyTierChance <= 80) {
+        enemyPool = rare;
+        enemyAbilityTier = 'نادرة';
+    } else if (enemyTierChance <= 95) {
+        enemyPool = legendary;
+        enemyAbilityTier = 'أسطورية';
+    } else {
+        enemyPool = epic;
+        enemyAbilityTier = 'ملحمية';
+    }
 
     const enemyAbility =
         enemyPool[Math.floor(Math.random() * enemyPool.length)];
@@ -41171,47 +41263,25 @@ if (tierChance <= 50) {
 
 // احفظ جميع التعديلات أولاً
 await me.save();
+groupBattleRewardSaved = true // بعد هذه النقطة القتال يُعتبر مكتملاً (لا استرجاع عند أي خطأ لاحق)
 
-// 🔮 مهمة الأورب: الفوز في قتال المجموعات
-if (winnerId === userId) {
-    await orbs.trackMission(userId, 'groupWins', { sock, jid: msg.key.remoteJid })
-}
-
-// 🌍 نقاط العوالم (أسبوعية): الفائز +1، وإذا خسر المهاجم (me) يُخصم منه 1
-let groupBattleWorldPointsText = await worlds.awardDuel('group_battle', {
-    winner: winnerId === userId ? me : enemy,
-    loser: winnerId === userId ? enemy : me,
-    attacker: me,
-    sock,
-    jid: msg.key.remoteJid
-})
+// 🔮 مهمة الأورب (الفوز في قتال المجموعات) + 🌍 نقاط العوالم (أسبوعية): الفائز +1،
+// وإذا خسر المهاجم (me) يُخصم منه 1 — بالتوازي: الأورب بمجموعة مستقلة ولا تلمس me/enemy،
+// وtrackMission ما يرمي أخطاء أبداً.
+const [, groupBattleWorldPointsText] = await Promise.all([
+    winnerId === userId
+        ? orbs.trackMission(userId, 'groupWins', { sock, jid: msg.key.remoteJid })
+        : null,
+    worlds.awardDuel('group_battle', {
+        winner: winnerId === userId ? me : enemy,
+        loser: winnerId === userId ? enemy : me,
+        attacker: me,
+        sock,
+        jid: msg.key.remoteJid
+    })
+])
 
 const groupBattleWorldPointsSuffix = groupBattleWorldPointsText ? `\n\n${groupBattleWorldPointsText}` : ''
-
-const result = await Player.updateOne(
-    {
-        userId,
-        fights: { $gt: 0 }
-    },
-    {
-        $inc: { fights: -1 }
-    }
-);
-
-if (result.modifiedCount === 0) {
-
-    clearTimeout(battleTimeout);
-
-    battleLocks.delete(userId);
-    battleLocks.delete(targetId);
-
-    return safeSend(msg.key.remoteJid, {
-        text: '❌ لا تملك قتالات متبقية.'
-    });
-}
-
-me = await Player.findOne({ userId });
-
 
 const battleMessage = `⚔️ ══〔 GRAND BATTLE〕══ ⚔️
 👤 مجموع قوتك:
@@ -41266,9 +41336,7 @@ ${me.xp}
 
 ⚔️ القتالات المتبقية:
 ${me.fights}/${maxFights}${groupFightViaUsername ? `\n\n💰 تم خصم ${USERNAME_ACTION_COST.toLocaleString()} مال (استخدام يوزرنيم)` : ''}${groupBattleWorldPointsSuffix}`;
-clearTimeout(battleTimeout);
-battleLocks.delete(userId)
-battleLocks.delete(targetId)
+releaseGroupBattleLock()
 
 return safeSend(msg.key.remoteJid, {
     text: battleMessage,
@@ -41278,16 +41346,31 @@ return safeSend(msg.key.remoteJid, {
 
             
 catch (err) {
-    clearTimeout(battleTimeout);
-
-    battleLocks.delete(userId);
-    battleLocks.delete(targetId);
+    releaseGroupBattleLock()
 
     console.log(err);
+
+    // 💸 لو فشل القتال قبل ما تُحفظ المكافأة: نرجّع المحاولة ومال اليوزرنيم المخصومين
+    if (!groupBattleRewardSaved) {
+        const refund = {}
+        if (groupBattleFightDeducted) refund.fights = 1
+        if (groupBattleUsernameCharged) refund.money = USERNAME_ACTION_COST
+
+        if (Object.keys(refund).length) {
+            try {
+                await Player.updateOne({ userId }, { $inc: refund })
+            } catch (refundErr) {
+                console.log('⚠️ فشل استرجاع محاولة/مال القتال الجماعي:', refundErr)
+            }
+        }
+    }
 
     return safeSend(msg.key.remoteJid, {
         text: '❌ حدث خطأ أثناء القتال.'
     });
+}
+finally {
+    releaseGroupBattleLock()
 }
 
 } // ← إغلاق if

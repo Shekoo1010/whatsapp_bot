@@ -358,18 +358,50 @@ async function applyPoints(player, delta, role) {
 
     if (!player || !player.world || !delta) return null
 
-    const before = player.worldPoints || 0
-    const after = Math.max(0, before + delta)
+    const worldKey = player.world
 
-    if (after === before) return null
+    // 💾 نفس السلوك السابق: لو في مستند اللاعب تعديلات غير محفوظة (غير النقاط) نحفظها أولاً.
+    // نحفظ قبل الخصم/الإضافة الذرية: لو فشل الحفظ ما صار شي بالنقاط، فإعادة المحاولة آمنة.
+    if (typeof player.save === 'function' && typeof player.modifiedPaths === 'function' && player.modifiedPaths().length) {
+        await player.save()
+    }
 
+    // ⚛️ تعديل ذري بالقاعدة (بدل قراءة القيمة من الذاكرة ثم save) حتى ما تضيع نقطة
+    // لو صار تعديل متزامن، وما تتضاعف النقطة لو أُعيدت المحاولة بعد فشل الحفظ.
+    // الخسارة: النقاط ما تنزل تحت الصفر (الخسارة الوحيدة المستخدمة حالياً هي -1)،
+    // فلو رصيده أقل من الخصم ما يتغير شي (نفس السلوك السابق: after === before → null).
+    // الفلتر بـ world يمنع منح نقطة لعالم قديم لو انتهى الأسبوع وصُفّر عالمه بنفس اللحظة.
+    const filter = { userId: player.userId, world: worldKey }
+    if (delta < 0) filter.worldPoints = { $gte: Math.abs(delta) }
+
+    const updated = await Player.findOneAndUpdate(
+        filter,
+        { $inc: { worldPoints: delta } },
+        { new: true, projection: { worldPoints: 1 } }
+    ).lean()
+
+    if (!updated) return null
+
+    const after = updated.worldPoints || 0
+
+    // نحدّث نسخة الذاكرة بالقيمة الجديدة بدون ما نعلّمها معدّلة (حتى save لاحق ما يكتب فوق الذري)
     player.worldPoints = after
-    await player.save()
+    if (typeof player.unmarkModified === 'function') player.unmarkModified('worldPoints')
 
     const set = { points: after }
     if (delta > 0) set.lastPointAt = new Date()
 
-    await World.updateOne({ key: player.world }, { $set: set })
+    // 🔁 قيمة مطلقة (idempotent): إعادة المحاولة هنا آمنة. وما نرمي الخطأ بعد نجاح الذري
+    // عشان ما تُعاد العملية كلها من الأعلى فتتضاعف النقطة.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            await World.updateOne({ key: worldKey }, { $set: set })
+            break
+        } catch (err) {
+            console.log(`⚠️ تحديث نقاط العالم ${worldKey} فشل (${attempt}/3):`, err?.message || err)
+            if (attempt < 3) await sleep(500)
+        }
+    }
     bumpRank()
 
     const name = worldName(player.world)
