@@ -1,4 +1,5 @@
 const Beast = require('../database/Beast')
+const Player = require('../models/Player')
 
 // 🖼️ روابط صور كوراما والجوبي — المصدر الحقيقي لهالصور بالبوت كله
 const KURAMA_IMAGE = 'https://files.catbox.moe/2zadbq.jpg'
@@ -80,6 +81,24 @@ async function resetBeasts() {
 
         await beasts[i].save()
     }
+
+    // 🔄 تجديد دم كل اللاعبين لكوراما والجوبي مع كل دورة جديدة
+    // (قبل كان الدم يتراكم وما يرجع، فتبدأ الضربة من 6000 بدل 60000)
+    await Player.updateMany(
+        {},
+        {
+            $set: {
+                kuramaHp: 60000,
+                kuramaMaxHp: 60000,
+                kuramaDead: false,
+                kuramaRespawn: null,
+                juubiHp: 60000,
+                juubiMaxHp: 60000,
+                juubiDead: false,
+                juubiRespawn: null
+            }
+        }
+    )
 
     console.log(
         '✅ Beasts Reset'
