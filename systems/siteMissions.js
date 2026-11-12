@@ -284,6 +284,7 @@ function createSiteMissions(d) {
 
     // ───────── إشعار إكمال المهمة (يُستدعى بعد أي save للاعب من أي مكان) ─────────
     const seen = new Map() // userId -> { dKey, dDone:Set, wKey, wDone:Set }
+    const SEEN_MAX = 5000 // أقصى عدد لاعبين نتتبعهم بالذاكرة (الأقدم يُحذف أولاً)
 
     function doneSet(defs, obj) {
         const s = new Set()
@@ -302,7 +303,10 @@ function createSiteMissions(d) {
             const wDone = wOk ? doneSet(wDefs, wm) : new Set()
 
             const prev = seen.get(doc.userId)
+            // 🧹 حد أقصى للـ Map: نعيد إدراج اللاعب (يصير الأحدث) ونحذف الأقدم لو تجاوزنا الحد
+            seen.delete(doc.userId)
             seen.set(doc.userId, { dKey, dDone, wKey, wDone })
+            if (seen.size > SEEN_MAX) seen.delete(seen.keys().next().value)
             if (!prev) return // أول مشاهدة بعد تشغيل البوت: نسجّل الحالة بصمت
 
             const pd = prev.dKey === dKey ? prev.dDone : new Set()
@@ -615,7 +619,7 @@ $('tabs').addEventListener('click',function(e){
 });
 load();
 setInterval(tick,1000);
-setInterval(function(){if(!document.hidden)load()},5000);
+setInterval(function(){if(!document.hidden)load()},10000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)load()});
 })();
 </script>
