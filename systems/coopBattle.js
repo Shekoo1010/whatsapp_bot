@@ -16,9 +16,10 @@ const TURN_SECONDS = TURN_MS / 1000
 const WA_BATTLE_MESSAGES = false
 
 const GROUPS = [
-    "120363409897316453@g.us",
-    "120363020823525909@g.us"
+    "120363409897316453@g.us"
 ]
+
+const { locked } = require('./coopLock')
 
 async function broadcast(sock, text, mentions = []) {
 
@@ -285,31 +286,17 @@ ${coop.boss.name}
 
     }
 
+    const turnEndAtSchedule = coop.turnEnd
+
     setTimeout(
 
         async () => {
 
-            const latest =
+            await autoAttackIfStill(
 
-                await CoOp.findOne()
+                sock,
 
-            if (
-
-                !latest ||
-
-                latest.status !== "battle"
-
-            ) return
-
-            if (
-
-                latest.turnEnd !== coop.turnEnd
-
-            ) return
-
-            await autoAttack(
-
-                sock
+                turnEndAtSchedule
 
             ).catch(console.log)
 
@@ -1131,19 +1118,32 @@ coopManager.startLoop(sock)
 // Exports
 // =========================
 
+// الفحص + الهجوم التلقائي داخل القفل (نفس شرط المؤقت القديم لكن بدون سباق)
+const autoAttackIfStill = locked(async (sock, turnEnd) => {
+
+    const latest = await CoOp.findOne()
+
+    if (!latest || latest.status !== "battle") return
+
+    if (latest.turnEnd !== turnEnd) return
+
+    await autoAttack(sock)
+
+})
+
 module.exports = {
 
-    startBattle,
+    startBattle: locked(startBattle),
 
-    playerAttack,
+    playerAttack: locked(playerAttack),
 
-    bossAttack,
+    bossAttack: locked(bossAttack),
 
-    autoAttack,
+    autoAttack: locked(autoAttack),
 
-    nextTurn,
+    nextTurn: locked(nextTurn),
 
-    endBattle,
+    endBattle: locked(endBattle),
 
     getLastResult
 

@@ -4,6 +4,8 @@ const bosses = require('../data/CoOpBosses')
 
 const battle = require('./coopBattle')
 
+const { runLocked, locked } = require('./coopLock')
+
 const Player = require('../models/Player')
 
 // =========================
@@ -65,9 +67,7 @@ const CONFIG = {
 
     groups: [
 
-        "120363409897316453@g.us",
-
-        "120363020823525909@g.us"
+        "120363409897316453@g.us"
 
     ]
 
@@ -76,7 +76,7 @@ const CONFIG = {
 // Create Co-Op
 // =========================
 
-async function createCoOp() {
+async function _createCoOp() {
 
     let coop = await CoOp.findOne()
 
@@ -149,6 +149,8 @@ async function createCoOp() {
     return coop
 
 }
+
+const createCoOp = locked(_createCoOp)
 // =========================
 // Announce Co-Op
 // =========================
@@ -229,13 +231,18 @@ async function announceCoOp(sock) {
 // Lock: يمنع تعارض الانضمام المتزامن (كان يسبب وصول الفريق 15/15 بدون أن ينتبه أحد لاكتماله)
 // =========================
 
-let lockChain = Promise.resolve()
-
 function withLock(fn) {
-    const run = lockChain.then(fn, fn)
-    lockChain = run.catch(() => {})
-    return run
+    return runLocked(fn)
 }
+
+// تعديل وثيقة الكو اوب داخل القفل: تحميل جديد ← تعديل ← حفظ
+const mutate = locked(async (fn) => {
+    const c = await CoOp.findOne()
+    if (!c) return null
+    await fn(c)
+    await c.save()
+    return c
+})
 
 function joinPlayer(userId, name) {
     return withLock(() => _joinPlayer(userId, name))
@@ -522,7 +529,7 @@ function scheduleStart(sock, delay = CONFIG.startDelay) {
 // Start Battle
 // =========================
 
-async function startBattle(sock) {
+const _prepareBattle = locked(async () => {
 
     const coop = await CoOp.findOne()
 
@@ -534,7 +541,7 @@ async function startBattle(sock) {
 
         coop.status !== "waiting"
 
-    ) return
+    ) return null
 
     if (coop.players.length === 0) {
 
@@ -544,13 +551,23 @@ async function startBattle(sock) {
 
         await coop.save()
 
-        return
+        return null
 
     }
 
     coop.status = "battle"
 
     await coop.save()
+
+    return coop
+
+})
+
+async function startBattle(sock) {
+
+    const coop = await _prepareBattle()
+
+    if (!coop) return
 
     await battle.startBattle(
 
@@ -566,7 +583,7 @@ async function startBattle(sock) {
 // Finish Co-Op
 // =========================
 
-async function finishCoOp(sock) {
+const finishCoOp = locked(async function (sock) {
 
     const coop = await CoOp.findOne()
 
@@ -592,7 +609,7 @@ async function finishCoOp(sock) {
         scheduleNextCoOp(sock)
     }
 
-}
+})
 
 // =========================
 // Co-Op Loop
@@ -623,9 +640,11 @@ async function scheduleNextCoOp(sock) {
     // إذا لم يكن هناك موعد محفوظ
     if (!coop.nextSpawn || coop.nextSpawn <= 0) {
 
-        coop.nextSpawn = Date.now() + CONFIG.spawnEvery
+        const ns = Date.now() + CONFIG.spawnEvery
 
-        await coop.save()
+        await mutate(c => { c.nextSpawn = ns })
+
+        coop.nextSpawn = ns
     }
 
     // إذا كان هناك Co-Op نشط فلا ننشئ واحداً جديداً
@@ -664,8 +683,9 @@ async function scheduleNextCoOp(sock) {
                 if (full || allReady) {
 
                     if (!coop.startAt) {
-                        coop.startAt = Date.now() + (allReady && !full ? 0 : CONFIG.startDelay)
-                        await coop.save()
+                        const sa = Date.now() + (allReady && !full ? 0 : CONFIG.startDelay)
+                        await mutate(c => { if (!c.startAt) c.startAt = sa })
+                        coop.startAt = sa
                     }
 
                     scheduleStart(sock, Math.max(0, coop.startAt - Date.now()))
@@ -702,11 +722,7 @@ async function scheduleNextCoOp(sock) {
 
         await announceCoOp(sock)
 
-const updated = await CoOp.findOne()
-
-updated.nextSpawn = now + CONFIG.spawnEvery
-
-await updated.save()
+await mutate(c => { c.nextSpawn = now + CONFIG.spawnEvery })
 
 // ⚠️ كان هنا return بدون إعادة تشغيل الحلقة فتموت المراقبة بعد أول ظهور
 coopTimer = setTimeout(() => {
@@ -753,11 +769,7 @@ async function forceSpawn(sock) {
     }
 
     await announceCoOp(sock)
-    const current = await CoOp.findOne()
-
-current.nextSpawn = Date.now() + CONFIG.spawnEvery
-
-await current.save()
+    await mutate(c => { c.nextSpawn = Date.now() + CONFIG.spawnEvery })
 
 scheduleNextCoOp(sock).catch(console.log)
 
