@@ -1465,23 +1465,91 @@ function inboxPopupHTML(viewer) {
 }
 
 // 3) وضع الإهداء
-function giftCardHTML(c) {
+const GIFT_CD_CSS = `
+@keyframes sw{55%,100%{transform:translateX(130%)}}
+.cd{--t:#8891a3;position:relative;border-radius:16px;border:2px solid var(--t);background:#0f1422;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;box-shadow:0 0 14px color-mix(in srgb,var(--t) 30%,transparent)}
+.cd:active,.cd:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 0 26px color-mix(in srgb,var(--t) 60%,transparent)}
+.cd .ar{height:150px;display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:900;color:rgba(255,255,255,.16);background:linear-gradient(160deg,color-mix(in srgb,var(--t) 40%,#12172b),#12172b)}
+.cd .rt{position:absolute;top:8px;right:8px;font-family:'Oswald',sans-serif;font-size:12px;color:#0a0d16;background:var(--t);padding:2px 9px;border-radius:12px}
+.cd .pw{position:absolute;top:8px;left:8px;font-family:'Oswald',sans-serif;font-size:12px;background:rgba(8,10,18,.75);border:1px solid var(--t);border-radius:8px;padding:2px 7px;direction:ltr}
+.cd .pl{padding:9px 10px 11px;text-align:center}
+.cd .n{font-family:'Oswald',sans-serif;font-size:16px;direction:ltr}
+.cd .a{font-size:12px;color:var(--t);margin-top:2px}
+.cd.sss{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,conic-gradient(from var(--a,0deg),#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box;animation:rot 5s linear infinite;--t:#f0c04a}
+.cd.sss .ar::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.28) 50%,transparent 60%);transform:translateX(-130%);animation:sw 4s ease-in-out infinite}
+.cd.sss .ar{position:relative;overflow:hidden}
+.cd.leg{--t:#ff9a3d}.cd.epic{--t:#c04aff}.cd.com{--t:#8891a3}
+.cd:not([data-d]){cursor:default}
+.cd .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd .ar{background-size:cover;background-position:center top}
+.cd .no{position:absolute;left:8px;bottom:62px;font-family:'Oswald',sans-serif;font-size:11px;color:#fff;background:rgba(8,10,18,.7);border:1px solid var(--t);border-radius:8px;padding:1px 7px;direction:ltr;z-index:2}
+.cd.com .ar,.cd.epic .ar,.cd.leg .ar{font-size:64px}
+.cd .ev{display:flex;gap:3px;justify-content:center;margin-top:7px}
+.cd .ev i{width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}
+.cd .ev i.on{background:var(--t);box-shadow:0 0 6px var(--t)}
+.cd .ev.om i{background:linear-gradient(90deg,#ff3860,#f0c04a,#3ea8ff,#c04aff)}
+.cd.om{box-shadow:0 0 24px rgba(255,201,51,.45)}
+.cd .ar,.cd.sss .ar{position:absolute;inset:0;height:auto;z-index:0;overflow:hidden}
+.cd .pl{position:relative;z-index:1;margin-top:150px;background:linear-gradient(180deg,rgba(8,10,18,.55),rgba(8,10,18,.94))}
+.cd .pl::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;background:linear-gradient(180deg,rgba(8,10,18,0),rgba(8,10,18,.55));pointer-events:none}
+.cd .rt,.cd .pw,.cd .no{z-index:2}
+.cd .n,.cd .a{text-shadow:0 1px 6px #000}
+.cd .ev.om i{background:#ffc933;box-shadow:0 0 6px #ffc933}
+.cd{border:2.5px solid var(--t);box-shadow:0 8px 18px rgba(0,0,0,.45),0 0 18px color-mix(in srgb,var(--t) 35%,transparent)}
+.cd.sss{border-color:var(--t);background:#0f1422;animation:none}
+.cd.om{border-color:transparent;background:linear-gradient(#0f1422,#0f1422) padding-box,linear-gradient(135deg,#ff3860,#f0c04a,#3ea8ff,#c04aff,#ff3860) border-box}
+.cd .mine{position:absolute; top:34px; right:8px; z-index:2; font-weight:900; font-size:10.5px; color:#0a0d16; background:linear-gradient(90deg,var(--gold-dim),var(--gold)); border-radius:10px; padding:2px 9px}
+/* ───── وضع الإهداء: نفس بطاقات الصفحة الرئيسية (صورة كاملة + رقم الشخصية) ───── */
+.ggrid{grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-width:1700px}
+@media (min-width:720px){ .ggrid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px} }
+.ggrid .cd{-webkit-tap-highlight-color:transparent; user-select:none}
+.ggrid .cd .gs{position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); z-index:3; font-weight:900; font-size:13px; color:#0a0d16; background:var(--t); border-radius:12px; padding:3px 12px; box-shadow:0 0 14px var(--t); white-space:nowrap}
+.ggrid .cd .gs:empty{display:none}
+.ggrid .cd.on{transform:translateY(-2px); outline:3px solid var(--t); outline-offset:2px; box-shadow:0 0 26px var(--t)}
+.ggrid .cd.locked{opacity:.55; cursor:not-allowed; filter:grayscale(.35)}
+.ggrid .cd.locked:hover,.ggrid .cd.locked:active{transform:none}
+.ggrid .cd.locked .gs{background:rgba(8,10,18,.88); color:#ffd36b; border:1px solid var(--t); box-shadow:none}
+`
+
+function cdCardHTML(c, { locked, data, gs }) {
     const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['عادي']
-    const omega = tierKey === 'Ω OMEGA' || Number(c.evolutionLevel) >= 7
-    const hasImg = t.idx >= FIRST_IMAGE_TIER
-    const src = hasImg ? safeImageUrl(c.image) : null
-    const art = hasImg
-        ? `<div class="ga" style="${src ? `background-image:url('${esc(src)}')` : ''}">${src ? '' : '👤'}</div>`
+    const top = t.idx >= FIRST_IMAGE_TIER
+    const isOmegaTier = tierKey === 'Ω OMEGA'
+    const evo = Number(c.evolutionLevel) || 0
+    // نفس منطق بطاقة الصفحة الرئيسية (homeCardHTML): الصورة الكاملة + الرقم الحقيقي بقائمتك
+    const src = top ? safeImageUrl(c.image) : (safeImageUrl(c.image) || localCharImageUrl(c.image))
+    const letter = esc((Array.from(String(c.name || '?'))[0] || '?').toUpperCase())
+    const cls = top ? 'sss' : (tierKey === 'اسطوري' ? 'leg' : tierKey === 'ممتاز' ? 'epic' : 'com')
+    const artStyle = src ? ` style="background-image:url('${esc(src)}')"` : ''
+    const pips = top
+        ? `<div class="ev${isOmegaTier ? ' om' : ''}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i${(isOmegaTier || n <= evo) ? ' class="on"' : ''}></i>`).join('')}</div>`
         : ''
-    const data = omega ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}"`
-    return `<div class="gcard ${hasImg ? '' : 'text'} ${omega ? 'locked' : ''}" style="--tier:${t.color}" ${data} role="button" tabindex="0">
-      <div class="gt">${esc(tierKey)}</div>${art}<div class="gn">${esc(c.name)}</div><div class="gs">${omega ? 'لا يُهدى' : ''}</div></div>`
+    const power = Number(c.power || 0).toLocaleString('en-US')
+    return `<div class="cd ${cls}${isOmegaTier ? ' om' : ''}${locked ? ' locked' : ''}" style="--t:${t.color}" ${data} role="button" tabindex="0" aria-label="${esc(c.name)}">
+      <div class="ar"${artStyle}>${src ? '' : letter}</div>
+      <span class="rt">${esc(isOmegaTier ? 'Ω OMEGA' : tierKey)}</span>
+      <span class="pw">${power}</span>
+      <span class="no">#${c.__num}</span>${(top && c.__custom) ? '<span class="mine">🖼️ مخصصة</span>' : ''}
+      <span class="gs">${esc(gs)}</span>
+      <div class="pl"><div class="n">${esc(c.name)}</div><div class="a">${esc(c.anime || '')}</div>${pips}</div>
+    </div>`
+}
+
+function giftCardHTML(c) {
+    const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
+    const locked = tierKey === 'Ω OMEGA' || Number(c.evolutionLevel) >= 7 // Ω لا تُهدى
+    return cdCardHTML(c, {
+        locked,
+        data: locked ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}"`,
+        gs: locked ? 'لا يُهدى' : ''
+    })
 }
 
 function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
     return `${shellHead('وضع الإهداء')}
-<body><div style="padding:30px 16px 90px">
+<body><style>${GIFT_CD_CSS}</style><div style="padding:30px 16px 90px">
   <div class="topbar">
     <span class="tb-l">${NAV_BTN}<span class="gmode">وضع الإهداء</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
@@ -1516,7 +1584,7 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
   function refresh(){
     var n=keys().length, to=$('to').value.trim(), pw=$('pw').value;
     $('gc').textContent=n;
-    var cards=document.querySelectorAll('.gcard[data-k]');
+    var cards=document.querySelectorAll('.cd[data-k]');
     for(var i=0;i<cards.length;i++){ var on=!!sel[cards[i].getAttribute('data-k')]; cards[i].classList.toggle('on',on); cards[i].querySelector('.gs').textContent=on?'✓ محدد':''; }
     var sum=$('sum');
     if(n>0&&validUser(to)){ var names=keys().map(function(k){return sel[k];}).join('، '); sum.innerHTML=''; sum.appendChild(document.createTextNode('سيتم إهداء ')); var b=document.createElement('b'); b.textContent=names; sum.appendChild(b); sum.appendChild(document.createTextNode(' إلى @'+to+'. ستُخصم ${esc(costText)} ولا يمكن التراجع.')); sum.hidden=false; } else { sum.hidden=true; }
@@ -1528,8 +1596,8 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
     if(sel[k]){ delete sel[k]; } else { if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصيات.'); return; } sel[k]=card.getAttribute('data-n'); }
     show(null); save(); rotate(); refresh();
   }
-  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.gcard[data-k]'); if(c) toggle(c); });
-  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.gcard[data-k]')){ e.preventDefault(); toggle(c); } } });
+  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.cd[data-k]'); if(c) toggle(c); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.cd[data-k]')){ e.preventDefault(); toggle(c); } } });
   $('to').addEventListener('input',function(){ rotate(); refresh(); });
   $('pw').addEventListener('input',refresh);
   $('go').addEventListener('click',function(){
@@ -1567,29 +1635,27 @@ function sellCardHTML(c) {
     const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['عادي']
     const omega = tierKey === 'Ω OMEGA' || Number(c.evolutionLevel) >= 7
-    const hasImg = t.idx >= FIRST_IMAGE_TIER
-    const src = hasImg ? safeImageUrl(c.image) : null
-    const art = hasImg
-        ? `<div class="ga" style="${src ? `background-image:url('${esc(src)}')` : ''}">${src ? '' : '👤'}</div>`
-        : ''
     const price = Math.max(100, Math.floor((Number(c.power) || 0) / 2))
     const important = t.idx >= TIERS['SSS'].idx || Number(c.evolutionLevel) > 0
     const label = omega ? 'لا تُباع' : '💰 ' + price.toLocaleString('en-US')
-    const data = omega ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}" data-p="${price}" data-i="${important ? 1 : 0}" data-gs="${esc(label)}"`
-    return `<div class="gcard ${hasImg ? '' : 'text'} ${omega ? 'locked' : ''}" style="--tier:${t.color}" ${data} role="button" tabindex="0">
-      <div class="gt">${esc(tierKey)}</div>${art}<div class="gn">${esc(c.name)}</div><div class="gs">${esc(label)}</div></div>`
+    return cdCardHTML(c, {
+        locked: omega,
+        data: omega ? '' : `data-k="${c.__key}" data-n="${esc(c.name)}" data-p="${price}" data-i="${important ? 1 : 0}" data-gs="${esc(label)}"`,
+        gs: label
+    })
 }
 
-function sellPageHTML({ viewer, items, page, pages, code }) {
+function sellPageHTML({ viewer, items, page, pages, code, common = [] }) {
     return `${shellHead('بيع الشخصيات')}
-<body><div style="padding:30px 16px 90px">
+<body><style>${GIFT_CD_CSS}.ggrid.sell .cd .gs{left:auto;right:8px;top:auto;bottom:62px;transform:none;font-size:12px}.ggrid.sell .cd.locked .gs{right:8px}.selc{display:block;width:100%;max-width:520px;margin:0 auto 16px}</style><div style="padding:30px 16px 90px">
   <div class="topbar">
     <span class="tb-l">${NAV_BTN}<span class="gmode">بيع الشخصيات</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
   ${navDrawerHTML(code, viewer.csrf, 'sell', viewer.name)}
   <div class="ginfo">اختر الشخصيات التي تريد بيعها ثم اكتب «تأكيد»<br>(سعر الشخصية = نصف قوتها وبحد أدنى 100 — شخصيات Ω لا تُباع)<br><small>الصفحة ${page}/${pages}</small></div>
-  <div class="ggrid">${items.map(sellCardHTML).join('')}</div>
+  ${common.length ? `<button class="btn selc" id="selc" type="button">🧹 تحديد كل العادي (${common.length})</button>` : ''}
+  <div class="ggrid sell">${items.map(sellCardHTML).join('')}</div>
   ${pagerHTML(`/u/${code}/sell`, page, pages)}
   <section class="gpanel" id="gp" style="margin-top:26px">
     <div class="gp-count">المحددة: <b id="gc">0</b></div>
@@ -1605,6 +1671,7 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
 (function(){
   var MAX=50, CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, KEY='ssel:'+CODE;
   var sel={}; try{ sel=JSON.parse(sessionStorage.getItem(KEY)||'{}')||{}; }catch(e){ sel={}; }
+  var COMMON=${jsonForScript(common)};
   var busy=false;
   function $(id){ return document.getElementById(id); }
   function save(){ try{ sessionStorage.setItem(KEY,JSON.stringify(sel)); }catch(e){} }
@@ -1617,7 +1684,7 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
     ks.forEach(function(k){ total+=sel[k].p; if(sel[k].i) imp++; });
     $('gc').textContent=n;
     $('gprice').textContent='إجمالي سعر البيع: '+fm(total);
-    var cards=document.querySelectorAll('.gcard[data-k]');
+    var cards=document.querySelectorAll('.cd[data-k]');
     for(var i=0;i<cards.length;i++){ var on=!!sel[cards[i].getAttribute('data-k')]; cards[i].classList.toggle('on',on); cards[i].querySelector('.gs').textContent=on?'✓ محدد':cards[i].getAttribute('data-gs'); }
     var sum=$('sum');
     if(n>0){
@@ -1637,8 +1704,18 @@ function sellPageHTML({ viewer, items, page, pages, code }) {
     }
     show(null); save(); refresh();
   }
-  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.gcard[data-k]'); if(c) toggle(c); });
-  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.gcard[data-k]')){ e.preventDefault(); toggle(c); } } });
+  document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.cd[data-k]'); if(c) toggle(c); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.cd[data-k]')){ e.preventDefault(); toggle(c); } } });
+  var sc=$('selc');
+  if(sc) sc.addEventListener('click',function(){
+    if(busy) return;
+    var added=0,left=0;
+    for(var i=0;i<COMMON.length;i++){ var c=COMMON[i]; if(sel[c.k]) continue; if(keys().length>=MAX){ left++; continue; } sel[c.k]={n:c.n,p:c.p,i:false}; added++; }
+    save(); refresh();
+    if(left>0) show('warn','تم تحديد '+added+' من العادي (الحد '+MAX+' بكل عملية) وبقي '+left+' — اكتب «تأكيد» ثم كرر الزر بعد البيع.');
+    else if(added>0) show('good','تم تحديد كل العادي ('+added+' شخصية) من كل الصفحات.');
+    else show('warn','كل العادي محدد مسبقاً.');
+  });
   $('cf').addEventListener('input',refresh);
   $('go').addEventListener('click',function(){
     if(busy) return;
@@ -7184,15 +7261,15 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             // مفتاح فريد لكل بطاقة = hash المحتوى + رقم تكرار (لدعم نسختين متطابقتين)
             const seen = new Map()
-            const keyed = all.map(c => {
+            const keyed = all.map((c, i) => {
                 const h = charHash(c)
                 const n = seen.get(h) || 0
                 seen.set(h, n + 1)
-                return { c, key: `${h}:${n}` }
+                return { c, key: `${h}:${n}`, num: i + 1 } // num = نفس رقم الصفحة الرئيسية
             })
 
             const items = keyed.slice(offset, offset + PAGE_SIZE)
-                .map(({ c, key }) => ({ ...resolveDisplayChar(c, catIdx), __key: key }))
+                .map(({ c, key, num }) => ({ ...resolveDisplayChar(c, catIdx), __key: key, __num: num, __custom: !!c.customImage }))
 
             res.send(giftPageHTML({
                 title: player.username || player.name || 'شخصياتي',
@@ -7485,19 +7562,27 @@ function registerCharacterSite(app, Player, opts = {}) {
 
             // نفس مفاتيح صفحة الإهداء: hash المحتوى + رقم تكرار (لدعم نسختين متطابقتين)
             const seen = new Map()
-            const keyed = all.map(c => {
+            const keyed = all.map((c, i) => {
                 const h = charHash(c)
                 const n = seen.get(h) || 0
                 seen.set(h, n + 1)
-                return { c, key: `${h}:${n}` }
+                return { c, key: `${h}:${n}`, num: i + 1 } // num = نفس رقم الصفحة الرئيسية
             })
 
             const items = keyed.slice(offset, offset + PAGE_SIZE)
-                .map(({ c, key }) => ({ ...resolveDisplayChar(c, catIdx), __key: key }))
+                .map(({ c, key, num }) => ({ ...resolveDisplayChar(c, catIdx), __key: key, __num: num, __custom: !!c.customImage }))
+
+            // 🧹 كل شخصيات «عادي» من كل الصفحات (للزر: تحديد كل العادي) — نفس سعر البيع بالموقع
+            const common = keyed
+                .filter(({ c }) => HOME_TIER_KEY(c) === 'عادي')
+                .map(({ c, key }) => {
+                    const d = resolveDisplayChar(c, catIdx)
+                    return { k: key, n: String(d.name || ''), p: Math.max(100, Math.floor((Number(d.power) || 0) / 2)) }
+                })
 
             res.send(sellPageHTML({
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
-                items, page, pages, code
+                items, page, pages, code, common
             }))
         } catch (err) {
             console.error('sell page error:', err)
