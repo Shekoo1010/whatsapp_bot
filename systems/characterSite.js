@@ -603,10 +603,10 @@ function chipHTML(char) {
     return `<span class="chip" style="--tier:${t.color}"><i>${char.__num}</i>${esc(char.name)}</span>`
 }
 
-function pagerHTML(base, page, pages) {
+function pagerHTML(base, page, pages, param = 'page') {
     if (pages <= 1) return ''
     const link = (p, label, cls = '') =>
-        `<a class="pg ${cls}" href="${base}${String(base).includes('?') ? '&' : '?'}page=${p}">${label}</a>`
+        `<a class="pg ${cls}" href="${base}${String(base).includes('?') ? '&' : '?'}${param}=${p}">${label}</a>`
     let out = ''
     if (page > 1) out += link(page - 1, '→ السابق')
     for (let p = 1; p <= pages; p++) {
@@ -1077,6 +1077,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['wheel', '🎡', 'عجلة الحظ', `/u/${c}/wheel`],
         ['banner', '🌌', 'بنر الأسبوع', `/u/${c}/banner`],
         ['weapons', '⚔️', 'بنر الأسلحة', `/u/${c}/weapons`],
+        ['equip', '🗡️', 'تركيب الأسلحة', `/u/${c}/equip`],
         ['shop', '🏪', 'متجر الشخصيات', `/u/${c}/shop`],
         ['market', '🛍️', 'السوق (المزاد)', `/u/${c}/market`],
         ['boss', '👑', 'هجوم الزعيم', `/u/${c}/boss`],
@@ -1096,6 +1097,7 @@ function navDrawerHTML(code, csrf, current, name) {
         ['gallery', '🖼️', 'المعارض', `/u/${c}/gallery`],
         ['ship', '🚢', 'سفينتي', `/u/${c}/ship`],
         ['gift', '🎁', 'وضع الإهداء', `/u/${c}/gift`],
+        ['donate', '💰', 'تبرع بالمال', `/u/${c}/donate`],
         ['sell', '💰', 'بيع شخصيات', `/u/${c}/sell`],
         ['favorite', '⭐', 'المفضلة', `/u/${c}/favorite`],
         ['companion', '🐾', 'رفيقي', `/u/${c}/companion`],
@@ -1261,6 +1263,269 @@ function rewardsPageHTML({ log, code, csrf }) {
 ${navDrawerHTML(code, csrf, 'rewards')}
 <div class="lg-wrap">${rows || '<div class="lg-empty">ما وصلتك جوائز بعد — جرّب عجلة الحظ 🎡</div>'}</div>
 </body></html>`
+}
+
+// ⚔️ صفحة تركيب الأسلحة — نفس .تركيب_سلاح / .فك_سلاح بالبوت، ببطاقات الشخصيات نفسها (مثل البيع والإهداء)
+const EQUIP_CSS = `
+.eqh{max-width:1700px;margin:22px auto 10px;font-weight:900;font-size:16px;display:flex;align-items:center;gap:8px}
+.eqh small{color:#9aa3b8;font-weight:600;font-size:12px}
+.ggrid.eqw .cd .ar,.ggrid.eqw .cd.sss .ar{background-size:contain;background-repeat:no-repeat;background-position:center 42%;background-color:#12172b}
+.ggrid.eq .cd .gs,.ggrid.eqw .cd .gs{left:auto;right:8px;top:auto;bottom:62px;transform:none;font-size:11.5px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis}
+.ggrid.eq .cd,.ggrid.eqw .cd{content-visibility:auto;contain-intrinsic-size:auto 240px}
+.eqbar{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:45;max-width:560px;margin:22px auto 0;background:rgba(15,20,38,.96);border:1px solid #2a3350;border-radius:18px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+.eqbar .gp-sum{margin:0 0 10px;font-size:13px;padding:8px}
+.eqbtns{display:flex;gap:8px}
+.eqbtns .btn{margin-top:0;font-size:15px;padding:11px}
+.eqbtns .btn.go{background:linear-gradient(180deg,#f7d36a,#d9a520);color:#1a1200;border-color:#f0c04a;flex:2}
+.eqbtns .btn.un{flex:1;background:#12172b}
+.eqbtns .btn:disabled{opacity:.4;cursor:not-allowed}
+.eqe{max-width:520px;margin:10px auto;text-align:center;color:#9aa3b8;padding:26px 14px;border:1px dashed #2a3350;border-radius:16px;line-height:1.9}
+.eqe a{color:var(--gold)}
+`
+
+function weaponCardHTML(w, num, wcat) {  // الصورة تُحمَّل كسولاً (data-bg) عند الاقتراب من الشاشة
+    const cat = wcat.get(w.id)
+    const src = safeImageUrl((cat && cat.image) || w.image)
+    const icon = WEAPON_ICON[w.type] || '🗡️'
+    const stars = Math.max(1, Math.min(5, Number(w.rarity) || 5))
+    const color = stars >= 5 ? '#f0c04a' : stars === 4 ? '#c04aff' : stars === 3 ? '#3ea8ff' : '#8891a3'
+    const hasSub = w.subStatType && Number(w.subStatValue)
+    const sub = hasSub ? statLabel(w.subStatType).replace(/^\S+\s/, '') + ' ' + fmtVal(w.subStatType, w.subStatValue) : ''
+    const artStyle = src ? ` data-bg="${esc(src)}"` : ''
+    return `<div class="cd wcd" style="--t:${color}" data-w="${esc(w.key)}" data-wn="${esc(w.name)}" data-eq="${esc(w.equippedTo || '')}" role="button" tabindex="0" aria-label="${esc(w.name)}">
+      <div class="ar"${artStyle}>${src ? '' : icon}</div>
+      <span class="rt">${icon} ${esc(w.type || '')}</span>
+      <span class="pw">${'★'.repeat(stars)}</span>
+      <span class="no">#${num}</span>
+      <span class="gs">${w.equippedTo ? '🔗 ' + esc(w.equippedTo) : ''}</span>
+      <div class="pl"><div class="n">${esc(w.name)}</div><div class="a">⚡ ${esc(fmtNum(w.baseAtk))}${sub ? ' · ' + esc(sub) : ''}</div></div>
+    </div>`
+}
+
+function equipPageHTML({ viewer, weapons, wTotal, wOffset, wp, wpages, items, page, pages, code }) {
+    const wcat = new Map(getWeaponsCatalog().map(x => [x.id, x]))
+    const wCards = weapons.map((w, i) => weaponCardHTML(w, wOffset + i + 1, wcat)).join('')
+    const cCards = items.map(c => cdCardHTML(c, {
+        locked: false,
+        data: `data-k="${c.__key}" data-n="${esc(c.name)}" data-cw="${esc(c.__wname || '')}"`,
+        gs: c.__wname ? '🗡️ ' + c.__wname : ''
+    })).join('')
+    return `${shellHead('تركيب الأسلحة')}
+<body><style>${GIFT_CD_CSS}${EQUIP_CSS}</style><div style="padding:30px 16px 90px">
+  <div class="topbar">
+    <span class="tb-l">${NAV_BTN}<span class="gmode">🗡️ تركيب الأسلحة</span></span>
+    <a class="pill" href="/u/${code}">← رجوع للعرض</a>
+  </div>
+  ${navDrawerHTML(code, viewer.csrf, 'equip', viewer.name)}
+  <div class="ginfo">١) اختر السلاح &nbsp;٢) اختر الشخصية &nbsp;٣) اضغط «تركيب»<br>(سلاح واحد لكل شخصية — التركيب على شخصية عندها سلاح يستبدله)</div>
+  <div class="eqh">⚔️ أسلحتك <small>(${wTotal}${wpages > 1 ? ` — الصفحة ${wp}/${wpages}` : ''})</small></div>
+  ${weapons.length ? `<div class="ggrid eqw">${wCards}</div>${pagerHTML(`/u/${code}/equip?page=${page}`, wp, wpages, 'wp')}` : `<div class="eqe">ما عندك أسلحة بعد.<br><a href="/u/${esc(code)}/weapons">اسحب سلاح من بنر الأسلحة ←</a></div>`}
+  <div class="eqh">🧿 شخصياتك <small>(الصفحة ${page}/${pages})</small></div>
+  ${items.length ? `<div class="ggrid eq">${cCards}</div>` : `<div class="eqe">ما عندك شخصيات.</div>`}
+  ${pagerHTML(`/u/${code}/equip?wp=${wp}`, page, pages)}
+  <section class="eqbar" id="gp">
+    <div class="gp-sum" id="sum" hidden></div>
+    <div class="gp-msg" id="msg" hidden></div>
+    <div class="eqbtns">
+      <button class="btn go" id="eq" type="button" disabled>⚔️ تركيب</button>
+      <button class="btn un" id="un" type="button" disabled>🔓 فك السلاح</button>
+    </div>
+  </section>
+</div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, WK='wsel:'+CODE;
+  var W=null, C=null, busy=false;
+  try{ W=JSON.parse(sessionStorage.getItem(WK)||'null'); }catch(e){ W=null; }
+  function $(id){ return document.getElementById(id); }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function saveW(){ try{ if(W) sessionStorage.setItem(WK,JSON.stringify(W)); else sessionStorage.removeItem(WK); }catch(e){} }
+  function refresh(){
+    var ws=document.querySelectorAll('.cd[data-w]'), i;
+    for(i=0;i<ws.length;i++){ var on=!!W&&ws[i].getAttribute('data-w')===W.k; ws[i].classList.toggle('on',on); if(on){ W.eq=ws[i].getAttribute('data-eq')||''; W.n=ws[i].getAttribute('data-wn')||W.n; } }
+    var cs=document.querySelectorAll('.cd[data-k]');
+    for(i=0;i<cs.length;i++){ cs[i].classList.toggle('on',!!C&&cs[i].getAttribute('data-k')===C.k); }
+    var t='';
+    if(W&&C){ t='تركيب «'+W.n+'» على «'+C.n+'»'+(C.cw&&C.cw!==W.n?' (يستبدل «'+C.cw+'»)':'')+((W.eq&&W.eq!==C.n)?' — وينتقل من «'+W.eq+'»':'')+'.'; }
+    else if(W){ t='السلاح: «'+W.n+'»'+(W.eq?' (مركّب على «'+W.eq+'»)':'')+' — اختر الشخصية بالأسفل.'; }
+    else if(C){ t='الشخصية: «'+C.n+'»'+(C.cw?' (سلاحها «'+C.cw+'»)':'')+' — اختر سلاحاً من الأعلى.'; }
+    var sum=$('sum'); sum.textContent=t; sum.hidden=!t;
+    $('eq').disabled=busy||!(W&&C);
+    $('un').disabled=busy||!((W&&W.eq)||(C&&C.cw));
+  }
+  function pickW(card){ var k=card.getAttribute('data-w'); if(busy) return; if(W&&W.k===k){ W=null; } else { W={k:k,n:card.getAttribute('data-wn'),eq:card.getAttribute('data-eq')||''}; } saveW(); show(null); refresh(); }
+  function pickC(card){ var k=card.getAttribute('data-k'); if(busy) return; if(C&&C.k===k){ C=null; } else { C={k:k,n:card.getAttribute('data-n'),cw:card.getAttribute('data-cw')||''}; } show(null); refresh(); }
+  document.addEventListener('click',function(e){
+    var t=e.target.closest&&e.target.closest('.cd'); if(!t) return;
+    if(t.hasAttribute('data-w')) pickW(t); else if(t.hasAttribute('data-k')) pickC(t);
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.cd')){ e.preventDefault(); c.click(); } } });
+  function send(op){
+    if(busy) return;
+    var body={csrf:CSRF,code:CODE,op:op};
+    if(op==='equip'){ if(!(W&&C)) return; body.wi=W.k; body.ck=C.k; }
+    else if(W&&W.eq){ body.wi=W.k; }
+    else if(C&&C.cw){ body.ck=C.k; }
+    else return;
+    busy=true; refresh(); show('warn','جارٍ التنفيذ…');
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },20000);
+    fetch('/equip',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,body:JSON.stringify(body)})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm);
+      if(x.j.ok){ W=null; C=null; saveW(); show('good',x.j.message); setTimeout(function(){ location.reload(); },1000); return; }
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      show('bad',x.j.message||'فشلت العملية'); busy=false; refresh();
+    })
+    .catch(function(){ clearTimeout(tm); show('bad','تعذر الاتصال بالسيرفر — حدّث الصفحة وتأكد من الحالة.'); busy=false; refresh(); });
+  }
+  (function(){
+    var els=document.querySelectorAll('.cd .ar[data-bg]');
+    function load(el){ var u=el.getAttribute('data-bg'); if(u){ el.style.backgroundImage="url('"+u.replace(/'/g,'%27')+"')"; el.removeAttribute('data-bg'); } }
+    if(!('IntersectionObserver' in window)){ for(var i=0;i<els.length;i++) load(els[i]); return; }
+    var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ load(e.target); io.unobserve(e.target); } }); },{rootMargin:'300px'});
+    for(var j=0;j<els.length;j++) io.observe(els[j]);
+  })();
+  $('eq').addEventListener('click',function(){ send('equip'); });
+  $('un').addEventListener('click',function(){ send('unequip'); });
+  refresh();
+})();
+</script></body></html>`
+}
+
+// 💰 صفحة التبرع بمال البوت — نفس أمر .تبرع (أنميشن خفيف CSS فقط، بدون مكتبات)
+const DONATE_MONEY_CSS = `
+.dnx-bg{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.dnx-bg i{position:absolute;bottom:-40px;left:var(--l);font-style:normal;font-size:var(--z);opacity:0;animation:dnxRise var(--d) linear var(--s) infinite;will-change:transform,opacity}
+@keyframes dnxRise{0%{transform:translateY(0) rotate(0);opacity:0}12%{opacity:.5}85%{opacity:.35}100%{transform:translateY(-112vh) rotate(300deg);opacity:0}}
+.dnx-wrap{position:relative;z-index:1;max-width:520px;margin:0 auto;padding:16px 14px 50px}
+.dnx-wrap h1{text-align:center;font-weight:900;font-size:21px;margin:6px 0 4px}
+.dnx-sub{text-align:center;color:#9aa3b8;font-size:13.5px;line-height:1.9;margin:0 6px 16px}
+.dnx-bal{position:relative;text-align:center;border-radius:22px;padding:18px 12px 16px;background:linear-gradient(160deg,#241a05,#0f1426 70%);border:1.5px solid rgba(240,192,74,.55);overflow:hidden;margin-bottom:14px}
+.dnx-bal::before{content:"";position:absolute;left:50%;top:-40%;width:70%;aspect-ratio:1;transform:translateX(-50%);background:radial-gradient(circle,rgba(240,192,74,.35),transparent 65%);animation:dnxGlow 3.2s ease-in-out infinite}
+@keyframes dnxGlow{50%{opacity:.35}}
+.dnx-bal small{display:block;color:#c9b27a;font-size:12.5px;position:relative}
+.dnx-bal b{display:block;font-family:'Oswald',sans-serif;font-size:34px;color:#f0c04a;margin-top:2px;position:relative;direction:ltr;letter-spacing:.5px}
+.dnx-coin{display:inline-block;animation:dnxSpin 2.6s ease-in-out infinite}
+@keyframes dnxSpin{0%,100%{transform:rotateY(0)}50%{transform:rotateY(180deg)}}
+.dnx-card{background:#0f1426;border:1px solid #232b45;border-radius:22px;padding:16px;box-shadow:0 12px 36px rgba(0,0,0,.4)}
+.dnx-card label{display:block;font-weight:800;font-size:13px;color:#cfd6e6;margin:0 2px 6px}
+.dnx-card .fld{margin-bottom:12px}
+.dnx-chips{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
+.dnx-chips button{flex:1;min-width:58px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12.5px;color:#f0c04a;background:rgba(240,192,74,.08);border:1px solid rgba(240,192,74,.4);border-radius:12px;padding:7px 4px;cursor:pointer}
+.dnx-chips button:active{transform:scale(.94)}
+.dnx-fee{text-align:center;color:#8d96ab;font-size:12px;margin-top:10px;line-height:1.8}
+.dnx-go{position:relative;overflow:hidden;background:linear-gradient(180deg,#f7d36a,#d9a520)!important;color:#1a1200!important;border-color:#f0c04a!important}
+.dnx-go:disabled{opacity:.45;cursor:not-allowed}
+.dnx-go::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.5) 50%,transparent 60%);transform:translateX(-130%);animation:dnxSw 3.6s ease-in-out infinite}
+.dnx-go:disabled::after{animation:none}
+@keyframes dnxSw{55%,100%{transform:translateX(130%)}}
+.dnx-ok{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.dnx-ok .ring{width:112px;height:112px;border-radius:50%;background:radial-gradient(circle,#1d3a22,#0c1a10);border:3px solid #7dffb0;display:flex;align-items:center;justify-content:center;font-size:54px;animation:dnxPop 1.5s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes dnxPop{0%{transform:scale(0);opacity:0}25%{transform:scale(1.12);opacity:1}40%{transform:scale(1)}85%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
+.dnx-ok s{position:absolute;left:50%;top:50%;text-decoration:none;font-size:26px;opacity:0;animation:dnxBurst 1.2s ease-out forwards}
+@keyframes dnxBurst{0%{transform:translate(-50%,-50%) scale(.3);opacity:1}100%{transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1) rotate(200deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.dnx-bg i,.dnx-bal::before,.dnx-coin,.dnx-go::after{animation:none}.dnx-bg{display:none}.dnx-ok s{display:none}}
+`
+
+function donateMoneyPageHTML({ code, csrf, name, balance, fee, costText }) {
+    const coins = [[6, 11, 0, 22], [17, 9, 3, 16], [29, 13, 6, 26], [41, 10, 1.5, 18], [54, 12, 4.5, 24], [66, 9.5, 2, 16], [78, 11.5, 7, 22], [90, 10.5, 0.8, 18]]
+        .map(([l, d, st, z]) => `<i style="--l:${l}%;--d:${d}s;--s:-${st}s;--z:${z}px">🪙</i>`).join('')
+    return `${shellHead('تبرع بالمال')}
+<body><style>${DONATE_MONEY_CSS}</style>
+<div class="dnx-bg" aria-hidden="true">${coins}</div>
+<div class="topbar"><span class="tb-l">${NAV_BTN}<span class="gmode">💰 تبرع بالمال</span></span><a class="pill" href="/u/${esc(code)}">رجوع</a></div>
+${navDrawerHTML(code, csrf, 'donate', name)}
+<div class="dnx-wrap">
+  <h1><span class="dnx-coin">🪙</span> تبرع بالمال</h1>
+  <p class="dnx-sub">حوّل جزءاً من مالك إلى لاعب آخر — نفس أمر <b>.تبرع</b> بالبوت.<br>لا يمكن التبرع بالمال المقترض من البنك.</p>
+  <div class="dnx-bal"><small>رصيدك المتاح للتبرع</small><b id="bal">0</b></div>
+  <section class="dnx-card">
+    <label for="to">يوزر المستلم</label>
+    <input class="fld" id="to" placeholder="مثال: ahmad" autocomplete="off" autocapitalize="off" maxlength="10">
+    <label for="amt">المبلغ</label>
+    <input class="fld" id="amt" inputmode="numeric" placeholder="0" autocomplete="off" maxlength="15" style="direction:ltr;text-align:center;font-family:'Oswald',sans-serif;font-size:20px">
+    <div class="dnx-chips" id="chips"><button type="button" data-a="1000">1K</button><button type="button" data-a="10000">10K</button><button type="button" data-a="50000">50K</button><button type="button" data-a="100000">100K</button><button type="button" data-a="max">الكل</button></div>
+    <div class="gp-sum" id="sum" hidden></div>
+    <label for="pw">كلمة المرور للتأكيد</label>
+    <input class="fld" id="pw" type="password" placeholder="أعد كتابة كلمة المرور" autocomplete="current-password" maxlength="200">
+    <div class="gp-msg" id="msg" hidden></div>
+    <button class="btn dnx-go" id="go" type="button" disabled>💸 تأكيد التبرع</button>
+    <div class="dnx-fee">رسوم استخدام اليوزرنيم: ${esc(costText)} تُخصم زيادة على المبلغ (مثل الأمر).<br>العملية لا يمكن التراجع عنها.</div>
+  </section>
+</div>
+<script>
+(function(){
+  var CODE=${jsonForScript(code)}, CSRF=${jsonForScript(csrf)}, FEE=${jsonForScript(fee)}, bal=${jsonForScript(balance)};
+  var busy=false, op=uuid(), shown=0;
+  function $(id){ return document.getElementById(id); }
+  function uuid(){ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); var s=''; for(var i=0;i<36;i++){ if(i==8||i==13||i==18||i==23) s+='-'; else s+=Math.floor(Math.random()*16).toString(16); } return s; }
+  function fm(n){ return Number(n).toLocaleString('en-US'); }
+  function maxAmt(){ return Math.max(0,bal-FEE); }
+  function validUser(v){ return /^[A-Za-z\\u0600-\\u06FF]{1,10}$/.test(v); }
+  function amount(){
+    var v=String($('amt').value||'').replace(/[\\u0660-\\u0669]/g,function(d){ return String(d.charCodeAt(0)-1632); }).replace(/[^0-9]/g,'');
+    if(!v||v.length>15) return 0; var n=parseInt(v,10); return isFinite(n)?n:0;
+  }
+  function show(kind,text){ var m=$('msg'); if(!text){ m.hidden=true; return; } m.className='gp-msg '+kind; m.textContent=text; m.hidden=false; }
+  function countTo(to){
+    var from=shown, t0=0, dur=650; shown=to;
+    if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){ $('bal').textContent=fm(to); return; }
+    function step(t){ if(!t0) t0=t; var k=Math.min(1,(t-t0)/dur); k=1-Math.pow(1-k,3); $('bal').textContent=fm(Math.round(from+(to-from)*k)); if(k<1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+  function rotate(){ op=uuid(); }
+  function refresh(){
+    var to=$('to').value.trim(), a=amount(), pw=$('pw').value, mx=maxAmt();
+    var sum=$('sum');
+    if(a>0&&validUser(to)){
+      sum.textContent='ستتبرع بـ '+fm(a)+' إلى @'+to+' + رسوم '+fm(FEE)+' = '+fm(a+FEE)+' · رصيدك بعدها: '+fm(Math.max(0,bal-a-FEE));
+      sum.hidden=false;
+    } else { sum.hidden=true; }
+    $('go').disabled=busy||!validUser(to)||a<1||a>mx||!pw;
+  }
+  $('to').addEventListener('input',function(){ rotate(); refresh(); });
+  $('amt').addEventListener('input',function(){ var a=amount(); if(a>0){ $('amt').value=fm(a); } rotate(); refresh(); });
+  $('pw').addEventListener('input',refresh);
+  $('chips').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('button[data-a]'); if(!b) return;
+    var v=b.getAttribute('data-a'); var n=v==='max'?maxAmt():Math.min(parseInt(v,10),maxAmt());
+    $('amt').value=n>0?fm(n):''; rotate(); refresh();
+  });
+  function burst(){
+    var d=document.createElement('div'); d.className='dnx-ok'; d.setAttribute('aria-hidden','true');
+    var h='<div class="ring">✅</div>';
+    for(var i=0;i<14;i++){ var ang=(i/14)*Math.PI*2, r=110+Math.random()*90; h+='<s style="--x:'+Math.round(Math.cos(ang)*r)+'px;--y:'+Math.round(Math.sin(ang)*r)+'px;animation-delay:'+(i%4)*0.04+'s">🪙</s>'; }
+    d.innerHTML=h; document.body.appendChild(d); setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); },1700);
+  }
+  $('go').addEventListener('click',function(){
+    if(busy) return;
+    var to=$('to').value.trim(), a=amount(), pw=$('pw').value;
+    if(!validUser(to)||a<1||!pw) return;
+    busy=true; $('go').disabled=true; $('go').textContent='جارٍ التحويل…'; show('warn','جارٍ تنفيذ التبرع، لا تغلق الصفحة…');
+    var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
+    fetch('/donate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
+      body:JSON.stringify({csrf:CSRF,code:CODE,op:op,to:to,amount:a,password:pw})})
+    .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
+    .then(function(x){
+      clearTimeout(tm); $('go').textContent='💸 تأكيد التبرع';
+      if(x.j.ok){
+        if(typeof x.j.balance==='number'){ bal=x.j.balance; countTo(bal); }
+        $('pw').value=''; $('amt').value=''; $('to').value=''; rotate(); show('good',x.j.message); burst(); busy=false; refresh(); return;
+      }
+      if(x.s===401){ location.href='/login?code='+CODE; return; }
+      if(x.j.code==='BAD_PW'){ $('pw').value=''; }
+      show('bad',x.j.message||'فشل التبرع'); busy=false; refresh();
+    })
+    .catch(function(){
+      clearTimeout(tm); $('go').textContent='💸 تأكيد التبرع';
+      show('warn','لم يصلنا رد من السيرفر — قد تكون العملية تمت. حدّث الصفحة وتأكد من رصيدك. إعادة المحاولة آمنة ولن تكرر التبرع.');
+      busy=false; refresh();
+    });
+  });
+  countTo(bal); refresh();
+})();
+</script></body></html>`
 }
 
 // 💜 صفحة «ادعم المشروع» — بطاقة STC Bank بأزرار نسخ (عدّل البيانات من DONATE فقط)
@@ -1512,6 +1777,23 @@ const GIFT_CD_CSS = `
 .ggrid .cd.locked .gs{background:rgba(8,10,18,.88); color:#ffd36b; border:1px solid var(--t); box-shadow:none}
 `
 
+const GIFT_SEARCH_CSS = `
+.gsr{max-width:560px;margin:0 auto 16px;position:relative}
+.gsr .fld{margin-bottom:0}
+.gsr-l{margin-top:8px;background:#0f1426;border:1px solid #232b45;border-radius:16px;overflow:hidden}
+.gsr-r{display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-bottom:1px solid #1a2138;--t:#8891a3}
+.gsr-r:last-child{border-bottom:0}
+.gsr-r:active,.gsr-r.on{background:color-mix(in srgb,var(--t) 16%,#0f1426)}
+.gsr-r i{flex:none;width:42px;height:42px;border-radius:10px;background:#12172b center top/cover;border:1.5px solid var(--t)}
+.gsr-t{flex:1;min-width:0}.gsr-t b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gsr-t small{display:block;color:#9aa3b8;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gsr-m{flex:none;font-weight:800;font-size:12px;color:#0a0d16;background:var(--t);border-radius:10px;padding:3px 10px}
+.gsr-r.lk{opacity:.5}.gsr-r.lk .gsr-m{background:#2a3350;color:#ffd36b}
+.gsr-e{padding:14px;text-align:center;color:#9aa3b8;font-size:13px}
+.gsel{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0 2px}
+.gsel span{font-size:12px;font-weight:800;background:rgba(240,192,74,.12);color:#f0c04a;border:1px solid rgba(240,192,74,.4);border-radius:12px;padding:3px 10px;cursor:pointer}
+`
+
 function cdCardHTML(c, { locked, data, gs }) {
     const tierKey = resolveTierKey(c.rarity, c.evolutionLevel)
     const t = TIERS[tierKey] || TIERS['عادي']
@@ -1549,17 +1831,19 @@ function giftCardHTML(c) {
 
 function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
     return `${shellHead('وضع الإهداء')}
-<body><style>${GIFT_CD_CSS}</style><div style="padding:30px 16px 90px">
+<body><style>${GIFT_CD_CSS}${GIFT_SEARCH_CSS}</style><div style="padding:30px 16px 90px">
   <div class="topbar">
     <span class="tb-l">${NAV_BTN}<span class="gmode">وضع الإهداء</span></span>
     <a class="pill" href="/u/${code}">← رجوع للعرض</a>
   </div>
   ${navDrawerHTML(code, viewer.csrf, 'gift', viewer.name)}
   <div class="ginfo">اختر الشخصيات التي تريد إهداءها<br>(الحد الأقصى خمس شخصيات — شخصيات Ω لا تُهدى)<br><small>الصفحة ${page}/${pages}</small></div>
+  <div class="gsr"><input class="fld" id="q" type="search" placeholder="🔍 ابحث في كل شخصياتك (اسم الشخصية أو الأنمي)" autocomplete="off" maxlength="40"><div class="gsr-l" id="ql" hidden></div></div>
   <div class="ggrid">${items.map(giftCardHTML).join('')}</div>
   ${pagerHTML(`/u/${code}/gift`, page, pages)}
   <section class="gpanel" id="gp" style="margin-top:26px">
     <div class="gp-count">المحددة: <b id="gc">0</b> من 5</div>
+    <div class="gsel" id="chips"></div>
     <div class="gp-price">سعر الإهداء: ${esc(costText)}</div>
     <input class="fld" id="to" placeholder="يوزر المستلم" autocomplete="off" autocapitalize="off" maxlength="10">
     <div class="gp-sum" id="sum" hidden></div>
@@ -1590,12 +1874,55 @@ function giftPageHTML({ title, viewer, items, page, pages, code, costText }) {
     if(n>0&&validUser(to)){ var names=keys().map(function(k){return sel[k];}).join('، '); sum.innerHTML=''; sum.appendChild(document.createTextNode('سيتم إهداء ')); var b=document.createElement('b'); b.textContent=names; sum.appendChild(b); sum.appendChild(document.createTextNode(' إلى @'+to+'. ستُخصم ${esc(costText)} ولا يمكن التراجع.')); sum.hidden=false; } else { sum.hidden=true; }
     $('go').disabled = busy || n<1 || !validUser(to) || !pw;
     var j=$('jump'); if(n>0){ j.textContent='المحددة '+n+'/'+MAX+' — متابعة ↓'; j.hidden=false; } else { j.hidden=true; }
+    renderChips(); markRows();
   }
-  function toggle(card){
-    var k=card.getAttribute('data-k'); if(!k||busy) return;
-    if(sel[k]){ delete sel[k]; } else { if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصيات.'); return; } sel[k]=card.getAttribute('data-n'); }
+  function flip(k,n){
+    if(!k||busy) return;
+    if(sel[k]){ delete sel[k]; } else { if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصيات.'); return; } sel[k]=n; }
     show(null); save(); rotate(); refresh();
   }
+  function toggle(card){ flip(card.getAttribute('data-k'),card.getAttribute('data-n')); }
+  function norm(v){ return String(v||'').toLowerCase().replace(/[\u064B-\u0652\u0640]/g,'').replace(/[\u0623\u0625\u0622]/g,'\u0627').replace(/\u0629/g,'\u0647').replace(/\u0649/g,'\u064A').trim(); }
+  function renderChips(){
+    var box=$('chips'); box.textContent='';
+    keys().forEach(function(k){ var s=document.createElement('span'); s.textContent=sel[k]+' ✕'; s.onclick=function(){ flip(k,sel[k]); }; box.appendChild(s); });
+  }
+  function markRows(){
+    var rows=document.querySelectorAll('#ql .gsr-r');
+    for(var i=0;i<rows.length;i++){ var k=rows[i].getAttribute('data-k'); rows[i].classList.toggle('on',!!sel[k]); var m=rows[i].querySelector('.gsr-m'); if(m&&!rows[i].classList.contains('lk')) m.textContent=sel[k]?'✓ محدد':'+ تحديد'; }
+  }
+  var qTimer=null, qSeq=0;
+  function renderRows(list){
+    var box=$('ql'); box.textContent='';
+    if(!list.length){ var e=document.createElement('div'); e.className='gsr-e'; e.textContent='ما لقينا شخصية بهذا الاسم'; box.appendChild(e); box.hidden=false; return; }
+    list.forEach(function(c){
+      var r=document.createElement('div'); r.className='gsr-r'+(c.l?' lk':''); r.setAttribute('data-k',c.k); r.style.setProperty('--t',c.c);
+      var th=document.createElement('i'); if(c.i) th.style.backgroundImage="url('"+String(c.i).replace(/'/g,'%27')+"')"; r.appendChild(th);
+      var tx=document.createElement('div'); tx.className='gsr-t';
+      var a=document.createElement('b'); a.textContent='#'+c.u+' '+c.n; var b=document.createElement('small'); b.textContent=(c.a||'')+' · '+c.t+' · '+Number(c.p).toLocaleString('en-US');
+      tx.appendChild(a); tx.appendChild(b); r.appendChild(tx);
+      var m=document.createElement('span'); m.className='gsr-m'; m.textContent=c.l?'لا يُهدى':'+ تحديد'; r.appendChild(m);
+      r.onclick=function(){
+        if(c.l){ show('warn','هذه الشخصية لا تُهدى (Ω).'); return; }
+        flip(c.k,c.n);
+        var card=document.querySelector('.cd[data-k="'+c.k+'"]'); if(card&&sel[c.k]) card.scrollIntoView({block:'center',behavior:'smooth'});
+      };
+      box.appendChild(r);
+    });
+    box.hidden=false; markRows();
+  }
+  function search(){
+    var v=$('q').value.trim(), box=$('ql'); clearTimeout(qTimer);
+    if(!v){ qSeq++; box.hidden=true; box.textContent=''; return; }
+    qTimer=setTimeout(function(){
+      var my=++qSeq;
+      fetch('/u/'+encodeURIComponent(CODE)+'/gift/search?q='+encodeURIComponent(v),{credentials:'same-origin',headers:{'Accept':'application/json'}})
+      .then(function(r){ if(r.status===401){ location.href='/login?code='+CODE; return null; } return r.json(); })
+      .then(function(j){ if(!j||my!==qSeq) return; if(j.ok) renderRows(j.items||[]); else { box.textContent=''; var e=document.createElement('div'); e.className='gsr-e'; e.textContent=j.message||'تعذر البحث'; box.appendChild(e); box.hidden=false; } })
+      .catch(function(){ if(my!==qSeq) return; box.textContent=''; var e=document.createElement('div'); e.className='gsr-e'; e.textContent='تعذر الاتصال بالسيرفر'; box.appendChild(e); box.hidden=false; });
+    },280);
+  }
+  $('q').addEventListener('input',search);
   document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.cd[data-k]'); if(c) toggle(c); });
   document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.cd[data-k]')){ e.preventDefault(); toggle(c); } } });
   $('to').addEventListener('input',function(){ rotate(); refresh(); });
@@ -7282,6 +7609,61 @@ function registerCharacterSite(app, Player, opts = {}) {
         }
     })
 
+    // 🔍 بحث شخصياتي بتبويب الإهداء — يُستدعى فقط عند الكتابة (لا يُحسب شيء عند فتح الصفحة)
+    const gsHits = new Map()
+    app.get('/u/:code/gift/search', async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, message) => res.status(status).json({ ok: false, message })
+        try {
+            securityHeaders(res)
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return fail(404, 'غير موجود')
+            const q = String(req.query.q || '').trim().slice(0, 40)
+            if (!q) return res.json({ ok: true, items: [] })
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId characters sessionVersion')
+                .lean()
+            if (!player) return fail(404, 'غير موجود')
+            const sess = ownerSession(req, player)
+            if (!sess) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
+
+            const now = Date.now()
+            const arr = (gsHits.get(sess.u) || []).filter(t => now - t < 60 * 1000)
+            if (arr.length >= 60) { gsHits.set(sess.u, arr); return fail(429, 'طلبات كثيرة، انتظر قليلاً.') }
+            arr.push(now); gsHits.set(sess.u, arr)
+
+            const norm = v => String(v || '').toLowerCase()
+                .replace(/[\u064B-\u0652\u0640]/g, '').replace(/[\u0623\u0625\u0622]/g, '\u0627')
+                .replace(/\u0629/g, '\u0647').replace(/\u0649/g, '\u064A').trim()
+            const nq = norm(q)
+            const all = sortChars(player.characters || [])
+            const catIdx = getCatalogIndex(getCatalog)
+            const seen = new Map()
+            const out = []
+            for (let i = 0; i < all.length && out.length < 8; i++) {
+                const c = all[i]
+                const h = charHash(c)
+                const n = seen.get(h) || 0
+                seen.set(h, n + 1)
+                const d = resolveDisplayChar(c, catIdx)
+                if (norm(String(d.name || '') + ' ' + String(d.anime || '')).indexOf(nq) < 0) continue
+                const tk = resolveTierKey(d.rarity, d.evolutionLevel)
+                const tr = TIERS[tk] || TIERS['عادي']
+                const img = tr.idx >= FIRST_IMAGE_TIER ? safeImageUrl(d.image) : (safeImageUrl(d.image) || localCharImageUrl(d.image))
+                out.push({
+                    k: `${h}:${n}`, n: String(d.name || ''), a: String(d.anime || ''), t: tk, c: tr.color,
+                    p: Number(d.power) || 0, u: i + 1, i: img || '',
+                    l: tk === 'Ω OMEGA' || Number(d.evolutionLevel) >= 7
+                })
+            }
+            res.json({ ok: true, items: out })
+        } catch (err) {
+            console.error('gift search error:', err)
+            return fail(500, 'خطأ بالخادم')
+        }
+    })
+
     // ─────────────── سحب شخصية (نفس .اسحب) ───────────────
     app.get('/u/:code/pull', async (req, res) => {
         try {
@@ -7619,6 +8001,262 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('sell route error:', err)
             return g.fail(500, 'SERVER', TRADE_ERRORS.SERVER)
+        }
+    })
+
+    // ─────────────── ⚔️ تركيب الأسلحة (نفس .تركيب_سلاح / .فك_سلاح) ───────────────
+    app.get('/u/:code/equip', async (req, res) => {
+        try {
+            securityHeaders(res)
+            res.set('Cache-Control', 'no-store')
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username characters weaponsInventory sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+
+            const inv = (player.weaponsInventory || [])
+            const weapons = inv.map((w, i) => w && ({
+                key: String(w.instanceId || ('i' + i)),
+                id: w.id, name: String(w.name || ''), type: String(w.type || ''), rarity: w.rarity,
+                baseAtk: w.baseAtk, subStatType: w.subStatType, subStatValue: w.subStatValue,
+                image: w.image, equippedTo: w.equippedTo ? String(w.equippedTo) : ''
+            })).filter(Boolean)
+            const wByChar = new Map()
+            for (const w of weapons) if (w.equippedTo && !wByChar.has(w.equippedTo)) wByChar.set(w.equippedTo, w.name)
+
+            const all = sortChars(player.characters || [])
+            const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
+            const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1))
+            const offset = (page - 1) * PAGE_SIZE
+            const catIdx = getCatalogIndex(getCatalog)
+
+            // ⚔️ ترقيم الأسلحة (24 بالصفحة) — الصور تُحمَّل كسولاً بالمتصفح
+            const W_PAGE = 24
+            const wpages = Math.max(1, Math.ceil(weapons.length / W_PAGE))
+            const wp = Math.min(wpages, Math.max(1, parseInt(req.query.wp, 10) || 1))
+            const wOffset = (wp - 1) * W_PAGE
+
+            const seen = new Map()
+            const keyed = all.map((c, i) => {
+                const h = charHash(c)
+                const n = seen.get(h) || 0
+                seen.set(h, n + 1)
+                return { c, key: `${h}:${n}`, num: i + 1 }
+            })
+            const items = keyed.slice(offset, offset + PAGE_SIZE)
+                .map(({ c, key, num }) => ({ ...resolveDisplayChar(c, catIdx), __key: key, __num: num, __custom: !!c.customImage, __wname: wByChar.get(String(c.name || '')) || '' }))
+
+            res.send(equipPageHTML({
+                viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                weapons: weapons.slice(wOffset, wOffset + W_PAGE), wTotal: weapons.length, wOffset, wp, wpages,
+                items, page, pages, code
+            }))
+        } catch (err) {
+            console.error('equip page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/equip', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, () => true)
+        if (!g || !g.sess) return
+        try {
+            const b = g.body
+            const op = b.op === 'unequip' ? 'unequip' : 'equip'
+            const wk = String(b.wi || '')
+            const ck = String(b.ck || '')
+            if (wk && !/^[A-Za-z0-9_-]{1,64}$/.test(wk)) return g.fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
+            if (ck && !/^[a-f0-9]{40}:\d{1,4}$/.test(ck)) return g.fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
+            if (op === 'equip' && (!wk || !ck)) return g.fail(400, 'BAD_PICKS', 'اختر سلاحاً وشخصية أولاً.')
+            if (op === 'unequip' && !wk && !ck) return g.fail(400, 'BAD_PICKS', 'اختر سلاحاً أو شخصية أولاً.')
+
+            const player = await Player.findOne({ userId: g.sess.u })
+            if (!player) return g.fail(400, 'NO_ACCOUNT', 'لا تملك حساباً.')
+            const inv = player.weaponsInventory || []
+
+            const findWeapon = k => inv.find((w, i) => w && String(w.instanceId || ('i' + i)) === k) || null
+            const plainChars = sortChars((player.characters || []).map(c => (c && typeof c.toObject === 'function') ? c.toObject() : c))
+            const findChar = k => {
+                const seen = new Map()
+                for (const c of plainChars) {
+                    const h = charHash(c)
+                    const n = seen.get(h) || 0
+                    seen.set(h, n + 1)
+                    if (`${h}:${n}` === k) return c
+                }
+                return null
+            }
+
+            if (op === 'equip') {
+                const weapon = findWeapon(wk)
+                const ch = findChar(ck)
+                if (!weapon) return g.fail(404, 'NO_WEAPON', 'السلاح غير موجود — حدّث الصفحة.')
+                if (!ch) return g.fail(404, 'NO_CHAR', 'الشخصية غير موجودة — حدّث الصفحة.')
+                const name = String(ch.name || '')
+                // سلاح واحد فقط لكل شخصية (نفس منطق البوت)
+                inv.forEach(w => { if (w && w.equippedTo === name) w.equippedTo = null })
+                weapon.equippedTo = name
+                player.markModified('weaponsInventory')
+                await player.save()
+                return res.json({ ok: true, message: `✅ تم تركيب ${weapon.name} على ${name}` })
+            }
+
+            // فك
+            let weaponName = '', charName = ''
+            if (wk) {
+                const weapon = findWeapon(wk)
+                if (!weapon) return g.fail(404, 'NO_WEAPON', 'السلاح غير موجود — حدّث الصفحة.')
+                if (!weapon.equippedTo) return g.fail(400, 'NOT_EQUIPPED', 'هذا السلاح غير مركّب على أي شخصية.')
+                weaponName = weapon.name; charName = weapon.equippedTo
+                weapon.equippedTo = null
+            } else {
+                const ch = findChar(ck)
+                if (!ch) return g.fail(404, 'NO_CHAR', 'الشخصية غير موجودة — حدّث الصفحة.')
+                charName = String(ch.name || '')
+                const mine = inv.filter(w => w && w.equippedTo === charName)
+                if (!mine.length) return g.fail(400, 'NOT_EQUIPPED', `${charName} ما عندها سلاح مركّب.`)
+                weaponName = mine[0].name
+                mine.forEach(w => { w.equippedTo = null })
+            }
+            player.markModified('weaponsInventory')
+            await player.save()
+            return res.json({ ok: true, message: `🔓 تم فك ${weaponName} من ${charName}` })
+        } catch (err) {
+            if (err && err.name === 'VersionError') return g.fail(409, 'BUSY', 'صار تعديل بنفس اللحظة — أعد المحاولة.')
+            console.error('equip route error:', err)
+            return g.fail(500, 'SERVER', 'صار خطأ بالخادم — حدّث الصفحة وتأكد من الحالة.')
+        }
+    })
+
+    // ─────────────── 💰 التبرع بمال البوت (نفس .تبرع — باليوزر فقط) ───────────────
+    const donateBusy = new Set()
+    const donateDone = new Map()
+    app.get('/u/:code/donate', async (req, res) => {
+        try {
+            securityHeaders(res)
+            res.set('Cache-Control', 'no-store')
+            const code = String(req.params.code || '')
+            if (!CODE_RE.test(code)) return html404(res)
+            const player = await Player.findOne({ siteCode: code })
+                .select('userId name username money bank sessionVersion')
+                .lean()
+            if (!player) return html404(res)
+            const sess = ownerSession(req, player)
+            if (!sess) return res.redirect(303, `/login?code=${code}`)
+            const balance = Math.max(0, (Number(player.money) || 0) - (Number(player.bank && player.bank.loanMoney) || 0))
+            res.send(donateMoneyPageHTML({
+                code, csrf: auth.csrfForSession(sess), name: player.name || player.username || 'لاعب',
+                balance, fee: usernameCost, costText
+            }))
+        } catch (err) {
+            console.error('donate page error:', err)
+            res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    app.post('/donate', jsonBody, async (req, res) => {
+        res.set('Cache-Control', 'no-store')
+        const fail = (status, code, message) => res.status(status).json({ ok: false, code, message })
+        let lockId = null
+        try {
+            if (!auth.authEnabled()) return fail(503, 'DISABLED', 'التبرع من الموقع غير مفعّل حالياً.')
+            if (!auth.sameOrigin(req)) return fail(403, 'ORIGIN', 'طلب غير مسموح.')
+            const sess = auth.readSession(req)
+            if (!sess) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+            const b = req.body || {}
+            if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
+            if (!giftRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
+
+            const op = String(b.op || '')
+            if (!/^[0-9a-f-]{36}$/i.test(op)) return fail(400, 'BAD_OP', 'طلب غير صحيح، حدّث الصفحة.')
+            const amount = Number(b.amount)
+            if (!Number.isSafeInteger(amount) || amount <= 0) return fail(400, 'BAD_AMOUNT', '❌ أدخل مبلغاً صحيحاً.')
+            const to = String(b.to || '').trim().toLowerCase()
+            if (!/^[a-z\u0600-\u06FF]{1,10}$/.test(to)) return fail(400, 'BAD_USER', 'يوزر المستلم غير صحيح (حروف فقط، حد أقصى 10).')
+            const password = String(b.password || '')
+            if (!password || password.length > 200) return fail(400, 'BAD_PW', 'أدخل كلمة المرور للتأكيد.')
+
+            const lk = 'gp:' + sess.u
+            const lc = giftPw.check(lk)
+            if (lc.blocked) return fail(429, 'PW_LOCK', `محاولات خاطئة كثيرة. حاول بعد ${Math.ceil(lc.retryAfter / 60)} دقيقة.`)
+
+            const me = await Player.findOne({ userId: sess.u })
+                .select('+passwordHash +passwordSalt sessionVersion username')
+                .lean()
+            if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
+            const pwOk = await auth.verifyPassword(password, me.passwordHash, me.passwordSalt)
+            if (!pwOk) { giftPw.fail(lk); return fail(403, 'BAD_PW', 'كلمة المرور غير صحيحة.') }
+            giftPw.reset(lk)
+
+            const target = await Player.findOne({ username: to }, { userId: 1, username: 1 }).lean()
+            if (!target) return fail(404, 'NO_TARGET', '❌ لا يوجد لاعب بهذا اليوزر.')
+            if (target.userId === sess.u) return fail(400, 'SELF', '❌ لا يمكنك التبرع لنفسك.')
+
+            // منع التكرار: عملية بنفس المفتاح تمت، أو عملية شغالة للاعب
+            if (donateDone.has(op)) return res.json({ ok: true, duplicate: true, message: '✅ هذه العملية تمت سابقاً — لم يتكرر شيء.' })
+            if (donateBusy.has(sess.u)) return fail(409, 'BUSY', 'فيه عملية تبرع شغالة، حاول بعد ثواني.')
+            donateBusy.add(sess.u); lockId = sess.u
+
+            const total = amount + usernameCost
+            // خصم ذري: المتاح = المال − القرض (لا يُتبرّع بالمال المقترض)
+            const debited = await Player.findOneAndUpdate(
+                { userId: sess.u, $expr: { $gte: [{ $subtract: [{ $ifNull: ['$money', 0] }, { $ifNull: ['$bank.loanMoney', 0] }] }, total] } },
+                { $inc: { money: -total } },
+                { new: true, projection: { money: 1, bank: 1 } }
+            ).lean()
+
+            if (!debited) {
+                const cur = await Player.findOne({ userId: sess.u }).select('money bank').lean()
+                const money = Number(cur && cur.money) || 0
+                const loan = Number(cur && cur.bank && cur.bank.loanMoney) || 0
+                if (money >= total && money - loan < total) return fail(400, 'LOAN', '❌ لا يمكنك التبرع بالأموال المقترضة.')
+                return fail(400, 'NO_MONEY', `❌ لا تملك مالاً كافياً (المبلغ + رسوم اليوزر ${usernameCost.toLocaleString('en-US')}).`)
+            }
+
+            // إضافة للمستلم (نفس addMoney بالبوت) — وإن فشل نرجع المبلغ للمتبرع
+            try {
+                const tdoc = await Player.findOne({ userId: target.userId })
+                if (!tdoc) throw new Error('target vanished')
+                if (typeof tdoc.addMoney === 'function') { await tdoc.addMoney(amount); await tdoc.save() }
+                else await Player.updateOne({ userId: target.userId }, { $inc: { money: amount } })
+            } catch (creditErr) {
+                console.error('donate credit failed, refunding:', creditErr)
+                await Player.updateOne({ userId: sess.u }, { $inc: { money: total } }).catch(e => console.error('donate refund failed:', e))
+                return fail(500, 'SERVER', 'تعذّر إتمام التبرع — لم يُخصم منك شيء. أعد المحاولة.')
+            }
+
+            donateDone.set(op, Date.now())
+            if (donateDone.size > 500) {
+                const cut = Date.now() - 10 * 60 * 1000
+                for (const [k, t] of donateDone) if (t < cut) donateDone.delete(k)
+            }
+
+            const loan = Number(debited.bank && debited.bank.loanMoney) || 0
+            const balance = Math.max(0, (Number(debited.money) || 0) - loan)
+            res.json({
+                ok: true,
+                balance,
+                message: `✅ تم التبرع بـ ${amount.toLocaleString('en-US')} إلى @${target.username}\n🧾 رسوم اليوزر: ${usernameCost.toLocaleString('en-US')}`
+            })
+
+            // 🔔 إشعار المستلم + إشعار المتبرع (بعد النجاح، وفشلها لا يؤثر)
+            try {
+                if (NOTIFY && typeof NOTIFY.push === 'function') {
+                    NOTIFY.push(target.userId, { type: 'dm', icon: '💰', title: 'وصلك تبرع', text: `من: @${me.username || 'لاعب'}\nالمبلغ: ${amount.toLocaleString('en-US')} مال` })
+                }
+            } catch (e) { /* لا يوقف التبرع */ }
+            notifyDm(sess.u, `💰 تم التبرع من الموقع\n➡️ إلى: @${target.username}\n💸 المبلغ: ${amount.toLocaleString('en-US')}\n🧾 رسوم اليوزر: ${usernameCost.toLocaleString('en-US')}\n💳 رصيدك: ${Number(debited.money).toLocaleString('en-US')}`, { siteOnly: true }).catch(() => {})
+        } catch (err) {
+            console.error('donate route error:', err)
+            return fail(500, 'SERVER', 'صار خطأ بالخادم — تحقق من رصيدك قبل الإعادة (إعادة المحاولة آمنة).')
+        } finally {
+            if (lockId) donateBusy.delete(lockId)
         }
     })
 
