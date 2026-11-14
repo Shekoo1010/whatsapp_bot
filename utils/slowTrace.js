@@ -16,6 +16,25 @@ const MAX_LIMIT = Number(process.env.SLOW_MAX_MS || 1000)
 const PROFILE_MS = Number(process.env.SLOW_PROFILE_MS || 15000)
 const COOLDOWN_MS = Number(process.env.SLOW_COOLDOWN_MS || 120000)
 
+const fs = require('fs')
+// 🧯 قراءة تقييد المعالج من cgroup (لو متاح بالحاوية): كم مرة وكم مدة أوقفه النظام بسبب سقف الـCPU
+function readThrottle() {
+    try {
+        for (const f of ['/sys/fs/cgroup/cpu.stat', '/sys/fs/cgroup/cpu/cpu.stat']) {
+            if (!fs.existsSync(f)) continue
+            const o = {}
+            for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+                const [k, v] = line.trim().split(/\s+/)
+                if (k && v !== undefined) o[k] = Number(v)
+            }
+            const n = o.nr_throttled
+            const ms = o.throttled_usec !== undefined ? o.throttled_usec / 1000 : (o.throttled_time !== undefined ? o.throttled_time / 1e6 : null)
+            if (n !== undefined) return { n, ms, periods: o.nr_periods }
+        }
+    } catch (_) { /* اختياري */ }
+    return null
+}
+
 let started = false
 let profiling = false
 let lastRunAt = 0
@@ -58,13 +77,16 @@ function summarize(profile, fromTs, toTs) {
     for (const n of profile.nodes) nodes.set(n.id, n)
     const samples = profile.samples || []
     const deltas = profile.timeDeltas || []
-    const byFn = new Map(), byFile = new Map()
+    const byFn = new Map(), byFile = new Map(), byNode = new Map()
+    const parent = new Map()
+    for (const n of profile.nodes) for (const c of (n.children || [])) parent.set(c, n.id)
     let total = 0, idle = 0, gc = 0, program = 0
     for (let i = 0; i < samples.length; i++) {
         const dt = deltas[i] || 0
         total += dt
         const n = nodes.get(samples[i])
         if (!n) continue
+        byNode.set(n.id, (byNode.get(n.id) || 0) + dt)
         const cf = n.callFrame || {}
         const name = cf.functionName || '(anonymous)'
         if (name === '(idle)') { idle += dt; continue }
@@ -83,9 +105,29 @@ function summarize(profile, fromTs, toTs) {
     const cnt = new Map()
     for (const x of cmds) if (x.t >= fromTs && x.t <= toTs) cnt.set(x.c, (cnt.get(x.c) || 0) + 1)
     const cmdTxt = [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c, n]) => `${c}×${n}`).join(' ') || 'لا أوامر'
+    // 🧵 مسار الاستدعاء (من استدعى الدالة الثقيلة) لأثقل 3 عقد — يكشف مين يستدعي الأشياء الـnative
+    const label = n => {
+        const cf = n.callFrame || {}
+        return `${cf.functionName || '(anonymous)'} ${shortFile(cf.url)}:${(cf.lineNumber | 0) + 1}`
+    }
+    const skipName = new Set(['(idle)', '(program)', '(garbage collector)', '(root)'])
+    const paths = [...byNode.entries()]
+        .filter(([id]) => !skipName.has((nodes.get(id).callFrame || {}).functionName))
+        .sort((a, b) => b[1] - a[1]).slice(0, 3)
+        .map(([id, dt]) => {
+            const chain = []
+            let cur = id
+            for (let k = 0; k < 5 && cur !== undefined; k++) {
+                const nd = nodes.get(cur)
+                if (!nd) break
+                if ((nd.callFrame || {}).functionName !== '(root)') chain.push(label(nd))
+                cur = parent.get(cur)
+            }
+            return `${Math.round(dt / 1000)}ms: ${chain.join(' ← ')}`
+        })
     return {
         busyPct: pct(busy), gcPct: pct(gc), programPct: pct(program),
-        files: top(byFile, 5), funcs: top(byFn, 8), cmdTxt
+        files: top(byFile, 5), funcs: top(byFn, 8), paths, cmdTxt
     }
 }
 
@@ -94,6 +136,7 @@ function runProfile(reason) {
     profiling = true
     lastRunAt = Date.now()
     const fromTs = Date.now()
+    const th0 = readThrottle()
     try {
         const inspector = require('inspector')
         session = new inspector.Session()
@@ -109,6 +152,14 @@ function runProfile(reason) {
                 console.log(`🐢 SLOW-TRACE (${Math.round(PROFILE_MS / 1000)}s | ${reason}) busy=${s.busyPct}% gc=${s.gcPct}% native=${s.programPct}%`)
                 console.log(`   📁 ملفات: ${s.files.join(' | ')}`)
                 console.log(`   🔧 دوال: ${s.funcs.join(' | ')}`)
+                for (const p of s.paths) console.log(`   🧵 ${p}`)
+                const th1 = readThrottle()
+                if (th0 && th1) {
+                    const dn = th1.n - th0.n, dp = th1.periods - th0.periods
+                    console.log(`   🧯 تقييد المعالج بالنافذة: ${dn} مرة من ${dp} فترة` + (th1.ms !== null ? ` (${Math.round(th1.ms - th0.ms)}ms متوقف)` : ''))
+                } else {
+                    console.log('   🧯 تقييد المعالج: غير متاح بهذي الحاوية')
+                }
                 console.log(`   💬 أوامر وقتها: ${s.cmdTxt}`)
             })
             .catch(e => console.log('slowTrace profile error:', e && e.message))
