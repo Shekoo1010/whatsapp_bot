@@ -46,8 +46,9 @@ const DAY_MS = 24 * 3600 * 1000
 // التواريخ
 // =========================
 
+// السعودية UTC+3 ثابت بدون توقيت صيفي → حساب مباشر (أسرع بكثير من toLocaleDateString اللي ينشئ Intl formatter بكل استدعاء)
 function getSaudiDate() {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
+    return new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10)
 }
 
 // أدوات التواريخ (YYYY-MM-DD)
