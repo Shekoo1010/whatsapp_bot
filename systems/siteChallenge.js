@@ -702,9 +702,15 @@ window.__chTeam = { open: open };
             return sess
         }
 
+        // ⚡ السكربت ثابت: يُبنى مرة واحدة + ETag جاهز + كاش 5 دقائق بالمتصفح (كان يُعاد بناؤه مع كل فتح صفحة)
+        let _ovJs = null, _ovTag = null
         app.get('/challenge/overlay.js', (req, res) => {
-            res.set({ 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' })
-            res.send(UI.overlayJS())
+            if (!_ovJs) {
+                _ovJs = UI.overlayJS()
+                _ovTag = 'W/"' + require('crypto').createHash('sha1').update(String(_ovJs)).digest('hex').slice(0, 20) + '"'
+            }
+            res.set({ 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'ETag': _ovTag, 'X-Content-Type-Options': 'nosniff' })
+            res.send(_ovJs)
         })
 
         // 📡 قناة الأحداث اللحظية
@@ -743,11 +749,18 @@ window.__chTeam = { open: open };
                 res.on('error', cleanup)
 
                 // لقطة البداية: الدعوة المعلّقة + القتال الجاري
-                const player = await Player.findOne({ userId: me }).select('siteCode userId name username characters maxCharacters titles activeTitle').lean()
-                const hello = { csrf: auth.csrfForSession(sess), pid: pidOf(me), code: player && player.siteCode, inv: null, fight: false }
-                const inv = await pendingInvite(me)
+                // ⚡ لقطة خفيفة: كود الصفحة + دعوة + قتال بالتوازي، ومستندات اللاعبين الكاملة (characters) فقط لو فيه دعوة
+                const [pl0, inv, fightNow] = await Promise.all([
+                    Player.findOne({ userId: me }).select('siteCode').lean(),
+                    pendingInvite(me),
+                    PvP.exists({ active: true, $or: [{ player1: me }, { player2: me }] })
+                ])
+                const hello = { csrf: auth.csrfForSession(sess), pid: pidOf(me), code: pl0 && pl0.siteCode, inv: null, fight: false }
                 if (inv) {
-                    const other = await Player.findOne({ userId: inv.from === me ? inv.to : inv.from }).select('userId name username characters maxCharacters titles activeTitle').lean()
+                    const [player, other] = await Promise.all([
+                        Player.findOne({ userId: me }).select('userId name username characters maxCharacters titles activeTitle').lean(),
+                        Player.findOne({ userId: inv.from === me ? inv.to : inv.from }).select('userId name username characters maxCharacters titles activeTitle').lean()
+                    ])
                     hello.inv = {
                         dir: inv.from === me ? 'out' : 'in', id: inv.id,
                         left: Math.max(0, new Date(inv.exp).getTime() - Date.now()),
@@ -755,7 +768,7 @@ window.__chTeam = { open: open };
                         pw: { me: player ? ctx.cappedPower(player) : 0, foe: other ? ctx.cappedPower(other) : 0 }
                     }
                 }
-                hello.fight = !!(await activeFight(me))
+                hello.fight = !!fightNow
                 res.write(`event: hello\ndata: ${JSON.stringify(hello)}\n\n`)
                 if (typeof res.flush === 'function') res.flush()
             } catch (err) {
@@ -1072,7 +1085,7 @@ window.__chTeam = { open: open };
                     }
                 }
             } catch (e) { console.error('challenge sweep error:', e.message) }
-        }, 5000)
+        }, 30000)
         if (sweep.unref) sweep.unref()
     }
 
