@@ -5810,6 +5810,9 @@ try {
     }, 30000).unref()
 } catch (e) { /* اختياري */ }
 
+// 🐢 كشف مسبب التجمّد (قياس فقط): يطبع في Logs "🐢 SLOW-TRACE" عند ارتفاع التأخر. تعطيله: SLOW_TRACE=0
+try { require('./utils/slowTrace').start() } catch (e) { /* اختياري */ }
+
 app.listen(process.env.PORT || 3000, () => {
     console.log("Server running")
 })
@@ -41215,6 +41218,7 @@ sock.ev.on('messages.upsert', (upsert) => {
         if (skipDuplicateOrStaleMessage(m, upsert && upsert.type)) continue
         const startedAt = Date.now()
         const trace = perfTrace.begin(m) // ⏱️ قياس فقط
+        try { require('./utils/slowTrace').note(m) } catch (_) {} // 🐢 يسجل اسم الأمر فقط
         const watchdog = setTimeout(() => {
             console.log('⚠️ SLOW/HUNG HANDLER (>60s):', m?.key?.remoteJid, JSON.stringify(m?.message || {}).slice(0, 120))
         }, 60000)
