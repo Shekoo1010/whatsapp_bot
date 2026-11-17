@@ -88,7 +88,7 @@ function makeSession(Player, auth) {
         if (!sess) return null
         const c = sessCache.get(sess.u)
         if (c && Date.now() - c.at < 60000 && c.v === sess.v) return sess
-        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        const me = await require('./sessionCache').get(Player, sess.u)
         const ok = !!me && (me.sessionVersion || 0) === sess.v
         if (ok) sessCache.set(sess.u, { v: sess.v, at: Date.now() })
         return ok ? sess : null

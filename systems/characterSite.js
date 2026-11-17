@@ -6824,6 +6824,8 @@ function securityHeaders(res) {
  * يسجّل المسارات: /u/:code و /login و /logout و /gift ...
  */
 function registerCharacterSite(app, Player, opts = {}) {
+    // 🛡️ حارس الشاشات المنبثقة: زر الرجوع/Esc يغلق أي شاشة كاملة بدل ما يعلق المستخدم (systems/overlayGuard.js)
+    try { app.use(require('./overlayGuard').middleware) } catch (e) { console.error('overlayGuard mount error:', e) }
     const getCatalog = opts.getCatalog
     const giftCharacters = opts.giftCharacters
     // 🔢 ترتيب الشخصيات بالموقع = نفس دالة .شخصياتي بالبوت (الشخصية 1 ثابتة، الباقي حسب الرتبة ثم القوة) فتتطابق الأرقام
@@ -7370,7 +7372,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             let curId = null
             if (sess) {
-                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const me = await require('./sessionCache').get(Player, sess.u)
                 if (me && (me.sessionVersion || 0) === sess.v) curId = sess.u
             }
             let list = acctRead(req)
@@ -7706,7 +7708,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!pullRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
             // نسخة الجلسة (تتبدل لما يغيّر كلمة السر)
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             // 🎴 سحب متعدد (×N): نفس منطق .اسحب لكل سحبة بحفظ واحد (حد أقصى 5)
@@ -7812,7 +7814,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!tradeRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             return { sess, body: b, fail }
@@ -8374,7 +8376,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             if (!shardPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
             const st = await shardSystem.getState(sess.u)
             if (!st.ok) return res.status(400).json({ ok: false, code: st.code, message: st.message })
@@ -8535,7 +8537,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             if (!echoPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
             const st = await echoSystem.getState({
                 userId: sess.u,
@@ -8560,7 +8562,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             if (!echoPollRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
             const r = await echoSystem.listChars({
                 userId: sess.u,
@@ -8901,7 +8903,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             if (!favRate(sess.u)) return res.status(429).json({ ok: false, message: 'طلبات كثيرة، انتظر قليلاً.' })
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
 
             const q = String(req.query.q || '').trim().toLowerCase().slice(0, 40)
@@ -9074,7 +9076,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const sess = auth.readSession(req)
             if (!sess) return res.status(401).json({ ok: false })
             if (!compRate(sess.u)) return res.status(429).json({ ok: false })
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return res.status(401).json({ ok: false })
             res.json({ ok: true, state: compOut(await companionSystem.getState(sess.u)) })
         } catch (err) {
@@ -9394,7 +9396,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         if (!sess) return null
         const c = _bossSessCache.get(sess.u)
         if (c && c.v === sess.v && Date.now() - c.at < 60000) return sess
-        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        const me = await require('./sessionCache').get(Player, sess.u)
         if (!me || (me.sessionVersion || 0) !== sess.v) return null
         _bossSessCache.set(sess.u, { v: sess.v, at: Date.now() })
         if (_bossSessCache.size > 5000) _bossSessCache.clear()
@@ -9639,7 +9641,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!kingdomRate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             const r = await kingdomRaid.attack({ userId: sess.u, charIndex: b.index })
@@ -9742,7 +9744,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!raidRate(raidAttackHits, sess.u, 30)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             const r = await raidSite.attack(sess.u)
@@ -10168,7 +10170,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     async function warSession(req) {
         const sess = auth.readSession(req)
         if (!sess) return null
-        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        const me = await require('./sessionCache').get(Player, sess.u)
         return me && (me.sessionVersion || 0) === sess.v ? sess : null
     }
 
@@ -10505,7 +10507,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     async function galViewer(req) {
         const s = auth.readSession(req)
         if (s) {
-            const me = await Player.findOne({ userId: s.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, s.u)
             if (me && (me.sessionVersion || 0) === s.v) return { sess: s, ok: true }
         }
         return { sess: null, ok: !!auth.hasViewOnly(req) }
@@ -10596,7 +10598,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const b = req.body || {}
             if (!auth.verifyCsrf(sess, b.csrf)) return bad(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!galRate(sess.u)) return bad(429, 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return bad(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
 
             const id = String(b.id || '')
@@ -10649,7 +10651,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const body = isPost ? (req.body || {}) : {}
             if (isPost && !auth.verifyCsrf(sess, body.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!galEditRate(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
             return { sess, body, fail }
         } catch (err) {
@@ -10812,7 +10814,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const body = req.body || {}
             if (!auth.verifyCsrf(sess, body.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!ciRate(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
             return { sess, body, fail }
         } catch (err) {
@@ -10961,7 +10963,7 @@ function registerCharacterSite(app, Player, opts = {}) {
         const b = req.body || {}
         if (!auth.verifyCsrf(sess, b.csrf)) return bad(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
         if (!shipRate(sess.u)) return bad(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
-        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        const me = await require('./sessionCache').get(Player, sess.u)
         if (!me || (me.sessionVersion || 0) !== sess.v) return bad(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
         return { sess, body: b }
     }

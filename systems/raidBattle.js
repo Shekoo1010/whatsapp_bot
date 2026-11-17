@@ -1600,6 +1600,9 @@ raid.endedAt = Date.now()
 
 await raid.save()
 
+// ♻️ نهاية الزعيم: أحيِ شخصيات الجميع (مشاركين وغير مشاركين) بعملية واحدة
+try { await require('./raidManager').resetAllRaidCharacters() } catch (e) { console.log('Raid end reset error:', e && e.message) }
+
     }
 
 }

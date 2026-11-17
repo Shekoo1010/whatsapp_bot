@@ -158,6 +158,8 @@ body{background:radial-gradient(900px 400px at 50% -10%,#f0c04a14,transparent 60
 #pux{margin-top:18px;font:inherit;font-weight:900;border:0;border-radius:12px;padding:11px 34px;background:var(--gold);color:#0a0d16;animation:putin .6s 2.4s both}
 .pflash{position:absolute;inset:0;background:#fff;opacity:0;animation:pfl 1.2s .85s}@keyframes pfl{0%{opacity:.95}to{opacity:0}}
 .pring{position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px;border-radius:50%;border:4px solid #f0c04a;opacity:0;animation:prg 1.6s ease-out var(--d)}@keyframes prg{from{transform:scale(1);opacity:.9}to{transform:scale(60);opacity:0}}
+/* 🛡️ الطبقات الزخرفية لا تلتقط اللمس أبداً + الزر فوق كل شيء (كان pflash/pring يبتلعان ضغطة «متابعة») */
+.pur,.pring,.pflash,#pup{pointer-events:none}.pus{z-index:3}#pux{position:relative;z-index:4;touch-action:manipulation;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.pur,.pring,.pflash{display:none}.pub,.put,.pun,.pua,.pur2,#pux{animation:none}}
 `
 const PAGE_BODY = String.raw`<div id="pu"><canvas id="pup"></canvas><div class="pur"></div><div class="pus"><div class="pub" id="pub"></div><div class="put">RANK UP</div><div class="pun" id="pun"></div><div class="pua" id="pua"></div><div class="pur2" id="pur2"></div><button id="pux">متابعة</button></div></div>
@@ -286,10 +288,16 @@ function confetti(on){var c=$('pup'),x=c.getContext('2d');cancelAnimationFrame(p
  for(var i=0;i<110;i++)Q.push({x:Math.random()*c.width,y:-20-Math.random()*c.height*.6,vy:2+Math.random()*3.5,vx:(Math.random()-.5)*2,w:6+Math.random()*7,h:3+Math.random()*5,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:cl[i%6]});
  (function f(now){x.clearRect(0,0,c.width,c.height);if(now-t0>800)Q.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;if(p.y>c.height+20){p.y=-20;p.x=Math.random()*c.width}x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.w/2,-p.h/2,p.w,p.h);x.restore()});puT=requestAnimationFrame(f)})(t0)}
 function promote(oldN,newN,rw){var m=/\d+/.exec(newN);$('pub').textContent=m?m[0]:'👑';$('pun').textContent=newN;$('pua').textContent='ترقيت من «'+oldN+'»';$('pur2').innerHTML=rw||'';
- var o=$('pu');Array.prototype.forEach.call(o.querySelectorAll('.pring,.pflash'),function(x){x.remove()});o.classList.add('on');
+ var o=$('pu');Array.prototype.forEach.call(o.querySelectorAll('.pring,.pflash'),function(x){x.remove()});o.classList.add('on');puOpen=true;puAt=Date.now();
+ setTimeout(function(){Array.prototype.forEach.call(o.querySelectorAll('.pring,.pflash'),function(x){x.remove()})},3200);
  var f=document.createElement('div');f.className='pflash';o.appendChild(f);
  [0,.25,.5].forEach(function(d){var r=document.createElement('div');r.className='pring';r.style.setProperty('--d',(.85+d)+'s');o.appendChild(r)});confetti(true)}
-$('pux').onclick=function(){$('pu').classList.remove('on');confetti(false)};
+var puOpen=false,puAt=0;
+function closePromo(fromPop){if(!puOpen)return;puOpen=false;$('pu').classList.remove('on');confetti(false);Array.prototype.forEach.call($('pu').querySelectorAll('.pring,.pflash'),function(x){x.remove()});}
+$('pux').onclick=function(e){if(e)e.stopPropagation();closePromo()};
+/* Esc والنقر على الخلفية يغلقان الشاشة؛ زر الرجوع يعالجه الحارس المشترك overlayGuard */
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closePromo()});
+$('pu').addEventListener('click',function(){if(Date.now()-puAt>1500)closePromo()});
 /* المعركة */
 function sl(ms){return new Promise(function(r){setTimeout(r,fast?ms/5:ms)})}
 $('sk').onclick=function(){fast=true};
@@ -443,7 +451,7 @@ module.exports = function createSiteArenaChallenge(deps) {
                 const b = req.body || {}
                 if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
                 if (!rateOk(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
-                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const me = await require('./sessionCache').get(Player, sess.u)
                 if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
                 return { sess, body: b, fail }
             } catch (err) {

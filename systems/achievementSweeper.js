@@ -82,7 +82,7 @@ function create({ Player, checkAndGrantAchievement, getSock, getNotifyJid }) {
         } catch (e) { /* الفحص الجانبي ما يوقف الحفظ */ }
     }
 
-    return { onSave, pending }
+    return { onSave, pending, run }
 }
 
 module.exports = { create }

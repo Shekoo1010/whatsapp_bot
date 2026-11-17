@@ -227,7 +227,7 @@ function mount(app, h) {
             const b = req.body || {}
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!rate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
             const r = await claim(sess.u, String(b.anime || ''))
             if (!r.ok) return res.status(r.code === 'SERVER' ? 500 : 400).json(r)

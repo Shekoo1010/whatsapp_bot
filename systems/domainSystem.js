@@ -171,7 +171,7 @@ function getStaminaInfo(player) {
 // 👥 فريق الدومين (تخزينه بمفتاح رقم الدومين داخل player.domainTeams)
 // =========================
 
-function setDomainTeam(player, domainId, indices) {
+function setDomainTeam(player, domainId, indices, chars) {
 
     const domain = getDomainById(domainId)
 
@@ -188,7 +188,7 @@ function setDomainTeam(player, domainId, indices) {
         }
     }
 
-    const characters = player.characters || []
+    const characters = chars || player.characters || []
 
     const selected = uniqueIndices
         .map(i => characters[i - 1])
@@ -214,9 +214,9 @@ function setDomainTeam(player, domainId, indices) {
 
 }
 
-function getDomainTeamCharacters(player, domainId) {
+function getDomainTeamCharacters(player, domainId, chars) {
 
-    const characters = player.characters || []
+    const characters = chars || player.characters || []
 
     const indices = (player.domainTeams && player.domainTeams[domainId]) || []
 
@@ -267,7 +267,7 @@ function calculateTeamPower(team) {
 // difficultyInput: 'سهل' / 'متوسط' / 'صعب' (أو easy/medium/hard) — افتراضي: متوسط
 // =========================
 
-function enterDomain(player, domainId, difficultyInput) {
+function enterDomain(player, domainId, difficultyInput, chars) {
 
     const domain = getDomainById(domainId)
 
@@ -295,7 +295,7 @@ function enterDomain(player, domainId, difficultyInput) {
 
     }
 
-    const team = getDomainTeamCharacters(player, domainId)
+    const team = getDomainTeamCharacters(player, domainId, chars)
 
     if (!team.length) {
 

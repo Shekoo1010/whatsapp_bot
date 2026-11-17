@@ -79,9 +79,9 @@ h1{text-align:center;font-weight:900;font-size:28px;background:linear-gradient(1
 #rv,#bt{position:fixed;inset:0;display:none;background:#000e;overflow:hidden}
 #rv{z-index:90;align-items:center;justify-content:center;flex-direction:column}
 #rv.on{display:flex;animation:fade .3s}
-.beam{position:absolute;width:140vmax;height:140vmax;background:conic-gradient(from 0deg,transparent 0 8%,var(--rc) 10%,transparent 12% 33%,var(--rc) 35%,transparent 37% 58%,var(--rc) 60%,transparent 62% 83%,var(--rc) 85%,transparent 87%);opacity:.35;animation:spin 8s linear infinite}
+.beam{pointer-events:none;position:absolute;width:140vmax;height:140vmax;background:conic-gradient(from 0deg,transparent 0 8%,var(--rc) 10%,transparent 12% 33%,var(--rc) 35%,transparent 37% 58%,var(--rc) 60%,transparent 62% 83%,var(--rc) 85%,transparent 87%);opacity:.35;animation:spin 8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.ring{position:absolute;width:60px;height:60px;border-radius:50%;border:3px solid var(--rc);animation:ring 1.8s ease-out infinite}
+.ring{pointer-events:none;position:absolute;width:60px;height:60px;border-radius:50%;border:3px solid var(--rc);animation:ring 1.8s ease-out infinite}
 .ring:nth-child(3){animation-delay:.6s}.ring:nth-child(4){animation-delay:1.2s}
 @keyframes ring{to{transform:scale(9);opacity:0}}
 .rcard{position:relative;width:240px;padding:22px 16px;text-align:center;border:2px solid var(--rc);border-radius:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 30%,#0a0d16),#0a0d16);box-shadow:0 0 50px var(--rc);color:#eef1f8;animation:rise 1.1s cubic-bezier(.2,1.2,.3,1) both .4s}

@@ -983,7 +983,7 @@ ${navDrawerHTML(code, csrf, 'brawl', name)}
 .fx-bg::before{content:"";position:absolute;left:50%;top:50%;width:240%;aspect-ratio:1;translate:-50% -50%;background:repeating-conic-gradient(rgba(255,90,130,.17) 0 6deg,transparent 6deg 20deg);-webkit-mask:radial-gradient(circle,#000,transparent 60%);mask:radial-gradient(circle,#000,transparent 60%);animation:fxSpin 46s linear infinite}
 .fx-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 45% at 50% 42%,rgba(130,80,255,.28),transparent 70%),radial-gradient(55% 40% at 15% 100%,rgba(255,56,96,.28),transparent),radial-gradient(55% 40% at 85% 100%,rgba(62,168,255,.25),transparent)}
 @keyframes fxSpin{to{transform:rotate(360deg)}}
-.fx-em{position:absolute;bottom:-10px;width:4px;height:4px;border-radius:50%;background:#ffd26a;box-shadow:0 0 8px #ffb347;opacity:0;animation:fxUp linear infinite}
+.fx-em{pointer-events:none;position:absolute;bottom:-10px;width:4px;height:4px;border-radius:50%;background:#ffd26a;box-shadow:0 0 8px #ffb347;opacity:0;animation:fxUp linear infinite}
 @keyframes fxUp{0%{transform:translate(0,0);opacity:0}15%{opacity:.9}100%{transform:translate(var(--dx),-480px);opacity:0}}
 .fx-ring{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:4px solid #fff;box-shadow:0 0 30px #ffb347,inset 0 0 20px #ffb347;z-index:6;pointer-events:none}
 .fx-sp{position:absolute;width:5px;height:20px;margin:-10px 0 0 -2px;border-radius:3px;background:linear-gradient(#fff,#ffb347);z-index:6;pointer-events:none}

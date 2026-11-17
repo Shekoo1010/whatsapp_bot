@@ -49,7 +49,7 @@
 #tw-clr{font:700 12px 'Cairo',sans-serif;color:var(--text-dim);background:none;border:0;text-decoration:underline;cursor:pointer}
 #tw-fight{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:radial-gradient(circle at 50% 40%,#2a1d4d,#07090f 70%);overflow:hidden}
 #tw-fight.on{display:flex}#tw-fight.boss{background:radial-gradient(circle at 50% 40%,#4a2d12,#07090f 70%)}
-.tw-rays{position:absolute;width:170vmax;height:170vmax;background:repeating-conic-gradient(#f0c04a24 0 6deg,transparent 6deg 18deg);animation:tws 14s linear infinite;-webkit-mask-image:radial-gradient(circle,#000,transparent 50%);mask-image:radial-gradient(circle,#000,transparent 50%)}
+.tw-rays{pointer-events:none;position:absolute;width:170vmax;height:170vmax;background:repeating-conic-gradient(#f0c04a24 0 6deg,transparent 6deg 18deg);animation:tws 14s linear infinite;-webkit-mask-image:radial-gradient(circle,#000,transparent 50%);mask-image:radial-gradient(circle,#000,transparent 50%)}
 @keyframes tws{to{transform:rotate(360deg)}}
 #tw-fT{position:relative;font:900 26px 'Cairo',sans-serif;color:var(--gold)}
 #tw-bc{position:relative;width:min(70vw,280px);aspect-ratio:3/4;border-radius:18px;border:3px solid var(--gold);overflow:hidden;box-shadow:0 0 60px #f0c04a66;background:linear-gradient(#2a1d4d,#0b0e1a)}
@@ -269,6 +269,12 @@ function climb(){
       showRes(r.done,r.stop,st.completed);
       S.done?(S.sel=[],roster()):autoPick(S.n);
     });
+  })
+  .catch(function(){
+    /* 🛡️ أي خطأ داخل الأنميشن كان يترك شاشة القتال معلّقة وS.busy=true للأبد */
+    $('#tw-fight').classList.remove('on');S.busy=false;S.fast=false;
+    try{draw()}catch(e){}
+    toast('حدث خطأ أثناء عرض النتيجة — حدّث الصفحة لرؤية تقدّمك');
   });
 }
 
@@ -286,6 +292,8 @@ $('#tw-seg').addEventListener('click',function(e){
 });
 $('#tw-clr').onclick=function(){if(S.busy)return;S.sel=[];roster()};
 $('#tw-go').onclick=climb;
+/* Esc يغلق شاشة النتيجة؛ زر الرجوع يعالجه الحارس المشترك overlayGuard */
+document.addEventListener('keydown',function(e){if(e.key==='Escape')$('#tw-res').classList.remove('on')});
 $('#tw-skip').onclick=function(){S.fast=true};
 $('#tw-q').addEventListener('input',function(){S.q=this.value;shown=PAGE;roster()});
 $('#tw-hide').onclick=function(){S.hide=!S.hide;this.classList.toggle('on',S.hide);roster()};

@@ -150,7 +150,7 @@ function createBossPush({ Player }) {
             if (!sess) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
             if (!auth.verifyCsrf(sess, body.csrf)) return fail(403, 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!rate(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
             return sess
         }

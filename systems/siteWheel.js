@@ -208,7 +208,7 @@ function createSiteWheel({ Player, getRandomCharacterByRarity, getCharByNameRari
             const b = req.body || {}
             if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
             if (!rate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
-            const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+            const me = await require('./sessionCache').get(Player, sess.u)
             if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
             return { sess, body: b }
         }
@@ -301,7 +301,7 @@ h1{font-size:36px;text-shadow:0 3px 0 #0006}
 .gift{--t:#ffc83d;position:relative;width:min(86vw,340px);padding:4px;border-radius:26px;background:linear-gradient(160deg,var(--t),#0008 80%);animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.2) rotate(-12deg);opacity:0}}
 .gift .in{border-radius:22px;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--t) 55%,#1d1640),#14102b 75%);padding:26px 18px 20px;overflow:hidden;position:relative}
-.rays{position:absolute;left:50%;top:70px;width:520px;height:520px;margin:-260px 0 0 -260px;background:repeating-conic-gradient(color-mix(in srgb,var(--t) 40%,transparent) 0 8deg,transparent 8deg 20deg);animation:spin 14s linear infinite;-webkit-mask:radial-gradient(circle,#000 10%,transparent 62%);mask:radial-gradient(circle,#000 10%,transparent 62%)}
+.rays{pointer-events:none;position:absolute;left:50%;top:70px;width:520px;height:520px;margin:-260px 0 0 -260px;background:repeating-conic-gradient(color-mix(in srgb,var(--t) 40%,transparent) 0 8deg,transparent 8deg 20deg);animation:spin 14s linear infinite;-webkit-mask:radial-gradient(circle,#000 10%,transparent 62%);mask:radial-gradient(circle,#000 10%,transparent 62%)}
 @keyframes spin{to{transform:rotate(360deg)}}
 .gift>.in>*:not(.rays){position:relative}
 .gi{font-size:92px;line-height:1;filter:drop-shadow(0 8px 0 #0006);animation:bob 1.6s ease-in-out infinite}

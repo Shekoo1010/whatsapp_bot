@@ -227,7 +227,7 @@ function createSiteWeaponBanner({
 @keyframes wbfl{0%{opacity:1}100%{opacity:0}}
 #wb-skip{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:5;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:99px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
 .wb-rev,.wb-miss{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:11px;text-align:center;padding:20px;z-index:3}
-.wb-rays{position:absolute;left:50%;top:46%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(rgba(255,216,115,0) 0 9deg,rgba(255,216,115,.2) 9deg 13deg);-webkit-mask-image:radial-gradient(circle,#000 5%,transparent 45%);mask-image:radial-gradient(circle,#000 5%,transparent 45%);animation:wbspin 22s linear infinite;z-index:-1}
+.wb-rays{pointer-events:none;position:absolute;left:50%;top:46%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(rgba(255,216,115,0) 0 9deg,rgba(255,216,115,.2) 9deg 13deg);-webkit-mask-image:radial-gradient(circle,#000 5%,transparent 45%);mask-image:radial-gradient(circle,#000 5%,transparent 45%);animation:wbspin 22s linear infinite;z-index:-1}
 @keyframes wbspin{to{transform:rotate(360deg)}}
 .wb-rstars{display:flex;gap:6px;font-size:32px;color:var(--wgold);direction:ltr}
 .wb-rstars span{display:inline-block;animation:wbsp .55s cubic-bezier(.2,1.6,.4,1) both;text-shadow:0 0 18px var(--wgold)}
@@ -465,7 +465,7 @@ function createSiteWeaponBanner({
                 if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
                 if (!rate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const me = await require('./sessionCache').get(Player, sess.u)
                 if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
                 const r = await pullWeapon({ userId: sess.u })

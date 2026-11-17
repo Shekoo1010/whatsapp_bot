@@ -388,7 +388,7 @@ module.exports = function createSiteArena(deps) {
                 if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
                 if (!rate(sess.u, 20)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-                const chk = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const chk = await require('./sessionCache').get(Player, sess.u)
                 if (!chk || (chk.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
                 // لا نغيّر الفريق أثناء قتال جارٍ
@@ -438,7 +438,7 @@ module.exports = function createSiteArena(deps) {
                 if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
                 if (!rate(sess.u, 20)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-                const chk = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const chk = await require('./sessionCache').get(Player, sess.u)
                 if (!chk || (chk.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
                 if (fightLocks.has(sess.u)) return fail(409, 'BUSY', 'قتالك السابق ما زال جارياً.')

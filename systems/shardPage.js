@@ -96,7 +96,7 @@ h1{text-align:center;font-size:26px;font-weight:900;background:linear-gradient(9
 .ov{position:fixed;inset:0;z-index:100;display:none;overflow:hidden;background:radial-gradient(circle at 50% 42%,#12172c,#000 72%);--t:#ffc933;--n:#ffc933}
 .ov.show{display:block;animation:ovin .5s both}
 @keyframes rot{to{transform:rotate(360deg)}}
-.rays{position:absolute;left:50%;top:42%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(color-mix(in srgb,var(--t) 32%,transparent) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(circle,#000,transparent 48%);mask:radial-gradient(circle,#000,transparent 48%);animation:rot 18s linear infinite}
+.rays{pointer-events:none;position:absolute;left:50%;top:42%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(color-mix(in srgb,var(--t) 32%,transparent) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(circle,#000,transparent 48%);mask:radial-gradient(circle,#000,transparent 48%);animation:rot 18s linear infinite}
 .stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;padding-top:calc(20px + env(safe-area-inset-top,0px));overflow-y:auto}
 .stage.kick{animation:kick .6s ease-out}
 @keyframes kick{from{transform:scale(1.08)}}

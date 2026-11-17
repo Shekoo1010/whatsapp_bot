@@ -220,7 +220,7 @@ ${devUI}
                 // 🔒 المطور فقط (يُفحص على السيرفر — إخفاء الزر وحده ما يكفي)
                 if (!isDev(sess.u)) return fail(403, 'هذي الميزة للمطور فقط.')
                 if (!rateOk(sess.u)) return fail(429, 'طلبات كثيرة، انتظر دقيقة.')
-                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const me = await require('./sessionCache').get(Player, sess.u)
                 if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'انتهت الجلسة — سجّل الدخول من جديد.')
 
                 // الصورة: JPEG مصغّرة من المتصفح

@@ -1,4 +1,5 @@
 const Raid = require('../models/Raid')
+const Player = require('../models/Player')
 const kingdoms = require('./raidKingdoms')
 const characters = require('../characters.json')
 
@@ -80,11 +81,73 @@ function randomKingdom() {
     ]
 
 }
+
+// =========================
+// ♻️ إعادة إحياء شخصيات الجميع عند بداية كل زعيم جديد
+// المشكلة: الإحياء كان يحصل فقط لمن ضرب الزعيم عند قتله، فمن لم يشارك أو انتهى الوقت أو
+// فشل حفظه كانت شخصياته تبقى ميتة ويبدأ من «آخر شخصية حية» عند الزعيم التالي.
+// الحل: عملية واحدة على القاعدة (بدون تحميل أي مستند) تُرجع كل شخصية لكامل قوتها، وتمس فقط
+// اللاعبين الذين فيهم شخصية ميتة أو مصابة.
+// =========================
+async function resetAllRaidCharacters() {
+
+    try {
+
+        const r = await Player.updateMany(
+            {
+                $expr: {
+                    $gt: [{
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ['$characters', []] },
+                                cond: {
+                                    $or: [
+                                        { $eq: ['$$this.dead', true] },
+                                        { $lt: [{ $ifNull: ['$$this.currentHp', '$$this.power'] }, '$$this.power'] }
+                                    ]
+                                }
+                            }
+                        }
+                    }, 0]
+                }
+            },
+            [{
+                $set: {
+                    characters: {
+                        $map: {
+                            input: { $ifNull: ['$characters', []] },
+                            as: 'c',
+                            in: {
+                                $mergeObjects: [
+                                    '$$c',
+                                    { dead: false, currentHp: { $ifNull: ['$$c.power', 0] } }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }]
+        )
+
+        console.log(`♻️ Raid: أُعيد إحياء شخصيات ${r.modifiedCount || 0} لاعب للزعيم الجديد`)
+
+    } catch (err) {
+
+        // فشل الإحياء ما يوقف إنشاء الرايد
+        console.log('❌ Raid reset characters error:', err)
+
+    }
+
+}
+
 // =========================
 // إنشاء الرايد
 // =========================
 
 async function createRaid() {
+
+    // ♻️ كل زعيم جديد = كل الشخصيات حيّة بكامل قوتها للجميع
+    await resetAllRaidCharacters()
 
     const kingdom =
         randomKingdom()
@@ -369,6 +432,9 @@ async function startRaidScheduler(sock) {
 
                     await running.save()
 
+                    // ♻️ انتهى الوقت بدون قتل الزعيم: أحيِ الجميع أيضاً
+                    await resetAllRaidCharacters()
+
                 }
 
             }
@@ -398,6 +464,7 @@ async function startRaidScheduler(sock) {
 
 module.exports = {
 
+    resetAllRaidCharacters,
     startRaidScheduler,
     announceRaid,
     getNextRaidTime,

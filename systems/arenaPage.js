@@ -451,7 +451,15 @@ function arenaClient(D) {
         await wait(700)
         ok.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: 'forwards' })
         ok.style.pointerEvents = 'auto'
-        await new Promise(function (done) { ok.onclick = done; P.onclick = function (e) { if (e.target === P) done() } })
+        await new Promise(function (done) {
+            // 🛡️ يُغلق بالزر أو بنقرة على الخلفية أو Esc؛ زر الرجوع يعالجه الحارس المشترك overlayGuard
+            var fin = false
+            function end() { if (fin) return; fin = true; document.removeEventListener('keydown', onKey); done() }
+            function onKey(e) { if (e.key === 'Escape') end() }
+            document.addEventListener('keydown', onKey)
+            ok.onclick = function (e) { e.stopPropagation(); end() }
+            P.onclick = function () { end() }
+        })
         await P.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' }).finished
         P.style.display = 'none'; P.innerHTML = ''; P.onclick = null
     }
@@ -742,6 +750,7 @@ body{background:#07050f;color:#fff;font-family:'Cairo',system-ui,Tahoma,sans-ser
 #promo{display:none;position:fixed;inset:0;z-index:90;background:radial-gradient(ellipse at 50% 38%,color-mix(in srgb,var(--n) 35%,#000),#000 75%);flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;overflow:hidden}
 .pr-rays{position:absolute;left:50%;top:38%;width:160vmax;height:160vmax;margin:-80vmax 0 0 -80vmax;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--n) 50%,transparent) 0 5deg,transparent 5deg 15deg);animation:spin 18s linear infinite;mask:radial-gradient(circle,#000,transparent 55%);-webkit-mask:radial-gradient(circle,#000,transparent 55%);opacity:0}
 .pr-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pr-rays,.ring,.conf,.shard{pointer-events:none}.pr-ok{position:relative;z-index:5;touch-action:manipulation}.pr-t,.pr-n{position:relative;z-index:2}
 .pr-stage{position:relative;width:200px;height:220px;margin-top:-40px}
 .pr-b{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:20px;font-weight:900}.pr-b.nw{visibility:hidden}.pr-b b{text-shadow:0 0 14px var(--c)}
 .pr-b.old b{color:var(--o)}.pr-b.nw b{color:var(--n)}

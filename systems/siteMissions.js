@@ -61,7 +61,7 @@ function createSiteMissions(d) {
         if (!sess) return null
         const c = sessCache.get(sess.u)
         if (c && Date.now() - c.at < 60000 && c.v === sess.v) return sess.u
-        const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+        const me = await require('./sessionCache').get(Player, sess.u)
         if (!me || (me.sessionVersion || 0) !== sess.v) return null
         sessCache.set(sess.u, { v: sess.v, at: Date.now() })
         return sess.u

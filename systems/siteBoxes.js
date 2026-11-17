@@ -163,7 +163,7 @@ function create(deps) {
                 if (!auth.verifyCsrf(sess, b.csrf)) return fail(403, 'CSRF', 'انتهت صلاحية الصفحة — حدّثها وأعد المحاولة.')
                 if (!rate(sess.u)) return fail(429, 'RATE', 'طلبات كثيرة، انتظر دقيقة.')
 
-                const me = await Player.findOne({ userId: sess.u }).select('sessionVersion').lean()
+                const me = await require('./sessionCache').get(Player, sess.u)
                 if (!me || (me.sessionVersion || 0) !== sess.v) return fail(401, 'AUTH', 'انتهت الجلسة — سجّل الدخول من جديد.')
 
                 const r = await openBoxes(sess.u, String(b.type || ''), b.count)
