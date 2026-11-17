@@ -1998,6 +1998,8 @@ function sellPageHTML({ viewer, items, page, pages, code, common = [] }) {
 (function(){
   var MAX=50, CODE=${jsonForScript(code)}, CSRF=${jsonForScript(viewer.csrf)}, KEY='ssel:'+CODE;
   var sel={}; try{ sel=JSON.parse(sessionStorage.getItem(KEY)||'{}')||{}; }catch(e){ sel={}; }
+  var MKEY='smode:'+CODE, mode='manual'; try{ mode=sessionStorage.getItem(MKEY)==='common'?'common':'manual'; }catch(e){ mode='manual'; }
+  function setMode(m){ mode=m; try{ sessionStorage.setItem(MKEY,m); }catch(e){} }
   var COMMON=${jsonForScript(common)};
   var busy=false;
   function $(id){ return document.getElementById(id); }
@@ -2029,7 +2031,7 @@ function sellPageHTML({ viewer, items, page, pages, code, common = [] }) {
       if(keys().length>=MAX){ show('warn','الحد الأقصى '+MAX+' شخصية بكل عملية.'); return; }
       sel[k]={n:card.getAttribute('data-n'),p:Number(card.getAttribute('data-p'))||0,i:card.getAttribute('data-i')==='1'};
     }
-    show(null); save(); refresh();
+    setMode('manual'); show(null); save(); refresh();
   }
   document.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('.cd[data-k]'); if(c) toggle(c); });
   document.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ var c=document.activeElement; if(c&&c.matches&&c.matches('.cd[data-k]')){ e.preventDefault(); toggle(c); } } });
@@ -2037,6 +2039,8 @@ function sellPageHTML({ viewer, items, page, pages, code, common = [] }) {
   if(sc) sc.addEventListener('click',function(){
     if(busy) return;
     var added=0,left=0;
+    /* 🛡️ الزر يستبدل أي تحديد سابق (كان يُدمج مع تحديد قديم محفوظ بالجلسة فتُباع شخصية SSS) */
+    sel={}; setMode('common');
     for(var i=0;i<COMMON.length;i++){ var c=COMMON[i]; if(sel[c.k]) continue; if(keys().length>=MAX){ left++; continue; } sel[c.k]={n:c.n,p:c.p,i:false}; added++; }
     save(); refresh();
     if(left>0) show('warn','تم تحديد '+added+' من العادي (الحد '+MAX+' بكل عملية) وبقي '+left+' — اكتب «تأكيد» ثم كرر الزر بعد البيع.');
@@ -2051,14 +2055,14 @@ function sellPageHTML({ viewer, items, page, pages, code, common = [] }) {
     var picks=ks.map(function(k){ return k.split(':')[0]; });
     var ctl=('AbortController' in window)?new AbortController():null; var tm=setTimeout(function(){ if(ctl) ctl.abort(); },30000);
     fetch('/sell',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:ctl?ctl.signal:undefined,
-      body:JSON.stringify({csrf:CSRF,code:CODE,picks:picks,confirm:$('cf').value.trim()})})
+      body:JSON.stringify({csrf:CSRF,code:CODE,picks:picks,onlyCommon:(mode==='common'),confirm:$('cf').value.trim()})})
     .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'رد غير مفهوم من السيرفر'}; }).then(function(j){ return {s:r.status,j:j}; }); })
     .then(function(x){
       clearTimeout(tm);
       if(x.s===401){ location.href='/login?code='+CODE; return; }
-      if(x.j.ok){ sel={}; save(); $('cf').value=''; show('good',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
+      if(x.j.ok){ sel={}; setMode('manual'); save(); $('cf').value=''; show('good',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
       $('go').textContent='تأكيد البيع';
-      if(x.j.code==='STALE'){ sel={}; save(); show('bad',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
+      if(x.j.code==='STALE'||x.j.code==='NOT_COMMON'){ sel={}; setMode('manual'); save(); show('bad',x.j.message); setTimeout(function(){ location.reload(); },1800); return; }
       show('bad',x.j.message||'فشل البيع'); busy=false; refresh();
     })
     .catch(function(){
@@ -4672,6 +4676,7 @@ const TRADE_ERRORS = {
     TOO_MANY: 'الحد الأقصى 50 شخصية بكل عملية بيع.',
     BAD_PICKS: 'اختر شخصية واحدة على الأقل.',
     OMEGA: '🌌 شخصية أوميقا Ω ما تقدر تبيعها أبداً.',
+    NOT_COMMON: '🛡️ بيع الكل مخصص للعادي فقط — ولم يُباع شيء لأن القائمة تضمنت شخصية غير عادية. حدّث الصفحة وأعد التحديد.',
     STALE: 'تغيّرت قائمة شخصياتك (بيعت أو اندمجت أو أُهديت شخصية). سنحدّث الصفحة — أعد الاختيار.',
     BAD_RARITY: '❌ الدمج متاح فقط لرتبة ممتاز أو اسطوري.',
     SERVER: '❌ صار خطأ بالخادم — حدّث الصفحة وتأكد من شخصياتك قبل إعادة المحاولة.'
@@ -7987,7 +7992,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             if (hashes.length > 50) return g.fail(400, 'TOO_MANY', TRADE_ERRORS.TOO_MANY)
             if (hashes.some(h => !/^[a-f0-9]{40}$/.test(h))) return g.fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
 
-            const r = await sellCharacters({ userId: g.sess.u, hashes })
+            const r = await sellCharacters({ userId: g.sess.u, hashes, onlyCommon: b.onlyCommon === true })
             if (!r.ok) {
                 const status = r.code === 'BUSY' ? 409 : r.code === 'SERVER' ? 500 : 400
                 return g.fail(status, r.code, tradeErrorMessage(r))

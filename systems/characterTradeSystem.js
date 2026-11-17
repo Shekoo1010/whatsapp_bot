@@ -45,7 +45,7 @@ function createCharacterTradeSystem({
     // ─────────── بيع شخصيات مختارة (نفس .بيع: نصف القوة بحد أدنى 100 + بونص القط) ───────────
     // hashes: مصفوفة charHash (نفس مفاتيح صفحة الإهداء). النسخ المتطابقة تُباع بعددها.
     // الكل أو لا شيء: لو أي اختيار ما انوجد أو فيه أوميقا ما يُباع شيء.
-    async function sellCharacters({ userId, hashes }) {
+    async function sellCharacters({ userId, hashes, onlyCommon }) {
         return withLocks(userId, async () => {
             try {
                 const player = await Player.findOne({ userId })
@@ -62,6 +62,11 @@ function createCharacterTradeSystem({
                         if (c && charHash(c) === h) { idx = i; break }
                     }
                     if (idx < 0) return { ok: false, code: 'STALE' }
+                    // 🛡️ وضع «بيع كل العادي»: ممنوع منعاً باتاً بيع أي شيء غير «عادي» غير مطوّر (يُفحص على نسخة السيرفر الحالية)
+                    if (onlyCommon) {
+                        const cc = player.characters[idx]
+                        if (!cc || cc.rarity !== 'عادي' || Number(cc.evolutionLevel) > 0) return { ok: false, code: 'NOT_COMMON' }
+                    }
                     used.add(idx)
                     picked.push(idx)
                 }
