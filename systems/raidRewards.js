@@ -1,15 +1,16 @@
 const characters = require('../characters.json')
 
 // =========================
-// شخصية SSS من نفس الأنمي
+// اختيار شخصية عشوائية (بنسخة مستقلة)
+// anime اختياري: بدونه من كل الأنميات
 // =========================
 
-function randomSSSFromAnime(anime) {
+function randomCharacter(rarity, anime) {
 
     const pool = characters.filter(
         c =>
-            c.rarity === 'SSS' &&
-            c.anime === anime
+            c.rarity === rarity &&
+            (!anime || c.anime === anime)
     )
 
     if (!pool.length)
@@ -18,12 +19,7 @@ function randomSSSFromAnime(anime) {
     const random =
         JSON.parse(
             JSON.stringify(
-                pool[
-                    Math.floor(
-                        Math.random() *
-                        pool.length
-                    )
-                ]
+                pool[Math.floor(Math.random() * pool.length)]
             )
         )
 
@@ -35,96 +31,61 @@ function randomSSSFromAnime(anime) {
 
 }
 
-// =========================
-// احتمال شخصية SSS
-// =========================
+// شخصية SSS من نفس أنمي الزعيم
+function randomSSSFromAnime(anime) {
+    return randomCharacter('SSS', anime)
+}
 
-function trySSS(anime, chance = 30) {
-
-    if (
-        Math.random() * 100 >
-        chance
-    ) {
-        return null
-    }
-
-    return randomSSSFromAnime(anime)
-
+// شخصية أسطورية عشوائية من أي أنمي
+function randomLegendary() {
+    return randomCharacter('اسطوري')
 }
 
 // =========================
-// فلوس عشوائية
+// نسب أول ثلاثة
 // =========================
+
+const TOP_SSS_CHANCE = 70   // % (رمية واحدة مشتركة للثلاثة)
+const TOP_SSS_HIGH_CHANCE = 70 // % (لكل واحد على حدة)
+
+// رمية واحدة: لو نجحت يأخذ الثلاثة الأوائل شخصية SSS
+function rollTopSSS() {
+    return Math.random() * 100 < TOP_SSS_CHANCE
+}
+
+// =========================
+// الفلوس
+// =========================
+
+const TOP_MONEY = { 1: 1500000, 2: 1200000, 3: 1000000 }
+const MID_MONEY = { 4: 700000, 5: 550000, 6: 450000 }
 
 function randomMoney() {
-
-    return (
-        Math.floor(
-            Math.random() *
-            300001
-        ) + 200000
-    )
-
+    // من 100,000 إلى 300,000
+    return Math.floor(Math.random() * 200001) + 100000
 }
 
-// =========================
-// صناديق لبقية المشاركين
-// =========================
-
-function randomBoxes() {
-
-    return {
-
-        sss_chance:
-            Math.random() < 0.15
-            ? 1
-            : 0,
-
-        sss_high:
-            Math.random() < 0.05
-            ? 1
-            : 0
-
-    }
-
+function scale(money, multiplier) {
+    return Math.floor(money * (multiplier || 1))
 }
 
 // =========================
 // جوائز أول ثلاثة
+// topHit: نتيجة rollTopSSS() المشتركة
 // =========================
 
-function topReward(rank, anime, multiplier = 1) {
-
-    let money = 500000
-
-    if (rank === 1) {
-        money = 1000000
-    }
-
-    else if (rank === 2) {
-        money = 700000
-    }
-
-    else if (rank === 3) {
-        money = 500000
-    }
-
-    money = Math.floor(
-        money * (multiplier || 1)
-    )
+function topReward(rank, anime, multiplier = 1, topHit = false) {
 
     return {
 
-        money,
+        money: scale(TOP_MONEY[rank] || 1000000, multiplier),
 
-        character:
-            trySSS(anime, 30),
+        character: topHit ? randomSSSFromAnime(anime) : null,
 
         boxes: {
-
             sss_chance: 2,
-            sss_high: 0
-
+            sss_high: Math.random() * 100 < TOP_SSS_HIGH_CHANCE ? 1 : 0,
+            legendary: 0
         }
 
     }
@@ -132,21 +93,34 @@ function topReward(rank, anime, multiplier = 1) {
 }
 
 // =========================
-// جوائز البقية
+// المراكز 4 و5 و6: فلوس ثابتة + شخصية أسطورية + صندوق sss_chance
+// =========================
+
+function midReward(rank, multiplier = 1) {
+
+    return {
+
+        money: scale(MID_MONEY[rank] || 450000, multiplier),
+
+        character: randomLegendary(),
+
+        boxes: { sss_chance: 1, sss_high: 0, legendary: 0 }
+
+    }
+
+}
+
+// =========================
+// جوائز البقية: 100-300 ألف + صندوق أسطوري
 // =========================
 
 function normalReward(multiplier = 1) {
 
     return {
 
-        money:
-            Math.floor(
-                randomMoney() *
-                (multiplier || 1)
-            ),
+        money: scale(randomMoney(), multiplier),
 
-        boxes:
-            randomBoxes()
+        boxes: { sss_chance: 0, sss_high: 0, legendary: 1 }
 
     }
 
@@ -154,7 +128,9 @@ function normalReward(multiplier = 1) {
 
 module.exports = {
 
+    rollTopSSS,
     topReward,
+    midReward,
     normalReward
 
 }

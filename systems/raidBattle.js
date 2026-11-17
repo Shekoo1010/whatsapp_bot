@@ -17,7 +17,9 @@ require('./raidUtils')
 
 const {
     topReward,
-    normalReward
+    midReward,
+    normalReward,
+    rollTopSSS
 } =
 require('./raidRewards')
 
@@ -1382,6 +1384,9 @@ ${raid.bossName}
 
         })
 
+        // 🎲 رمية واحدة مشتركة: لو نجحت يأخذ الثلاثة الأوائل شخصية SSS
+        const topSSSHit = rollTopSSS()
+
         for (
 
             let i = 0;
@@ -1425,8 +1430,20 @@ ${raid.bossName}
 
                         raid.anime,
 
-                        raid.rewardMultiplier
+                        raid.rewardMultiplier,
 
+                        topSSSHit
+
+                    )
+
+            }
+
+            else if (i < 6) {
+
+                reward =
+                    midReward(
+                        i + 1,
+                        raid.rewardMultiplier
                     )
 
             }
@@ -1466,6 +1483,10 @@ ${raid.bossName}
                 targetPlayer.boxes.sss_high =
                     (targetPlayer.boxes.sss_high || 0) +
                     (reward.boxes.sss_high || 0)
+
+                targetPlayer.boxes.legendary =
+                    (targetPlayer.boxes.legendary || 0) +
+                    (reward.boxes.legendary || 0)
 
             }
 
@@ -1513,6 +1534,7 @@ ${raid.bossName}
                 const _rl = [`💰 ${Number(reward.money || 0).toLocaleString('en')} مال`]
                 if (reward.boxes && reward.boxes.sss_chance) _rl.push(`📦 ${reward.boxes.sss_chance} × SSS Chance`)
                 if (reward.boxes && reward.boxes.sss_high) _rl.push(`📦 ${reward.boxes.sss_high} × SSS High`)
+                if (reward.boxes && reward.boxes.legendary) _rl.push(`📦 ${reward.boxes.legendary} × صندوق أسطوري`)
                 if (reward.character) _rl.push(`🎴 ${reward.character.name}`)
                 require('./rewardLog').logReward(targetId, {
                     src: `الرايد — ${i < 3 ? 'المركز ' + ['الأول', 'الثاني', 'الثالث'][i] : 'مشارك'}`,
@@ -1548,18 +1570,15 @@ ${reward.character ?
 
 ${reward.character.name}
 
-⭐ SSS`
+⭐ ${reward.character.rarity === 'SSS' ? 'SSS' : 'أسطوري'}`
 
 :
 
-"❌ لم يحصل على شخصية SSS"
+(i < 3 ? "❌ لم يحصل على شخصية SSS" : "")
 
 }
 
-🎁 SSS Chance ×${reward.boxes.sss_chance}
-
-🎁 SSS High ×${reward.boxes.sss_high}
-
+${reward.boxes.sss_chance ? `🎁 SSS Chance ×${reward.boxes.sss_chance}\n\n` : ''}${reward.boxes.sss_high ? `🎁 SSS High ×${reward.boxes.sss_high}\n\n` : ''}${reward.boxes.legendary ? `🎁 صندوق أسطوري ×${reward.boxes.legendary}\n\n` : ''}
 💥 إجمالي الضرر
 
 ${totalDamage.toLocaleString()}`,
