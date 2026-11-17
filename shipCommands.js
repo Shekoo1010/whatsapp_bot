@@ -50,6 +50,67 @@ const { generateId } = require('./utils/id')
 const MAX_CREW = 4
 const SHIP_CREATION_COST = 1500000
 
+// =========================================================================
+// ⚡ مساعدات الأداء (نفس المنطق بالضبط — فقط تقليل ما يُحمَّل من القاعدة وعدد مرات الحفظ)
+// الشخصيات مصفوفة ضخمة (275+ شخصية للاعب)؛ حساب القوة يحتاج فقط power و urAbilities
+// فلا داعي لتحميل المستند كاملاً ولا لاستعلام منفصل لكل عضو.
+// =========================================================================
+const POWER_FIELDS = 'userId characters.power characters.urAbilities'
+const POWER_SUM_FIELDS = 'userId characters.power'
+
+// استعلام واحد لعدة لاعبين → Map(userId → مستند خفيف lean)
+async function loadPlayersLite(ids, fields) {
+    const list = [...new Set((ids || []).filter(Boolean))]
+    const map = new Map()
+    if (!list.length) return map
+    const docs = await Player.find({ userId: { $in: list } }).select(fields || POWER_FIELDS).lean()
+    for (const d of docs) {
+        if (!d.characters) d.characters = [] // lean لا يطبّق default السكيمة
+        map.set(d.userId, d)
+    }
+    return map
+}
+
+// مجموع calculatePower لأعضاء طاقم (يتجاوز من لا يوجد له مستند — مثل السلوك القديم)
+function crewPower(memberIds, map) {
+    let total = 0
+    for (const id of memberIds || []) {
+        const p = map.get(id)
+        if (!p) continue
+        total += calculatePower(p)
+    }
+    return total
+}
+
+// مجموع power الخام لأعضاء طاقم (للعرض بـ .سفينتي / .السفن)
+function crewRawPower(memberIds, map) {
+    let total = 0
+    for (const id of memberIds || []) {
+        const p = map.get(id)
+        if (!p) continue
+        for (const ch of p.characters || []) total += Number(ch.power || 0)
+    }
+    return total
+}
+
+// جوائز أعضاء الطاقم: استعلام واحد + حفظ واحد لكل عضو (كان: findOne + addMoney(save) + save لكل عضو)
+// يبقى save() الحقيقي حتى تشتغل خطافات الترقية/الإنجازات/المهام كما كانت.
+async function grantMemberRewards(memberIds, { money = 0, coins = 0, xp = 0 } = {}) {
+    const list = [...new Set((memberIds || []).filter(Boolean))]
+    if (!list.length) return
+    const docs = await Player.find({ userId: { $in: list } })
+    await Promise.all(docs.map(async player => {
+        try {
+            if (money) await player.addMoney(money, { save: false })
+            if (coins) player.shipCoins = (player.shipCoins || 0) + coins
+            if (xp) player.xp = (player.xp || 0) + xp
+            await player.save()
+        } catch (err) {
+            console.log('Ship reward error:', player.userId, err && err.message || err)
+        }
+    }))
+}
+
 // 🗓️ الحد اليومي المشترك لحروب السفن — بين .حرب_سفينة (1 ضد 1) و
 // .حرب_طاقم_كامل (مجموع الطاقم) معًا بنفس الرصيد؛ كل قتال من أي نوع
 // يستهلك محاولة وحدة من نفس الـ10. يتجدد يوميًا الساعة 12:00 صباحًا
@@ -242,14 +303,10 @@ ${emoji} ${shipName}
         const mentions = []
         let membersText = ''
 
-        for (const memberId of ship.members) {
+        const powerMap = await loadPlayersLite(ship.members, POWER_SUM_FIELDS) // ⚡ استعلام واحد خفيف
+        totalPower = crewRawPower(ship.members, powerMap)
 
-            const member = await Player.findOne({ userId: memberId })
-            if (member?.characters) {
-                for (const ch of member.characters) {
-                    totalPower += Number(ch.power || 0)
-                }
-            }
+        for (const memberId of ship.members) {
 
             mentions.push(memberId)
 
@@ -311,18 +368,13 @@ ${membersText}`,
         let txt = `🚢 قائمة السفن\n\n━━━━━━━━━━━━━━\n\n`
         const mentions = []
 
+        // ⚡ استعلام واحد خفيف لكل أعضاء كل السفن (كان: مستند كامل لكل عضو بحلقة)
+        const allPowerMap = await loadPlayersLite(ships.flatMap(sh => sh.members || []), POWER_SUM_FIELDS)
+
         for (let i = 0; i < ships.length; i++) {
 
             const ship = ships[i]
-            let totalPower = 0
-
-            for (const memberId of ship.members) {
-                const member = await Player.findOne({ userId: memberId })
-                if (!member) continue
-                for (const ch of member.characters || []) {
-                    totalPower += Number(ch.power || 0)
-                }
-            }
+            const totalPower = crewRawPower(ship.members, allPowerMap)
 
             mentions.push(ship.captain)
 
@@ -1271,21 +1323,10 @@ ${myShip.emoji} ${myShip.name}
         myShip.dailyWars--
         await myShip.save()
 
-        // 🧮 يجمع قوة كل شخصيات كل عضو مسجل بالطاقمين
-        let myTotal = 0
-        let enemyTotal = 0
-
-        for (const id of myShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            myTotal += calculatePower(p)
-        }
-
-        for (const id of enemyShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            enemyTotal += calculatePower(p)
-        }
+        // 🧮 يجمع قوة كل شخصيات كل عضو مسجل بالطاقمين (استعلام واحد خفيف بدل مستند كامل لكل عضو)
+        const crewMap = await loadPlayersLite([...myShip.members, ...enemyShip.members])
+        const myTotal = crewPower(myShip.members, crewMap)
+        const enemyTotal = crewPower(enemyShip.members, crewMap)
 
         const winnerShip = myTotal >= enemyTotal ? myShip : enemyShip
         const loserShip = myTotal >= enemyTotal ? enemyShip : myShip
@@ -1302,20 +1343,10 @@ ${myShip.emoji} ${myShip.name}
         const winnerMoney = 300000
         const loserMoney = 150000
 
-        for (const id of winnerShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            await p.addMoney(winnerMoney)
-            p.shipCoins = (p.shipCoins || 0) + 10
-            await p.save()
-        }
-
-        for (const id of loserShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            await p.addMoney(loserMoney)
-            await p.save()
-        }
+        await Promise.all([
+            grantMemberRewards(winnerShip.members, { money: winnerMoney, coins: 10 }),
+            grantMemberRewards(loserShip.members, { money: loserMoney })
+        ])
 
         await safeSend(msg.key.remoteJid, {
             text:
@@ -1581,26 +1612,30 @@ async function startShipWar(warId, sock, safeSend) {
 
 async function runShipRound(warId, sock, safeSend) {
 
-    const war = await ShipWar.findOne({ warId })
+    // ⚡ مستند الحرب lean (قراءة فقط) — والحفظ بتحديث واحد بدل save() مرتين كل جولة
+    const war = await ShipWar.findOne({ warId }).lean()
     if (!war) return
 
-    const round = war.rounds.find(x => x.round === war.currentRound)
+    const round = (war.rounds || []).find(x => x.round === war.currentRound)
 
     if (!round) {
         return finishShipWar(warId, safeSend)
     }
 
-    const attacker = await Player.findOne({ userId: round.attacker })
-    const defender = await Player.findOne({ userId: round.defender })
+    // ⚡ استعلام واحد بحقول القوة فقط (power + urAbilities) بدل مستندين كاملين بكل شخصياتهم
+    const powerMap = await loadPlayersLite([round.attacker, round.defender])
+    const attacker = powerMap.get(round.attacker)
+    const defender = powerMap.get(round.defender)
 
     if (!attacker || !defender) {
 
         round.finished = true
         round.winner = null
-        await war.save()
 
-        war.currentRound++
-        await war.save()
+        await ShipWar.updateOne(
+            { warId },
+            { $set: { rounds: war.rounds, currentRound: war.currentRound + 1 } }
+        )
 
         return runShipRound(warId, sock, safeSend)
     }
@@ -1638,18 +1673,27 @@ async function runShipRound(warId, sock, safeSend) {
     }
 
     let winner
+    let attackerScore = war.attackerScore || 0
+    let defenderScore = war.defenderScore || 0
 
     if (result.winner === attacker.userId) {
         winner = round.attacker
-        war.attackerScore++
+        attackerScore++
     } else {
         winner = round.defender
-        war.defenderScore++
+        defenderScore++
     }
 
     round.winner = winner
     round.finished = true
-    await war.save()
+
+    // ⚡ حفظ واحد للجولة كاملة (نتيجة + نقاط + الجولة التالية) — كان حفظين (save قبل الرسالة وsave بعدها)
+    const nextRound = war.currentRound + 1
+
+    await ShipWar.updateOne(
+        { warId },
+        { $set: { rounds: war.rounds, attackerScore, defenderScore, currentRound: nextRound } }
+    )
 
     await safeSend(war.chatId, {
         text:
@@ -1669,20 +1713,17 @@ ${result.powerB.toLocaleString()}
 
 ━━━━━━━━━━━━━━
 
-🚢 ${war.attackerScore}
+🚢 ${attackerScore}
 
 🆚
 
-🚢 ${war.defenderScore}`,
+🚢 ${defenderScore}`,
         mentions: [winner].filter(jid =>
             typeof jid === 'string' && (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid'))
         )
     })
 
-    war.currentRound++
-    await war.save()
-
-    if (war.currentRound <= war.rounds.length) {
+    if (nextRound <= war.rounds.length) {
         return setTimeout(() => {
             runShipRound(warId, sock, safeSend)
         }, 5000)
@@ -1696,8 +1737,10 @@ async function finishShipWar(warId, safeSend) {
     const war = await ShipWar.findOne({ warId })
     if (!war) return
 
-    const attackerShip = await Ship.findOne({ shipId: war.attackerShip })
-    const defenderShip = await Ship.findOne({ shipId: war.defenderShip })
+    const [attackerShip, defenderShip] = await Promise.all([
+        Ship.findOne({ shipId: war.attackerShip }),
+        Ship.findOne({ shipId: war.defenderShip })
+    ])
 
     let winnerShip
     let loserShip
@@ -1711,20 +1754,10 @@ async function finishShipWar(warId, safeSend) {
     } else {
 
         // تعادل → نحسمها بمجموع قوة الطاقم الكامل (نفس فكرة حرب الطاقم الكامل)
-        let attackerPower = 0
-        let defenderPower = 0
-
-        for (const id of attackerShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            attackerPower += calculatePower(p)
-        }
-
-        for (const id of defenderShip.members) {
-            const p = await Player.findOne({ userId: id })
-            if (!p) continue
-            defenderPower += calculatePower(p)
-        }
+        // ⚡ استعلام واحد خفيف لكل أعضاء الطاقمين
+        const tieMap = await loadPlayersLite([...attackerShip.members, ...defenderShip.members])
+        const attackerPower = crewPower(attackerShip.members, tieMap)
+        const defenderPower = crewPower(defenderShip.members, tieMap)
 
         if (attackerPower >= defenderPower) {
             winnerShip = attackerShip
@@ -1742,27 +1775,17 @@ async function finishShipWar(warId, safeSend) {
     const loserXP = 125
     const winnerRating = 25
 
-    for (const id of winnerShip.members) {
-        const player = await Player.findOne({ userId: id })
-        if (!player) continue
-        await player.addMoney(winnerMoney)
-        player.shipCoins = (player.shipCoins || 0) + winnerCoins
-        player.xp += winnerXP
-        await player.save()
-    }
+    // ⚡ جوائز الفائزين والخاسرين بالتوازي: استعلام واحد + حفظ واحد لكل عضو
+    // (كان: findOne + addMoney(يحفظ) + save لكل عضو، بالتتابع)
+    await Promise.all([
+        grantMemberRewards(winnerShip.members, { money: winnerMoney, coins: winnerCoins, xp: winnerXP }),
+        grantMemberRewards(loserShip.members, { money: loserMoney, xp: loserXP })
+    ])
 
     winnerShip.rankPoints += winnerRating
     winnerShip.wins++
     await addShipXP(winnerShip.shipId, winnerXP)
     await winnerShip.save()
-
-    for (const id of loserShip.members) {
-        const player = await Player.findOne({ userId: id })
-        if (!player) continue
-        await player.addMoney(loserMoney)
-        player.xp += loserXP
-        await player.save()
-    }
 
     loserShip.losses++
     await addShipXP(loserShip.shipId, loserXP)

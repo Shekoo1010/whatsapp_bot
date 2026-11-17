@@ -2300,6 +2300,97 @@ function countSSS(p) {
     return ((p && p.characters) || []).filter(c => c && c.rarity === 'SSS').length
 }
 
+// =====================================================
+// ⚡ مساعدات القراءة الجزئية للشخصيات (للمستندات المحمّلة بـ select('-characters'))
+// =====================================================
+
+// أسماء كل الشخصيات بنفس فهارس المصفوفة الأصلية: [{name}, ...]
+async function charNameObjs(userId) {
+    const r = await Player.aggregate([
+        { $match: { userId } },
+        { $project: { _id: 0, n: { $map: { input: { $ifNull: ['$characters', []] }, as: 'c', in: { name: '$$c.name' } } } } }
+    ])
+    return (r[0] && r[0].n) || []
+}
+
+// عدد SSS بدون جلب المصفوفة (بديل countSSS(player) حين يكون المستند بدون الشخصيات)
+async function countSSSByUser(userId) {
+    const r = await Player.aggregate([
+        { $match: { userId } },
+        { $project: { _id: 0, n: { $size: { $filter: { input: { $ifNull: ['$characters', []] }, cond: { $eq: ['$$this.rarity', 'SSS'] } } } } } }
+    ])
+    return (r[0] && r[0].n) || 0
+}
+
+// شخصية واحدة كاملة + العدد الكلي بطلب واحد (idx يبدأ من 0؛ السالب = غير موجودة كما بالمصفوفة)
+async function charInfoAt(userId, idx) {
+    if (!Number.isInteger(idx) || idx < 0 || idx > 2147483646) return { n: await charCount(userId), c: null } // 🛡️ حد int32 لـ $arrayElemAt
+    const r = await Player.aggregate([
+        { $match: { userId } },
+        { $project: { _id: 0, n: { $size: { $ifNull: ['$characters', []] } }, c: { $arrayElemAt: [{ $ifNull: ['$characters', []] }, idx] } } }
+    ])
+    return { n: (r[0] && r[0].n) || 0, c: (r[0] && r[0].c) || null }
+}
+
+async function charCount(userId) {
+    const r = await Player.aggregate([
+        { $match: { userId } },
+        { $project: { _id: 0, n: { $size: { $ifNull: ['$characters', []] } } } }
+    ])
+    return (r[0] && r[0].n) || 0
+}
+
+// شخصيات بفهارس (تبدأ من 1) داخل مصفوفة متفرقة، فيبقى characters[i-1] يعمل كما هو
+async function charsSparse(userId, oneBasedIdx) {
+    const idx = (oneBasedIdx || []).map(Number).filter(i => Number.isInteger(i) && i >= 1 && i <= 2147483646)
+    const arr = []
+    if (!idx.length) return arr
+    const r = await Player.aggregate([
+        { $match: { userId } },
+        { $project: { _id: 0, c: idx.map(i => ({ $arrayElemAt: [{ $ifNull: ['$characters', []] }, i - 1] })) } }
+    ])
+    idx.forEach((i, k) => { const c = r[0] && r[0].c && r[0].c[k]; if (c) arr[i - 1] = c })
+    return arr
+}
+
+// 🗑️ حذف شخصيات بالفهارس ذرّياً (0-based) بشرط أن كل فهرس ما زال يحمل نفس الشخصية (الاسم/القوة/الندرة/التطوير).
+// picks: [{ idx, c }] حيث c = الشخصية كما قُرئت. يرجع true لو انحذفت الكل، false لو تغيّر المخزون (لا يُحذف شيء).
+async function removeCharsAtIdx(userId, picks) {
+    if (!Array.isArray(picks) || !picks.length) return false
+    const idxs = picks.map(p => p.idx)
+    if (idxs.some(i => !Number.isInteger(i) || i < 0 || i > 2147483646)) return false
+    if (new Set(idxs).size !== idxs.length) return false
+
+    const guard = picks.map(({ idx, c }) => ({
+        [`characters.${idx}.name`]: (c && c.name) ?? null,
+        [`characters.${idx}.power`]: (c && c.power) ?? null,
+        [`characters.${idx}.rarity`]: (c && c.rarity) ?? null,
+        [`characters.${idx}.evolutionLevel`]: (c && c.evolutionLevel) ?? null
+    }))
+
+    const arr = { $ifNull: ['$characters', []] }
+    const r = await Player.updateOne(
+        { userId, $and: guard },
+        [{
+            $set: {
+                __v: { $add: [{ $ifNull: ['$__v', 0] }, 1] }, // 🔢 يبطل أي حفظ قديم متزامن بدل ما يعيد الشخصية المحذوفة
+                characters: {
+                    $map: {
+                        input: {
+                            $filter: {
+                                input: { $zip: { inputs: [arr, { $range: [0, { $size: arr }] }] } },
+                                cond: { $not: [{ $in: [{ $arrayElemAt: ['$$this', 1] }, idxs] }] }
+                            }
+                        },
+                        in: { $arrayElemAt: ['$$this', 0] }
+                    }
+                }
+            }
+        }]
+    )
+    return r.modifiedCount === 1
+}
+
 async function checkAndGrantAchievement(
     player,
     categoryKey,
@@ -2379,10 +2470,16 @@ async function checkAndGrantAchievement(
                             )
                         )
 
-                    player.characters =
-                        player.characters || []
+                    // ⚡ نفس الشخصية بنفس شكلها بالضبط. لو المستند محمّل بدون الشخصيات
+                    // (select('-characters')) نضيفها ذرّياً بـ $push بدل كتابة مصفوفة جديدة فوق شخصيات اللاعب.
+                    if (typeof player.isSelected === 'function' && !player.isSelected('characters')) {
+                        await Player.updateOne({ userId: player.userId }, { $push: { characters: sssChar }, $inc: { __v: 1 } })
+                    } else {
+                        player.characters =
+                            player.characters || []
 
-                    player.characters.push(sssChar)
+                        player.characters.push(sssChar)
+                    }
 
                     earnedSSS = sssChar
                 }
@@ -3432,6 +3529,8 @@ const getRank = require('./utils/rank')
 const { getSkillDamage } = require('./utils/skills')
 const Boss = require('./models/Boss')
 const { getTotalStats } = require('./utils/stats')
+// ⚡ الحقول التي يحتاجها قتال .هجوم الخصم/.مهارة/.ألتميت فقط (getTotalStats + level + userId) — بدل جلب المستند كاملاً
+const FIGHT_STAT_FIELDS = 'userId level attack hp crit dodge defense accuracy critRate critDamage shield lifesteal'
 const pvpBattle = require('./systems/pvpBattle')
 // (تم حذف استيراد utils/shop القديم مع حذف نظام السوق القديم)
 
@@ -4124,7 +4223,12 @@ async function processLevelUps(me) {
                     character.dead = false
                     character.urAbilities = []
 
-                    me.characters.push(character)
+                    // ⚡ لو المستند محمّل بدون الشخصيات (select('-characters')) نضيف ذرّياً بدل push على مصفوفة غير موجودة
+                    if (typeof me.isSelected === 'function' && !me.isSelected('characters')) {
+                        await Player.updateOne({ userId: me.userId }, { $push: { characters: character }, $inc: { __v: 1 } })
+                    } else {
+                        me.characters.push(character)
+                    }
 
                     specialLines.push(`🌟 شخصية SSS عشوائية: *${character.name}*`)
                 }
@@ -4822,23 +4926,23 @@ connectMongoWithRetry()
         // بقيمة null. حذفنا default:null من models/Player.js، وهنا ننظّف
         // اللاعبين القدامى اللي عندهم username:null مكتوب فعلياً بمستنداتهم
         // (تشغيل لمرة واحدة فعلياً، بعدها ما يلقى شي يطابق الشرط).
-        const unsetResult = await Player.collection.updateMany(
-            { username: null },
-            { $unset: { username: "" } }
-        )
-        if (unsetResult.modifiedCount > 0) {
-            console.log(`🧹 نظّفنا username:null من ${unsetResult.modifiedCount} لاعب قديم`)
-        }
-
-        // نحذف أي نسخة قديمة من فهرس username_1 (سواء كانت sparse أو لا)
-        // عشان نعيد بناءه كـ partial index — أقوى وأضمن من sparse لأنه
-        // يستثني أي قيمة مو نص فعلي (String) بدل الاعتماد على "موجود/غايب".
+        // ⚡ الإقلاع: ما نحذف/نعيد بناء username_1 ولا نمسح المجموعة إلا لو الفهرس قديم (مو partial)
         const existingIndexes = await Player.collection.indexes()
         const usernameIdx = existingIndexes.find(i => i.name === 'username_1')
+        const usernameIdxOk = !!(usernameIdx && usernameIdx.unique && usernameIdx.partialFilterExpression)
 
-        if (usernameIdx) {
-            await Player.collection.dropIndex('username_1')
-            console.log('🗑️ حذفنا username_1 index القديم عشان نعيد بناءه صح (partial)')
+        if (!usernameIdxOk) {
+            const unsetResult = await Player.collection.updateMany(
+                { username: null },
+                { $unset: { username: "" } }
+            )
+            if (unsetResult.modifiedCount > 0) {
+                console.log(`🧹 نظّفنا username:null من ${unsetResult.modifiedCount} لاعب قديم`)
+            }
+            if (usernameIdx) {
+                await Player.collection.dropIndex('username_1')
+                console.log('🗑️ حذفنا username_1 index القديم عشان نعيد بناءه صح (partial)')
+            }
         }
 
         await Promise.all([
@@ -5777,6 +5881,7 @@ async function handlePasswordPrivate(sockRef, msg, text) {
             { _id: player._id },
             { $set: { passwordHash: hash, passwordSalt: salt }, $inc: { sessionVersion: 1 } }
         )
+        try { require('./systems/sessionCache').invalidate(player.userId) } catch (_) {}
         pendingPasswordSet.delete(chat)
     } catch (err) {
         console.log('password save error:', err)
@@ -8847,17 +8952,11 @@ function getRandomPlayerAbility() {
             const claimed = await Market.findOneAndDelete({ _id: item._id })
             if (!claimed) continue
 
-            const seller = await Player.findOne({
-                userId: item.seller
-            })
-
-            if (seller) {
-
-                seller.characters.push(item.character)
-
-                await seller.save()
-
-            }
+            // ⚡ إرجاع ذرّي بدون تحميل مستند اللاعب (نفس المنطق: لو البائع موجود تُضاف الشخصية)
+            await Player.updateOne(
+                { userId: item.seller },
+                { $push: { characters: item.character }, $inc: { __v: 1 } }
+            )
 
             await Market.findByIdAndDelete(item._id)
 
@@ -14567,7 +14666,7 @@ if (text.startsWith('.احصائيات_كاملة')) {
             })
         }
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).lean() // ⚡ عرض فقط: الدوال المساعدة لا تستعمل دوال mongoose
 
         if (!player || !player.characters?.length) {
             return safeSend(msg.key.remoteJid, {
@@ -15783,7 +15882,7 @@ if (text === '.شظايا') {
 const player =
     await Player.findOne({
         userId
-    })
+    }).select('shards characters.name characters.evolutionLevel')
 
 if (!player) {
 
@@ -16049,7 +16148,7 @@ if (text.startsWith('.تشكيلة')) {
     const player =
         await Player.findOne({
             userId
-        })
+        }).select('-characters')
 
     if (!player) {
         return safeSend(
@@ -16110,10 +16209,13 @@ if (text.startsWith('.تشكيلة')) {
 
     const selected = []
 
+    // ⚡ أسماء الشخصيات بنفس الفهارس (المستند محمّل بدون الشخصيات)
+    const _charObjs = await charNameObjs(userId)
+
     for (const i of indexes) {
 
         const char =
-            player.characters[i]
+            _charObjs[i]
 
         if (!char) {
 
@@ -16136,7 +16238,7 @@ if (text.startsWith('.تشكيلة')) {
     const names =
         selected.map(
             i =>
-                `👑 ${player.characters[i].name}`
+                `👑 ${_charObjs[i].name}`
         )
 
     return safeSend(
@@ -16392,7 +16494,7 @@ if (
 
 if (text === '.فريق_تحدي' || text.startsWith('.فريق_تحدي ')) {
 
-    const me = await Player.findOne({ userId })
+    const me = await Player.findOne({ userId }).lean() // ⚡ عرض فقط (getChallengeSaved تدعم lean)
 
     if (!me) {
         return safeSend(msg.key.remoteJid, { text: '❌ لا يوجد حساب' })
@@ -16758,7 +16860,7 @@ if (
     }
 
     const playerData =
-    await Player.findOne({ userId })
+    await Player.findOne({ userId }).select(FIGHT_STAT_FIELDS)
 
 const attackerStats =
     getTotalStats(playerData)
@@ -16769,7 +16871,7 @@ const opponentData =
             fight.player1 === userId
                 ? fight.player2
                 : fight.player1
-    })
+    }).select(FIGHT_STAT_FIELDS)
 
 const opponentStats =
     getTotalStats(opponentData)
@@ -17059,12 +17161,12 @@ const loser =
 const winnerData =
     await Player.findOne({
         userId: winner
-    })
+    }).select('-characters')
 
 const loserData =
     await Player.findOne({
         userId: loser
-    })
+    }).select('-characters')
 
 const moneyReward =
     Math.floor(
@@ -17266,7 +17368,7 @@ attacker =
 
 }
 const playerData =
-await Player.findOne({ userId })
+await Player.findOne({ userId }).select(FIGHT_STAT_FIELDS)
 const currentTurns =
     userId === fight.player1
         ? (fight.player1Turns || 0)
@@ -17309,7 +17411,7 @@ userId:
 fight.player1 === userId
 ? fight.player2
 : fight.player1
-})
+}).select(FIGHT_STAT_FIELDS)
 
 const opponentStats =
 getTotalStats(opponentData)
@@ -17518,12 +17620,12 @@ const loser =
 const winnerData =  
     await Player.findOne({  
         userId: winner  
-    })  
+    }).select('-characters')  
 
 const loserData =  
     await Player.findOne({  
         userId: loser  
-    })  
+    }).select('-characters')  
 
 const moneyReward =  
     Math.floor(  
@@ -17660,8 +17762,7 @@ if (userId === fight.player1) {
 }
 await fight.save()
 
-playerData.skillCooldown = Date.now() + 10000
-await playerData.save()
+await Player.updateOne({ userId: playerData.userId }, { $set: { skillCooldown: Date.now() + 10000 } }) // ⚡ حقل واحد فقط — بدون حفظ المستند كاملاً
 
 let shieldMessage = ''
 
@@ -17797,7 +17898,7 @@ if (
 const playerData =
     await Player.findOne({
         userId
-    })
+    }).select(FIGHT_STAT_FIELDS)
 
 const attackerStats =
     getTotalStats(playerData)
@@ -17808,7 +17909,7 @@ const opponentData =
             fight.player1 === userId
                 ? fight.player2
                 : fight.player1
-    })
+    }).select(FIGHT_STAT_FIELDS)
 
 const opponentStats =
 getTotalStats(opponentData)
@@ -18038,12 +18139,12 @@ const loser =
 const winnerData =  
     await Player.findOne({  
         userId: winner  
-    })  
+    }).select('-characters')  
 
 const loserData =  
     await Player.findOne({  
         userId: loser  
-    })  
+    }).select('-characters')  
 
 const moneyReward =  
     Math.floor(  
@@ -18178,8 +18279,7 @@ mentions: [winner]
 
 await fight.save()
 
-playerData.ultimateCooldown = Date.now() + 30000
-await playerData.save()
+await Player.updateOne({ userId: playerData.userId }, { $set: { ultimateCooldown: Date.now() + 30000 } }) // ⚡ حقل واحد فقط — بدون حفظ المستند كاملاً
 
 let shieldMessage = ''
 
@@ -18259,7 +18359,7 @@ return safeSend(msg.key.remoteJid, {
     const player =
         await Player.findOne({
             userId
-        })
+        }).select('-characters')
 
     if (!player) {
         return safeSend(
@@ -18306,7 +18406,7 @@ return safeSend(msg.key.remoteJid, {
     const target =
         await Player.findOne({
             userId: mentioned
-        })
+        }).select('-characters')
 
     if (!target) {
         return safeSend(
@@ -18539,7 +18639,7 @@ if (age > 5 * 60 * 1000) {
     const player =
         await Player.findOne({
             userId
-        })
+        }).select('-characters')
 
     if (
         !player ||
@@ -18737,12 +18837,13 @@ const participants =
         p => p.id
     )
 
+// ⚡ cappedPower يحتاج فقط maxCharacters + قوة الشخصيات بترتيبها → لا نحمّل المستند كاملاً (lean + select)
 const players =
     await Player.find({
         userId: {
             $in: participants
         }
-    })
+    }).select('userId maxCharacters characters.power').lean()
 
 const ranking = players.map(player => {
 
@@ -19235,7 +19336,7 @@ if (text === '.جوائز_الترتيب') {
         if (text === '.البرج') {
 
     let player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return sock.sendMessage(
@@ -19763,7 +19864,7 @@ ${nextText}`
 if (text === '.المملكة') {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
 
@@ -19876,7 +19977,7 @@ if (text.startsWith('.غزو ')) {
     try {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return safeSend(
@@ -19926,8 +20027,8 @@ new Date().toLocaleDateString(
         )
     }
 
-    const char =
-        player.characters[index]
+    // ⚡ شخصية واحدة فقط (المستند محمّل بدون الشخصيات)
+    const { c: char } = await charInfoAt(userId, index)
 
     if (!char) {
 
@@ -20883,7 +20984,7 @@ ${player.ownedBeasts.length}`
     if (text === '.فقس_بيضة') {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) return
 
@@ -21022,7 +21123,7 @@ ${player.beastCollection}${eggRewardText}`
     if (text.startsWith('.تجهيز_وحش ')) {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) return
 
@@ -21101,7 +21202,7 @@ ${player.beastCollection}${eggRewardText}`
         if (text.startsWith('.شراء_وحش ')) {
 
 const player =
-    await Player.findOne({ userId })
+    await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
     return sock.sendMessage(
@@ -21451,7 +21552,7 @@ function resetCompanionShopIfNeeded(player) {
 // ─── .فقس_رفيق ───
 if (text === '.فقس_رفيق') {
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return safeSend(msg.key.remoteJid, {
@@ -21590,7 +21691,7 @@ if (text.startsWith('.رفيق_صورة')) {
         })
     }
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player || !player.companion || !player.companion.key) {
         return safeSend(msg.key.remoteJid, {
@@ -21618,7 +21719,7 @@ if (text.startsWith('.تسمية_رفيق ')) {
         })
     }
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player || !player.companion || !player.companion.key) {
         return safeSend(msg.key.remoteJid, {
@@ -21648,7 +21749,7 @@ if (text.startsWith('.تسمية_رفيق ')) {
 // ─── .اطعام_رفيق ───
 if (text === '.اطعام_رفيق') {
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player || !player.companion || !player.companion.key) {
         return safeSend(msg.key.remoteJid, {
@@ -21726,7 +21827,7 @@ if (text === '.اطعام_رفيق') {
 // ─── .متجر_رفيق ───
 if (text === '.متجر_رفيق') {
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return safeSend(msg.key.remoteJid, {
@@ -21765,7 +21866,7 @@ if (text.startsWith('.شراء_طعام_رفيق')) {
         })
     }
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return safeSend(msg.key.remoteJid, {
@@ -21827,7 +21928,7 @@ if (text.startsWith('.شراء_طعام_رفيق')) {
 // ─── .بيع_رفيق ───
 if (text === '.بيع_رفيق') {
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player || !player.companion || !player.companion.key) {
         return safeSend(msg.key.remoteJid, {
@@ -21923,7 +22024,7 @@ if (text === '.بيع_رفيق') {
     const _updated = await Player.findOneAndUpdate(
         { userId, [`boxes.${boxType}`]: { $gt: 0 } },
         {
-            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1, xp: _openXp },
+            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1, xp: _openXp , __v: 1 },
             // إضافة الشخصية حتى لو كانت مكررة
             $push: { characters: character }
         },
@@ -21969,7 +22070,7 @@ ${character.anime}
 
         if (text === '.صناديقي') {
 
-    let player = await Player.findOne({ userId })
+    let player = await Player.findOne({ userId }).select('boxes').lean() // ⚡ عرض فقط
 
     if (!player) {
         player = await Player.create({ userId })
@@ -22128,7 +22229,7 @@ ${WA_BOX_OPEN_DISABLED ? '🌐 الفتح من الموقع فقط — اكتب 
     const _updatedPack = await Player.findOneAndUpdate(
         { userId, [`boxes.${boxType}`]: { $gt: 0 } },
         {
-            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1, xp: _packXp },
+            $inc: { [`boxes.${boxType}`]: -1, boxesOpened: 1, xp: _packXp , __v: 1 },
             $push: { characters: character }
         },
         { new: true }
@@ -22523,6 +22624,15 @@ ${player.money}
             !text.startsWith('.sellitem')
         ) {
 
+// 🔒 نفس قفل الإهداء/بيع الموقع: يمنع تداخل بيعين أو بيع مع إهداء لنفس اللاعب
+if (giftLocks.has(userId)) {
+    return safeSend(msg.key.remoteJid, {
+        text: '⏳ انتظر حتى تنتهي العملية السابقة.'
+    })
+}
+
+giftLocks.add(userId)
+
 try {
 
     const args = text.split(' ').slice(1)
@@ -22542,7 +22652,8 @@ try {
 })
 }
 
-    let player = await Player.findOne({ userId })
+    // ⚡ بدون مصفوفة الشخصيات: نحتاج companion/money فقط (للبونص)
+    const player = await Player.findOne({ userId }).select('-characters').lean()
 
     if (!player) {
 
@@ -22550,8 +22661,6 @@ try {
             text: '❌ لا تملك حساباً'
         })
     }
-
-    player.characters = player.characters || []
 
     const indexes =
         [...new Set(
@@ -22561,13 +22670,15 @@ try {
         )]
         .sort((a, b) => b - a)
 
+    // ⚡ نقرأ الشخصيات المطلوبة فقط (فهارس متفرقة بنفس مواضعها الأصلية)
+    const sparse = await charsSparse(userId, indexes.map(i => i + 1))
+
     let totalMoney = 0
-    let soldCount = 0
+    const toSell = []
 
     for (const index of indexes) {
 
-    const character =
-        player.characters[index]
+    const character = sparse[index]
 
     if (!character)
         continue
@@ -22587,14 +22698,13 @@ try {
         Math.floor(character.power / 2)
     )
 
-    // هنا أضف الكود
     const isRare =
     character.rarity === 'SSS'
 
-const isEvolved =
+    const isEvolved =
     character.evolutionLevel > 0
 
-if (isRare || isEvolved) {
+    if (isRare || isEvolved) {
 
     pendingSellConfirm.set(userId, {
         index,
@@ -22626,40 +22736,57 @@ ${sellPrice}
 
 .لا`
     })
-}
+    }
 
     totalMoney += sellPrice
-    soldCount++
+    toSell.push({ idx: index, c: character })
+    }
 
-    player.characters.splice(index, 1)
-}
-
-    if (soldCount === 0) {
+    if (toSell.length === 0) {
 
         return safeSend(msg.key.remoteJid, {
             text: '❌ لم يتم العثور على شخصيات صالحة للبيع'
         })
     }
 
+    // 🗑️ حذف ذرّي بشرط أن الشخصيات ما تغيّرت (لو تغيّر الترتيب/المحتوى يفشل بدل بيع شخصية خاطئة)
+    const removed = await removeCharsAtIdx(userId, toSell)
+
+    if (!removed) {
+
+        return safeSend(msg.key.remoteJid, {
+            text: '⚠️ تغيّرت شخصياتك أثناء البيع ولم يُباع شيء، أعد المحاولة.'
+        })
+    }
+
     const finalTotalMoney = applyCatBonus(player, totalMoney)
 
-    player.money =
-        (player.money || 0) + finalTotalMoney
-
-    await player.save()
+    // 💰 إضافة ذرّية للمال (لا تكتب فوق مال متزامن)
+    let moneyAfter = null
+    try {
+        const after = await Player.findOneAndUpdate(
+            { userId },
+            { $inc: { money: finalTotalMoney } },
+            { new: true, projection: { money: 1 } }
+        ).lean()
+        moneyAfter = after ? after.money : null
+    } catch (moneyErr) {
+        console.log('❌ Sell: انحذفت الشخصيات وفشلت إضافة المال', userId, finalTotalMoney, moneyErr)
+        throw moneyErr
+    }
 
     return safeSend(msg.key.remoteJid, {
         text:
 
 `💰 ━━〔 𝐒𝐄𝐋𝐋 𝐒𝐔𝐂𝐂𝐄𝐒𝐒 〕━━ 💰
 
-✅ تم بيع ${soldCount} شخصية
+✅ تم بيع ${toSell.length} شخصية
 
 💵 إجمالي الأرباح:
 ${finalTotalMoney}
 
 💳 رصيدك الحالي:
-${player.money}`
+${moneyAfter}`
 })
 
 } catch (err) {
@@ -22669,6 +22796,10 @@ ${player.money}`
     return safeSend(msg.key.remoteJid, {
         text: '❌ حدث خطأ أثناء البيع'
     })
+
+} finally {
+
+    giftLocks.delete(userId)
 }
 
 }
@@ -22681,7 +22812,7 @@ ${player.money}`
 
     if (text.startsWith('.شراءشخصية ')) {
 
-let player = await Player.findOne({ userId })
+let player = await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
     return safeSend(msg.key.remoteJid,{
@@ -22758,12 +22889,10 @@ pool[Math.floor(Math.random()*pool.length)]
 
 player.towerTickets -= prices[type]
 
-player.characters.push({
-    ...reward,
-    evolutionLevel: 0
-})
-
 await player.save()
+
+// ⚡ المستند محمّل بدون الشخصيات → إضافة ذرّية بعد الحفظ
+await Player.updateOne({ userId }, { $push: { characters: { ...reward, evolutionLevel: 0 } }, $inc: { __v: 1 } })
 
 return safeSend(msg.key.remoteJid,{
     text:
@@ -22783,7 +22912,7 @@ ${player.towerTickets}`
 
         if (text.startsWith('.شراءصندوق ')) {
 
-let player = await Player.findOne({ userId })
+let player = await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
     return sock.sendMessage(msg.key.remoteJid, {
@@ -22993,7 +23122,7 @@ ${r.money}
     ) {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return sock.sendMessage(
@@ -23260,7 +23389,7 @@ return
 const player =
 await Player.findOne({
 userId
-})
+}).select('money').lean() // ⚡ فحص الرصيد فقط
 
 if (!player) {
 
@@ -25428,7 +25557,7 @@ ${borrowedToday}
         { userId, [`boxes.${boxType}`]: totalBoxes },
         {
             $set: { [`boxes.${boxType}`]: 0 },
-            $inc: { boxesOpened: totalBoxes, xp: _allXp },
+            $inc: { boxesOpened: totalBoxes, xp: _allXp , __v: 1 },
             $push: { characters: { $each: rewards } }
         },
         { new: true }
@@ -25829,9 +25958,10 @@ if (text === ".تصفير_البرج_والجمع") {
 
     if (!isOwner(msg)) return
 
-    const allPlayers = await Player.find({})
+    let allPlayersCount = 0
 
-    for (const p of allPlayers) {
+    for await (const p of Player.find({}).cursor()) {
+        allPlayersCount++
 
         // 🔄 يبدأ إنجازا البرج وجمع الشخصيات من جديد (الواتس والموقع نفس البيانات)
         p.achievements = {
@@ -25854,7 +25984,7 @@ if (text === ".تصفير_البرج_والجمع") {
 
     return safeSend(msg.key.remoteJid, {
         text:
-`✅ تم تصفير إنجازي 🗼 برج التحدي و🧿 جمع شخصيات SSS (${allPlayers.length} لاعب).
+`✅ تم تصفير إنجازي 🗼 برج التحدي و🧿 جمع شخصيات SSS (${allPlayersCount} لاعب).
 
 📊 يبدأ العدّاد من 0 للواتس والموقع.
 🗼 البرج الآن تراكمي: 60 / 120 / 150 / 200 / 250 طابق (ما يتصفّر مع ريست البرج الأسبوعي).`
@@ -25865,9 +25995,10 @@ if (text === ".تصفير_الانجازات") {
 
     if (!isOwner(msg)) return
 
-    const allPlayers = await Player.find({})
+    let allPlayersCount = 0
 
-    for (const p of allPlayers) {
+    for await (const p of Player.find({}).cursor()) {
+        allPlayersCount++
 
         p.achievements = {}
 
@@ -25897,7 +26028,7 @@ if (text === ".تصفير_الانجازات") {
 
     return safeSend(msg.key.remoteJid, {
         text:
-`✅ تم تصفير تقدم الإنجازات لجميع اللاعبين (${allPlayers.length}).
+`✅ تم تصفير تقدم الإنجازات لجميع اللاعبين (${allPlayersCount}).
 
 📊 كل شخص يبدأ عدّاد كل فئة إنجاز من 0/الهدف الآن — حتى لو عنده شخصيات أو إحصائيات قديمة كثيرة، ما تُحسب.
 🎮 لم يتأثر أي تقدم حقيقي بباقي أنظمة اللعبة (شخصياتك، مالك، طابق برجك... كلها كما هي).
@@ -26122,48 +26253,77 @@ if (text === ".قتل_البوس") {
 
     if (text === ".بيع_الكل") {
 
-    const player = await Player.findOne({ userId })
-
-    if (!player)
-        return safeSend(msg.key.remoteJid,{
-            text:"❌ لا يوجد حساب."
+    if (giftLocks.has(userId)) {
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي العملية السابقة.'
         })
-
-    let money = 0
-    let sold = 0
-
-    const kept = []
-
-    for (const c of player.characters) {
-
-        if (c.rarity === "عادي") {
-
-            money += 500
-            sold++
-            continue
-
-        }
-
-        kept.push(c)
-
     }
 
-    if (!sold)
+    giftLocks.add(userId)
+
+    try {
+
+        // 🗑️ حذف كل «عادي» بعملية واحدة ذرّية، ونقرأ صورة ما قبل الحذف (rarity فقط) لعدّ المحذوف بدقة
+        const before = await Player.findOneAndUpdate(
+            { userId, 'characters.rarity': 'عادي' },
+            [{
+                $set: {
+                    __v: { $add: [{ $ifNull: ['$__v', 0] }, 1] }, // 🔢 يبطل أي حفظ قديم متزامن
+                    characters: {
+                        $filter: {
+                            input: { $ifNull: ['$characters', []] },
+                            cond: { $ne: ['$$this.rarity', 'عادي'] }
+                        }
+                    }
+                }
+            }],
+            { projection: { 'characters.rarity': 1 } }
+        ).lean()
+
+        if (!before) {
+
+            if (!(await Player.exists({ userId })))
+                return safeSend(msg.key.remoteJid,{
+                    text:"❌ لا يوجد حساب."
+                })
+
+            return safeSend(msg.key.remoteJid,{
+                text:"❌ لا توجد شخصيات عادي للبيع."
+            })
+        }
+
+        const sold = (before.characters || []).filter(c => c && c.rarity === "عادي").length
+        const money = sold * 500
+
+        if (!sold) return
+
+        try {
+
+            const player = await Player.findOne({ userId }).select('-characters')
+
+            if (!player) throw new Error('player missing after sell-all')
+
+            await player.addMoney(money, { save: false })
+
+            await player.save()
+
+        } catch (moneyErr) {
+
+            console.log('❌ .بيع_الكل: انحذفت الشخصيات وفشل addMoney', userId, money, moneyErr)
+            await Player.updateOne({ userId }, { $inc: { money } })
+        }
+
         return safeSend(msg.key.remoteJid,{
-            text:"❌ لا توجد شخصيات عادي للبيع."
-        })
-
-    player.characters = kept
-    await player.addMoney(money, { save: false })
-
-    await player.save()
-
-    return safeSend(msg.key.remoteJid,{
-        text:
+            text:
 `✅ تم بيع ${sold} شخصية.
 
 💰 حصلت على ${money.toLocaleString()} عملة.`
-    })
+        })
+
+    } finally {
+
+        giftLocks.delete(userId)
+    }
 
 }
     
@@ -28122,17 +28282,17 @@ ${eventParticipants.length}`
     const firstPlayer =
         await Player.findOne({
             userId: firstWinner
-        })
+        }).select('-characters')
 
     const secondPlayer =
         await Player.findOne({
             userId: secondWinner
-        })
+        }).select('-characters')
 
     const thirdPlayer =
         await Player.findOne({
             userId: thirdWinner
-        })
+        }).select('-characters')
 
     if (
         !firstPlayer ||
@@ -28159,35 +28319,12 @@ ${eventParticipants.length}`
     const thirdReward =
         await createURIReward()
 
-    firstPlayer.characters.push(
-        firstReward
-    )
+    // ⚡ المستندات محمّلة بدون الشخصيات → إضافة الجوائز ذرّياً بـ $push (نفس النتيجة)
+    await Player.updateOne({ userId: firstWinner }, { $push: { characters: firstReward }, $inc: { __v: 1 } })
 
-    secondPlayer.characters.push(
-        secondReward
-    )
+    await Player.updateOne({ userId: secondWinner }, { $push: { characters: secondReward }, $inc: { __v: 1 } })
 
-    thirdPlayer.characters.push(
-        thirdReward
-    )
-
-    firstPlayer.markModified(
-        'characters'
-    )
-
-    secondPlayer.markModified(
-        'characters'
-    )
-
-    thirdPlayer.markModified(
-        'characters'
-    )
-
-    await firstPlayer.save()
-
-    await secondPlayer.save()
-
-    await thirdPlayer.save()
+    await Player.updateOne({ userId: thirdWinner }, { $push: { characters: thirdReward }, $inc: { __v: 1 } })
 
     await safeSend(
         msg.key.remoteJid,
@@ -28359,17 +28496,13 @@ if (text === '.ارجاع_السوق') {
 
         for (const item of market) {
 
-            const seller = await Player.findOne({
-                userId: item.seller
-            })
+            // ⚡ $push ذرّي بدون تحميل المستند؛ matchedCount=0 يعني البائع غير موجود (نفس continue القديم)
+            const _ret = await Player.updateOne(
+                { userId: item.seller },
+                { $push: { characters: item.character }, $inc: { __v: 1 } }
+            )
 
-            if (!seller) continue
-
-            seller.characters = seller.characters || []
-
-            seller.characters.push(item.character)
-
-            await seller.save()
+            if (!_ret.matchedCount) continue
 
             returned++
 
@@ -28402,7 +28535,7 @@ if (text.startsWith('.تبرع')) {
 const player =
     await Player.findOne({
         userId
-    })
+    }).select('-characters')
 
 if (!player) {
 
@@ -28462,7 +28595,7 @@ if (donateViaUsername && (player.money || 0) < USERNAME_ACTION_COST) {
 const targetPlayer =
     await Player.findOne({
         userId: target
-    })
+    }).select('-characters')
 
 if (!targetPlayer) {
 
@@ -28588,7 +28721,7 @@ ${amount.toLocaleString()} ذهب${donateViaUsername ? `\n\n💰 تم خصم ${U
     // ─── .يوزر ─── (تسجيل يوزرنيم جديد، مجاني، مرة وحدة)
     if (text.startsWith('.يوزر ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, {
@@ -28635,7 +28768,7 @@ ${amount.toLocaleString()} ذهب${donateViaUsername ? `\n\n💰 تم خصم ${U
     // ─── .تغيير_يوزر ─── (5,000,000 مال)
     if (text.startsWith('.تغيير_يوزر ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, {
@@ -28751,7 +28884,7 @@ ${list}━━━━━━━━━━━━━━━━━━
     // ─── .رسالة ─── (رسالة خاصة عبر اليوزر، 20 ألف مال، تشتغل عبر القروبات)
     if (text.startsWith('.رسالة ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, {
@@ -29691,7 +29824,7 @@ ${question}`
 
         const base = matches[0]
         const targetId = resolveBanTarget(msg) || userId
-        const player = await Player.findOne({ userId: targetId })
+        const player = await Player.findOne({ userId: targetId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -29715,9 +29848,8 @@ ${question}`
             urAbilities: abilities
         }
 
-        player.characters.push(exChar)
-        player.markModified('characters')
-        await player.save()
+        // ⚡ إضافة ذرّية (المستند محمّل بدون الشخصيات)
+        await Player.updateOne({ userId: targetId }, { $push: { characters: exChar }, $inc: { __v: 1 } })
 
         const abilitiesText = abilities
             .map((a, i) => `${i + 1}. ${a.name}\n   📈 ${a.description}`)
@@ -29789,7 +29921,7 @@ ${abilitiesText}`
 
         const shardBase = shardMatches[0]
         const shardTargetId = resolveBanTarget(msg) || userId
-        const shardPlayer = await Player.findOne({ userId: shardTargetId })
+        const shardPlayer = await Player.findOne({ userId: shardTargetId }).select('-characters')
 
         if (!shardPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -29826,7 +29958,7 @@ ${abilitiesText}`
         }
 
         const maxCompTargetId = resolveBanTarget(msg) || userId
-        const maxCompPlayer = await Player.findOne({ userId: maxCompTargetId })
+        const maxCompPlayer = await Player.findOne({ userId: maxCompTargetId }).select('-characters')
 
         if (!maxCompPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -29873,7 +30005,7 @@ ${maxCompAnimal?.emoji || '🐾'} ${maxCompName}
         }
 
         const giveCompTargetId = resolveBanTarget(msg) || userId
-        const giveCompPlayer = await Player.findOne({ userId: giveCompTargetId })
+        const giveCompPlayer = await Player.findOne({ userId: giveCompTargetId }).select('-characters')
 
         if (!giveCompPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -29956,7 +30088,7 @@ ${giveCompAnimal.emoji} ${giveCompAnimal.defaultName}
         }
 
         const giveBeastTargetId = resolveBanTarget(msg) || userId
-        const giveBeastPlayer = await Player.findOne({ userId: giveBeastTargetId })
+        const giveBeastPlayer = await Player.findOne({ userId: giveBeastTargetId }).select('-characters')
 
         if (!giveBeastPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -30554,7 +30686,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         }
 
         const gwTargetId = resolveBanTarget(msg) || userId
-        const gwPlayer = await Player.findOne({ userId: gwTargetId })
+        const gwPlayer = await Player.findOne({ userId: gwTargetId }).select('-characters')
 
         if (!gwPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -30617,7 +30749,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
 
     try {
 
-        let player = await Player.findOne({ userId })
+        let player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             player = new Player({ userId })
@@ -30652,7 +30784,7 @@ if (text === '.سحب_بنر' || text.startsWith('.سحب_بنر ')) {
         const weaponClaim = await Player.findOneAndUpdate(
             { userId, weaponPulls: { $gt: 0 } },
             { $inc: { weaponPulls: -1 } },
-            { new: true, strict: false }
+            { new: true, strict: false, projection: { weaponPulls: 1 } } // ⚡ الحقل فقط
         )
 
         if (!weaponClaim) {
@@ -30763,13 +30895,16 @@ ${guaranteed ? "🎯 حصلت عليه من ضمان الأسلحة!\n\n" : ""}�
     // -------------------------
     if (text === '.تركيب_سلاح' || text.startsWith('.تركيب_سلاح ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساباً' })
         }
 
         player.weaponsInventory = player.weaponsInventory || []
+
+        // ⚡ أسماء الشخصيات بنفس الفهارس (المستند محمّل بدون الشخصيات)
+        const _wChars = await charNameObjs(userId)
 
         const equipArgs = text.split(' ').filter(Boolean)
 
@@ -30789,7 +30924,7 @@ ${guaranteed ? "🎯 حصلت عليه من ضمان الأسلحة!\n\n" : ""}�
 
             let charsListText = ''
 
-            ;(player.characters || []).forEach((c, i) => {
+            ;(_wChars || []).forEach((c, i) => {
                 charsListText += `${i + 1}. ${c.name}\n`
             })
 
@@ -30808,7 +30943,7 @@ ${charsListText || 'لا تملك شخصيات'}`
         const equipCharIndex = parseInt(equipArgs[2]) - 1
 
         const weapon = player.weaponsInventory[weaponIndex]
-        const equipCharacter = (player.characters || [])[equipCharIndex]
+        const equipCharacter = _wChars[equipCharIndex]
 
         if (!weapon) {
             return safeSend(msg.key.remoteJid, { text: '❌ رقم سلاح غير صحيح' })
@@ -30846,7 +30981,7 @@ ${charsListText || 'لا تملك شخصيات'}`
     // -------------------------
     if (text === '.فك_سلاح' || text.startsWith('.فك_سلاح ')) {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساباً' })
@@ -30854,13 +30989,16 @@ ${charsListText || 'لا تملك شخصيات'}`
 
         player.weaponsInventory = player.weaponsInventory || []
 
+        // ⚡ أسماء الشخصيات بنفس الفهارس (المستند محمّل بدون الشخصيات)
+        const _wChars = await charNameObjs(userId)
+
         const unequipArgs = text.split(' ').filter(Boolean)
 
         if (unequipArgs.length < 2) {
 
             let charsListText = ''
 
-            ;(player.characters || []).forEach((c, i) => {
+            ;(_wChars || []).forEach((c, i) => {
                 const hasWeapon = player.weaponsInventory.some(w => w.equippedTo === c.name)
                 charsListText += `${i + 1}. ${c.name}${hasWeapon ? ' 🗡️' : ''}\n`
             })
@@ -30875,7 +31013,7 @@ ${charsListText || 'لا تملك شخصيات'}`
         }
 
         const unequipCharIndex = parseInt(unequipArgs[1]) - 1
-        const unequipCharacter = (player.characters || [])[unequipCharIndex]
+        const unequipCharacter = _wChars[unequipCharIndex]
 
         if (!unequipCharacter) {
             return safeSend(msg.key.remoteJid, { text: '❌ رقم شخصية غير صحيح' })
@@ -31148,7 +31286,7 @@ ${equippedListText}💡 اكتب .سلاحي رقم_الشخصية لعرض ال
 
     if (text === '.دومين' || text === '.domain' || text === '.دومينات') {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
 
@@ -31178,10 +31316,12 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
 
 `
 
+        const _dChars = await charNameObjs(userId)
+
         for (const domain of domainSystem.listDomains()) {
 
             const team =
-                domainSystem.getDomainTeamCharacters(player, domain.id)
+                domainSystem.getDomainTeamCharacters(player, domain.id, _dChars)
 
             message +=
 `${domain.emoji} دومين ${domain.id} - ${domain.name}
@@ -31245,7 +31385,7 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
                 .map(d => Number(d))
                 .filter(n => !isNaN(n) && n > 0)
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
 
@@ -31255,8 +31395,11 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
 
         }
 
+        // ⚡ أسماء الشخصيات بنفس الفهارس (المستند محمّل بدون الشخصيات)
+        const _dtChars = await charNameObjs(userId)
+
         const result =
-            domainSystem.setDomainTeam(player, domainId, indices)
+            domainSystem.setDomainTeam(player, domainId, indices, _dtChars)
 
         if (!result.success) {
 
@@ -31269,7 +31412,7 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
         await player.save()
 
         const team =
-            domainSystem.getDomainTeamCharacters(player, domainId)
+            domainSystem.getDomainTeamCharacters(player, domainId, _dtChars)
 
         return safeSend(msg.key.remoteJid, {
 
@@ -31312,7 +31455,7 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
 
         }
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
 
@@ -31322,8 +31465,11 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
 
         }
 
+        // ⚡ نجلب شخصيات فريق الدومين فقط (بنفس فهارسها) بدل كل المصفوفة
+        const _deChars = await charsSparse(userId, (player.domainTeams && player.domainTeams[domainId]) || [])
+
         const result =
-            domainSystem.enterDomain(player, domainId, difficultyInput)
+            domainSystem.enterDomain(player, domainId, difficultyInput, _deChars)
 
         if (!result.success) {
 
@@ -31401,7 +31547,7 @@ ${stamina.current < stamina.max ? `⏳ أقرب نقطة تتجدد خلال ${m
         }
 
         const gfTargetId = resolveBanTarget(msg) || userId
-        const gfPlayer = await Player.findOne({ userId: gfTargetId })
+        const gfPlayer = await Player.findOne({ userId: gfTargetId }).select('-characters')
 
         if (!gfPlayer) {
             return safeSend(msg.key.remoteJid, { text: '❌ اللاعب غير موجود.' })
@@ -31803,7 +31949,7 @@ ${result.item.icon || '🔸'} ${result.item.familyNameAr || result.item.familyNa
 
         }
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(msg.key.remoteJid, {
@@ -32606,7 +32752,7 @@ ${minutes} دقيقة`
 
     let player = await Player.findOne({
         userId: targetId
-    })
+    }).select('-characters')
 
     if (!player) {
 
@@ -33009,7 +33155,7 @@ if (text === '.اوامر' || text.startsWith('.اوامر ')) {
 
 if (text === '.مهامي') {
 
-const player = await Player.findOne({ userId })
+const player = await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
     return safeSend(
@@ -33116,7 +33262,7 @@ const dailyLockTimeout = setTimeout(() => {
 
 try {
 
-const player = await Player.findOne({ userId })
+const player = await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
 
@@ -33259,7 +33405,7 @@ const missionsClaimTimeout = setTimeout(() => {
 try {
 
 const player =
-await Player.findOne({ userId })
+await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
 
@@ -33412,7 +33558,7 @@ if (text === '.اسبوعي') {
 
     try {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(
@@ -33489,7 +33635,7 @@ if (text === '.اسبوعي') {
 
 if (text === '.مهام_اسبوعية') {
 
-    const player = await Player.findOne({ userId })
+    const player = await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return safeSend(
@@ -33592,7 +33738,7 @@ if (text === '.استلام_الاسبوعية') {
 
     try {
 
-        const player = await Player.findOne({ userId })
+        const player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
             return safeSend(
@@ -33678,16 +33824,17 @@ if (text === '.استلام_الاسبوعية') {
 
         player.boxes.sss_chance = (player.boxes.sss_chance || 0) + 2
 
-        if (sssChar) {
-            player.characters = player.characters || []
-            player.characters.push(sssChar)
-        }
-
         w.claimed = true
 
         player.markModified('weeklyMissions')
 
         await player.save()
+
+        // ⚡ الشخصية تُضاف ذرّياً بعد الحفظ (المستند محمّل بدون الشخصيات)
+        if (sssChar) {
+            await Player.updateOne({ userId }, { $push: { characters: sssChar }, $inc: { __v: 1 } })
+            try { achievementSweeper.run(userId) } catch (e) { /* فحص جانبي */ }
+        }
 
         await checkAndGrantAchievement(player, 'wealth', player.totalEarnedMoney, sock, msg.key.remoteJid)
 
@@ -34227,7 +34374,7 @@ battle.players
 const playerData =
 await Player.findOne({
 userId: p.userId
-})
+}).select('-characters')
 
 if (!playerData)
 continue
@@ -34787,7 +34934,7 @@ text:
 if (text.startsWith('.مفضلة ')) {
 
 const player =
-    await Player.findOne({ userId })
+    await Player.findOne({ userId }).select('-characters')
 
 if (!player) {
 
@@ -34954,10 +35101,9 @@ return sock.sendMessage(
 if (text === '.استرجاع_sss') {
     if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
-    const players = await Player.find({})
     let updated = 0
 
-    for (const player of players) {
+    for await (const player of Player.find({}).cursor()) {
 
         let changed = false
 
@@ -35018,11 +35164,9 @@ if (text === '.استرجاع_sss') {
         })
     }
 
-    const players = await Player.find({})
-
     let fixed = 0
 
-    for (const player of players) {
+    for await (const player of Player.find({}).cursor()) {
 
         if (!player.titles)
             player.titles = []
@@ -35266,7 +35410,7 @@ if (text === '.مضارباتي') {
     const player =
         await Player.findOne({
             userId
-        })
+        }).select('-characters')
 
     if (!player) {
         return safeSend(
@@ -35467,11 +35611,12 @@ ${shardData.amount - 1}/2`
             'kurama'
         ]
 
-        const allPlayers = await Player.find({})
+        let scannedCount = 0
 
         let fixedCount = 0
 
-        for (const p of allPlayers) {
+        for await (const p of Player.find({}).cursor()) {
+            scannedCount++
 
             if (p.ownedBeasts?.includes('juubi')) continue
 
@@ -35496,7 +35641,7 @@ ${shardData.amount - 1}/2`
 
 `🌌 ═════〔 إصلاح الجوبي الشامل 〕═════ 🌌
 
-📊 تم فحص ${allPlayers.length} لاعب
+📊 تم فحص ${scannedCount} لاعب
 
 ✅ تم منح الجوبي لـ ${fixedCount} لاعب كانوا مستحقين ولم يستلموه`
             }
@@ -35587,7 +35732,7 @@ ${shardData.amount - 1}/2`
     if (text === '.انجازاتي') {
 
     const player =
-        await Player.findOne({ userId })
+        await Player.findOne({ userId }).select('-characters')
 
     if (!player) {
         return sock.sendMessage(
@@ -35617,7 +35762,7 @@ ${shardData.amount - 1}/2`
         boxes: player.boxesOpened || 0,
         daily: player.dailyStreak || 0,
         wealth: player.totalEarnedMoney || 0,
-        collection: countSSS(player),
+        collection: await countSSSByUser(userId),
         fusion: player.totalMerges || 0
     }
 
@@ -35792,11 +35937,9 @@ if (text === '.تغيير_فورم' || text.startsWith('.تغيير_فورم '))
 if (text === '.اصلاح_المخزون') {
     if (!isOwner(msg)) return safeSend(msg.key.remoteJid, { text: '❌ للمطور فقط' }) // 🔒 كان بدون فحص صلاحية
 
-    const players = await Player.find({})
-
     let fixed = 0
 
-    for (const player of players) {
+    for await (const player of Player.find({}).cursor()) {
 
         const expected =
             30 +
@@ -35859,12 +36002,13 @@ if (text === '.مسح_المعدات') {
                 }
             )
 
-        const players = await Player.find({})
+        let playersCount = 0
 
         let playersCleaned = 0
         let itemsRemoved = 0
 
-        for (const player of players) {
+        for await (const player of Player.find({}).cursor()) {
+            playersCount++
 
             if (
                 !player.characters ||
@@ -35905,7 +36049,7 @@ if (text === '.مسح_المعدات') {
                 text:
 `✅ تم مسح نظام المعدات بالكامل من قاعدة البيانات
 
-👥 حسابات فُحصت: ${unsetResult.matchedCount ?? unsetResult.n ?? players.length}
+👥 حسابات فُحصت: ${unsetResult.matchedCount ?? unsetResult.n ?? playersCount}
 🧹 حسابات فيها شخصيات كانت لابسة معدات: ${playersCleaned}
 🗑️ قطع معدات أُزيلت من الشخصيات: ${itemsRemoved}
 
@@ -36272,7 +36416,7 @@ if (text.startsWith('.ذكاء')) {
     
     if (false && text === '.فحصxp') { // 🔌 معطّل بطلب المطور (أمر فحص داخلي)
 
-    const me = await Player.findOne({ userId })
+    const me = await Player.findOne({ userId }).select('level xp').lean() // ⚡ عرض فقط
 
     return sock.sendMessage(
         msg.key.remoteJid,
@@ -36593,7 +36737,7 @@ if (!rankPlayer) continue
 
 const player = await Player.findOne({
     userId: rankPlayer.userId
-})
+}).select('-characters')
 
 if (!player) {
     console.log(`Player not found: ${rankPlayer.userId}`)
@@ -38500,15 +38644,13 @@ ${hpList}
         )
     }
 
-    const me =
-        await Player.findOne({
-            userId
-        })
+    // ⚡ قراءة فقط: شخصية واحدة من كل لاعب بدون تحميل المستند الكامل
+    const _pickSwapChar = (uid, n) => Player.findOne({ userId: uid })
+        .select({ userId: 1, characters: { $slice: [Math.min(2147483646, Math.max(0, n - 1)), 1] } }).lean() // 🛡️ سقف int32
 
-    const other =
-        await Player.findOne({
-            userId: target
-        })
+    const me = await _pickSwapChar(userId, myNumber)
+
+    const other = await _pickSwapChar(target, hisNumber)
 
     if (!me) {
         return sock.sendMessage(
@@ -38528,11 +38670,12 @@ ${hpList}
         )
     }
 
+    // myNumber/hisNumber < 1 كانت تعطي undefined (فهرس سالب) = «غير موجودة»
     const myChar =
-        me.characters[myNumber - 1]
+        myNumber >= 1 ? me.characters?.[0] : undefined
 
     const hisChar =
-        other.characters[hisNumber - 1]
+        hisNumber >= 1 ? other.characters?.[0] : undefined
 
     if (!myChar) {
         return sock.sendMessage(
@@ -38739,7 +38882,7 @@ if (text === '.تص_رانك') {
         // ─── .pvp (تحديد فريق .قتال pvp: 3 شخصيات من شخصياتك) ───
         if (text === '.pvp' || text.startsWith('.pvp ')) {
 
-            const me = await Player.findOne({ userId })
+            const me = await Player.findOne({ userId }).select('-characters')
 
             if (!me) {
                 return safeSend(msg.key.remoteJid, { text: '❌ لا تملك حساب' })
@@ -38750,7 +38893,9 @@ if (text === '.تص_رانك') {
             // بدون أرقام: عرض الفريق الحالي
             if (!pvpArgs.length) {
 
-                const { characters: teamChars, auto } = pvpBattle.resolveTeamCharacters(me)
+                // ⚡ العرض يحتاج الاسم والقوة لكل الشخصيات فقط (قراءة lean بدون المستند الكامل)
+                const _pvpLite = await Player.findOne({ userId }).select('pvpBattleTeam characters.name characters.power').lean()
+                const { characters: teamChars, auto } = pvpBattle.resolveTeamCharacters(_pvpLite || me)
 
                 if (!teamChars.length) {
                     return safeSend(msg.key.remoteJid, { text: '❌ لا تملك شخصيات' })
@@ -38787,20 +38932,22 @@ ${teamLines.join('\n')}
                 return safeSend(msg.key.remoteJid, { text: '❌ لا يمكن تكرار نفس الشخصية' })
             }
 
+            const _pvpNames = await charNameObjs(userId)
+
             for (const i of pvpIdx) {
-                if (!me.characters[i]) {
+                if (!_pvpNames[i]) {
                     return safeSend(msg.key.remoteJid, { text: `❌ الشخصية رقم ${i + 1} غير موجودة` })
                 }
             }
 
-            me.pvpBattleTeam = pvpIdx.map(i => me.characters[i].name)
+            me.pvpBattleTeam = pvpIdx.map(i => _pvpNames[i].name)
             await me.save()
 
             return safeSend(msg.key.remoteJid, {
                 text:
 `🥊 تم حفظ فريق PvP
 
-${pvpIdx.map(i => `👑 ${me.characters[i].name}`).join('\n')}
+${pvpIdx.map(i => `👑 ${_pvpNames[i].name}`).join('\n')}
 
 ⚔️ للقتال اكتب: .قتال pvp`
             })
@@ -39212,7 +39359,7 @@ ${attacker.pvpFights}/20${teamA.auto ? '\n\n💡 فريقك تلقائي (أقو
 
                 // ↩️ نرجع القتال المخصوم والكولداون (والمال لو اليوزرنيم) لو صار خطأ قبل الحسم
                 try {
-                    const fresh = await Player.findOne({ userId })
+                    const fresh = await Player.findOne({ userId }).select('-characters')
                     if (fresh) {
                         fresh.pvpFights = (fresh.pvpFights || 0) + 1
                         fresh.lastPvP = 0
@@ -39280,7 +39427,7 @@ ${attacker.pvpFights}/20${teamA.auto ? '\n\n💡 فريقك تلقائي (أقو
 
 if (text === '.قدراتي') {
 
-    const me = await Player.findOne({ userId })
+    const me = await Player.findOne({ userId }).select('-characters')
     if (!me.specialAbilities) me.specialAbilities = []
 
 for (let i = 5; i <= Math.min(me.level, 100); i += 5) {
@@ -39385,7 +39532,7 @@ if (text === '.رصيدي') {
 
     try {
 
-        let player = await Player.findOne({ userId })
+        let player = await Player.findOne({ userId }).select('-characters')
 
         if (!player) {
 
@@ -39763,24 +39910,57 @@ if (text === '.نعم') {
 
     if (!confirm) return
 
-    const player = await Player.findOne({ userId })
-
-    if (!player) return
-
-    player.characters.splice(confirm.index, 1)
-
-    const moneyBefore = player.money || 0
-
-    await player.addMoney(confirm.price, { save: false })
-
-    await player.save()
-
-    const moneyCredited = (player.money || 0) - moneyBefore
-
+    // 🔒 نستهلك الطلب فوراً قبل أي await: ضغطتان متزامنتان ما تبيعان شخصيتين
     pendingSellConfirm.delete(userId)
 
-    return safeSend(msg.key.remoteJid, {
-        text:
+    if (giftLocks.has(userId)) {
+        pendingSellConfirm.set(userId, confirm)
+        return safeSend(msg.key.remoteJid, {
+            text: '⏳ انتظر حتى تنتهي العملية السابقة ثم اكتب .نعم مرة ثانية.'
+        })
+    }
+
+    giftLocks.add(userId)
+
+    try {
+
+        const player = await Player.findOne({ userId }).select('-characters')
+
+        if (!player) return
+
+        // 🗑️ حذف ذرّي بشرط أن نفس الشخصية (اللي عُرض تأكيدها) ما زالت بنفس الفهرس
+        // يغلق: بيع شخصية غير المعروضة، مال مجاني لو خرج الفهرس عن الطول، وتجاوز حماية Ω بإعادة الترتيب
+        const removed = await removeCharsAtIdx(userId, [{ idx: confirm.index, c: confirm.character }])
+
+        if (!removed) {
+
+            return safeSend(msg.key.remoteJid, {
+                text: '⚠️ تغيّر ترتيب شخصياتك أو لم تعد الشخصية موجودة، ولم يُباع شيء. اكتب .بيع من جديد.'
+            })
+        }
+
+        const moneyBefore = player.money || 0
+
+        try {
+
+            await player.addMoney(confirm.price, { save: false })
+
+            await player.save()
+
+        } catch (moneyErr) {
+
+            // الشخصية انحذفت: نحاول إضافة المبلغ مباشرة حتى لا يخسر اللاعب
+            console.log('❌ .نعم: انحذفت الشخصية وفشل addMoney', userId, confirm.price, moneyErr)
+            await Player.updateOne({ userId }, { $inc: { money: confirm.price } })
+            return safeSend(msg.key.remoteJid, {
+                text: `✅ تم بيع الشخصية\n\n👤 ${confirm.character.name}\n\n💰 +${confirm.price}`
+            })
+        }
+
+        const moneyCredited = (player.money || 0) - moneyBefore
+
+        return safeSend(msg.key.remoteJid, {
+            text:
 
 `✅ تم بيع الشخصية
 
@@ -39790,7 +39970,12 @@ if (text === '.نعم') {
 
 💳 الرصيد:
 ${player.money}`
-    })
+        })
+
+    } finally {
+
+        giftLocks.delete(userId)
+    }
 }
 
 if (text === '.لا') {
@@ -41038,28 +41223,18 @@ const participants =
         p => p.id
     )
 
-const players =
-    await Player.find({
-        userId: {
-            $in: participants
-        }
-    })
+// ⚡ الترتيب يُحسب داخل MongoDB ($sum على characters.power) — يرجع userId + power فقط
+// بدل تحميل مستندات كل أعضاء القروب كاملة (بكل شخصياتهم). نفس المجموع الخام القديم (بدون سقف المخزون).
+const powerRows =
+    await Player.aggregate([
+        { $match: { userId: { $in: participants } } },
+        { $project: { _id: 0, userId: 1, power: { $sum: '$characters.power' } } }
+    ])
 
-const ranking = players.map(player => {
-
-    const totalPower =
-        (player.characters || [])
-            .reduce(
-                (sum, c) =>
-                    sum + (c.power || 0),
-                0
-            )
-
-    return {
-        player,
-        power: totalPower
-    }
-})
+const ranking = powerRows.map(row => ({
+    userId: row.userId,
+    power: Number(row.power) || 0
+}))
 
 ranking.sort(
     (a, b) =>
@@ -41070,19 +41245,29 @@ const top15 =
     ranking.slice(0, 15)
     if (!top15.length) return
 
-const first = top15[0]?.player
-const second = top15[1]?.player
-const third = top15[2]?.player
+const first = top15[0] ? { userId: top15[0].userId } : null
+const second = top15[1] ? { userId: top15[1].userId } : null
+const third = top15[2] ? { userId: top15[2].userId } : null
+
+// ⚡ المركز الأول فقط يُحمَّل كاملاً (لأنه يستلم شخصية SSS ويمر بخطافات الحفظ: إنجاز الجمع/المهام)
+// أما المراكز 2–15 فصناديق فقط → $inc ذري بعملية bulkWrite واحدة بدل تحميل + save لكل لاعب.
+const boxOps = []
 
 if (first) {
 
-    first.boxes = first.boxes || {}
+    const firstDoc = await Player.findOne({ userId: first.userId }).select('-characters')
 
-    first.boxes.sss_high =
-        (first.boxes.sss_high || 0) + 1
+    if (firstDoc) {
 
-    first.boxes.sss_chance =
-        (first.boxes.sss_chance || 0) + 1
+    firstDoc.boxes = firstDoc.boxes || {}
+
+    firstDoc.boxes.sss_high =
+        (firstDoc.boxes.sss_high || 0) + 1
+
+    firstDoc.boxes.sss_chance =
+        (firstDoc.boxes.sss_chance || 0) + 1
+
+    let firstRewardChar = null
 
     const sssChars =
         getCharsByRarityFast('SSS')
@@ -41097,71 +41282,42 @@ if (first) {
                 )
             ]
 
-        first.characters =
-            first.characters || []
-
-        first.characters.push(
+        firstRewardChar =
             JSON.parse(
                 JSON.stringify(reward)
             )
-        )
     }
 
-    await first.save()
+    await firstDoc.save()
+
+    // ⚡ المستند محمّل بدون الشخصيات → الشخصية تُضاف ذرّياً بعد الحفظ
+    if (firstRewardChar) {
+        await Player.updateOne({ userId: first.userId }, { $push: { characters: firstRewardChar }, $inc: { __v: 1 } })
+        try { achievementSweeper.run(first.userId) } catch (e) { /* فحص جانبي */ }
+    }
+
+    }
 }
 
 if (second) {
-
-    second.boxes = second.boxes || {}
-
-    second.boxes.sss_high =
-        (second.boxes.sss_high || 0) + 2
-
-    second.boxes.legendary =
-        (second.boxes.legendary || 0) + 2
-
-    await second.save()
+    boxOps.push({ updateOne: { filter: { userId: second.userId }, update: { $inc: { 'boxes.sss_high': 2, 'boxes.legendary': 2 } } } })
 }
 
 if (third) {
-
-    third.boxes = third.boxes || {}
-
-    third.boxes.sss_high =
-        (third.boxes.sss_high || 0) + 1
-
-    third.boxes.legendary =
-        (third.boxes.legendary || 0) + 2
-
-    await third.save()
+    boxOps.push({ updateOne: { filter: { userId: third.userId }, update: { $inc: { 'boxes.sss_high': 1, 'boxes.legendary': 2 } } } })
 }
 
 for (let i = 3; i < top15.length; i++) {
 
-    const player =
-        top15[i].player
+    const inc = i <= 9
+        ? { 'boxes.legendary': 2, 'boxes.epic': 2 }
+        : { 'boxes.epic': 2, 'boxes.rare': 2 }
 
-    player.boxes =
-        player.boxes || {}
+    boxOps.push({ updateOne: { filter: { userId: top15[i].userId }, update: { $inc: inc } } })
+}
 
-    if (i <= 9) {
-
-        player.boxes.legendary =
-            (player.boxes.legendary || 0) + 2
-
-        player.boxes.epic =
-            (player.boxes.epic || 0) + 2
-
-    } else {
-
-        player.boxes.epic =
-            (player.boxes.epic || 0) + 2
-
-        player.boxes.rare =
-            (player.boxes.rare || 0) + 2
-    }
-
-    await player.save()
+if (boxOps.length) {
+    await Player.bulkWrite(boxOps, { ordered: false })
 }
 
 let result =
