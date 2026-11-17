@@ -10,16 +10,18 @@ async function updateShipPower(shipId) {
 
     let totalPower = 0
 
-    for (const memberId of ship.members) {
+    // ⚡ استعلام واحد خفيف (power فقط) لكل أعضاء السفينة
+    // بدل findOne بمستند كامل (بكل شخصياته) لكل عضو بالتتابع — نفس المجموع بالضبط
+    const members = [...new Set(ship.members || [])]
 
-        const player = await Player.findOne({
-            userId: memberId
-        })
+    if (members.length) {
+        const docs = await Player.find({ userId: { $in: members } })
+            .select('userId characters.power')
+            .lean()
 
-        if (!player) continue
-
-        totalPower += getPlayerPower(player)
-
+        for (const player of docs) {
+            totalPower += getPlayerPower(player)
+        }
     }
 
     ship.power = totalPower
