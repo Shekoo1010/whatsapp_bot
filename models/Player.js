@@ -1401,6 +1401,18 @@ const achHooks = { sweeper: null }
 
 PlayerSchema.pre('save', async function () {
 
+    // 🛡️ حارس: مستند محمّل بدون الشخصيات (select('-characters')) ثم عُدّلت characters = كان سيكتب فوق شخصيات اللاعب كلها.
+    // نوقف الحفظ بخطأ واضح بدل فقدان البيانات.
+    if (!this.isNew && this.isModified('characters')) {
+        // يشمل التحميل بدون الشخصيات، والتحميل الجزئي (select('characters.name ...')) الذي يُرجع isSelected('characters') = true
+        const sel = this.$__ && this.$__.selected
+        const partial = !!sel && Object.keys(sel).some(k => k.startsWith('characters.'))
+        const missing = typeof this.isSelected === 'function' && !this.isSelected('characters')
+        if (missing || partial) {
+            throw new Error('Player.save blocked: characters modified on a ' + (missing ? 'document loaded without characters' : 'partially loaded document') + ' (userId=' + this.userId + ')')
+        }
+    }
+
     try {
 
         if (!levelHooks.handler || this.isNew) return
