@@ -468,7 +468,7 @@ async function applyAttack(res,my){
  if(h.heal&&R.hp>0)R.hp=Math.min(R.max,R.hp+h.heal);
  const ac=alive(p);
  if(h.reflect&&ac){ac.hp-=h.reflect;if(ac.hp<=0){ac.hp=0;ac.dead=true}}
- const r={beast:h.beast||'',dmg:h.dmg,crit:h.crit,tags:h.tags,best:h.best,absorbed:h.absorbed,reflect:h.reflect,heal:h.heal,reflectKill:!!(ac&&ac.dead)};
+ const r={beast:h.beast||'',beastImg:h.beastImg||'',dmg:h.dmg,crit:h.crit,tags:h.tags,best:h.best,absorbed:h.absorbed,reflect:h.reflect,heal:h.heal,reflectKill:!!(ac&&ac.dead)};
  await playerAnim(p,r);if(my!==rid)return;
  const ph=phaseOf(R);if(ph>R.ph&&R.hp>0){R.ph=ph;await phaseFx(ph);updateBoss()}
  if(res.bossDead){R.hp=0;await bossDeath(res.end);return}
