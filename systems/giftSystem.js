@@ -44,7 +44,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
      * يرجع { ok:true, duplicate, characters, cost, ... }
      * أو   { ok:false, code, extra }
      */
-    async function giftCharacters({ senderId, targetId, picks, viaUsername, opKey, source }) {
+    async function giftCharacters({ senderId, targetId, picks, viaUsername, opKey, source, expected }) {
 
         if (!senderId || !targetId) return { ok: false, code: 'NO_TARGET' }
         if (senderId === targetId) return { ok: false, code: 'SELF' }
@@ -63,11 +63,23 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
         let session = null
         let result = null
 
+        // ⏱️ قياس زمن كل خطوة (اختياري): شغّل البوت بـ GIFT_TIMING=1
+        const _t0 = Date.now()
+        const _mark = (label) => {
+            if (process.env.GIFT_TIMING === '1') console.log(`⏱️ giftCharacters ${label}: ${Date.now() - _t0}ms`)
+        }
+        let _attempts = 0
+
         try {
 
             session = await mongoose.startSession()
+            _mark('startSession')
 
             await session.withTransaction(async () => {
+
+                _attempts++
+                // 🔁 لو الرقم أكبر من 1 يعني MongoDB أعاد المحاولة (تعارض كتابة مع عملية ثانية على نفس اللاعب) — هذا سبب شائع للبطء
+                if (_attempts > 1) console.log(`⚠️ giftCharacters: إعادة محاولة الـ transaction رقم ${_attempts} (تعارض كتابة)`)
 
                 result = null // إعادة ضبط لو أُعيدت المحاولة
 
@@ -77,6 +89,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     .select('characters giftOpKeys money name username weaponsInventory giftLog')
                     .session(session)
                     .lean()
+                _mark('read sender')
                 if (!sender) throw new GiftError('NO_SENDER')
 
                 // ♻️ طلب مكرر بنفس الرقم (ضغطتان / إعادة إرسال) → نفس النتيجة بلا تنفيذ
@@ -89,6 +102,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     .select('characters giftInbox giftLog name username')
                     .session(session)
                     .lean()
+                _mark('read target')
                 if (!target) throw new GiftError('NO_TARGET')
 
                 const chars = sender.characters || []
@@ -118,6 +132,14 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                 if (new Set(indices).size !== indices.length) throw new GiftError('DUP_INDEX')
 
                 const selected = indices.map(i => chars[i])
+
+                // ✅ (الأمر) تأكيد أن نفس الشخصيات اللي وافق عليها اللاعب ما تغيّرت (اسم + قوة) — داخل نفس الـ transaction
+                if (expected && Array.isArray(expected.names)) {
+                    const same =
+                        selected.length === expected.names.length &&
+                        selected.every((c, i) => c && c.name === expected.names[i] && c.power === expected.powers[i])
+                    if (!same) throw new GiftError('STALE')
+                }
 
                 // 🌌 Ω ما تُهدى
                 if (selected.some(c => c && c.evolutionLevel === 7)) throw new GiftError('OMEGA')
@@ -198,7 +220,9 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     senderSet.giftOpKeys = keys.slice(-OPKEY_LIMIT)
                 }
 
+                _mark('compute')
                 await Player.updateOne({ userId: senderId }, { $set: senderSet }, { session })
+                _mark('write sender')
 
                 await Player.updateOne(
                     { userId: targetId },
@@ -211,6 +235,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                     },
                     { session }
                 )
+                _mark('write target')
 
                 result = {
                     ok: true,
@@ -227,6 +252,7 @@ function createGiftSystem({ mongoose, Player, giftLocks, resortPlayerCharacters,
                 }
             })
 
+            _mark(`commit (attempts=${_attempts})`)
             return result || { ok: false, code: 'TX_FAILED' }
 
         } catch (err) {
