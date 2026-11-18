@@ -826,11 +826,15 @@ async function attackRaid({
 
     sock,
     jid,
-    userId
+    userId,
+    preload
 
 }){
 
+    // ⚡ preload (اختياري): { raid, player } محمّلان مسبقاً من الموقع بنفس الاستعلامين
+    // — بدون preload (أمر الشات) السلوك نفسه حرفياً: نقرأهما هنا.
     const raid =
+    (preload && preload.raid) ||
     await Raid.findOne({
 
         active:true
@@ -862,6 +866,7 @@ text:
     }
 
     const player =
+    (preload && preload.player) ||
     await Player.findOne({
 
         userId
@@ -1364,7 +1369,12 @@ userId
     // =====================
 // إزالة البونصات المؤقتة
 // =====================
-await raid.save()
+// ⚡ من الموقع (preload): نحفظ الغارة واللاعب بالتوازي — مستندان مستقلان.
+// لو فشل أحدهما نرمي نفس الخطأ ونسجّل أي واحد فشل ونجح (تشخيص)، لأن النجاح الجزئي ممكن نظرياً.
+// من الشات (بدون preload): الترتيب القديم حرفياً (الغارة ثم اللاعب).
+if(!preload){
+    await raid.save()
+}
 player.damageBonus = 0
 player.defenseBonus = 0
 player.critRateBonus = 0
@@ -1376,7 +1386,16 @@ player.dodgeBonus = 0
 // (نفس سبب مشكلة damageMap أعلاه) لذلك نستخدم markModified هنا أيضاً
 player.markModified('characters')
 
-await player.save()
+if(preload){
+    const [rRes, pRes] = await Promise.allSettled([raid.save(), player.save()])
+    if(rRes.status === 'rejected' || pRes.status === 'rejected'){
+        console.error('raid parallel save failed — raid:', rRes.status, 'player:', pRes.status,
+            (rRes.reason && rRes.reason.message) || '', (pRes.reason && pRes.reason.message) || '')
+        throw (rRes.status === 'rejected' ? rRes.reason : pRes.reason)
+    }
+}else{
+    await player.save()
+}
     
       // =====================
     // انتهاء الرايد

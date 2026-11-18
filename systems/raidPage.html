@@ -156,7 +156,7 @@ button,select{font:inherit;color:inherit;cursor:pointer}
   <div class="hpt"><span id="phase"></span><span id="hpTxt"></span></div></header>
  <aside id="board"><div id="bh"><b>⚔ عداد الضرر</b><small id="cnt"></small><i id="chev">▾</i></div><div id="me"></div><div id="list"></div><div id="sum"></div></aside>
  <div id="log"></div><div id="swap"></div><div id="banner"></div>
- <footer id="bar"><button id="tg">المشاركون</button><button id="atk">هجوم</button><button id="spd" title="سرعة المعركة">×1</button></footer>
+ <footer id="bar"><button id="back" type="button" title="رجوع">→ رجوع</button><button id="tg">المشاركون</button><button id="atk">هجوم</button><button id="spd" title="سرعة المعركة">×1</button></footer>
 </div>
 <div id="bx"><div class="bxd"></div><div class="bxs"></div><div class="bxl t"></div><div class="bxl b"></div><div class="bxc"><img alt=""></div><div class="bxn"><b></b><small></small></div><div class="bxbeam"></div><div class="bxg" id="bxg"><img alt=""></div><div class="bxo" id="bxo"></div><div class="bxp" id="bxp"><div class="pi"><div class="tl"></div><div class="bxo po"></div></div></div><div class="bxe" id="bxe"></div><div class="bxk"></div><div class="bxk k2"></div><div class="bxf"></div></div><div id="intro"></div><div id="end"></div>
 <div id="nogl">متصفحك لا يدعم WebGL، جرّب متصفحاً آخر لعرض الساحة.</div>
@@ -533,7 +533,7 @@ function showEnd(win,data){
    return`<li><span>${medal[i]||i+1}</span><span><b>${cn(p.name)}${p.id&&p.id===you.id?' ★':''}</b><small>💰 ${full(p.money)} · ${bx}${p.character?` · 🌟 شخصية SSS: ${cn(p.character)}`:''}</small></span><b>${fmt(p.dmg)}</b></li>`}).join('')}
  else{const L=[...P].filter(p=>p.dmg>0).sort((a,b)=>b.dmg-a.dmg);
   rows=L.map((p,i)=>`<li><span>${medal[i]||i+1}</span><span><b>${p.name}${p.isYou?' ★':''}</b><small>${win?'الجوائز أُرسلت في القروب':p.hits+' ضربة'}</small></span><b>${fmt(p.dmg)}</b></li>`).join('')}
- const board=()=>{$('#end').innerHTML=`<div class="ec"><h2>${win?'تم تحرير المملكة':'سقطت المملكة'}</h2><p>${R.k.name} · ${R.k.boss} ${win?'هُزم':'انتصر عليكم'}</p><ol>${rows}</ol><div class="bt"><button id="e1">العودة</button></div></div>`;$('#e1').onclick=()=>location.reload()};
+ const board=()=>{$('#end').innerHTML=`<div class="ec"><h2>${win?'تم تحرير المملكة':'سقطت المملكة'}</h2><p>${R.k.name} · ${R.k.boss} ${win?'هُزم':'انتصر عليكم'}</p><ol>${rows}</ol><div class="bt"><button id="e1">العودة</button></div></div>`;$('#e1').onclick=()=>goBack()};
  // جائزتي: تظهر فوق الشاشة أولاً مع زر "جمع"
  const mine=win&&data&&data.rows&&you?data.rows.find(p=>p.id&&p.id===you.id):null;
  if(mine){
@@ -570,12 +570,14 @@ async function waiting(){
  await loaded;KI=0;bossV=IM.shanks;B.dis=1;B.trail=[];renderWorld();
  const nx=D.nextAt||0,tick=()=>{const s=Math.max(0,Math.floor((nx-Date.now())/1000));return[Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(v=>String(v).padStart(2,'0')).join(':')};
  $('#bName').textContent='لا يوجد غزو نشط';$('#bSub').textContent='انتظر إعلان الغزو القادم';$('#hpTxt').textContent='';$('#phase').textContent='';
- $('#end').innerHTML=`<div class="ec"><h2>لا يوجد غزو نشط</h2><p>الغزو القادم بعد <b id="cdn">${tick()}</b></p><div class="bt"><button id="e1">تحديث</button></div></div>`;
- $('#end').classList.add('show');$('#e1').onclick=()=>location.reload();
+ $('#end').innerHTML=`<div class="ec"><h2>لا يوجد غزو نشط</h2><p>الغزو القادم بعد <b id="cdn">${tick()}</b></p><div class="bt"><button id="e1">تحديث</button><button class="g" id="e2">رجوع</button></div></div>`;
+ $('#end').classList.add('show');$('#e1').onclick=()=>location.reload();$('#e2').onclick=()=>goBack();
  setInterval(()=>{const e=$('#cdn');if(e)e.textContent=tick()},1000);
  setInterval(async()=>{const s=await api('/raid/state');if(s&&s.ok&&s.active)location.reload()},8000)}
 
 /* التحكم */
+const goBack=()=>{const c=String(D.code||'');if(/^[A-Za-z0-9_-]+$/.test(c))location.href='/u/'+c;else if(history.length>1)history.back();else location.href='/'};
+$('#back').onclick=goBack;
 $('#spd').onclick=()=>{SP=SP===1?2:SP===2?3:1;$('#spd').textContent='×'+SP};
 $('#bh').onclick=()=>$('#board').classList.toggle('min');if(innerWidth<720)$('#board').classList.add('min');
 const atk=$('#atk');function doAtk(){if(!done&&you&&!you.out&&Date.now()>=you.nextAt&&introK>=1&&!busy)want=true}

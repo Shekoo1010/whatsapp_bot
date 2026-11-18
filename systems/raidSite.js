@@ -106,6 +106,12 @@ function raidView(raid) {
     }
 }
 
+// الحقول الوحيدة التي يحتاجها الهجوم من الشخصيات (بدون صور/معدات/إيكوز...)
+const LIGHT_PLAYER_FIELDS = 'userId characters.name characters.power characters.currentHp characters.dead'
+
+// حقول لا تُقرأ ولا تُكتب في مسار الهجوم (استثناؤها آمن: الحفظ يكتب الحقول المعدّلة فقط)
+const HEAVY_UNUSED_EXCLUDE = '-giftInbox -giftLog -rewardLog -galleryLikes'
+
 function createRaidSite({ Player, getSock, charImage }) {
 
     // تسلسل كل الهجمات (الرايد مستند واحد مشترك، نمنع تداخل القراءة/الكتابة بين لاعبين من الموقع)
@@ -130,7 +136,11 @@ function createRaidSite({ Player, getSock, charImage }) {
 
     async function getState(userId, req) {
 
-        const player = await Player.findOne({ userId }).lean()
+        // ⚡ قراءتان بالتوازي (بدل الواحدة بعد الأخرى) + نجلب فقط حقول اللاعب اللازمة
+        const [player, activeRaid] = await Promise.all([
+            Player.findOne({ userId }).select('name username characters lastRaidAttack').lean(),
+            Raid.findOne({ active: true }).lean()
+        ])
         if (!player) return null
 
         const chars = player.characters || []
@@ -142,7 +152,7 @@ function createRaidSite({ Player, getSock, charImage }) {
             dmg: 0
         }
 
-        const raid = await Raid.findOne({ active: true }).lean()
+        const raid = activeRaid
 
         if (!raid) {
             const any = await Raid.findOne().lean()
@@ -263,13 +273,25 @@ function createRaidSite({ Player, getSock, charImage }) {
     async function attack(userId) {
         return serial(async () => {
 
-            const raidBefore = await Raid.findOne({ active: true }).lean()
-            if (!raidBefore) return { ok: false, code: 'NO_RAID', message: 'لا يوجد غزو نشط حالياً.' }
+            const T0 = Date.now()
 
-            const before = await Player.findOne({ userId }).lean()
-            if (!before) return { ok: false, code: 'NO_PLAYER', message: 'لا يوجد حساب.' }
+            // ⚡ نحمّل الغارة واللاعب مرة واحدة (بالتوازي) ونمررهما لـ attackRaid
+            // — نفس الاستعلامين اللي كان يعملهم attackRaid بنفسه، بدون قراءات مكررة قبل/بعد.
+            const [raidDoc, playerDoc] = await Promise.all([
+                Raid.findOne({ active: true }),
+                // ⚡ نستثني فقط مصفوفات صغيرة مسقوفة لا يلمسها الهجوم ولا خطّافات الحفظ:
+                // صندوق/سجل الإهداء (≤50/≤100) وسجل الجوائز (≤30) ولايكات المعرض.
+                // لا نستثني أي حقل آخر (المهام/الإنجازات/المستوى/المعدات/الأسلحة/الرفيق كلها لازمة).
+                Player.findOne({ userId }).select(HEAVY_UNUSED_EXCLUDE)
+            ])
+            if (!raidDoc) return { ok: false, code: 'NO_RAID', message: 'لا يوجد غزو نشط حالياً.' }
+            if (!playerDoc) return { ok: false, code: 'NO_PLAYER', message: 'لا يوجد حساب.' }
 
-            const bChars = before.characters || []
+            // لقطة "قبل الهجوم" (attackRaid يعدّل المستند نفسه، فنحفظ الأرقام الآن)
+            const raidBefore = { kingdom: raidDoc.kingdom, bossName: raidDoc.bossName }
+            const bChars = (playerDoc.characters || []).map(c => ({
+                name: c.name, power: c.power, currentHp: c.currentHp, dead: c.dead
+            }))
             const a0 = aliveIndex(bChars)
             const hp0 = a0 >= 0 ? charHp(bChars[a0]) : 0
 
@@ -283,7 +305,7 @@ function createRaidSite({ Player, getSock, charImage }) {
             }
 
             try {
-                await raidBattle.attackRaid({ sock: cap, jid: 'site@raid', userId })
+                await raidBattle.attackRaid({ sock: cap, jid: 'site@raid', userId, preload: { raid: raidDoc, player: playerDoc } })
             } catch (err) {
                 console.error('raid site attack error:', err)
                 return { ok: false, code: 'SERVER', message: 'خطأ بالخادم' }
@@ -308,9 +330,17 @@ function createRaidSite({ Player, getSock, charImage }) {
 
             const killed = /تم القضاء على الزعيم/.test(first)
 
-            const after = await Player.findOne({ userId }).lean()
-            const aChars = (after && after.characters) || []
-            const raidAfter = await Raid.findOne().lean()
+            // ⚡ ما بعد الهجوم: نقرأ من نفس المستندات المحفوظة بدل إعادة القراءة.
+            // استثناء: عند قتل الزعيم تُعاد الشخصيات للحياة بقاعدة البيانات (resetAllRaidCharacters)
+            // فنعيد قراءة اللاعب لنفس السلوك القديم.
+            const raidAfter = { hp: raidDoc.hp, totalDamage: raidDoc.totalDamage }
+            let aChars
+            if (killed) {
+                const after = await Player.findOne({ userId }).select(LIGHT_PLAYER_FIELDS).lean()
+                aChars = (after && after.characters) || []
+            } else {
+                aChars = playerDoc.characters || []
+            }
 
             const hit = parseHit(first)
             const boss = {}
@@ -410,6 +440,9 @@ function createRaidSite({ Player, getSock, charImage }) {
                 // رسائل النهاية (تحرير المملكة + الجوائز) تنرسل لقروبات الرايد مثل ما تنرسل من .غزو_رايد
                 await forward(sent.slice(1))
             }
+
+            // ⏱️ للتشخيص فقط: فعّل RAID_TIMING=1 بمتغيرات البيئة لطباعة زمن الهجوم بالخادم
+            if (process.env.RAID_TIMING) console.log('[raid-attack] ' + (Date.now() - T0) + 'ms total (بدون انتظار الطابور)')
 
             return res
         })
