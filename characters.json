@@ -20185,5 +20185,401 @@
     "rarity": "SSS",
     "ability": "سيف الجلاد الضخم",
     "image": ""
+  },
+  {
+    "name": "Nanako Misonoo",
+    "form": "الفتاة المختارة في الأخوية",
+    "anime": "Oniisama e...",
+    "power": 6660,
+    "rarity": "SSS",
+    "ability": "قلب لا ينكسر",
+    "image": ""
+  },
+  {
+    "name": "Kanata Hoshijima",
+    "form": "ربّان مركبة أسترا",
+    "anime": "Kanata No Astra",
+    "power": 6763,
+    "rarity": "SSS",
+    "ability": "عزيمة الرحلة",
+    "image": ""
+  },
+  {
+    "name": "Aries Spring",
+    "form": "الفتاة الصلبة المندفعة",
+    "anime": "Kanata No Astra",
+    "power": 6857,
+    "rarity": "SSS",
+    "ability": "قفزة الشجاعة",
+    "image": ""
+  },
+  {
+    "name": "Zack Walker",
+    "form": "المهندس الجريء",
+    "anime": "Kanata No Astra",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "الإصلاح العبقري",
+    "image": ""
+  },
+  {
+    "name": "Quitterie Raffaëlli",
+    "form": "الأخت الكبرى الحنون",
+    "anime": "Kanata No Astra",
+    "power": 6931,
+    "rarity": "SSS",
+    "ability": "رعاية الحياة",
+    "image": ""
+  },
+  {
+    "name": "Charce Lacroix",
+    "form": "الطبيب الحاذق",
+    "anime": "Kanata No Astra",
+    "power": 6652,
+    "rarity": "SSS",
+    "ability": "الإسعاف الفوري",
+    "image": ""
+  },
+  {
+    "name": "Funicia Raffaëlli",
+    "form": "الأخت الصغرى المرحة",
+    "anime": "Kanata No Astra",
+    "power": 6714,
+    "rarity": "SSS",
+    "ability": "طاقة المرح",
+    "image": ""
+  },
+  {
+    "name": "Luca Esposito",
+    "form": "الصبي الموهوب",
+    "anime": "Kanata No Astra",
+    "power": 6907,
+    "rarity": "SSS",
+    "ability": "الإصرار الصامد",
+    "image": ""
+  },
+  {
+    "name": "Ulgar Zweig",
+    "form": "الجبل القوي",
+    "anime": "Kanata No Astra",
+    "power": 6918,
+    "rarity": "SSS",
+    "ability": "القبضة الثقيلة",
+    "image": ""
+  },
+  {
+    "name": "Yunhua Lu",
+    "form": "المقاتلة الصامتة",
+    "anime": "Kanata No Astra",
+    "power": 6884,
+    "rarity": "SSS",
+    "ability": "فنون القتال الشرقية",
+    "image": ""
+  },
+  {
+    "name": "Chopper",
+    "form": "طبيب القبعة القشية",
+    "anime": "One Piece",
+    "power": 6815,
+    "rarity": "SSS",
+    "ability": "الرومبل بول",
+    "image": ""
+  },
+  {
+    "name": "Ruby S",
+    "form": "ذات المنجل القرمزي",
+    "anime": "Mobile Legends",
+    "power": 6893,
+    "rarity": "SSS",
+    "ability": "حصاد القرمز",
+    "image": ""
+  },
+  {
+    "name": "Yuffie",
+    "form": "النينجا المرحة",
+    "anime": "Final Fantasy",
+    "power": 6880,
+    "rarity": "SSS",
+    "ability": "الشوريكن العملاق",
+    "image": ""
+  },
+  {
+    "name": "Wanda",
+    "form": "المرأة القرمزية",
+    "anime": "Marvel",
+    "power": 6974,
+    "rarity": "SSS",
+    "ability": "إعادة تشكيل الواقع",
+    "image": ""
+  },
+  {
+    "name": "Scarlet Witch",
+    "form": "القدرة القرمزية المطلقة",
+    "anime": "Marvel",
+    "power": 6997,
+    "rarity": "SSS",
+    "ability": "انفجار الطاقة القرمزية",
+    "image": ""
+  },
+  {
+    "name": "Loki S",
+    "form": "سيد الخدع",
+    "anime": "Marvel",
+    "power": 6993,
+    "rarity": "SSS",
+    "ability": "خدعة الاستنساخ",
+    "image": ""
+  },
+  {
+    "name": "Noctis",
+    "form": "ابن الظلال",
+    "anime": "Shadow Slave",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "إتقان الظلال",
+    "image": ""
+  },
+  {
+    "name": "Honda",
+    "form": "الصديق المخلص",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6984,
+    "rarity": "SSS",
+    "ability": "الصبر الطيب",
+    "image": ""
+  },
+  {
+    "name": "Tani",
+    "form": "الصريحة الجريئة",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6995,
+    "rarity": "SSS",
+    "ability": "الصراحة المباشرة",
+    "image": ""
+  },
+  {
+    "name": "Azuma",
+    "form": "الهادئ الرزين",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6900,
+    "rarity": "SSS",
+    "ability": "التركيز الثابت",
+    "image": ""
+  },
+  {
+    "name": "Taira",
+    "form": "الشاب الودود",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6825,
+    "rarity": "SSS",
+    "ability": "الابتسامة المُعدية",
+    "image": ""
+  },
+  {
+    "name": "Miyu",
+    "form": "الفتاة الرقيقة",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6722,
+    "rarity": "SSS",
+    "ability": "اللطف المؤثر",
+    "image": ""
+  },
+  {
+    "name": "Yamada",
+    "form": "المشرقة الطيبة",
+    "anime": "You and I Are Polar Opposites",
+    "power": 6601,
+    "rarity": "SSS",
+    "ability": "الطاقة الإيجابية",
+    "image": ""
+  },
+  {
+    "name": "Touka Kirishima",
+    "form": "نادلة المقهى المحاربة",
+    "anime": "Tokyo Ghoul",
+    "power": 6914,
+    "rarity": "SSS",
+    "ability": "كاغون الجناح",
+    "image": ""
+  },
+  {
+    "name": "Eto Yoshimura",
+    "form": "البومة أحادية العين",
+    "anime": "Tokyo Ghoul",
+    "power": 6641,
+    "rarity": "SSS",
+    "ability": "كاغون الريش",
+    "image": ""
+  },
+  {
+    "name": "Rize Kamishiro",
+    "form": "الغولة الشرهة",
+    "anime": "Tokyo Ghoul",
+    "power": 6656,
+    "rarity": "SSS",
+    "ability": "كاغون الأشواك",
+    "image": ""
+  },
+  {
+    "name": "Lee Jaha",
+    "form": "العائد الجامح",
+    "anime": "The Return of the Crazy Demon",
+    "power": 6747,
+    "rarity": "SSS",
+    "ability": "فنون السيف المتهورة",
+    "image": ""
+  },
+  {
+    "name": "Mimosa Vermillion",
+    "form": "المعالجة الرحيمة",
+    "anime": "Black Clover",
+    "power": 6650,
+    "rarity": "SSS",
+    "ability": "قوة النباتات الشافية",
+    "image": ""
+  },
+  {
+    "name": "Ichika Yami",
+    "form": "سيّافة الأفق",
+    "anime": "Black Clover",
+    "power": 6830,
+    "rarity": "SSS",
+    "ability": "قطع الظل",
+    "image": ""
+  },
+  {
+    "name": "Yuna Yoon",
+    "form": "المقاتلة الصاعدة",
+    "anime": "Wind Breaker",
+    "power": 6605,
+    "rarity": "SSS",
+    "ability": "ضربة الشارع",
+    "image": ""
+  },
+  {
+    "name": "Kim Mia",
+    "form": "الفتاة الحديدية",
+    "anime": "Wind Breaker",
+    "power": 6950,
+    "rarity": "SSS",
+    "ability": "لكمة المدينة",
+    "image": ""
+  },
+  {
+    "name": "Jeong Charyeong",
+    "form": "الخبيرة المقتدرة",
+    "anime": "Absolute Dominion",
+    "power": 6851,
+    "rarity": "SSS",
+    "ability": "التحكم المطلق",
+    "image": ""
+  },
+  {
+    "name": "Yuki Tsukumo",
+    "form": "المحاربة الخاصة الحرّة",
+    "anime": "Jujutsu Kaisen",
+    "power": 6947,
+    "rarity": "SSS",
+    "ability": "الكتلة الافتراضية",
+    "image": ""
+  },
+  {
+    "name": "Yamada S",
+    "form": "موظفة المتجر الهادئة",
+    "anime": "Smoking Behind the Supermarket with You",
+    "power": 6760,
+    "rarity": "SSS",
+    "ability": "هدوء الاستراحة",
+    "image": ""
+  },
+  {
+    "name": "Tao Saotome",
+    "form": "مقاتل الملعونين",
+    "anime": "Gokurakugai",
+    "power": 6707,
+    "rarity": "SSS",
+    "ability": "سيف الدفاع",
+    "image": ""
+  },
+  {
+    "name": "Misaki Ayuzawa",
+    "form": "قائدة المجلس الطلابي",
+    "anime": "Kaichou wa Maid-sama!",
+    "power": 6803,
+    "rarity": "SSS",
+    "ability": "الحزم الصارم",
+    "image": ""
+  },
+  {
+    "name": "Takumi Usui",
+    "form": "الوسيم متعدد المواهب",
+    "anime": "Kaichou wa Maid-sama!",
+    "power": 6728,
+    "rarity": "SSS",
+    "ability": "المهارة الشاملة",
+    "image": ""
+  },
+  {
+    "name": "Kawakami",
+    "form": "المعلمة ذات الوجهين",
+    "anime": "Persona",
+    "power": 6778,
+    "rarity": "SSS",
+    "ability": "الخدمة السرية",
+    "image": ""
+  },
+  {
+    "name": "Thragg",
+    "form": "أقوى مقاتلي الفيلترمايت",
+    "anime": "Invincible",
+    "power": 6782,
+    "rarity": "SSS",
+    "ability": "القوة الكونية",
+    "image": ""
+  },
+  {
+    "name": "Dorothy",
+    "form": "المحاربة النائمة",
+    "anime": "Black Clover",
+    "power": 6792,
+    "rarity": "SSS",
+    "ability": "الحلم المتجسد",
+    "image": ""
+  },
+  {
+    "name": "Tomo Aizawa",
+    "form": "الفتاة القوية",
+    "anime": "Tomo-chan Is a Girl!",
+    "power": 6981,
+    "rarity": "SSS",
+    "ability": "لكمة الصداقة",
+    "image": ""
+  },
+  {
+    "name": "Rokurouta Sakuragi",
+    "form": "الأخ الأكبر للزنزانة",
+    "anime": "Rainbow",
+    "power": 6862,
+    "rarity": "SSS",
+    "ability": "الملاكمة الصامدة",
+    "image": ""
+  },
+  {
+    "name": "Isaburo Sasaki",
+    "form": "نائب قائد فرقة المراقبة",
+    "anime": "Gintama",
+    "power": 6926,
+    "rarity": "SSS",
+    "ability": "السيف الصامت",
+    "image": ""
+  },
+  {
+    "name": "Nobume Imai",
+    "form": "السيّافة الصامتة",
+    "anime": "Gintama",
+    "power": 6639,
+    "rarity": "SSS",
+    "ability": "السيف المقنّع",
+    "image": ""
   }
 ]
