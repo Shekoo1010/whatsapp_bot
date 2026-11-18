@@ -7,6 +7,6 @@
 // =====================================================================
 
 module.exports = {
-    kurama: '',   // مثال: 'https://example.com/kurama.jpg'
-    juubi: ''     // مثال: 'https://example.com/juubi.jpg'
+    kurama: 'https://i.postimg.cc/FzRsmGGm/0809a4d7c3fa86198ae75214cd63a272.jpg',   // مثال: 'https://example.com/kurama.jpg'
+    juubi: 'https://i.postimg.cc/fLMRqM9w/IMG-20261118-034101.jpg'     // مثال: 'https://example.com/juubi.jpg'
 }
