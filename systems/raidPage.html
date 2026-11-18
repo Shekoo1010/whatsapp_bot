@@ -102,6 +102,50 @@ button,select{font:inherit;color:inherit;cursor:pointer}
 #nogl{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:30px}
 @media(max-width:720px){#bar{gap:5px;padding:0 6px}#bar select{max-width:24vw}#log div:nth-child(n+4){display:none}#board{top:calc(env(safe-area-inset-top,0px) + 98px);left:5px;width:142px;background:rgba(9,7,16,.62)}#bh{padding:5px 8px;font-size:12px}#bh{white-space:nowrap}#bh small{display:none}#me{padding:0 8px 6px;gap:1px 8px}#me .rkb{font-size:28px}#me .rkb sup{font-size:11px}#me .dv{font-size:14px}#me .sh{font-size:9px}#me .gap,#sum{display:none}.rw{font-size:10.5px;padding:0 8px;grid-template-columns:14px 1fr auto;gap:4px}.dm small{font-size:8px;top:-7px}.pl{display:none}#swap{gap:9px;padding:7px 12px}#swap b{font-size:13px}#swap.you b{font-size:16px}#swap small{font-size:9px}#log{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);left:6px;right:auto;width:46vw;font-size:10.5px;flex-direction:column-reverse}#bar button,#bar select{padding:7px 7px;font-size:12px}#atk{min-width:78px;padding:10px 12px!important;font-size:18px!important}.tag{font-size:10px}.tag .hb{width:46px}}
 @media(prefers-reduced-motion:reduce){#banner.go{animation-duration:.01s;animation-delay:1s}}
+
+#labels{z-index:8}
+#bx{position:absolute;inset:0;z-index:5;display:none;overflow:hidden;pointer-events:auto;--c1:#ffb02e;--c2:#ff4d00}
+#bx.on{display:block}#bx.out{opacity:0;transition:opacity .3s}
+#bx>*{position:absolute;pointer-events:none;will-change:transform,opacity}
+.bxd{inset:0;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--c2) 38%,#000b),#000e 82%);opacity:0;transition:opacity .15s}
+#bx.a1 .bxd{opacity:1}#bx.a4 .bxd{opacity:.3}#bx.a5 .bxd{opacity:0}
+.bxs{left:50%;top:45%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;background:repeating-conic-gradient(transparent 0 5deg,color-mix(in srgb,var(--c1) 60%,transparent) 5deg 6.3deg,transparent 6.3deg 12deg);-webkit-mask:radial-gradient(circle,transparent 10%,#000 42%,transparent 72%);mask:radial-gradient(circle,transparent 10%,#000 42%,transparent 72%);opacity:0;animation:bxs .45s steps(4) infinite}
+#bx.a1 .bxs{opacity:.85}#bx.a4 .bxs{opacity:0}
+@keyframes bxs{to{transform:rotate(12deg)}}
+.bxl{left:0;right:0;height:11vh;background:#000;transition:transform .2s}.bxl.t{top:0;transform:translateY(-100%)}.bxl.b{bottom:0;transform:translateY(100%)}
+#bx.a1 .bxl{transform:none}#bx.a4 .bxl{transform:translateY(-100%)}#bx.a4 .bxl.b{transform:translateY(100%)}
+.bxc{left:50%;top:45%;width:min(92vw,540px);aspect-ratio:16/10;transform:translate(-190%,-50%) skewX(-10deg)}
+.bxc::before,.bxc::after{content:"";position:absolute;inset:-6px;background:linear-gradient(135deg,#fff,var(--c1),var(--c2));clip-path:polygon(7% 0,100% 0,93% 100%,0 100%)}
+.bxc::after{inset:0;background:#000}
+.bxc img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;clip-path:polygon(7% 0,100% 0,93% 100%,0 100%);transform:scale(1.02);transition:transform 1.5s linear}
+#bx.a2 .bxc{animation:cin .32s cubic-bezier(.1,.9,.2,1) forwards}#bx.a2 .bxc img{transform:scale(1.15)}
+#bx.a4 .bxc{animation:cout .2s cubic-bezier(.6,0,1,.5) forwards}
+@keyframes cin{to{transform:translate(-50%,-50%) skewX(-10deg)}}
+@keyframes cout{from{transform:translate(-50%,-50%) skewX(-10deg)}to{transform:translate(110%,-50%) skewX(-10deg);opacity:0}}
+.bxn{left:0;right:0;top:calc(45% + min(29vw,170px) + 12px);text-align:center;opacity:0}
+.bxn b{display:block;font:700 clamp(42px,13vw,78px)/1 "Reem Kufi",sans-serif;color:#fff;-webkit-text-stroke:2px var(--c2);paint-order:stroke fill;text-shadow:0 5px 0 var(--c2),0 0 26px var(--c1)}
+.bxn small{display:block;font-size:14px;color:color-mix(in srgb,var(--c1) 65%,#fff);margin-top:4px;font-weight:700}
+#bx.a2 .bxn{animation:npop .35s .12s cubic-bezier(.2,1.5,.4,1) forwards}#bx.a4 .bxn{animation:none;opacity:0}
+@keyframes npop{from{opacity:0;transform:scale(1.7) translateY(-10px)}to{opacity:1;transform:none}}
+.bxf{inset:0;background:#fff;opacity:0}#bx.a3 .bxf{animation:bxf .13s steps(2)}
+@keyframes bxf{0%{opacity:1;background:#fff}50%{opacity:1;background:#000}100%{opacity:0}}
+.bxk{left:-10%;width:120%;height:16px;background:#fff;clip-path:polygon(0 50%,50% 0,100% 50%,50% 100%);opacity:0;top:45%;--r:-17deg}
+.bxk.k2{--r:13deg;height:11px;background:var(--c1);top:49%}
+#bx.a9 .bxk{animation:ks .3s ease-out forwards}#bx.a9 .bxk.k2{animation-delay:.07s}
+@keyframes ks{0%{transform:rotate(var(--r)) scaleX(0);opacity:1}55%{transform:rotate(var(--r)) scaleX(1);opacity:1}100%{transform:rotate(var(--r)) scaleX(1) scaleY(.2);opacity:0}}
+.bxbeam{left:0;right:0;height:90px;margin-top:-45px;background:linear-gradient(90deg,transparent,var(--c2),var(--c1) 30%,#fff 50%,var(--c1) 70%,var(--c2),transparent);transform:scaleX(0);transform-origin:0 50%;opacity:0}
+#bx.a9 .bxbeam{animation:bm .5s ease-out forwards}
+@keyframes bm{0%{transform:scaleX(0);opacity:1}35%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1) scaleY(.08);opacity:0}}
+
+.bxg{width:min(72vw,300px);aspect-ratio:1;opacity:0;-webkit-mask-image:radial-gradient(circle,#000 42%,transparent 70%);mask-image:radial-gradient(circle,#000 42%,transparent 70%)}
+.bxg img{width:100%;height:100%;object-fit:cover;display:block}
+.bxo{width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(circle,#fff 0 25%,var(--c1) 45%,var(--c2) 68%,transparent 71%);box-shadow:0 0 36px var(--c1),0 0 80px var(--c2);opacity:0}
+.bxo.j::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:4px solid var(--c1);box-shadow:0 0 16px var(--c2)}
+.bxp{left:0;top:0;width:0;height:0;opacity:0}
+.bxp .pi{position:absolute;left:0;top:0;width:0;height:0}
+.bxp .po{left:0;top:0;opacity:1}
+.bxp .tl{position:absolute;right:-10px;top:-27px;width:min(62vw,290px);height:54px;background:linear-gradient(90deg,transparent,var(--c2) 55%,var(--c1));clip-path:polygon(0 50%,100% 0,100% 100%)}
+.bxe{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#fff 0 28%,var(--c1) 45%,var(--c2) 64%,transparent 70%);opacity:0}
 </style>
 </head>
 <body>
@@ -114,7 +158,7 @@ button,select{font:inherit;color:inherit;cursor:pointer}
  <div id="log"></div><div id="swap"></div><div id="banner"></div>
  <footer id="bar"><button id="tg">المشاركون</button><button id="atk">هجوم</button><button id="spd" title="سرعة المعركة">×1</button></footer>
 </div>
-<div id="intro"></div><div id="end"></div>
+<div id="bx"><div class="bxd"></div><div class="bxs"></div><div class="bxl t"></div><div class="bxl b"></div><div class="bxc"><img alt=""></div><div class="bxn"><b></b><small></small></div><div class="bxbeam"></div><div class="bxg" id="bxg"><img alt=""></div><div class="bxo" id="bxo"></div><div class="bxp" id="bxp"><div class="pi"><div class="tl"></div><div class="bxo po"></div></div></div><div class="bxe" id="bxe"></div><div class="bxk"></div><div class="bxk k2"></div><div class="bxf"></div></div><div id="intro"></div><div id="end"></div>
 <div id="nogl">متصفحك لا يدعم WebGL، جرّب متصفحاً آخر لعرض الساحة.</div>
 <script>window.__RAID=/*RAID_DATA*/null;</script>
 <script>
@@ -326,7 +370,7 @@ async function quickHit(p,r){
  pop(hx+camX,hy-B.h*.1,fmt(r.dmg),(r.crit?'crit':'hit')+' sm');pop(hx+camX,hy-B.h*.1-24,p.name,'fx');
  if(r.heal)pop(B.x+camX,B.y-B.h*.9,'+'+fmt(r.heal),'heal');
  log(`⚔️ <b>${p.name}</b> ← ${fmt(r.dmg)} ${r.tags.length?'· '+r.tags.slice(-2).join(' · '):''}`);updateBoss();updateBoard();await wait(.3)}
-async function playerAnim(p,r){
+async function playerAnimOrig(p,r){
  const f=p.e,c=cen(B);curP=p;focus=p.home.x;setTag(p);const sg=p.home.x<B.x?1:-1,col=p.shown.look.trim,big=r.best>=3;
  const dx=(B.x-p.home.x)*.72,dy=(B.y+H*.075-p.home.y);
  f.dash=true;await tw(.34,k=>{f.ox=dx*k;f.oy=dy*k;f.rot=-.2*sg*k;f.sc=1+.22*k},ez.o);
@@ -424,7 +468,7 @@ async function applyAttack(res,my){
  if(h.heal&&R.hp>0)R.hp=Math.min(R.max,R.hp+h.heal);
  const ac=alive(p);
  if(h.reflect&&ac){ac.hp-=h.reflect;if(ac.hp<=0){ac.hp=0;ac.dead=true}}
- const r={dmg:h.dmg,crit:h.crit,tags:h.tags,best:h.best,absorbed:h.absorbed,reflect:h.reflect,heal:h.heal,reflectKill:!!(ac&&ac.dead)};
+ const r={beast:h.beast||'',dmg:h.dmg,crit:h.crit,tags:h.tags,best:h.best,absorbed:h.absorbed,reflect:h.reflect,heal:h.heal,reflectKill:!!(ac&&ac.dead)};
  await playerAnim(p,r);if(my!==rid)return;
  const ph=phaseOf(R);if(ph>R.ph&&R.hp>0){R.ph=ph;await phaseFx(ph);updateBoss()}
  if(res.bossDead){R.hp=0;await bossDeath(res.end);return}
@@ -538,4 +582,47 @@ const atk=$('#atk');function doAtk(){if(!done&&you&&!you.out&&Date.now()>=you.ne
 atk.onclick=doAtk;addEventListener('keydown',e=>{if(e.code==='Space'&&e.target.tagName!=='SELECT'){e.preventDefault();doAtk()}});
 setInterval(()=>{if(!you)return;const cd=Math.max(0,(you.nextAt-Date.now())/1000),off=you.out||done||introK<1||want||busy;atk.disabled=off||cd>0;atk.style.setProperty('--cd',you.out?1:Math.min(1,cd/CDS));atk.textContent=you.out?'سقطت':cd>0&&!off?cd.toFixed(1):'هجوم'},100);
 resize();if(D.active)startRaid();else waiting();requestAnimationFrame(frame);
+</script><script>
+/* 🦊 ضربة الوحوش: تلقائية من الخادم (res.hit.beast) وتظهر للمهاجم فقط */
+const BEAST={kurama:{n:'كوراما',s:'🔥 قنبلة الوحش ذو الذيول التسعة',c1:'#ffb02e',c2:'#ff4d00',dmg:2450000,img:''},juubi:{n:'جوبي',s:'🌑 قنبلة الوحش ذو الذيول العشرة',c1:'#ff4d79',c2:'#9b4dff',dmg:5800000,img:''}};
+let skipFx=false;
+const bx=$('#bx');bx.onclick=()=>skipFx=true;
+const slp=ms=>new Promise(r=>setTimeout(r,skipFx?0:ms/SP));
+async function playerAnim(p,r){
+ if(!r.beast||!BEAST[r.beast]||!r.beastImg)return playerAnimOrig(p,r);
+ const b=BEAST[r.beast],jj=r.beast==='juubi';skipFx=false;curP=p;setTag(p);
+ bx.style.setProperty('--c1',b.c1);bx.style.setProperty('--c2',b.c2);
+ const $q=s=>bx.querySelector(s),g=$q('#bxg'),o=$q('#bxo'),pj=$q('#bxp'),pi=$q('.pi'),ex=$q('#bxe');
+ [g,o,pi,ex].forEach(e=>e.getAnimations().forEach(a=>a.cancel()));
+ const bimg=r.beastImg;$q('.bxc img').src=bimg;g.querySelector('img').src=bimg;$q('.bxn b').textContent=b.n;$q('.bxn small').textContent=b.s;
+ const hx0=B.x+B.ox,hy=B.y-B.h*.5,wy=p.home.y-p.h*.5,sx=p.home.x+camX,sy=wy,tx=hx0+camX,ty=hy;
+ g.style.left=o.style.left=sx+'px';g.style.top=sy+'px';o.style.top=(sy-p.h*.12)+'px';
+ o.className='bxo'+(jj?' j':'');pj.firstElementChild.querySelector('.po').className='bxo po'+(jj?' j':'');pj.style.opacity=0;
+ const D1=ms=>({duration:skipFx?1:ms/SP,fill:'forwards'});
+ bx.className='on';void bx.offsetWidth;
+ /* 1) كت-إن قصير */
+ await slp(60);bx.classList.add('a1');await slp(100);bx.classList.add('a2');await slp(700);bx.classList.add('a3');await slp(90);bx.classList.add('a4');
+ /* 2) الوحش يظهر خلف الشخصية ويشحن الكرة */
+ g.animate([{opacity:0,transform:'translate(-50%,-50%) scale(.4)'},{opacity:.75,transform:'translate(-50%,-64%) scale(1.7)'}],{...D1(850),easing:'ease-out'});
+ o.animate([{opacity:1,transform:'scale(.1)'},{opacity:1,transform:'scale(2.8)'}],{...D1(850),easing:'ease-in'});
+ for(let i=0;i<9&&!skipFx;i++){suck(p.home.x,wy,i%2?b.c1:b.c2,7,170);shake=5+i;if(jj&&i%3===2)spark(p.home.x,wy,'#fff',10,300,.3);await slp(95)}
+ /* 3) الإطلاق: الكرة تنطلق نحو الزعيم مع أثر */
+ const oy=sy-p.h*.12,ang=Math.atan2(ty-oy,tx-sx),dist=Math.hypot(tx-sx,ty-oy);
+ pj.style.transform=`translate(${sx}px,${oy}px) rotate(${ang}rad)`;pj.style.opacity=1;
+ g.animate([{opacity:.75},{opacity:0}],D1(300));o.style.opacity=0;o.getAnimations().forEach(a=>a.cancel());
+ shake=16;ring(p.home.x,wy,b.c1,p.h*.8,.4);
+ const an=pi.animate([{transform:'translateX(0) scale(1.5)'},{transform:`translateX(${dist}px) scale(1)`}],{...D1(430),easing:'cubic-bezier(.45,0,.9,.55)'});
+ while(an.playState==='running'){if(skipFx)an.finish();const k=an.effect.getComputedTiming().progress||0;
+  spark(p.home.x+(hx0-p.home.x)*k,wy+(hy-wy)*k,Math.random()<.5?b.c1:b.c2,3,140,.45,0);await new Promise(q=>requestAnimationFrame(q))}
+ /* 4) الانفجار على الزعيم */
+ pj.style.opacity=0;bx.classList.add('a5');
+ ex.style.left=tx+'px';ex.style.top=ty+'px';
+ ex.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:1},{transform:'translate(-50%,-50%) scale(3.6)',opacity:0}],{...D1(650),easing:'ease-out'});
+ slash(hx0,hy,'#fff',B.h*.9,18);slash(hx0+rnd(-40,40),hy+rnd(-40,40),b.c2,B.h*.7,12);
+ spark(hx0,hy,b.c1,100,760,1.1);spark(hx0,hy,'#fff',45,520,.8);ring(B.x,B.y,'#fff',B.h*.9,.7);ring(B.x,B.y,b.c1,B.h*1.3,1.1);
+ shake=36;zoomP=.06;flashS=.85;flashC=b.c1;B.fl=1;tw(.45,k=>B.fl=1-k);tw(.55,k=>B.ox=-Math.sin(k*3.14)*64);
+ pop(hx0+camX,hy-B.h*.2,fmt(r.dmg),'crit');log(`⚔️ <b>${p.name}</b> ← ${fmt(r.dmg)} · ${b.n}`);updateBoss();updateBoard();
+ if(r.absorbed)pop(hx0+90+camX,hy,'درع −'+fmt(r.absorbed),'fx');if(r.heal)pop(hx0-90+camX,hy,'+'+fmt(r.heal),'heal');
+ if(r.reflect&&p.e){const q=cen(p.e);pop(q.x+camX,q.y,'ارتداد −'+fmt(r.reflect),'me');p.e.fr=1;tw(.3,k=>p.e.fr=1-k);setTag(p)}
+ await slp(800);bx.classList.add('out');await slp(300);bx.className='';await wait(.1)}
 </script></body></html>

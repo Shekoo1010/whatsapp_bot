@@ -17,6 +17,8 @@ const { cappedPower, DEFAULT_CAP } = require('../utils/cappedPower') // قوة �
 const TITLES = require('./titleSystem') // 🏅 نظام الألقاب (الندرة/الأنميشن/التفعيل)
 const COMPANION_CHAT = require('./companionChat') // 🐾 رسائل تفاعل الرفقاء (8 لكل رفيق)
 const NOTIFY = require('./siteNotify') // 🔔 إشعارات من أعلى الشاشة (إنجاز / عالم / مستوى / خاص)
+const BEAST_FX_CFG = require('./beastFxConfig') // 🔗 روابط صور الوحوش (اختيارية) — تغلب الصورة المدمجة
+const beastFxImg = id => { const u = String((BEAST_FX_CFG && BEAST_FX_CFG[id]) || '').trim(); return /^https:\/\/[^\s'"()\\<>]+$/i.test(u) ? u : '' } // 🦊 صور كت-إن كوراما/الجوبي (هجوم الزعيم من الموقع)
 const PWA = require('./sitePwa') // 📲 تثبيت الموقع كتطبيق (Nami) — manifest + أيقونات فقط
 // 📊 إحصائيات الهجوم على الزعيم — نفس مصدر أمر .احصائيات_كاملة (systems/combatStats.js)
 let computeCombatStats = null
@@ -4884,6 +4886,51 @@ button.live{font-family:inherit;cursor:pointer;line-height:1.4}
 .fab{position:fixed;z-index:40;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(calc(100% - 24px),496px)}
 .fab .fabbg{position:absolute;inset:-14px -12px calc(-14px - env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(11,7,16,.95) 55%,rgba(11,7,16,0));pointer-events:none;z-index:-1}
 .fab .btn{margin-top:0;font-size:18px;padding:15px;border:1.5px solid rgba(255,255,255,.25);border-radius:16px;box-shadow:0 8px 28px rgba(255,56,96,.55),0 0 0 4px rgba(255,56,96,.12)}
+/* ═══ 🦊 ضربة الوحوش (كوراما / الجوبي) — من صفحة الرايد ═══ */
+#bfx{position:fixed;inset:0;z-index:90;display:none;overflow:hidden;pointer-events:auto;--c1:#ffb02e;--c2:#ff4d00}
+#bfx.on{display:block}#bfx.out{opacity:0;transition:opacity .3s}
+#bfx>*{position:absolute;pointer-events:none;will-change:transform,opacity}
+.bxd{inset:0;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--c2) 38%,#000b),#000e 82%);opacity:0;transition:opacity .15s}
+#bfx.a1 .bxd{opacity:1}#bfx.a4 .bxd{opacity:.3}#bfx.a5 .bxd{opacity:0}
+.bxs{left:50%;top:45%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;background:repeating-conic-gradient(transparent 0 5deg,color-mix(in srgb,var(--c1) 60%,transparent) 5deg 6.3deg,transparent 6.3deg 12deg);-webkit-mask:radial-gradient(circle,transparent 10%,#000 42%,transparent 72%);mask:radial-gradient(circle,transparent 10%,#000 42%,transparent 72%);opacity:0;animation:bxs .45s steps(4) infinite}
+#bfx.a1 .bxs{opacity:.85}#bfx.a4 .bxs{opacity:0}
+@keyframes bxs{to{transform:rotate(12deg)}}
+.bxl{left:0;right:0;height:11vh;background:#000;transition:transform .2s}.bxl.t{top:0;transform:translateY(-100%)}.bxl.b{bottom:0;transform:translateY(100%)}
+#bfx.a1 .bxl{transform:none}#bfx.a4 .bxl{transform:translateY(-100%)}#bfx.a4 .bxl.b{transform:translateY(100%)}
+.bxc{left:50%;top:45%;width:min(92vw,540px);aspect-ratio:16/10;transform:translate(-190%,-50%) skewX(-10deg)}
+.bxc::before,.bxc::after{content:"";position:absolute;inset:-6px;background:linear-gradient(135deg,#fff,var(--c1),var(--c2));clip-path:polygon(7% 0,100% 0,93% 100%,0 100%)}
+.bxc::after{inset:0;background:#000}
+.bxc img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;clip-path:polygon(7% 0,100% 0,93% 100%,0 100%);transform:scale(1.02);transition:transform 1.5s linear}
+#bfx.a2 .bxc{animation:cin .32s cubic-bezier(.1,.9,.2,1) forwards}#bfx.a2 .bxc img{transform:scale(1.15)}
+#bfx.a4 .bxc{animation:cout .2s cubic-bezier(.6,0,1,.5) forwards}
+@keyframes cin{to{transform:translate(-50%,-50%) skewX(-10deg)}}
+@keyframes cout{from{transform:translate(-50%,-50%) skewX(-10deg)}to{transform:translate(110%,-50%) skewX(-10deg);opacity:0}}
+.bxn{left:0;right:0;top:calc(45% + min(29vw,170px) + 12px);text-align:center;opacity:0}
+.bxn b{display:block;font:700 clamp(42px,13vw,78px)/1 'Cairo',sans-serif;color:#fff;-webkit-text-stroke:2px var(--c2);paint-order:stroke fill;text-shadow:0 5px 0 var(--c2),0 0 26px var(--c1)}
+.bxn small{display:block;font-size:14px;color:color-mix(in srgb,var(--c1) 65%,#fff);margin-top:4px;font-weight:700}
+#bfx.a2 .bxn{animation:npop .35s .12s cubic-bezier(.2,1.5,.4,1) forwards}#bfx.a4 .bxn{animation:none;opacity:0}
+@keyframes npop{from{opacity:0;transform:scale(1.7) translateY(-10px)}to{opacity:1;transform:none}}
+.bxf{inset:0;background:#fff;opacity:0}#bfx.a3 .bxf{animation:bxf .13s steps(2)}
+@keyframes bxf{0%{opacity:1;background:#fff}50%{opacity:1;background:#000}100%{opacity:0}}
+.bxk{left:-10%;width:120%;height:16px;background:#fff;clip-path:polygon(0 50%,50% 0,100% 50%,50% 100%);opacity:0;top:45%;--r:-17deg}
+.bxk.k2{--r:13deg;height:11px;background:var(--c1);top:49%}
+#bfx.a9 .bxk{animation:ks .3s ease-out forwards}#bfx.a9 .bxk.k2{animation-delay:.07s}
+@keyframes ks{0%{transform:rotate(var(--r)) scaleX(0);opacity:1}55%{transform:rotate(var(--r)) scaleX(1);opacity:1}100%{transform:rotate(var(--r)) scaleX(1) scaleY(.2);opacity:0}}
+.bxbeam{left:0;right:0;height:90px;margin-top:-45px;background:linear-gradient(90deg,transparent,var(--c2),var(--c1) 30%,#fff 50%,var(--c1) 70%,var(--c2),transparent);transform:scaleX(0);transform-origin:0 50%;opacity:0}
+#bfx.a9 .bxbeam{animation:bm .5s ease-out forwards}
+@keyframes bm{0%{transform:scaleX(0);opacity:1}35%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1) scaleY(.08);opacity:0}}
+
+.bxg{width:min(72vw,300px);aspect-ratio:1;opacity:0;-webkit-mask-image:radial-gradient(circle,#000 42%,transparent 70%);mask-image:radial-gradient(circle,#000 42%,transparent 70%)}
+.bxg img{width:100%;height:100%;object-fit:cover;display:block}
+.bxo{width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(circle,#fff 0 25%,var(--c1) 45%,var(--c2) 68%,transparent 71%);box-shadow:0 0 36px var(--c1),0 0 80px var(--c2);opacity:0}
+.bxo.j::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:4px solid var(--c1);box-shadow:0 0 16px var(--c2)}
+.bxp{left:0;top:0;width:0;height:0;opacity:0}
+.bxp .pi{position:absolute;left:0;top:0;width:0;height:0}
+.bxp .po{left:0;top:0;opacity:1}
+.bxp .tl{position:absolute;right:-10px;top:-27px;width:min(62vw,290px);height:54px;background:linear-gradient(90deg,transparent,var(--c2) 55%,var(--c1));clip-path:polygon(0 50%,100% 0,100% 100%)}
+.bxe{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#fff 0 28%,var(--c1) 45%,var(--c2) 64%,transparent 70%);opacity:0}
+.bfxn{position:absolute;font-family:'Oswald','Cairo',sans-serif;font-weight:700;white-space:nowrap;pointer-events:none;z-index:8;text-shadow:0 0 8px var(--bc2,#ff4d00),0 2px 0 #000;direction:rtl}
+
 `
 
 function bossPageHTML({ viewer, code, data }) {
@@ -5499,6 +5546,128 @@ function setTheme(i){
     if(ev.anim!=='kill' && ev.anim!=='drop' && ev.anim!=='info') await wait(450);
   }
 
+
+  // ───── 🦊 ضربة الوحوش (كوراما / الجوبي) — نفس أنيميشن صفحة الرايد ─────
+  // الخادم يرسل report.beastAssist = {id,name,damage,img} فقط لمن مركّب كوراما/الجوبي وجاءت مساعدة الوحش
+  var BFX={
+    kurama:{n:'كوراما',s:'🔥 قنبلة الوحش ذو الذيول التسعة',c1:'#ffb02e',c2:'#ff4d00'},
+    juubi:{n:'الجوبي',s:'🌑 قنبلة الوحش ذو الذيول العشرة',c1:'#ff4d79',c2:'#9b4dff'}
+  };
+  var skipFx=false, bxBusy=false, bxEl=null;
+  function rnd(a,b){ return a+Math.random()*(b-a); }
+  function slp(ms){ return skipFx?Promise.resolve():wait(ms); }
+  function bxBuild(){
+    if(bxEl) return bxEl;
+    var b=document.createElement('div'); b.id='bfx';
+    b.innerHTML='<div class="bxd"></div><div class="bxs"></div><div class="bxl t"></div><div class="bxl b"></div><div class="bxc"><img alt=""></div><div class="bxn"><b></b><small></small></div><div class="bxbeam"></div><div class="bxg" id="bxg"><img alt=""></div><div class="bxo" id="bxo"></div><div class="bxp" id="bxp"><div class="pi"><div class="tl"></div><div class="bxo po"></div></div></div><div class="bxe" id="bxe"></div><div class="bxk"></div><div class="bxk k2"></div><div class="bxf"></div>';
+    document.body.appendChild(b);
+    b.addEventListener('click',function(){ skipFx=true; });   // النقر يتخطى الأنميشن
+    bxEl=b; return b;
+  }
+  function bxDot(x,y,col,dx,dy,dur,size){
+    var p=document.createElement('i'); size=size||6;
+    p.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+size+'px;height:'+size+'px;margin:'+(-size/2)+'px 0 0 '+(-size/2)+'px;border-radius:50%;background:'+col+';box-shadow:0 0 8px '+col+';pointer-events:none';
+    bxEl.appendChild(p);
+    var a=p.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:'translate('+dx+'px,'+dy+'px) scale(.2)',opacity:0}],{duration:skipFx?1:dur,easing:'ease-out'});
+    a.onfinish=function(){ p.remove(); };
+  }
+  function bxSpark(x,y,col,n,spd,life,size){ for(var i=0;i<n;i++){ var a=Math.random()*6.283, d=spd*(.35+Math.random()*.65); bxDot(x,y,col,Math.cos(a)*d*.5,Math.sin(a)*d*.5,(life||.6)*1000*(.6+Math.random()*.6),size); } }
+  function bxSuck(x,y,col,n,r){
+    for(var i=0;i<n;i++){
+      var a=Math.random()*6.283, d=r*(.6+Math.random()*.6), p=document.createElement('i');
+      p.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:'+col+';box-shadow:0 0 8px '+col+';pointer-events:none';
+      bxEl.appendChild(p);
+      var q=p.animate([{transform:'translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) scale(1)',opacity:0},{opacity:1,offset:.3},{transform:'translate(0,0) scale(.3)',opacity:0}],{duration:skipFx?1:rnd(260,420),easing:'ease-in'});
+      q.onfinish=(function(n){ return function(){ n.remove(); }; })(p);
+    }
+  }
+  function bxRing(x,y,col,size,dur){
+    var r=document.createElement('i');
+    r.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+size+'px;height:'+size+'px;margin:'+(-size/2)+'px 0 0 '+(-size/2)+'px;border-radius:50%;border:4px solid '+col+';box-shadow:0 0 18px '+col+';pointer-events:none';
+    bxEl.appendChild(r);
+    var a=r.animate([{transform:'scale(.1)',opacity:1},{transform:'scale(1)',opacity:0}],{duration:skipFx?1:dur*1000,easing:'ease-out'});
+    a.onfinish=function(){ r.remove(); };
+  }
+  function bxSlash(x,y,col,len,th){
+    var s=document.createElement('i'), rot=rnd(-40,40);
+    s.style.cssText='position:absolute;left:'+(x-len/2)+'px;top:'+y+'px;width:'+len+'px;height:'+th+'px;border-radius:'+th+'px;background:'+col+';box-shadow:0 0 14px '+col+';pointer-events:none';
+    bxEl.appendChild(s);
+    var a=s.animate([{transform:'rotate('+rot+'deg) scaleX(0)',opacity:1},{transform:'rotate('+rot+'deg) scaleX(1)',opacity:1,offset:.5},{transform:'rotate('+rot+'deg) scaleX(1) scaleY(.2)',opacity:0}],{duration:skipFx?1:320,easing:'ease-out'});
+    a.onfinish=function(){ s.remove(); };
+  }
+  function bxFlash(col,a0){
+    var f=document.createElement('i');
+    f.style.cssText='position:absolute;inset:0;background:'+col+';opacity:0;pointer-events:none';
+    bxEl.appendChild(f);
+    var a=f.animate([{opacity:a0},{opacity:0}],{duration:skipFx?1:380,easing:'ease-out'});
+    a.onfinish=function(){ f.remove(); };
+  }
+  // يرجع true إذا عُرض الأنميشن (ويكون الاصطدام قد حدث)؛ false = يكمل الهجوم العادي
+  async function beastFx(bst){
+    var cfg=BFX[bst&&bst.id]; if(!cfg||!bst.img||bxBusy) return false;
+    bxBusy=true; skipFx=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches);
+    var bx=bxBuild(), jj=(bst.id==='juubi');
+    var cleanup=function(){ try{ [bx.querySelector('#bxg'),bx.querySelector('#bxo'),bx.querySelector('.pi'),bx.querySelector('#bxe')].forEach(function(n){ if(n) n.getAnimations().forEach(function(a){ a.cancel(); }); }); }catch(e){} bx.className=''; bx.querySelector('#bxp').style.opacity=0; bxBusy=false; };
+    try{
+      try{ var im=new Image(); im.src=bst.img; await Promise.race([im.decode(),wait(900)]); }catch(e){}
+      bx.style.setProperty('--c1',cfg.c1); bx.style.setProperty('--c2',cfg.c2);
+      var g=bx.querySelector('#bxg'), o=bx.querySelector('#bxo'), pj=bx.querySelector('#bxp'), pi=bx.querySelector('.pi'), ex=bx.querySelector('#bxe');
+      [g,o,pi,ex].forEach(function(n){ n.getAnimations().forEach(function(a){ a.cancel(); }); });
+      bx.querySelector('.bxc img').src=bst.img; g.querySelector('img').src=bst.img;
+      bx.querySelector('.bxn b').textContent=cfg.n; bx.querySelector('.bxn small').textContent=cfg.s;
+      o.className='bxo'+(jj?' j':''); pj.querySelector('.po').className='bxo po'+(jj?' j':''); pj.style.opacity=0; o.style.opacity=0; g.style.opacity=0;
+      var D1=function(ms){ return {duration:skipFx?1:ms,fill:'forwards'}; };
+      /* تأكد أن الساحة ظاهرة (الكت-إن يغطي الشاشة فلا يُلاحظ التمرير) */
+      var ar=$('arena').getBoundingClientRect();
+      if(ar.top<0||ar.bottom>innerHeight){ window.scrollTo(0,Math.max(0,window.pageYOffset+ar.top-16)); }
+      bx.className='on'; void bx.offsetWidth;
+      /* 1) كت-إن قصير */
+      await slp(60); bx.classList.add('a1'); await slp(100); bx.classList.add('a2'); await slp(700); bx.classList.add('a3'); await slp(90); bx.classList.add('a4');
+      /* 2) الوحش يظهر خلف صورتك والكرة تتجمع عندك */
+      var fm=$('fme').getBoundingClientRect(), bo=$('fboss').getBoundingClientRect();
+      var sx=fm.left+fm.width/2, sy=fm.top+fm.height/2, tx=bo.left+bo.width/2, ty=bo.top+bo.height/2, oy=sy-fm.height*.15;
+      g.style.left=o.style.left=sx+'px'; g.style.top=sy+'px'; o.style.top=oy+'px';
+      g.animate([{opacity:0,transform:'translate(-50%,-50%) scale(.4)'},{opacity:.75,transform:'translate(-50%,-64%) scale(1.7)'}],{duration:skipFx?1:850,fill:'forwards',easing:'ease-out'});
+      o.animate([{opacity:1,transform:'scale(.1)'},{opacity:1,transform:'scale(2.8)'}],{duration:skipFx?1:850,fill:'forwards',easing:'ease-in'});
+      for(var i=0;i<9&&!skipFx;i++){
+        bxSuck(sx,sy,i%2?cfg.c1:cfg.c2,7,170); shake($('arena'),Math.min(7,2+i*.6));
+        if(jj&&i%3===2) bxSpark(sx,sy,'#fff',10,300,.3);
+        await slp(95);
+      }
+      /* 3) الإطلاق: الكرة تنطلق نحو الزعيم مع أثر */
+      var ang=Math.atan2(ty-oy,tx-sx), dist=Math.hypot(tx-sx,ty-oy);
+      pj.style.transform='translate('+sx+'px,'+oy+'px) rotate('+ang+'rad)'; pj.style.opacity=1;
+      g.animate([{opacity:.75},{opacity:0}],D1(300)); o.style.opacity=0; o.getAnimations().forEach(function(a){ a.cancel(); });
+      shake($('arena'),9); bxRing(sx,sy,cfg.c1,fm.width*2.6,.4);
+      var an=pi.animate([{transform:'translateX(0) scale(1.5)'},{transform:'translateX('+dist+'px) scale(1)'}],{duration:skipFx?1:430,fill:'forwards',easing:'cubic-bezier(.45,0,.9,.55)'});
+      while(an.playState==='running'){
+        if(skipFx) an.finish();
+        var k=(an.effect.getComputedTiming().progress)||0;
+        bxSpark(sx+(tx-sx)*k,oy+(ty-oy)*k,Math.random()<.5?cfg.c1:cfg.c2,3,140,.45,5);
+        await new Promise(function(q){ requestAnimationFrame(q); });
+      }
+      /* 4) الاصطدام بالزعيم — بعده يعمل تأثير الصفحة الأصلي (وميض/اهتزاز/رقم الضرر) */
+      pj.style.opacity=0; bx.classList.add('a5');
+      ex.style.left=tx+'px'; ex.style.top=ty+'px';
+      ex.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:1},{transform:'translate(-50%,-50%) scale(3.6)',opacity:0}],{duration:skipFx?1:650,fill:'forwards',easing:'ease-out'});
+      bxSlash(tx,ty,'#fff',bo.height*.9,10); bxSlash(tx+rnd(-30,30),ty+rnd(-30,30),cfg.c2,bo.height*.7,7);
+      bxSpark(tx,ty,cfg.c1,70,760,1.1); bxSpark(tx,ty,'#fff',30,520,.8);
+      bxRing(tx,ty,'#fff',bo.height*1.5,.7); bxRing(tx,ty,cfg.c1,bo.height*2.2,1.1);
+      bxFlash(cfg.c1,.8); shake($('arena'),12);
+      /* تنظيف بعد انتهاء الانفجار (بدون انتظار — الهجوم العادي يكمل فوراً) */
+      setTimeout(function(){ bx.classList.add('out'); setTimeout(cleanup,320); },skipFx?0:800);
+      return true;
+    }catch(err){ cleanup(); return false; }
+  }
+  // رقم صغير بجانب رقم الضرر: «كوراما +…»
+  function beastNum(target,bst){
+    var cfg=BFX[bst.id]||BFX.kurama, box=$('arena'), a=box.getBoundingClientRect(), r=target.getBoundingClientRect();
+    var d=el('div','bfxn','🐉 '+(bst.name||cfg.n)+' +'+fmt(bst.damage)); d.style.color=cfg.c1; d.style.setProperty('--bc2',cfg.c2); d.style.fontSize='15px';
+    d.style.left=(r.left-a.left+r.width/2-46)+'px'; d.style.top=(r.top-a.top+r.height*0.25+34)+'px';
+    box.appendChild(d);
+    d.animate([{transform:'translateY(0) scale(.6)',opacity:0},{transform:'translateY(-14px) scale(1.15)',opacity:1,offset:.25},{transform:'translateY(-56px) scale(1)',opacity:0}],{duration:1400,easing:'ease-out'}).onfinish=function(){ d.remove(); };
+  }
+
   async function playAttack(j,preFly){
     var ev=j.events||[], pre=[], post=[];
     ev.forEach(function(e){ (e.type==='ability'||e.type==='fx'?pre:post).push(e); });
@@ -5508,15 +5677,21 @@ function setTheme(i){
     var isFol=(r.kind==='follower'), fnode=null;
     if(isFol){ var fk=folKeys(S.boss.followers||[])[0]; fnode=folNode(fk); }
     if(isFol && !fnode){ var _ks=Object.keys(fmap); if(_ks.length) fnode=fmap[_ks[0]].fg; }
-    var l=preFly||fly($('fme'),fnode||$('fboss'));
-    if(!preFly) await wait(240);
-    else { var _el=Date.now()-(preFly._t0||0); if(_el<240) await wait(240-_el); }
+    // 🦊 كوراما/الجوبي: كت-إن ← تجمّع كرة عند صورتك ← إطلاقها نحو الزعيم، ثم تأثير الاصطدام الأصلي
+    var bst=(!isFol && r.beastAssist && r.beastAssist.img && BFX[r.beastAssist.id])?r.beastAssist:null, bdone=false, l=null;
+    if(bst){ try{ if(preFly) preFly.cancel(); }catch(e){} bdone=await beastFx(bst); }
+    if(!bdone){
+      l=preFly||fly($('fme'),fnode||$('fboss'));
+      if(!preFly) await wait(240);
+      else { var _el=Date.now()-(preFly._t0||0); if(_el<240) await wait(240-_el); }
+    }
     if(isFol){
       shake($('arena'),crit?5:3);
       hitFollower(fnode,r.damage,crit);
     } else {
       flash(); shake($('fboss'),crit?13:7); shake($('arena'),crit?5:3); hitFx($('fboss'));
       floatNum($('fboss'),(crit?'🎯 ':'')+fmt(r.damage),crit?'#f0c04a':'#ff5c7a',crit?30:22);
+      if(bdone) beastNum($('fboss'),bst);
     }
     var st=j.state;
     if(!isFol && st.bossHp>0 && !post.length){ setTimeout(roar,520); }
@@ -5528,7 +5703,7 @@ function setTheme(i){
       S.boss.hp=st.bossHp; S.boss.maxHp=st.bossMax; S.boss.enraged=st.enraged; S.boss.followers=st.followers;
       renderBoss(S.boss);
     } else {
-      await l.finished;
+      if(l) await l.finished;
       await wait(300);
     }
 
@@ -9550,6 +9725,8 @@ function registerCharacterSite(app, Player, opts = {}) {
                 attacker: { name: r.report.attacker.name, index: r.report.attacker.index, img: safeImageUrl(disp.image) }
             }
             if (report.follower) report.follower = { ...report.follower, img: safeImageUrl(report.follower.image) }
+            // 🦊 كوراما/الجوبي: نرفق صورة الكت-إن فقط عند ظهور مساعدة الوحش (data URI حتى لا تمنعها CSP)
+            if (report.beastAssist && beastFxImg(report.beastAssist.id)) report.beastAssist = { ...report.beastAssist, img: beastFxImg(report.beastAssist.id) }
 
             const st = r.state
             res.json({

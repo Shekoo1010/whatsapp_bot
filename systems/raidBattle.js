@@ -30,15 +30,36 @@ require('./raidRewards')
 const ATTACK_COOLDOWN =
 30000
 
-const RAGE_PHASE_1 =
-50
+// =========================
+// 🦊 مساعدة الوحش المركّب (كوراما / جوبي) — نفس منطق هجوم الزعيم (bossAttackSystem)
+// الضرر الإضافي = ضرر الهجمة × (مجموع نسب إحصائيات الوحش في beasts.js ÷ 100)
+// لكن بدل "كل 5 هجمات" صارت فرصة BEAST_CHANCE لكل هجوم، لمن مركّب كوراما أو جوبي.
+// الأنميشن تلقائي في صفحة الرايد وتظهر للمهاجم فقط.
+// =========================
+const BEAST_CHANCE = 0.20
+const BEAST_ICON = { kurama: '🔥', juubi: '🌑' }
+function rollBeastAssist(player, damage){
+    const id = player.equippedBeast
+    if(!BEAST_ICON[id]) return null
+    if(Math.random() >= BEAST_CHANCE) return null
+    const b = require('./beasts').find(x => x.id === id)
+    if(!b) return null
+    const pct = (b.attack || 0) + (b.defense || 0) + (b.hp || 0) +
+                (b.crit || 0) + (b.dodge || 0) + (b.reflect || 0)
+    const extra = Math.floor(damage * (pct / 100))
+    if(extra <= 0) return null
+    return { id, name: b.name, icon: BEAST_ICON[id], damage: extra }
+}
 
-const RAGE_PHASE_2 =
-20
+// =========================
+// ثوابت مراحل الغضب وضربة الزعيم الحرجة
+// =========================
+
+const RAGE_PHASE_1 = 50
+const RAGE_PHASE_2 = 20
 
 // ضربة الزعيم الحرجة (bossCritRate) تضاعف الضرر بهالنسبة
-const BOSS_CRIT_MULTIPLIER =
-1.5
+const BOSS_CRIT_MULTIPLIER = 1.5
 
 // =========================
 // الشخصية الحية الحالية
@@ -982,6 +1003,14 @@ ${remain}
 
     let passiveText = ""
 
+    // 🦊 مساعدة الوحش المركّب: بنسبة BEAST_CHANCE لمن مركّب كوراما/جوبي
+    const beastAssist = rollBeastAssist(player, damage)
+    if(beastAssist){
+        damage += beastAssist.damage
+        abilityText = (abilityText ? abilityText + '\n\n' : '') +
+            `${beastAssist.icon} ${beastAssist.name} هجم معك +${beastAssist.damage.toLocaleString()} ضرر`
+    }
+
     // =====================
     // passive: shield
     // يمتص الزعيم نسبة من ضررك
@@ -1658,6 +1687,8 @@ async function getRaidInfo(){
 // =========================
 
 module.exports = {
+
+    ATTACK_COOLDOWN,
 
     attackRaid,
 

@@ -892,7 +892,7 @@ function createBossAttackSystem(deps) {
                         const beastFullDamage = Math.floor(damage * (beastPercent / 100))
                         if (beastFullDamage > 0) {
                             damage += beastFullDamage
-                            beastAssist = { name: riddenBeast.name, damage: beastFullDamage }
+                            beastAssist = { id: riddenBeast.id, name: riddenBeast.name, damage: beastFullDamage }
                         }
                     }
                 }

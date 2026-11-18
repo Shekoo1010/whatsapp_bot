@@ -12,6 +12,10 @@ const kingdoms = require('./raidKingdoms')
 const raidAbilities = require('./raidAbilities')
 const raidBattle = require('./raidBattle')
 const raidManager = require('./raidManager')
+const beastFxConfig = require('./beastFxConfig') // روابط صور أنميشن كوراما/الجوبي
+
+// رابط الصورة من beastFxConfig (https فقط، وإلا نرجع للصورة المدمجة بالصفحة)
+const beastImgUrl = id => { const u = String((beastFxConfig && beastFxConfig[id]) || '').trim(); return /^https:\/\/[^\s'"()\\<>]+$/i.test(u) ? u : '' }
 
 // نفس قيمة ATTACK_COOLDOWN في raidBattle.js (30 ثانية) — تُؤخذ منه إن صُدّرت
 const ATTACK_COOLDOWN = Number(raidBattle.ATTACK_COOLDOWN) || 30000
@@ -216,7 +220,8 @@ function createRaidSite({ Player, getSock, charImage }) {
             absorbed: pick(/امتص\s+([\d,]+)\s+من ضررك/),
             reflect: pick(/رد عليك\s+([\d,]+)\s+ضرر مرتد/),
             heal: pick(/استعاد\s+([\d,]+)\s+من صحته/),
-            bossDmg: dmgs[1] || 0
+            bossDmg: dmgs[1] || 0,
+            beast: (/كوراما\s+هجم معك/.test(t) ? 'kurama' : /الجوبي\s+هجم معك/.test(t) ? 'juubi' : '')
         }
     }
 
@@ -374,6 +379,8 @@ function createRaidSite({ Player, getSock, charImage }) {
                     absorbed: hit.absorbed,
                     reflect: hit.reflect,
                     heal: hit.heal,
+                    beast: hit.beast,
+                    beastImg: hit.beast ? beastImgUrl(hit.beast) : '',
                     reflectKill
                 },
                 boss: bossOut,
