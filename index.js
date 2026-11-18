@@ -1613,7 +1613,7 @@ async function getGiftPicks(userId, indices) {
         }
     ]))[0]
 
-    return row ? row.picks : []
+    return row ? row.picks : null // null = لا يوجد حساب
 
 }
 const Waifu = require('./models/Waifu')
@@ -10782,9 +10782,16 @@ if (text === '.اسحب') {
         pullLocks.delete(userId)
     }, 20000)
 
+    // ⏱️ قياس زمن كل خطوة (اختياري): شغّل البوت بـ PULL_TIMING=1 وشوف اللوق
+    const _pullT0 = Date.now()
+    const _pullMark = (label) => {
+        if (process.env.PULL_TIMING === '1') console.log(`⏱️ .اسحب ${label}: ${Date.now() - _pullT0}ms`)
+    }
+
     try {
 
 let player = await Player.findOne({ userId })
+_pullMark('findOne')
 
 if (!player) {
 
@@ -10815,6 +10822,9 @@ if (!player) {
 
     money: 0
 })
+
+// 🛟 لاعب جديد: نحفظه أولاً، لأن خصم السحبة الذري تحت يبحث عنه بالقاعدة (بدون حفظ كان يرجع "انتهت السحبات")
+await player.save()
 }
 
 if (
@@ -11037,7 +11047,18 @@ if (
 // =========================
 
 // ✅ تصفير مهام اليوم الجديد قبل أي حساب (حتى ما تضيع السحبات على بيانات أمس)
-await resetDailyMissions(player)
+// ⚡ نفس تصفير resetDailyMissions لكن بدون save مستقل: الحفظ الوحيد تحت (بعد الخصم الذري)،
+// وهذا يمنع كمان حفظ تغييرات السحبة (الضمان/المفضلة) قبل ما يتأكد الخصم
+{
+    const _pullToday = getSaudiDate()
+    if (!player.dailyMissions || player.dailyMissions.lastReset !== _pullToday) {
+        player.dailyMissions = {
+            login: false, wins: 0, bossKills: 0, pulls: 0,
+            gotSSS: false, gotLegendary: 0, claimed: false,
+            lastReset: _pullToday
+        }
+    }
+}
 
 if (player.dailyMissions) {
 
@@ -11128,15 +11149,28 @@ if (!pullClaim) {
     )
 }
 
+_pullMark('claim')
 player.pulls = pullClaim.pulls
 player.unmarkModified('pulls') // لا نكتب pulls مرة ثانية عند save حتى لا نطغى على خصم متزامن
 player.totalPulls = (player.totalPulls || 0) + 1
 addCommandXp(player, COMMAND_XP.pull)
 
-await player.save()
+try {
+    await player.save()
+} catch (saveErr) {
+    // 🛟 فشل الحفظ بعد الخصم الذري → نرجّع السحبة عشان ما تضيع على اللاعب
+    try {
+        await Player.updateOne({ userId }, { $inc: { pulls: 1 } })
+    } catch (refundErr) {
+        console.log('⚠️ فشل إرجاع السحبة بعد فشل الحفظ (.اسحب):', refundErr?.message || refundErr)
+    }
+    throw saveErr
+}
+_pullMark('save')
 
 await checkAndGrantAchievement(player, 'pulls', player.totalPulls, sock, msg.key.remoteJid)
 await checkAndGrantAchievement(player, 'collection', countSSS(player), sock, msg.key.remoteJid)
+_pullMark('achievements')
 
 // ⚡ دمج رسالة "+نقطة عالم" برسالة نتيجة السحب بدل رسالة واتساب مستقلة
 const worldPointsText = await worlds.awardPullPoints(
@@ -11146,6 +11180,7 @@ const worldPointsText = await worlds.awardPullPoints(
     randomCharacter.rarity
 )
 const worldPointsSuffix = worldPointsText ? `\n\n${worldPointsText}` : ''
+_pullMark('world')
 
             const latest =
     characters.find(
@@ -11241,6 +11276,7 @@ return sock.sendMessage(msg.key.remoteJid, {
 })
 
     } finally {
+        _pullMark('end')
         clearTimeout(pullLockTimeout)
         pullLocks.delete(userId)
     }
@@ -28981,31 +29017,16 @@ const isGiftConfirm = text === '.ت'
 
 // ⚡ هنا نحتاج فقط عدد الشخصيات والرصيد (للتحقق المبدئي ورسالة NO_MONEY) — بدل تحميل مستند اللاعب كامل.
 // التنفيذ الفعلي وكل التحققات تتكرر داخل giftCharacters بقراءة جديدة داخل الـ transaction.
-const _giftHead = (await Player.aggregate([
-    { $match: { userId } },
-    {
-        $project: {
-            _id: 0,
-            money: 1,
-            count: { $size: { $ifNull: ['$characters', []] } }
-        }
-    }
-]))[0]
-
-const player = _giftHead
-    ? { money: _giftHead.money, characters: { length: _giftHead.count } }
-    : null
-
-if (!player) {
-
-    return safeSend(
-        msg.key.remoteJid,
-        {
-            text: '❌ لا يوجد لديك حساب.'
-        }
-    )
-
+// ⚡ عند .ت: نطلق فحص "نفس الشخصيات" بالتوازي مع قراءة الرصيد/العدد بدل ما ينتظر أحدهما الثاني
+const _giftT0 = Date.now()
+const _giftMark = (label) => {
+    if (process.env.GIFT_TIMING === '1') console.log(`⏱️ .اهداء ${label}: ${Date.now() - _giftT0}ms`)
 }
+
+// ⚡ حذفنا استعلام $size المسبق: التحقق من الحساب والأرقام يتم بـ getGiftPicks (عرض التأكيد)
+// وداخل transaction الإهداء (التنفيذ) — بدون قراءة إضافية.
+const player = { money: undefined, characters: { length: Infinity } }
+let giftExpected = null
 
 // 🎁 حتى 5 شخصيات دفعة واحدة: .اهداء 180 5 10 99 50 @شخص
 // آخر كلمة دائماً هي الهدف (منشن أو يوزرنيم)، وكل ما بينها وبين الأمر أرقام شخصيات
@@ -29030,21 +29051,9 @@ if (isGiftConfirm) {
 
     }
 
-    // نتأكد أن نفس الشخصيات ما تغيّرت أماكنها/قوتها منذ عرض التأكيد
-    const _now = await getGiftPicks(userId, _pg.indices)
-
-    const _same =
-        _now.length === _pg.names.length &&
-        _now.every((c, i) => c && c.name === _pg.names[i] && c.power === _pg.powers[i])
-
-    if (!_same) {
-
-        return safeSend(
-            msg.key.remoteJid,
-            { text: '⚠️ تغيّرت شخصياتك منذ طلب الإهداء، أعد كتابة أمر .اهداء.' }
-        )
-
-    }
+    // ⚡ فحص "نفس الشخصيات" صار داخل transaction الإهداء نفسه (giftCharacters → expected)
+    // بدل استعلام منفصل قبله — نفس الفحص ونفس الرسالة (STALE)، وأدق لأنه ذري.
+    giftExpected = { names: _pg.names, powers: _pg.powers }
 
     target = _pg.target
     viaUsername = _pg.viaUsername
@@ -29129,6 +29138,15 @@ if (uniqueIndices.length !== parsedIndices.length) {
 {
     const _picks = await getGiftPicks(userId, uniqueIndices)
 
+    if (_picks === null) {
+
+        return safeSend(
+            msg.key.remoteJid,
+            { text: '❌ لا يوجد لديك حساب.' }
+        )
+
+    }
+
     if (_picks.length !== uniqueIndices.length || _picks.some(c => !c || !c.name)) {
 
         return safeSend(
@@ -29194,8 +29212,10 @@ const giftResult = await giftCharacters({
     targetId: target,
     picks: { indices: uniqueIndices },
     viaUsername,
-    source: 'command'
+    source: 'command',
+    expected: giftExpected
 })
+_giftMark('giftCharacters')
 
 if (!giftResult.ok) {
 
@@ -29209,6 +29229,7 @@ if (!giftResult.ok) {
         BAD_INDEX: '❌ رقم شخصية غير صحيح ضمن الأرقام اللي كتبتها.',
         DUP_INDEX: '❌ فيه رقم شخصية مكرر بالطلب، اكتب كل رقم مرة وحدة.',
         TOO_MANY: `❌ الحد الأقصى ${MAX_GIFT_CHARACTERS} شخصيات بكل عملية إهداء.`,
+        STALE: '⚠️ تغيّرت شخصياتك منذ طلب الإهداء، أعد كتابة أمر .اهداء.',
         TX_FAILED: '❌ صار خطأ تقني أثناء تنفيذ الإهداء.\n\n✅ لم يُخصم منك أي شيء، ولا شيء وصل للطرف الآخر — حاول مرة ثانية.'
     }
 
@@ -33357,8 +33378,32 @@ await player.save()
 await checkAndGrantAchievement(player, 'daily', player.dailyStreak, sock, msg.key.remoteJid)
 
 // 🔮 مهمة الأورب: استلام .يومي
-await orbs.trackMission(userId, 'daily', { sock, jid: msg.key.remoteJid })
+// ⚡ trackMission ترسل رسالتها بعد تأخير (setTimeout) فما نعطيها sock/jid،
+// ونبني نص المهمة من النتيجة اللي ترجعها ونحطه بنفس رسالة .يومي (نفس صيغة رسالة الأورب).
+let _orbText = ''
+
+try {
+    const _orbRes = await orbs.trackMission(userId, 'daily')
+
+    if (_orbRes && _orbRes.finished) {
+        const _orbCfg = require('./systems/orbConfig')
+        const _orbDef = orbs.MISSION_MAP[_orbRes.key]
+
+        _orbText =
+`🔮 ═〔 مهمة أورب مكتملة 〕═ 🔮
+
+@${userId.split('@')[0]}
+✅ ${_orbDef ? _orbDef.name : 'مهمة يومية'}
+✨ +${_orbRes.earned} أورب${_orbRes.bonusOrbs ? ` (🤖 +${_orbRes.bonusOrbs} من ميتال سونيك)` : ''}
+
+📅 اليوم ➤ ${_orbRes.earnedToday}/${_orbCfg.DAILY_ORBS_TOTAL}  (${_orbRes.doneCount}/${_orbCfg.DAILY_MISSIONS.length})
+💎 رصيدك ➤ ${_orbRes.balance.toLocaleString()}`
+    }
+} catch (err) {
+    console.log('خطأ مهمة الأورب (.يومي):', err?.message || err)
+}
 await checkAndGrantAchievement(player, 'wealth', player.totalEarnedMoney, sock, msg.key.remoteJid)
+
 
 return safeSend(
 msg.key.remoteJid,
@@ -33374,7 +33419,8 @@ text:
 
 ✅ تم احتساب مهمة تسجيل الدخول اليومي
 
-⏳ يتجدد الساعة 12 صباحاً بتوقيت السعودية`
+⏳ يتجدد الساعة 12 صباحاً بتوقيت السعودية${_orbText ? `\n\n━━━━━━━━━━━━━━\n\n${_orbText}` : ''}`,
+...(_orbText ? { mentions: [userId] } : {})
 }
 )
 
