@@ -141,6 +141,18 @@ const CoOpSchema = new mongoose.Schema({
         default: 0
     },
 
+    // 🔁 دورة البوسيز: ids البوسات اللي طلعت بالدورة الحالية (ما يتكرر بوس قبل ما تخلص الدورة)
+    bossCycle: {
+        type: [String],
+        default: []
+    },
+
+    // يوم (بتوقيت السعودية YYYY-MM-DD) آخر رايد طلع فيه — رايد واحد باليوم
+    lastRaidDay: {
+        type: String,
+        default: ""
+    },
+
     joinEnd: {
         type: Number,
         default: 0
