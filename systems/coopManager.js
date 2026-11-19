@@ -31,6 +31,46 @@ function choose(list) {
 
 }
 
+
+// =========================
+// 🔁 دورة البوسيز + رايد مرة باليوم
+// - كل بوس يطلع مرة قبل ما يتكرر أي بوس (دورة عشوائية بدون تكرار حتى تخلص الكل)
+// - بوسات RAID: مرة واحدة باليوم (بتوقيت السعودية)، تطلع أول ظهور بعد RAID_HOUR
+//   وبقية اليوم يطلع A وSS فقط
+// =========================
+const SAUDI_OFFSET_MS = 3 * 60 * 60 * 1000
+const RAID_HOUR = 20 // 8 م بتوقيت السعودية
+
+function saudiNow() {
+    const d = new Date(Date.now() + SAUDI_OFFSET_MS)
+    return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours() }
+}
+
+function pickBoss(coop) {
+    const { day, hour } = saudiNow()
+    const isRaid = b => b.rank === 'RAID'
+    const raids = bosses.filter(isRaid)
+    const normal = bosses.filter(b => !isRaid(b))
+    let cycle = Array.isArray(coop.bossCycle) ? coop.bossCycle.map(String) : []
+
+    const wantRaid = raids.length > 0 && coop.lastRaidDay !== day && hour >= RAID_HOUR
+    let group = wantRaid ? raids : (normal.length ? normal : bosses)
+
+    let pool = group.filter(b => !cycle.includes(String(b.id)))
+    if (!pool.length) {
+        // خلصت دورة هذه الفئة: نبدأها من جديد
+        const ids = new Set(group.map(b => String(b.id)))
+        cycle = cycle.filter(id => !ids.has(id))
+        pool = group
+    }
+
+    const boss = choose(pool)
+    cycle.push(String(boss.id))
+    coop.bossCycle = cycle
+    if (isRaid(boss)) coop.lastRaidDay = day
+    return boss
+}
+
 let sockRef = null
 
 function setSock(sock) {
@@ -86,7 +126,7 @@ async function _createCoOp() {
 
     }
 
-    const boss = choose(bosses)
+    const boss = pickBoss(coop)
 
     coop.active = true
 
@@ -362,19 +402,10 @@ async function _joinPlayer(userId, name) {
     // تجهيز أقوى 3 شخصيات
     // =========================
 
+    // 🎯 الفريق المختار من الموقع (player.coopTeam) وإلا أقوى 3
     const characters =
 
-        player.characters
-
-        .map((character, index) => ({ character, index }))
-
-        .sort(
-            (a, b) =>
-            (b.character.power || 0) -
-            (a.character.power || 0)
-        )
-
-        .slice(0, 3)
+        pickCoopTeam(player.characters, player.coopTeam)
 
         .map(({ character, index }) => {
 
@@ -776,7 +807,38 @@ scheduleNextCoOp(sock).catch(console.log)
     return true
 
 }
+// 🎯 يختار 3 شخصيات للكو اوب: المختارة بالأسماء (إن وُجدت، وأقوى نسخة لو تكرر الاسم)
+// وأي نقص يُكمَّل بأقوى الباقي. لو ما اختار شي = أقوى 3 (نفس السلوك القديم).
+function pickCoopTeam(chars, savedNames) {
+    const list = Array.from(chars || []).map((character, index) => ({ character, index }))
+    const pw = x => Number(x.character && x.character.power) || 0
+    const picked = []
+    const used = new Set()
+
+    for (const name of Array.from(savedNames || []).slice(0, 3)) {
+        let best = null
+        for (const x of list) {
+            if (used.has(x.index) || !x.character || x.character.name !== name) continue
+            if (!best || pw(x) > pw(best)) best = x
+        }
+        if (best) { used.add(best.index); picked.push(best) }
+    }
+
+    if (picked.length < 3) {
+        const rest = list
+            .filter(x => !used.has(x.index))
+            .sort((a, b) => pw(b) - pw(a) || a.index - b.index)
+        for (const x of rest) {
+            if (picked.length >= 3) break
+            picked.push(x)
+        }
+    }
+
+    return picked
+}
+
 module.exports = {
+    pickCoopTeam,
     createCoOp,
     announceCoOp,
     joinPlayer,

@@ -6,6 +6,7 @@
 //   GET  /u/:code/coop            الصفحة
 //   GET  /coop/state              حالة الكو اوب (استطلاع)
 //   POST /coop/join               انضمام
+//   POST /coop/team               حفظ فريقي {names:[حتى 3 أسماء]} (فاضي = أقوى 3 تلقائياً)
 //   POST /coop/ready              استعداد (يظهر عند 8 لاعبين)
 //   POST /coop/attack             هجوم (دورك فقط)
 //   GET  /coop/shop               حالة المتجر
@@ -73,6 +74,23 @@ function registerCoopSite(app, ctx) {
         return v
     }
     const dropCoins = userId => { coinsCache.delete(userId) }
+
+    // 🎯 فريقي: قائمة خفيفة (اسم + قوة + رتبة، بدون صور) لأقوى نسخة من كل اسم
+    const RANKS = ['SSS', 'SSS+', 'SSS++', 'UR I', 'UR II', 'UR III', 'EX', 'Ω']
+    const rankOf = c => (Number(c.evolutionLevel) || 0) > 0 ? (RANKS[c.evolutionLevel] || 'Ω') : String(c.rarity || '')
+    function teamPayload(player) {
+        const best = new Map()
+        for (const c of (player && player.characters) || []) {
+            const n = String((c && c.name) || '')
+            if (!n) continue
+            const p = Number(c.power) || 0
+            const b = best.get(n)
+            if (!b || p > b.p) best.set(n, { n, p, r: rankOf(c) })
+        }
+        const chars = [...best.values()].sort((a, b) => b.p - a.p)
+        const names = (Array.isArray(player && player.coopTeam) ? player.coopTeam : []).filter(n => best.has(n)).slice(0, 3)
+        return { names, chars }
+    }
 
     const cleanLog = t => String(t || '').replace(/[*_~`]/g, '').replace(/[╭╰━┃⬣〔〕]/g, '').trim()
 
@@ -143,13 +161,14 @@ function registerCoopSite(app, ctx) {
             securityHeaders(res)
             const code = String(req.params.code || '')
             if (!CODE_RE.test(code)) return html404(res)
-            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion').lean()
+            const player = await Player.findOne({ siteCode: code }).select('userId name username sessionVersion coopTeam characters.name characters.power characters.rarity characters.evolutionLevel').lean()
             if (!player) return html404(res)
             const sess = ownerSession(req, player)
             if (!sess) return res.redirect(303, `/login?code=${code}`)
             res.send(coopPageHTML({
                 shell, code,
                 viewer: { name: player.name || player.username || 'لاعب', csrf: auth.csrfForSession(sess) },
+                team: teamPayload(player),
                 data: await (async () => {
                     dropCoins(player.userId)
                     const [state, shopData] = await Promise.all([stateOut(player.userId), shop.getShop(player.userId)])
@@ -194,6 +213,21 @@ function registerCoopSite(app, ctx) {
         res.json({ ok: true, state: await stateOut(sess.u) })
     }))
 
+    // حفظ الفريق المختار (حتى 3 أسماء من شخصياته). فاضي = رجوع للأقوى 3 تلقائياً. يُطبَّق عند الانضمام القادم.
+    app.post('/coop/team', jsonBody, guard(async (req, res, sess, fail) => {
+        const raw = (req.body || {}).names
+        if (!Array.isArray(raw) || raw.length > 3) return fail(400, 'BAD', 'اختيار غير صحيح.')
+        const names = [...new Set(raw.map(x => typeof x === 'string' ? x.slice(0, 80) : ''))].filter(Boolean)
+        if (names.length !== raw.length) return fail(400, 'BAD', 'اختيار غير صحيح.')
+        if (names.length) {
+            const me = await Player.findOne({ userId: sess.u }).select('characters.name').lean()
+            const have = new Set(((me && me.characters) || []).map(c => c && c.name))
+            if (!names.every(n => have.has(n))) return fail(400, 'NO_CHAR', 'شخصية غير موجودة — حدّث الصفحة.')
+        }
+        await Player.updateOne({ userId: sess.u }, { $set: { coopTeam: names } })
+        res.json({ ok: true, names })
+    }, 20, 'team'))
+
     app.post('/coop/ready', jsonBody, guard(async (req, res, sess, fail) => {
         const r = await coopManager.setReady(sess.u)
         dropCoopCache()
@@ -222,7 +256,105 @@ function registerCoopSite(app, ctx) {
     }))
 }
 
-function coopPageHTML({ shell, viewer, code, data }) {
+// 🎯 بطاقة "فريقي" (مستقلة عن coopSiteClient: تُحقن بالصفحة بسكربت صغير خاص فيها)
+const TEAM_CSS = `
+.ct{margin:0 0 12px;padding:12px;border-radius:16px;background:#0f1422;border:1px solid #232b45}
+.ct-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 15px 'Cairo',sans-serif;color:#eef1f8}
+.ct-h small{font:600 12px 'Cairo',sans-serif;color:#8891a3}
+.ct-s{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.ct-sl{min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;border-radius:12px;border:1px dashed #2a3350;color:#8891a3;font:700 12px 'Cairo',sans-serif;text-align:center}
+.ct-sl.on{border:1.5px solid var(--c,#f0c04a);color:#fff;background:rgba(240,192,74,.06)}
+.ct-sl i{font:normal 600 11px 'Oswald',sans-serif;color:var(--c,#f0c04a);direction:ltr}
+.ct-b{width:100%;padding:10px;border-radius:12px;border:1px solid #f0c04a;background:transparent;color:#f0c04a;font:800 14px 'Cairo',sans-serif;cursor:pointer}
+.ct-b.gold{background:#f0c04a;color:#0a0d16}
+.ct-b.ghost{border-color:#2a3350;color:#8891a3}
+.ct-b:disabled{opacity:.5}
+.ct-p{margin-top:10px}
+.ct-q{width:100%;padding:10px 12px;margin-bottom:8px;border-radius:12px;border:1px solid #232b45;background:#0a0d16;color:#eef1f8;font:600 14px 'Cairo',sans-serif;direction:rtl}
+.ct-l{max-height:46vh;overflow-y:auto;display:grid;gap:6px;margin-bottom:10px}
+.ct-r{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:12px;border:1.5px solid #232b45;background:#0a0d16;color:#eef1f8;font:700 14px 'Cairo',sans-serif;cursor:pointer;text-align:start}
+.ct-r.on{border-color:var(--c,#f0c04a);background:rgba(240,192,74,.08)}
+.ct-r span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
+.ct-r em{font:normal 600 11px 'Oswald',sans-serif;color:#0a0d16;background:var(--c,#8891a3);border-radius:10px;padding:1px 8px;direction:ltr}
+.ct-r b{font:500 12px 'Oswald',sans-serif;color:#8891a3;direction:ltr}
+.ct-n{margin-top:8px;font:600 12px/1.7 'Cairo',sans-serif;color:#8891a3;text-align:center}
+.ct-t{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#151b2e;border:1px solid #f0c04a;border-radius:14px;padding:11px 16px;font:700 14px 'Cairo',sans-serif;color:#eef1f8;transition:.3s;z-index:99;max-width:92%;text-align:center}
+.ct-t.on{transform:translate(-50%,0);opacity:1}
+.ct-t.bad{border-color:#ff6b6b;color:#ff9aa6}
+.ct-t.good{border-color:#4fe08a}
+`
+
+function teamBlockHTML(shell, team, csrf) {
+    return `<div class="ct" id="ct"><div class="ct-h"><span>🎯 فريقي بالكو اوب</span><small id="ct-st"></small></div>
+  <div class="ct-s" id="ct-s"></div>
+  <button class="ct-b" id="ct-open" type="button">تغيير الفريق</button>
+  <div class="ct-p" id="ct-p" hidden>
+    <input class="ct-q" id="ct-q" type="search" placeholder="ابحث باسم الشخصية…" autocomplete="off">
+    <div class="ct-l" id="ct-l"></div>
+    <button class="ct-b gold" id="ct-save" type="button">💾 حفظ الفريق</button>
+    <button class="ct-b ghost" id="ct-auto" type="button" style="margin-top:8px">↺ تلقائي (أقوى 3)</button>
+  </div>
+  <div class="ct-n">يُطبَّق عند انضمامك للريد القادم · لو ما اخترت يدخل بأقوى 3</div>
+</div>
+<div class="ct-t" id="ct-t"></div>
+<script>
+(function(){
+  var T=${shell.jsonForScript(team)}, CSRF=${shell.jsonForScript(csrf)};
+  var COL={'SSS':'#ff3860','SSS+':'#ff6b3d','SSS++':'#ff2f92','UR I':'#b83fff','UR II':'#7c4dff','UR III':'#4d7cff','EX':'#00e5ff','Ω':'#ffc933','اسطوري':'#f0c04a','ممتاز':'#3ea8ff','عادي':'#8b93a1'};
+  var by={}, i; for(i=0;i<T.chars.length;i++) by[T.chars[i].n]=T.chars[i];
+  var saved=T.names.slice(), sel=saved.slice(), tt=0, busy=false;
+  function $(id){ return document.getElementById(id); }
+  function col(r){ return COL[r]||'#8891a3'; }
+  function toast(m,k){ var t=$('ct-t'); t.textContent=m; t.className='ct-t on '+(k||''); clearTimeout(tt); tt=setTimeout(function(){ t.className='ct-t'; },2400); }
+  function slots(){
+    var h='', j, c;
+    for(j=0;j<3;j++){
+      c=by[sel[j]];
+      h+= c ? '<div class="ct-sl on" style="--c:'+col(c.r)+'"><span dir="ltr">'+esc(c.n)+'</span><i>'+esc(c.r)+' · '+Number(c.p).toLocaleString('en-US')+'</i></div>' : '<div class="ct-sl">—</div>';
+    }
+    $('ct-s').innerHTML=h;
+    $('ct-st').textContent= saved.length ? 'مخصّص ('+saved.length+'/3)' : 'تلقائي — أقوى 3';
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function list(){
+    var q=$('ct-q').value.trim().toLowerCase(), h='', n=0, k, c;
+    for(k=0;k<T.chars.length && n<60;k++){
+      c=T.chars[k];
+      if(q && c.n.toLowerCase().indexOf(q)<0 && c.r.toLowerCase().indexOf(q)<0) continue;
+      n++;
+      h+='<button type="button" class="ct-r'+(sel.indexOf(c.n)>-1?' on':'')+'" data-n="'+esc(c.n)+'" style="--c:'+col(c.r)+'"><span>'+esc(c.n)+'</span><em>'+esc(c.r)+'</em><b>'+Number(c.p).toLocaleString('en-US')+'</b></button>';
+    }
+    $('ct-l').innerHTML=h||'<div class="ct-n">لا نتائج</div>';
+  }
+  function post(names){
+    if(busy) return; busy=true;
+    fetch('/coop/team',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:CSRF,names:names})})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'تعذّر الاتصال بالخادم'}; }); })
+      .then(function(j){
+        busy=false;
+        if(j&&j.ok){ saved=j.names.slice(); sel=saved.slice(); slots(); $('ct-p').hidden=true; $('ct-open').hidden=false; toast(saved.length?'✅ تم حفظ فريقك':'✅ رجعت لأقوى 3 تلقائياً','good'); }
+        else toast('❌ '+((j&&j.message)||'حدث خطأ، حاول مرة أخرى'),'bad');
+      })
+      .catch(function(){ busy=false; toast('❌ تعذّر الاتصال بالخادم','bad'); });
+  }
+  $('ct-open').addEventListener('click',function(){ sel=saved.slice(); $('ct-p').hidden=false; this.hidden=true; list(); slots(); });
+  $('ct-q').addEventListener('input',list);
+  $('ct-l').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.ct-r'); if(!b) return;
+    var n=b.getAttribute('data-n'), p=sel.indexOf(n);
+    if(p>-1) sel.splice(p,1);
+    else if(sel.length>=3){ toast('❌ الحد الأقصى 3 شخصيات — شيل وحدة أولاً','bad'); return; }
+    else sel.push(n);
+    b.classList.toggle('on',p<0); slots();
+  });
+  $('ct-save').addEventListener('click',function(){ post(sel.slice()); });
+  $('ct-auto').addEventListener('click',function(){ post([]); });
+  slots();
+})();
+</script>`
+}
+
+function coopPageHTML({ shell, viewer, code, data, team }) {
     const js = COOP_CLIENT
         .replace('__CODE__', () => shell.jsonForScript(code))
         .replace('__CSRF__', () => shell.jsonForScript(viewer.csrf))
@@ -237,7 +369,7 @@ ${shell.head}
 <title>الكو اوب</title>
 <meta name="theme-color" content="#0a0d16">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-<style>${COOP_CSS}</style>
+<style>${COOP_CSS}${TEAM_CSS}</style>
 </head>
 <body>
 <div class="wrap">
@@ -245,6 +377,7 @@ ${shell.head}
   ${shell.navDrawer(code, viewer.csrf, 'coop', viewer.name)}
   <div class="tabs"><button type="button" id="tr" class="on">⚔ الريد</button><button type="button" id="ts">🪙 المتجر</button></div>
   <div class="msg" id="msg"></div>
+  ${teamBlockHTML(shell, team || { names: [], chars: [] }, viewer.csrf)}
   <section id="view"></section>
   <section id="shop" hidden><div class="coins" id="coinsv"></div><div id="shopv"></div></section>
 </div>

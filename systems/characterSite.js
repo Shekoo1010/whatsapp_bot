@@ -162,10 +162,23 @@ function localCharImageUrl(img) {
     return _localImgCache.get(name) ? '/characters/' + encodeURIComponent(name) : null
 }
 
+// 🔖 نفس منطق sortCharactersByRank بالبوت: الرتبة تغلب دائماً، وداخل الرتبة حسب القوة —
+// إلا الرتبة اللي رتّبها اللاعب يدوياً (c.mo === رقم رتبتها): تبقى بترتيبها المحفوظ والجديدة بعدها.
 function sortCharacters(chars) {
-    return chars
-        .map((c, i) => ({ c, i, t: TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي'] }))
-        .sort((a, b) => (b.t.idx - a.t.idx) || ((b.c.power || 0) - (a.c.power || 0)) || (a.i - b.i))
+    const items = chars.map((c, i) => {
+        const t = TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']
+        return { c, i, t, m: c.mo === t.idx }
+    })
+    const manual = new Set(items.filter(x => x.m).map(x => x.t.idx))
+    return items
+        .sort((a, b) => {
+            if (a.t.idx !== b.t.idx) return b.t.idx - a.t.idx
+            if (manual.has(a.t.idx)) {
+                if (a.m !== b.m) return a.m ? -1 : 1
+                if (a.m) return a.i - b.i
+            }
+            return ((b.c.power || 0) - (a.c.power || 0)) || (a.i - b.i)
+        })
         .map(x => x.c)
 }
 
@@ -219,11 +232,10 @@ function resolveDisplayChar(owned, catIdx) {
     return display
 }
 
-// نفس ترتيب .شخصياتي بالضبط: الشخصية رقم 1 ثابتة، والباقي حسب الرتبة ثم القوة
+// نفس ترتيب .شخصياتي بالضبط (الاسم قديم: ما عاد في تثبيت للرقم 1 — الرتبة تغلب)
 function sortCharactersKeepFirst(chars) {
     if (!chars || chars.length <= 1) return chars || []
-    const [first, ...rest] = chars
-    return [first, ...sortCharacters(rest)]
+    return sortCharacters(chars)
 }
 
 // =====================================================================
@@ -3759,6 +3771,12 @@ a.chip{text-decoration:none;display:inline-block}
 .im-toast.on{transform:translate(-50%,0); opacity:1}
 .im-toast.good{border-color:#4fe08a}
 .im-toast.bad{border-color:#ff6b6b; color:#ff9aa6}
+.rord{display:block;width:100%;margin:0 0 10px;padding:11px;border-radius:12px;border:1px solid var(--gold);background:#0f1422;color:var(--gold);font:800 14px 'Cairo',sans-serif;cursor:pointer}
+body.ro-on .rord{background:var(--gold);color:#0a0d16}
+.rord-hint{margin:-2px 0 10px;padding:9px 12px;border-radius:12px;background:rgba(240,192,74,.08);border:1px dashed var(--gold);color:#eef1f8;font:700 13px/1.8 'Cairo',sans-serif;text-align:center}
+body.ro-on .cd{cursor:crosshair}
+.cd.ro-pick{outline:3px solid #fff;outline-offset:2px;transform:scale(1.03)}
+.cd.ro-dim{opacity:.3}
 `
 
 function homeCardHTML(char, isOwner) {
@@ -3778,7 +3796,7 @@ function homeCardHTML(char, isOwner) {
         ? `<div class="ev${isOmega ? ' om' : ''}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i${(isOmega || n <= evo) ? ' class="on"' : ''}></i>`).join('')}</div>`
         : ''
     const power = Number(char.power || 0).toLocaleString('en-US')
-    return `<div class="cd ${cls}${isOmega ? ' om' : ''}"${inlineT}${top ? ` data-d="${char.__num}" tabindex="0" role="button" aria-label="تفاصيل ${esc(char.name)}"` : ''}>
+    return `<div class="cd ${cls}${isOmega ? ' om' : ''}"${inlineT}${isOwner ? ` data-no="${char.__num}" data-rk="${esc(tierKey)}"` : ''}${top ? ` data-d="${char.__num}" tabindex="0" role="button" aria-label="تفاصيل ${esc(char.name)}"` : ''}>
       <div class="ar"${artStyle}>${src ? '' : letter}</div>
       <span class="rt">${esc(isOmega ? 'Ω OMEGA' : tierKey)}</span>
       <span class="pw">${power}</span>
@@ -3881,6 +3899,55 @@ function imageTabScript(csrf) {
 })();
 </script>`
 }
+// 🔀 ترتيب الشخصيات من الموقع: اضغط شخصية ثم أخرى من نفس الرتبة ← تبديل مكانيهما (POST /reorder)
+function reorderScript(csrf, code) {
+    return `<script>
+(function(){
+  var CSRF=${jsonForScript(csrf)}, btn=document.getElementById('rord-btn'), hint=document.getElementById('rord-hint'), grid=document.getElementById('grid');
+  if(!btn||!grid) return;
+  var on=false, first=null, busy=false, tt=0;
+  function toast(m,k){
+    var t=document.getElementById('im-toast');
+    if(!t){ t=document.createElement('div'); t.id='im-toast'; document.body.appendChild(t); }
+    t.textContent=m; t.className='im-toast on '+(k||'');
+    clearTimeout(tt); tt=setTimeout(function(){ t.className='im-toast'; },2600);
+  }
+  function dim(rk){
+    var cs=grid.querySelectorAll('.cd');
+    for(var i=0;i<cs.length;i++) cs[i].classList.toggle('ro-dim', !!rk && cs[i].getAttribute('data-rk')!==rk);
+  }
+  function reset(){ if(first){ first.classList.remove('ro-pick'); first=null; } dim(null); }
+  btn.addEventListener('click',function(){
+    on=!on; reset();
+    document.body.classList.toggle('ro-on',on);
+    btn.textContent=on?'✅ إنهاء الترتيب':'🔀 ترتيب الشخصيات';
+    if(hint) hint.hidden=!on;
+  });
+  function onCard(e){
+    if(!on) return;
+    var c=e.target.closest&&e.target.closest('#grid .cd'); if(!c) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if(e.type!=='click'||busy) return;
+    if(!first){ first=c; c.classList.add('ro-pick'); dim(c.getAttribute('data-rk')); return; }
+    if(c===first){ reset(); return; }
+    if(c.getAttribute('data-rk')!==first.getAttribute('data-rk')){ toast('❌ الترتيب فقط بين شخصيات من نفس الرتبة','bad'); return; }
+    var a=+first.getAttribute('data-no'), b=+c.getAttribute('data-no');
+    busy=true;
+    fetch('/reorder',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:CSRF,a:a,b:b})})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false,message:'تعذّر الاتصال بالخادم'}; }); })
+      .then(function(j){
+        if(j&&j.ok){ toast(j.message||'✅ تم التبديل','good'); setTimeout(function(){ location.reload(); },500); return; }
+        busy=false; toast('❌ '+((j&&j.message)||'حدث خطأ، حاول مرة أخرى'),'bad');
+        if(j&&(j.code==='RANK'||j.code==='BAD_PICKS')) reset();
+      })
+      .catch(function(){ busy=false; toast('❌ تعذّر الاتصال بالخادم','bad'); });
+  }
+  document.addEventListener('click',onCard,true);
+  document.addEventListener('keydown',function(e){ if(on&&(e.key==='Enter'||e.key===' ')) onCard(e); },true);
+})();
+</script>`
+}
+
 function pageHTML({ title, total, counts, items, page, pages, base, viewer, code, hero, stats, chips, backTo, q, fk, pb }) {
     const withImg = items.filter(c => (TIERS[resolveTierKey(c.rarity, c.evolutionLevel)] || TIERS['عادي']).idx >= FIRST_IMAGE_TIER)
     const isOwner = !!(viewer && viewer.isOwner)
@@ -3939,6 +4006,7 @@ ${HOME_CSS}
   <div class="stats">${statsHTML}</div>
   ${isOwner ? `<a class="plbtn" href="/u/${esc(code)}/players"><span>👥 شخصيات اللاعبين<small>تصفّح مجموعات الآخرين بيوزرهم — بدون رابط</small></span><span class="ar">‹</span></a>` : ''}
   ${searchHTML}
+  ${isOwner ? '<button class="rord" id="rord-btn" type="button">🔀 ترتيب الشخصيات</button><div class="rord-hint" id="rord-hint" hidden>اضغط شخصية ثم شخصية ثانية من <b>نفس الرتبة</b> لتبديل مكانيهما<br><small>تقدر تختار خانة الرتبة بالأسفل لتجمعها بنفس الصفحة</small></div>' : ''}
   <div class="chips" id="chips">${chipsHTML}</div>
   <div class="grid" id="grid">${cardsHTML}</div>
   ${pagerHTML(base, page, pages)}
@@ -3992,6 +4060,7 @@ tick();
 })();
 </script>
 ${isOwner ? imageTabScript(viewer.csrf) : ''}
+${isOwner ? reorderScript(viewer.csrf, code) : ''}
 ${inboxPopupHTML(viewer)}
 ${backTo ? `<a class="backfab\" href="${esc(backTo)}">← اللاعبون</a>` : ''}
 </body>
@@ -7008,7 +7077,7 @@ function registerCharacterSite(app, Player, opts = {}) {
     try { app.use(require('./overlayGuard').middleware) } catch (e) { console.error('overlayGuard mount error:', e) }
     const getCatalog = opts.getCatalog
     const giftCharacters = opts.giftCharacters
-    // 🔢 ترتيب الشخصيات بالموقع = نفس دالة .شخصياتي بالبوت (الشخصية 1 ثابتة، الباقي حسب الرتبة ثم القوة) فتتطابق الأرقام
+    // 🔢 ترتيب الشخصيات بالموقع = نفس دالة .شخصياتي بالبوت (الرتبة ثم القوة، مع الترتيب اليدوي داخل الرتبة) فتتطابق الأرقام
     const sortChars = typeof opts.sortCharactersKeepFirst === 'function' ? opts.sortCharactersKeepFirst : sortCharactersKeepFirst
     const usernameCost = Number(opts.usernameCost) || 20000
     const notifyDm = opts.notifyDm || (async () => {})
@@ -8242,6 +8311,53 @@ function registerCharacterSite(app, Player, opts = {}) {
         } catch (err) {
             console.error('equip page error:', err)
             res.status(500).send('خطأ بالخادم')
+        }
+    })
+
+    // 🔀 ترتيب الشخصيات: تبديل مكان شخصيتين من نفس الرتبة فقط (نفس منطق .ترتيب بالبوت).
+    // الأرقام = الأرقام الظاهرة بالموقع/.شخصياتي. نثبّت الترتيب اليدوي للرتبة (mo) فما يرجعه الترتيب التلقائي.
+    const reorderBusy = new Set()
+    app.post('/reorder', jsonBody, async (req, res) => {
+        const g = await tradeGuard(req, res, () => true)
+        if (!g || !g.sess) return
+        const uid = g.sess.u
+        if (reorderBusy.has(uid)) return g.fail(429, 'BUSY', 'انتظر لحظة…')
+        reorderBusy.add(uid)
+        try {
+            const a = Number(g.body.a), b = Number(g.body.b)
+            if (!Number.isInteger(a) || !Number.isInteger(b)) return g.fail(400, 'BAD_PICKS', 'اختيار غير صحيح، حدّث الصفحة.')
+
+            const player = await Player.findOne({ userId: uid })
+            if (!player) return g.fail(400, 'NO_ACCOUNT', 'لا تملك حساباً.')
+
+            // نفس الأرقام اللي يشوفها اللاعب: ترتيب حالي (رتبة ثم قوة مع اليدوي المحفوظ)
+            const arr = sortChars((player.characters || []).map(c => (c && typeof c.toObject === 'function') ? c.toObject() : c))
+            if (a < 1 || b < 1 || a > arr.length || b > arr.length) return g.fail(400, 'BAD_PICKS', 'رقم غير صحيح — حدّث الصفحة.')
+            if (a === b) return g.fail(400, 'BAD_PICKS', 'اخترت نفس الشخصية.')
+
+            const keyOf = c => resolveTierKey(c.rarity, c.evolutionLevel)
+            const ca = arr[a - 1], cb = arr[b - 1]
+            const ka = keyOf(ca), kb = keyOf(cb)
+            if (ka !== kb) return g.fail(400, 'RANK', `الترتيب فقط بين نفس الرتبة (${ka} / ${kb}).`)
+
+            // تبديل المكانين
+            arr[a - 1] = cb
+            arr[b - 1] = ca
+
+            // نثبّت الترتيب اليدوي لكل شخصيات هذي الرتبة
+            const idx = (TIERS[ka] || TIERS['عادي']).idx
+            for (const c of arr) { if (keyOf(c) === ka) c.mo = idx }
+
+            player.characters = arr
+            player.markModified('characters')
+            await player.save()
+            return res.json({ ok: true, message: `🔀 تم تبديل «${ca.name}» مع «${cb.name}»` })
+        } catch (err) {
+            if (err && err.name === 'VersionError') return g.fail(409, 'BUSY', 'صار تعديل بنفس اللحظة — أعد المحاولة.')
+            console.error('reorder route error:', err)
+            return g.fail(500, 'SERVER', 'صار خطأ بالخادم — حدّث الصفحة وتأكد من الحالة.')
+        } finally {
+            reorderBusy.delete(uid)
         }
     })
 
