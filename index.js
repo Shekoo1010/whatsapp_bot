@@ -5301,30 +5301,51 @@ function getCharacterRank(c) {
 }
 
 
+// 🔖 الترتيب اليدوي (.ترتيب من البوت أو الموقع): نخزّن على كل شخصية بالرتبة المرتّبة mo = رقم الرتبة
+// (0 عادي ... 10 Ω — نفس t.idx بالموقع). الرتبة التي فيها شخصية mo مطابق لرتبتها الحالية = "رتبة يدوية":
+//   - المرتّبة يدوياً تحافظ على مكانها المحفوظ (ما تعاد للترتيب حسب القوة)
+//   - أي شخصية جديدة/متطورة تنزل بنهاية المجموعة (مرتّبة بالقوة بينها)
+// وإذا تطورت الشخصية وتغيّرت رتبتها يبطل mo تلقائياً (لأنه لم يعد يطابق رتبتها) فترجع لمكانها الطبيعي.
+// الرتبة دائماً تغلب: ما في تثبيت لأي رقم، فالأعلى رتبة يطلع فوق حتى لو كانت الشخصية رقم 1 أقل منها.
+function _rankToIdx(r) {
+    return CHARACTER_RANK_ORDER.length - 1 - r
+}
+
 function sortCharactersByRank(characters) {
 
     // ⚡ نحسب مفتاح الرتبة والقوة مرة وحدة لكل شخصية (O(n)) بدل حسابه داخل كل مقارنة
-    // (النتيجة مطابقة تماماً للترتيب القديم: الرتبة ثم الأقوى ثم ترتيب الحصول)
     const unknownRank = CHARACTER_RANK_ORDER.length
 
     const items = new Array(characters.length)
+    const manualRanks = new Set()
 
     for (let i = 0; i < characters.length; i++) {
 
         const c = characters[i]
         const r = _RANK_INDEX.get(getCharacterRank(c))
+        const rr = r === undefined ? unknownRank : r
+        const m = r !== undefined && c.mo === _rankToIdx(r)
+
+        if (m) manualRanks.add(rr)
 
         items[i] = {
             c,
             i,
-            r: r === undefined ? unknownRank : r,
-            p: c.power || 0
+            r: rr,
+            p: c.power || 0,
+            m
         }
     }
 
     items.sort((a, b) => {
 
         if (a.r !== b.r) return a.r - b.r
+
+        // رتبة مرتّبة يدوياً: المرتّبة يدوياً أولاً بمكانها المحفوظ، ثم الجديدة
+        if (manualRanks.has(a.r)) {
+            if (a.m !== b.m) return a.m ? -1 : 1
+            if (a.m) return a.i - b.i
+        }
 
         // نفس الرتبة: الأقوى قوة (⚔️) أولاً
         if (b.p !== a.p) return b.p - a.p
@@ -5334,6 +5355,16 @@ function sortCharactersByRank(characters) {
     })
 
     return items.map(x => x.c)
+}
+
+// يثبّت الترتيب اليدوي لكل شخصيات رتبة معينة (rankName مثل 'Ω' أو 'SSS')
+function lockManualRank(characters, rankName) {
+    const r = _RANK_INDEX.get(rankName)
+    if (r === undefined) return
+    const idx = _rankToIdx(r)
+    for (const c of characters) {
+        if (c && getCharacterRank(c) === rankName) c.mo = idx
+    }
 }
 
 // يعيد ترتيب مصفوفة شخصيات اللاعب فعليًا حسب الرتبة
@@ -5346,17 +5377,15 @@ function resortPlayerCharacters(player) {
     player.markModified('characters')
 }
 
-// ترتيب تلقائي لكل الشخصيات ما عدا رقم 1 (تبقى بمكانها ثابتة دائماً)
-// يُستخدم في .شخصياتي فقط — الشخصية الأولى لا تتأثر بأي ترتيب تلقائي
+// (الاسم قديم) كان يثبّت الشخصية رقم 1، وهذا سبب بقاء شخصية أقل رتبة رقم 1 وعدم صعود المتطورة فوقها.
+// الآن: الرتبة تغلب دائماً، والترتيب اليدوي يُحفظ داخل كل رتبة (انظر sortCharactersByRank).
 function sortCharactersByRankKeepFirst(characters) {
 
     if (!characters || characters.length <= 1) {
         return characters
     }
 
-    const [first, ...rest] = characters
-
-    return [first, ...sortCharactersByRank(rest)]
+    return sortCharactersByRank(characters)
 }
 
 // يطبق sortCharactersByRankKeepFirst على شخصيات اللاعب فعليًا
@@ -14110,7 +14139,7 @@ if (text === '.شخصياتي') {
         if (_viewTarget && _viewTarget !== userId) {
 
             const tPlayer = await Player.findOne({ userId: _viewTarget })
-                .select('characters.name characters.power characters.rarity characters.evolutionLevel maxCharacters')
+                .select('characters.name characters.power characters.rarity characters.evolutionLevel characters.mo maxCharacters')
                 .lean()
 
             if (!tPlayer || !tPlayer.characters || !tPlayer.characters.length) {
@@ -14140,7 +14169,7 @@ if (text === '.شخصياتي') {
         // ⚡ قراءة خفيفة: الحقول اللي نعرضها فقط (بدل تحميل مستند اللاعب كامل بكل الإيكوز والصناديق والسجلات)
         let player =
             await Player.findOne({ userId })
-                .select('characters.name characters.power characters.rarity characters.evolutionLevel maxCharacters')
+                .select('characters.name characters.power characters.rarity characters.evolutionLevel characters.mo maxCharacters')
                 .lean()
 
         if (!player) {
@@ -14167,10 +14196,9 @@ if (text === '.شخصياتي') {
             )
         }
 
-        // ✅ ترتيب تلقائي عند كل عرض لـ .شخصياتي — لكن الشخصية رقم 1
-        // ثابتة دائماً ولا تتأثر بالترتيب التلقائي (سواء رتبتها يدوياً
-        // بـ ".ترتيب رقم1 رقم2" أو كانت أول شخصية بالأصل). باقي
-        // الشخصيات (رقم 2 فما فوق) تترتب تلقائياً حسب الرتبة ثم القوة.
+        // ✅ ترتيب تلقائي عند كل عرض لـ .شخصياتي: الرتبة أولاً (الأعلى فوق دائماً)،
+        // ثم داخل الرتبة حسب القوة — إلا الرتب اللي رتبتها يدوياً بـ ".ترتيب رقم1 رقم2"
+        // (أو من الموقع) فتبقى بترتيبك المحفوظ.
         // (الرقم المعروض هنا = index الحقيقي بالمصفوفة لباقي الأوامر
         // .اهداء .تطوير .عرض .قدره .غزو .تشكيلة .حول .معداتي .بيع .انتقال .هجوم)
         // ⚡ نحفظ فقط لو الترتيب تغيّر فعلاً (الأغلب ما يتغير → بدون كتابة على القاعدة)
@@ -18993,6 +19021,10 @@ if (manualSortMatch) {
             )
         }
 
+        // نطابق الأرقام مع ما يظهر بـ .شخصياتي والموقع (رتبة ثم قوة، مع الترتيب اليدوي المحفوظ)
+        player.characters =
+            sortCharactersByRank(player.characters)
+
         const total =
             player.characters.length
 
@@ -19059,6 +19091,9 @@ if (manualSortMatch) {
 
         player.characters.splice(toIndex, 0, moved)
 
+        // 🔖 نثبّت الترتيب اليدوي لكل شخصيات هذي الرتبة عشان ما يرجعها الترتيب التلقائي
+        lockManualRank(player.characters, rankFrom)
+
         player.markModified('characters')
 
         await player.save()
@@ -19068,7 +19103,7 @@ if (manualSortMatch) {
             {
                 text:
 `✅ تم نقل «${moved.name}» من رقم ${fromNum} إلى رقم ${toNum}.
-💡 هذا ترتيب يدوي ولن يتأثر بالترتيب التلقائي عند عرض .شخصياتي (فقط عند إضافة شخصية جديدة أو كتابة .ترتيب بدون أرقام).
+💡 ترتيبك اليدوي لرتبة ${rankFrom} محفوظ (يظهر نفسه بالموقع). أي شخصية جديدة من نفس الرتبة تنضاف بعدها.
 اكتب .شخصياتي لمشاهدة الترتيب الجديد.`
             }
         )
