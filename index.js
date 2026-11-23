@@ -509,10 +509,10 @@ const { handleShipCommand, startShipDailyReset } = require('./shipCommands')
 startShipDailyReset()
 const Player = require('./models/Player')
 
-// ☁️ صور .استبدال تترفع مباشرة لـ Cloudinary (رابط دائم لا يتأثر
+// ☁️ صور .استبدال تترفع مباشرة لـ Cloudflare R2 (رابط دائم لا يتأثر
 // بريستارت/إعادة نشر البوت) — ما عاد نحتاج نسخة احتياطية base64 جوا
-// مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/cloudinary.js)
-const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage, uploadCompanionImage, uploadArenaImage, uploadArenaVideo, deleteArenaAsset } = require('./utils/cloudinary')
+// مستند اللاعب ولا دالة استعادة عند الإقلاع (شوف utils/r2.js)
+const { uploadCustomCharacterImage, deleteCustomCharacterImage, uploadCatalogImage, uploadCompanionImage, uploadArenaImage, uploadArenaVideo, deleteArenaAsset } = require('./utils/r2')
 const { handleMigrateCommand } = require('./utils/migrateImages')
 const { handleMigrateQuestionsCommand } = require('./utils/migrateQuestions')
 
@@ -5833,7 +5833,7 @@ registerCharacterSite(app, Player, {
     companionsData, // ⭐ المفضلة بالموقع: بونص رفيق سونيك
     companionSystem, // 🐾 صفحة الرفيق بالموقع
     usernameCost: USERNAME_ACTION_COST,
-    // 🖼️ استبدال الصورة من الموقع (تبويب «الصورة») — نفس دوال Cloudinary اللي يستخدمها .استبدال
+    // 🖼️ استبدال الصورة من الموقع (تبويب «الصورة») — نفس دوال R2 اللي يستخدمها .استبدال
     customImage: { upload: uploadCustomCharacterImage, remove: deleteCustomCharacterImage },
     notifyDm: siteNotifyDm,
     notifyOwner: siteNotifyOwner
@@ -9843,7 +9843,7 @@ const handleSingleMessage = async (msg) => {
                 { logger: console, reuploadRequest: sock.updateMediaMessage }
             )
 
-            // ☁️ نرفع الصورة مباشرة لـ Cloudinary (بدون كتابتها محليًا
+            // ☁️ نرفع الصورة مباشرة لـ R2 (بدون كتابتها محليًا
             // وبدون حفظ نسخة base64 بقاعدة البيانات) — رابط دائم لا
             // يتأثر بريستارت/إعادة نشر البوت، ومستند اللاعب يبقى صغير
             const oldImageId = replacePlayer.characters[idx].customImageId // 🧹 الصورة السابقة (نحذفها بعد نجاح الاستبدال)
@@ -9904,7 +9904,7 @@ const handleSingleMessage = async (msg) => {
                 return
             }
 
-            // 🧹 حذف الصور من Cloudinary بالخلفية — ما نستنى النتيجة عشان
+            // 🧹 حذف الصور من R2 بالخلفية — ما نستنى النتيجة عشان
             // ما نأخر رد المستخدم (الحذف تنظيف اختياري فقط)
             Promise.all(cloudinaryIds.map(id => deleteCustomCharacterImage(id)))
                 .catch(() => {})
@@ -10101,7 +10101,7 @@ if (!text) return;
     }
 
     // =========================
-    // 🚚 .نقل_الصور — للمطور فقط: نقل صور الكتالوج إلى Cloudinary (شوف utils/migrateImages.js)
+    // 🚚 .نقل_الصور — للمطور فقط: نقل صور الكتالوج إلى R2 (شوف utils/migrateImages.js)
     // =========================
     if (text.trim() === '.نقل_الصور' || text.trim().startsWith('.نقل_الصور ')) {
         if (!isOwner(msg)) return
@@ -10121,7 +10121,7 @@ if (!text) return;
     }
 
     // =========================
-    // ❓ .نقل_الاسئلة — للمطور فقط: نقل صور أسئلة التخمين إلى Cloudinary (شوف utils/migrateQuestions.js)
+    // ❓ .نقل_الاسئلة — للمطور فقط: نقل صور أسئلة التخمين إلى R2 (شوف utils/migrateQuestions.js)
     // =========================
     if (text.trim() === '.نقل_الاسئلة' || text.trim().startsWith('.نقل_الاسئلة ')) {
         if (!isOwner(msg)) return
