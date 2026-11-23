@@ -188,7 +188,7 @@ ${devUI}
 
         // ─────────────────────────────────────────────────────────────
         // 🖼️ POST /sss-image/set — (للمطور فقط) نفس .ص رقم + صورة:
-        //   رفع Cloudinary (نفس public_id = يستبدل نفس الصورة) → حفظ بقاعدة البيانات (CatalogImage)
+        //   رفع R2 (نفس المفتاح = يستبدل نفس الصورة) → حفظ بقاعدة البيانات (CatalogImage)
         //   → تحديث كائن الكتالوج بالذاكرة → يظهر للجميع بالبوت والموقع ويبقى بعد الريستارت.
         // ─────────────────────────────────────────────────────────────
         const express = require('express')
@@ -239,7 +239,7 @@ ${devUI}
                 if (!target) return fail(404, 'الشخصية ما عادت بالكتالوج — حدّث الصفحة.')
 
                 // ☁️ نفس uploadCatalogImage اللي يستخدمه .ص (public_id ثابت من المفتاح → يستبدل القديمة)
-                const { uploadCatalogImage } = require('../utils/cloudinary')
+                const { uploadCatalogImage } = require('../utils/r2')
                 const { CatalogImage } = require('./catalogImages')
                 const { url, publicId } = await uploadCatalogImage(buf, key)
 
