@@ -7068,7 +7068,7 @@ function securityHeaders(res) {
  *   usernameCost,             // 20000
  *   notifyDm(userId, text),   // رسالة خاصة بالبوت (آمنة: لا ترمي أخطاء)
  *   notifyOwner(text)         // إشعار المالك
- *   customImage: { upload(buffer, userId, idx) → {url, publicId}, remove(publicId) } // صور .استبدال (Cloudinary)
+ *   customImage: { upload(buffer, userId, idx) → {url, publicId}, remove(publicId) } // صور .استبدال (R2)
  * }
  * يسجّل المسارات: /u/:code و /login و /logout و /gift ...
  */
@@ -11081,14 +11081,14 @@ function registerCharacterSite(app, Player, opts = {}) {
     })
 
     // ─────────────── 🖼️ استبدال صورة الشخصية من الموقع (نفس .استبدال / .استبدال حذف بالبوت) ───────────────
-    // نفس خطوات الأمر بالضبط: رفع للـ Cloudinary ← player.setCharacterCustomImage(idx, url, publicId)
-    // وللترجيع player.removeCharacterCustomImage(idx) ← حذف الصورة من Cloudinary بالخلفية.
+    // نفس خطوات الأمر بالضبط: رفع لـ R2 ← player.setCharacterCustomImage(idx, url, publicId)
+    // وللترجيع player.removeCharacterCustomImage(idx) ← حذف الصورة من R2 بالخلفية.
     // الصورة لصاحب الحساب فقط (جلسة + CSRF)، وتحديد الشخصية بالـ _id (ما يتأثر بإعادة الترتيب)
     // مع بديل احتياطي (الرقم + الاسم) للنسخ القديمة اللي ما عندها _id.
     const ciCloud = (() => {
         if (opts.customImage && typeof opts.customImage.upload === 'function') return opts.customImage
         try {
-            const m = require('../utils/cloudinary')
+            const m = require('../utils/r2')
             return { upload: m.uploadCustomCharacterImage, remove: m.deleteCustomCharacterImage }
         } catch (e) { return null }
     })()
@@ -11154,7 +11154,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const t = await ciResolve(g.sess.u, g.body)
             if (!t) return g.fail(409, 'هذي الشخصية ما عاد عندك (أو تغيّر ترتيبها) — حدّث الصفحة.')
 
-            // ☁️ رفع مباشر للـ Cloudinary (رابط دائم) — نفس uploadCustomCharacterImage اللي يستخدمه .استبدال
+            // ☁️ رفع مباشر لـ R2 (رابط دائم) — نفس uploadCustomCharacterImage اللي يستخدمه .استبدال
             const { url, publicId } = await ciCloud.upload(buf, g.sess.u, t.idx)
 
             // 🔒 تحديث ذري للشخصية المقصودة فقط (بالـ _id) بدل doc.save() اللي يكتب مصفوفة الشخصيات كلها:
@@ -11168,7 +11168,7 @@ function registerCharacterSite(app, Player, opts = {}) {
                 { strict: false, new: false, projection: { characters: 1 } }
             ).lean()
             if (before) {
-                // 🧹 نحذف الصورة السابقة من Cloudinary بالخلفية (الاسم صار فريد لكل رفع)
+                // 🧹 نحذف الصورة السابقة من R2 بالخلفية (الاسم صار فريد لكل رفع)
                 const prev = (before.characters || []).find(c => c && c._id && String(c._id) === String(t.ch._id))
                 if (prev && prev.customImageId && prev.customImageId !== publicId && typeof ciCloud.remove === 'function') {
                     Promise.resolve(ciCloud.remove(prev.customImageId)).catch(() => {})
@@ -11196,7 +11196,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             const t = await ciResolve(g.sess.u, g.body)
             if (!t) return g.fail(409, 'هذي الشخصية ما عاد عندك (أو تغيّر ترتيبها) — حدّث الصفحة.')
 
-            // 🔒 إزالة ذرية لحقول الصورة من الشخصية المقصودة فقط (بالـ _id) — يرجع المستند قبل التعديل لنعرف cloudinaryId
+            // 🔒 إزالة ذرية لحقول الصورة من الشخصية المقصودة فقط (بالـ _id) — يرجع المستند قبل التعديل لنعرف r2Key
             const before = await Player.findOneAndUpdate(
                 { userId: g.sess.u, characters: { $elemMatch: { _id: t.ch._id, customImage: { $exists: true, $ne: null } } } },
                 { $unset: { 'characters.$.customImage': '', 'characters.$.customImageId': '', 'characters.$.customImageData': '' } },
@@ -11204,7 +11204,7 @@ function registerCharacterSite(app, Player, opts = {}) {
             ).lean()
             if (!before) return g.fail(400, 'هذي الشخصية ما عندها صورة مستبدلة أصلاً')
 
-            // 🧹 حذف الصورة من Cloudinary بالخلفية (تنظيف اختياري — ما نستنى نتيجته)
+            // 🧹 حذف الصورة من R2 بالخلفية (تنظيف اختياري — ما نستنى نتيجته)
             const old = (before.characters || []).find(c => c && c._id && String(c._id) === String(t.ch._id))
             if (old && old.customImageId && typeof ciCloud.remove === 'function') {
                 Promise.resolve(ciCloud.remove(old.customImageId)).catch(() => {})
