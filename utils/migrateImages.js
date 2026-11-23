@@ -1,16 +1,18 @@
 // =========================
-// 🚚 نقل صور الكتالوج من catbox/postimg إلى Cloudinary (أمر للمطور)
+// 🚚 نقل صور الكتالوج من catbox/postimg إلى Cloudflare R2 (أمر للمطور)
 // لا يعدّل characters.json إلا بأمر "تطبيق" الصريح، وبعد أخذ نسخة احتياطية.
 // =========================
 const fs = require('fs')
 const path = require('path')
-const { uploadCatalogImage, uploadCatalogImageFromUrl } = require('./cloudinary')
+const { uploadCatalogImage, uploadCatalogImageFromUrl } = require('./r2')
 
 const ROOT = path.join(__dirname, '..')
 const CHARS_PATH = path.join(ROOT, 'characters.json')
 const MIGRATED_PATH = path.join(ROOT, 'characters.migrated.json')
 const BACKUP_PATH = path.join(ROOT, 'characters.backup.json')
-const STATE_PATH = path.join(ROOT, 'migrate_state.json') // قديم -> جديد (للاستئناف)
+const STATE_PATH = path.join(ROOT, 'migrate_state_r2.json') // قديم -> جديد (للاستئناف) — ملف جديد لأن القديم يحوي روابط Cloudinary الميتة
+const R2_BASE = String(process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '')
+const isR2 = u => !!R2_BASE && String(u || '').startsWith(R2_BASE + '/')
 
 const OLD_HOSTS = ['files.catbox.moe', 'catbox.moe', 'i.postimg.cc', 'postimg.cc']
 const CONC = 4
@@ -55,7 +57,7 @@ async function runMigration(reply, onlyRarity, sendFile) {
             const c = todo[i++]
             const old = c.image
             try {
-                if (!state[old]) {
+                if (!isR2(state[old])) {
                     let url
                     try {
                         const buf = await download(old)
@@ -79,7 +81,7 @@ async function runMigration(reply, onlyRarity, sendFile) {
     await Promise.all(Array.from({ length: CONC }, worker))
 
     // تطبيق ما نجح سابقاً أيضاً (استئناف)
-    for (const c of out) if (state[c.image]) c.image = state[c.image]
+    for (const c of out) if (isR2(state[c.image])) c.image = state[c.image]
     writeJson(STATE_PATH, state)
     writeJson(MIGRATED_PATH, out)
     if (failed.length) fs.writeFileSync(path.join(ROOT, 'migrate_failed.txt'), failed.join('\n'))
