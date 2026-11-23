@@ -29,7 +29,8 @@ let lastList = []   // مفاتيح آخر قائمة أُرسلت — الأر�
 async function loadAndApply(characters) {
     try {
         const docs = await CatalogImage.find({}).lean()
-        const map = new Map(docs.map(d => [d.key, d.url]))
+        // نتجاهل روابط Cloudinary القديمة (الحساب معطّل) حتى لا تطغى على روابط R2 الجديدة
+        const map = new Map(docs.filter(d => d.url && !/res\.cloudinary\.com/.test(d.url)).map(d => [d.key, d.url]))
         let n = 0
         for (const c of characters) {
             if (map.has(keyOf(c))) { c.image = map.get(keyOf(c)); n++ }
