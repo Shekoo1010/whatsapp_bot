@@ -1,16 +1,18 @@
 // =========================
-// 🚚 نقل صور أسئلة التخمين (imageQuestions.js) من catbox/postimg إلى Cloudinary
+// 🚚 نقل صور أسئلة التخمين (imageQuestions.js) من catbox/postimg إلى Cloudflare R2
 // نفس أسلوب migrateImages.js: لا يعدّل الأصل إلا بأمر "تطبيق" وبعد نسخة احتياطية.
 // =========================
 const fs = require('fs')
 const path = require('path')
-const { uploadQuestionImage, uploadQuestionImageFromUrl } = require('./cloudinary')
+const { uploadQuestionImage, uploadQuestionImageFromUrl } = require('./r2')
 
 const ROOT = path.join(__dirname, '..')                       // عدّله لو imageQuestions.js في مكان آخر
 const Q_PATH = path.join(ROOT, 'imageQuestions.js')
 const MIGRATED_PATH = path.join(ROOT, 'imageQuestions.migrated.js')
 const BACKUP_PATH = path.join(ROOT, 'imageQuestions.backup.js')
-const STATE_PATH = path.join(ROOT, 'migrate_questions_state.json') // قديم -> جديد (للاستئناف)
+const STATE_PATH = path.join(ROOT, 'migrate_questions_state_r2.json') // قديم -> جديد (للاستئناف) — ملف جديد لأن القديم يحوي روابط Cloudinary الميتة
+const R2_BASE = String(process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '')
+const isR2 = u => !!R2_BASE && String(u || '').startsWith(R2_BASE + '/')
 
 const OLD_HOSTS = ['files.catbox.moe', 'catbox.moe', 'i.postimg.cc', 'postimg.cc']
 const CONC = 4
@@ -60,7 +62,7 @@ async function runMigration(reply, sendFile) {
         while (i < todo.length) {
             const old = todo[i++]
             try {
-                if (!state[old]) {
+                if (!isR2(state[old])) {
                     let url
                     try {
                         const buf = await download(old)
@@ -84,7 +86,7 @@ async function runMigration(reply, sendFile) {
 
     // استبدال الروابط داخل النص مع الحفاظ على التنسيق كما هو
     let out = src
-    for (const [oldUrl, newUrl] of Object.entries(state)) out = out.split(oldUrl).join(newUrl)
+    for (const [oldUrl, newUrl] of Object.entries(state)) if (isR2(newUrl)) out = out.split(oldUrl).join(newUrl)
 
     writeJson(STATE_PATH, state)
     fs.writeFileSync(MIGRATED_PATH, out)
