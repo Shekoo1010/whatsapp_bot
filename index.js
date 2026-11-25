@@ -2612,6 +2612,7 @@ const xo =
     require('./xo')
 const characters = require('./characters.json')
 const catalogImages = require('./systems/catalogImages')
+const catalogEditors = require('./systems/catalogEditors') // 🖼️ صلاحية وضع صور .ص لأشخاص غير المطور (.صلاحية_ص / .سحب_ص)
 const companionImages = require('./systems/companionImages') // 🐾 صور الرفقاء (.صو)
 const arenaMedia = require('./systems/arenaMedia') // 🎬 صور (قبل/بعد) + فيديوهات درافت الأنمي (.صا / .فد)
 
@@ -5679,7 +5680,7 @@ const siteWheel = createSiteWheel({ Player, getRandomCharacterByRarity, getCharB
 // 📖 كتاب المجموعة (SSS فقط) — systems/siteCodexBook.js
 const siteCodexBook = require('./systems/siteCodexBook').createSiteCodexBook({ Player, getCatalog: () => characters })
 // 🌟 قائمة شخصيات SSS (A-Z) — systems/siteSssList.js (تقرأ الكتالوج الحي characters بما فيه صور .ص)
-const siteSssList = require('./systems/siteSssList').createSiteSssList({ Player, getCatalog: () => characters, isDeveloper: uid => String(uid || '').split('@')[0] === ownerId }) // 🛠️ المطور فقط: تغيير صور الكتالوج من الموقع
+const siteSssList = require('./systems/siteSssList').createSiteSssList({ Player, getCatalog: () => characters, isDeveloper: uid => String(uid || '').split('@')[0] === ownerId || catalogEditors.hasId(uid) }) // 🛠️ المطور فقط: تغيير صور الكتالوج من الموقع
 
 // 🎯 المهام اليومية والأسبوعية بالموقع (/missions) — نفس بيانات وأقفال وجوائز أوامر الواتساب (systems/siteMissions.js)
 const siteMissions = require('./systems/siteMissions')({
@@ -7657,6 +7658,7 @@ ${topKillers.map(p => `@${p.userId.split('@')[0]}`).join('\n')}
 
 async function startBot() {
     await catalogImages.loadAndApply(characters)
+    await catalogEditors.load() // 🖼️ أصحاب صلاحية .ص
     await companionImages.loadAndApply(companionsData) // 🐾 صور الرفقاء المحفوظة
 console.log('🚀 START BOT', Date.now())
     console.log("START BOT")
@@ -9667,8 +9669,13 @@ const handleSingleMessage = async (msg) => {
     }
 
     // 🖼️ .ص — (للمطور) صور الكتالوج العامة للشخصيات اللي بدون صورة (systems/catalogImages.js)
+    // 🖼️ .صلاحية_ص / .سحب_ص — (للمطور) إعطاء/سحب صلاحية وضع صور الكتالوج (systems/catalogEditors.js)
+    if (await catalogEditors.handleEditorCommand(msg, { safeSend, isOwner, Player, ownerId, resolveUserIdByUsername })) {
+        return
+    }
+
     if (await catalogImages.handleCatalogImageCommand(msg, {
-        sock, safeSend, downloadMediaMessage, uploadCatalogImage, isOwner, characters
+        sock, safeSend, downloadMediaMessage, uploadCatalogImage, isOwner: m => isOwner(m) || catalogEditors.isEditorMsg(m), characters
     })) {
         try { siteSssList.invalidate() } catch (e) {} // 🌟 صور الكتالوج تغيّرت → أعد بناء صفحة قائمة SSS عند أول زيارة
         return
